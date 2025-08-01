@@ -62,6 +62,11 @@ Examples:
 
 def process_data():
     """Run the unified process_data.py script."""
+    # Handle help before importing
+    if '--help' in sys.argv or '-h' in sys.argv:
+        # Pass through to the actual script
+        sys.argv[0] = 'olmsted-process'
+    
     # Save current directory and change to olmsted directory for schema access
     original_dir = os.getcwd()
     olmsted_dir = Path(__file__).parent.parent / "olmsted"
@@ -77,6 +82,11 @@ def process_data():
 
 def process_airr():
     """Run the process_airr_data.py script."""
+    # Handle help before importing
+    if '--help' in sys.argv or '-h' in sys.argv:
+        # Pass through to the actual script
+        sys.argv[0] = 'olmsted-airr'
+    
     original_dir = os.getcwd()
     olmsted_dir = Path(__file__).parent.parent / "olmsted"
     
@@ -90,6 +100,11 @@ def process_airr():
 
 def process_pcp():
     """Run the process_pcp_data.py script."""
+    # Handle help before importing
+    if '--help' in sys.argv or '-h' in sys.argv:
+        # Pass through to the actual script
+        sys.argv[0] = 'olmsted-pcp'
+    
     original_dir = os.getcwd()
     olmsted_dir = Path(__file__).parent.parent / "olmsted"
     
