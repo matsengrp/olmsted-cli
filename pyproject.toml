@@ -55,10 +55,9 @@ olmsted-pcp = "olmsted_cli.cli:process_pcp"
 "Source" = "https://github.com/matsengrp/olmsted-cli"
 
 [tool.setuptools]
-packages = ["olmsted_cli", "bin"]
+packages = ["olmsted_cli"]
 include-package-data = true
 
 [tool.setuptools.package-data]
 "*" = ["*.yaml", "*.yml", "*.json"]
-"bin" = ["*.py"]
-"" = ["airr-standards/specs/*.yaml"]
+"olmsted_cli" = ["*.py"]

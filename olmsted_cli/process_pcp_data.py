@@ -32,7 +32,7 @@ from functools import reduce
 import ete3
 
 # Import shared utilities from process_data_utils
-from process_utils import (
+from .process_utils import (
     SCHEMA_VERSION,
     clean_record,
     dict_subset,

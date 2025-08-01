@@ -92,13 +92,13 @@ pytest
 
 ```
 olmsted-cli/
-├── bin/                    # Data processing scripts
+├── olmsted_cli/            # Python package with all modules
+│   ├── __init__.py
+│   ├── cli.py              # CLI wrapper
 │   ├── process_data.py     # Unified processor with format detection
 │   ├── process_airr_data.py # AIRR format processor
-│   └── process_pcp_data.py  # PCP format processor
-├── olmsted_cli/            # Python package
-│   ├── __init__.py
-│   └── cli.py              # CLI wrapper
+│   ├── process_pcp_data.py  # PCP format processor
+│   └── process_utils.py    # Shared utilities
 ├── example_data/           # Test data
 │   ├── airr/
 │   └── pcp/

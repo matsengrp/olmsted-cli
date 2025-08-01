@@ -27,9 +27,9 @@ import traceback
 from pathlib import Path
 
 # Import processing functions from existing scripts
-from process_airr_data import main as airr_main, get_args as airr_get_args
-from process_pcp_data import main as pcp_main, get_args as pcp_get_args, parse_pcp_csv, parse_newick_csv, process_pcp_to_olmsted
-from process_utils import SCHEMA_VERSION, write_out
+from .process_airr_data import main as airr_main, get_args as airr_get_args
+from .process_pcp_data import main as pcp_main, get_args as pcp_get_args, parse_pcp_csv, parse_newick_csv, process_pcp_to_olmsted
+from .process_utils import SCHEMA_VERSION, write_out
 
 
 def detect_file_format(file_path):

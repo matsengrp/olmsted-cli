@@ -5,10 +5,6 @@ import sys
 import os
 from pathlib import Path
 
-# Add the bin directory to Python path
-BIN_DIR = Path(__file__).parent.parent / "bin"
-sys.path.insert(0, str(BIN_DIR))
-
 
 def main():
     """Main entry point for the olmsted CLI."""
@@ -73,8 +69,8 @@ def process_data():
     
     try:
         os.chdir(package_dir)
-        # Import here to avoid import errors before path is set up
-        import process_data
+        # Import from the package
+        from olmsted_cli import process_data
         process_data.main()
     finally:
         os.chdir(original_dir)
@@ -92,7 +88,7 @@ def process_airr():
     
     try:
         os.chdir(package_dir)
-        import process_airr_data
+        from olmsted_cli import process_airr_data
         process_airr_data.main()
     finally:
         os.chdir(original_dir)
@@ -110,7 +106,7 @@ def process_pcp():
     
     try:
         os.chdir(package_dir)
-        import process_pcp_data
+        from olmsted_cli import process_pcp_data
         process_pcp_data.main()
     finally:
         os.chdir(original_dir)
