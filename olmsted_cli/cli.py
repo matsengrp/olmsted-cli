@@ -5,9 +5,9 @@ import sys
 import os
 from pathlib import Path
 
-# Add the olmsted/bin directory to Python path
-OLMSTED_BIN_DIR = Path(__file__).parent.parent / "olmsted" / "bin"
-sys.path.insert(0, str(OLMSTED_BIN_DIR))
+# Add the bin directory to Python path
+BIN_DIR = Path(__file__).parent.parent / "bin"
+sys.path.insert(0, str(BIN_DIR))
 
 
 def main():
@@ -67,12 +67,12 @@ def process_data():
         # Pass through to the actual script
         sys.argv[0] = 'olmsted-process'
     
-    # Save current directory and change to olmsted directory for schema access
+    # Save current directory and change to package root for schema access
     original_dir = os.getcwd()
-    olmsted_dir = Path(__file__).parent.parent / "olmsted"
+    package_dir = Path(__file__).parent.parent
     
     try:
-        os.chdir(olmsted_dir)
+        os.chdir(package_dir)
         # Import here to avoid import errors before path is set up
         import process_data
         process_data.main()
@@ -88,10 +88,10 @@ def process_airr():
         sys.argv[0] = 'olmsted-airr'
     
     original_dir = os.getcwd()
-    olmsted_dir = Path(__file__).parent.parent / "olmsted"
+    package_dir = Path(__file__).parent.parent
     
     try:
-        os.chdir(olmsted_dir)
+        os.chdir(package_dir)
         import process_airr_data
         process_airr_data.main()
     finally:
@@ -106,10 +106,10 @@ def process_pcp():
         sys.argv[0] = 'olmsted-pcp'
     
     original_dir = os.getcwd()
-    olmsted_dir = Path(__file__).parent.parent / "olmsted"
+    package_dir = Path(__file__).parent.parent
     
     try:
-        os.chdir(olmsted_dir)
+        os.chdir(package_dir)
         import process_pcp_data
         process_pcp_data.main()
     finally:

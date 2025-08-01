@@ -1,0 +1,1 @@
+"""Tests for olmsted-cli package."""

@@ -1,13 +1,16 @@
 # olmsted-cli
 
-Command-line interface for [Olmsted](https://github.com/matsengrp/olmsted) data processing.
+Command-line interface and data processing utilities for [Olmsted](https://github.com/matsengrp/olmsted).
+
+This package contains all the data processing scripts used by the Olmsted web application, 
+packaged as a standalone CLI tool for processing AIRR and PCP format immunological data.
 
 ## Installation
 
 ### From source
 
 ```bash
-git clone --recursive https://github.com/matsengrp/olmsted-cli.git
+git clone https://github.com/matsengrp/olmsted-cli.git
 cd olmsted-cli
 pip install -e .
 ```
@@ -70,8 +73,8 @@ olmsted-pcp -i data.csv -o output/ --seed 42
 ## Development
 
 ```bash
-# Clone with submodules
-git clone --recursive https://github.com/matsengrp/olmsted-cli.git
+# Clone repository
+git clone https://github.com/matsengrp/olmsted-cli.git
 cd olmsted-cli
 
 # Create virtual environment
@@ -83,6 +86,24 @@ pip install -e ".[dev]"
 
 # Run tests
 pytest
+```
+
+## Project Structure
+
+```
+olmsted-cli/
+├── bin/                    # Data processing scripts
+│   ├── process_data.py     # Unified processor with format detection
+│   ├── process_airr_data.py # AIRR format processor
+│   └── process_pcp_data.py  # PCP format processor
+├── olmsted_cli/            # Python package
+│   ├── __init__.py
+│   └── cli.py              # CLI wrapper
+├── example_data/           # Test data
+│   ├── airr/
+│   └── pcp/
+├── tests/                  # Pytest test suite
+└── airr-standards/         # AIRR schema files
 ```
 
 ## License
