@@ -50,20 +50,6 @@ olmsted pcp -i pcp_data.csv -o output/
 olmsted pcp -i pcp_data.csv pcp_trees.csv -o output/
 ```
 
-### Direct script usage
-
-You can also run the processing scripts directly:
-
-```bash
-# Unified processor with auto-detection
-olmsted-process -i data.json -o output/
-
-# AIRR processor
-olmsted-airr -i data.json -o output/ --validate
-
-# PCP processor  
-olmsted-pcp -i data.csv -o output/ --seed 42
-```
 
 ## Requirements
 
@@ -103,7 +89,8 @@ olmsted-cli/
 │   ├── airr/
 │   └── pcp/
 ├── tests/                  # Pytest test suite
-└── airr-standards/         # AIRR schema files
+├── airr-standards/         # AIRR schema files
+└── data_schema/            # Olmsted validation schemas
 ```
 
 ## License

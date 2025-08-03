@@ -45,9 +45,6 @@ dev = [
 
 [project.scripts]
 olmsted = "olmsted_cli.cli:main"
-olmsted-process = "olmsted_cli.cli:process_data"
-olmsted-airr = "olmsted_cli.cli:process_airr"
-olmsted-pcp = "olmsted_cli.cli:process_pcp"
 
 [project.urls]
 "Homepage" = "https://github.com/matsengrp/olmsted-cli"

@@ -75,55 +75,6 @@ class TestOlmstedCLI:
         # Clean up
         shutil.rmtree(self.temp_dir, ignore_errors=True)
     
-    @pytest.mark.airr
-    def test_airr_processing_with_unified_cli(self):
-        """Test AIRR data processing using unified olmsted-process command."""
-        # Input and output paths
-        input_file = self.test_data_dir / "airr" / "full_schema_dataset.json"
-        output_dir = Path(self.temp_dir) / "airr_unified_output"
-        
-        # Run the unified CLI command
-        cmd = [
-            "olmsted-process",
-            "-i", str(input_file),
-            "-o", str(output_dir),
-            "--validate",
-            "--seed", "42"
-        ]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        
-        # Check command succeeded
-        assert result.returncode == 0, f"Command failed: {result.stderr}"
-        
-        # Compare output with golden data
-        match, message = compare_directories(str(self.golden_airr_dir), str(output_dir))
-        assert match, f"Output doesn't match golden data: {message}"
-    
-    @pytest.mark.airr
-    def test_airr_processing_with_specific_cli(self):
-        """Test AIRR data processing using specific olmsted-airr command."""
-        # Input and output paths
-        input_file = self.test_data_dir / "airr" / "full_schema_dataset.json"
-        output_dir = Path(self.temp_dir) / "airr_specific_output"
-        
-        # Run the AIRR-specific CLI command
-        cmd = [
-            "olmsted-airr",
-            "-i", str(input_file),
-            "-o", str(output_dir),
-            "--validate",
-            "--seed", "42"
-        ]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        
-        # Check command succeeded
-        assert result.returncode == 0, f"Command failed: {result.stderr}"
-        
-        # Compare output with golden data
-        match, message = compare_directories(str(self.golden_airr_dir), str(output_dir))
-        assert match, f"Output doesn't match golden data: {message}"
     
     @pytest.mark.airr
     def test_airr_processing_with_subcommand(self):
@@ -136,7 +87,8 @@ class TestOlmstedCLI:
         cmd = [
             "olmsted", "airr",
             "-i", str(input_file),
-            "-o", str(output_dir)
+            "-o", str(output_dir),
+            "--seed", "42"
         ]
         
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -148,55 +100,6 @@ class TestOlmstedCLI:
         match, message = compare_directories(str(self.golden_airr_dir), str(output_dir))
         assert match, f"Output doesn't match golden data: {message}"
     
-    @pytest.mark.pcp
-    def test_pcp_processing_with_unified_cli(self):
-        """Test PCP data processing using unified olmsted-process command."""
-        # Input and output paths
-        input_clones = self.test_data_dir / "pcp" / "clones.csv"
-        input_trees = self.test_data_dir / "pcp" / "trees.csv"
-        output_dir = Path(self.temp_dir) / "pcp_unified_output"
-        
-        # Run the unified CLI command
-        cmd = [
-            "olmsted-process",
-            "-i", str(input_clones), str(input_trees),
-            "-o", str(output_dir),
-            "--seed", "42"
-        ]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        
-        # Check command succeeded
-        assert result.returncode == 0, f"Command failed: {result.stderr}"
-        
-        # Compare output with golden data
-        match, message = compare_directories(str(self.golden_pcp_dir), str(output_dir))
-        assert match, f"Output doesn't match golden data: {message}"
-    
-    @pytest.mark.pcp
-    def test_pcp_processing_with_specific_cli(self):
-        """Test PCP data processing using specific olmsted-pcp command."""
-        # Input and output paths
-        input_clones = self.test_data_dir / "pcp" / "clones.csv"
-        input_trees = self.test_data_dir / "pcp" / "trees.csv"
-        output_dir = Path(self.temp_dir) / "pcp_specific_output"
-        
-        # Run the PCP-specific CLI command
-        cmd = [
-            "olmsted-pcp",
-            "-i", str(input_clones), str(input_trees),
-            "-o", str(output_dir),
-            "--seed", "42"
-        ]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        
-        # Check command succeeded
-        assert result.returncode == 0, f"Command failed: {result.stderr}"
-        
-        # Compare output with golden data
-        match, message = compare_directories(str(self.golden_pcp_dir), str(output_dir))
-        assert match, f"Output doesn't match golden data: {message}"
     
     @pytest.mark.pcp
     def test_pcp_processing_with_subcommand(self):
@@ -209,8 +112,10 @@ class TestOlmstedCLI:
         # Run the subcommand
         cmd = [
             "olmsted", "pcp",
-            "-i", str(input_clones), str(input_trees),
-            "-o", str(output_dir)
+            "-i", str(input_clones),
+            "-t", str(input_trees),
+            "-o", str(output_dir),
+            "--seed", "42"
         ]
         
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -228,9 +133,9 @@ class TestOlmstedCLI:
         input_file = self.test_data_dir / "airr" / "full_schema_dataset.json"
         output_dir = Path(self.temp_dir) / "auto_airr_output"
         
-        # Run without specifying format
+        # Run without specifying format using subcommand
         cmd = [
-            "olmsted-process",
+            "olmsted", "process",
             "-i", str(input_file),
             "-o", str(output_dir),
             "-f", "auto",  # Explicit auto-detection
@@ -252,9 +157,9 @@ class TestOlmstedCLI:
         input_trees = self.test_data_dir / "pcp" / "trees.csv"
         output_dir = Path(self.temp_dir) / "auto_pcp_output"
         
-        # Run without specifying format
+        # Run without specifying format using subcommand
         cmd = [
-            "olmsted-process",
+            "olmsted", "process",
             "-i", str(input_clones), str(input_trees),
             "-o", str(output_dir),
             "-f", "auto",  # Explicit auto-detection
@@ -274,7 +179,7 @@ class TestOlmstedCLI:
         output_dir = Path(self.temp_dir) / "invalid_output"
         
         cmd = [
-            "olmsted-process",
+            "olmsted", "process",
             "-i", "nonexistent_file.json",
             "-o", str(output_dir)
         ]
@@ -288,9 +193,9 @@ class TestOlmstedCLI:
         """Test that help commands work."""
         help_commands = [
             ["olmsted", "--help"],
-            ["olmsted-process", "--help"],
-            ["olmsted-airr", "--help"],
-            ["olmsted-pcp", "--help"]
+            ["olmsted", "process", "--help"],
+            ["olmsted", "airr", "--help"],
+            ["olmsted", "pcp", "--help"]
         ]
         
         for cmd in help_commands:

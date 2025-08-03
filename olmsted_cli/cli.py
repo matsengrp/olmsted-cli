@@ -30,39 +30,34 @@ Examples:
     
     # Process command (unified)
     process_parser = subparsers.add_parser('process', help='Process data with automatic format detection')
-    process_parser.add_argument('-i', '--input', required=True, help='Input file')
-    process_parser.add_argument('-o', '--output', required=True, help='Output directory')
+    # Don't define arguments here - let the underlying script handle them
     
     # AIRR command
     airr_parser = subparsers.add_parser('airr', help='Process AIRR format data')
-    airr_parser.add_argument('-i', '--input', required=True, help='Input AIRR JSON file')
-    airr_parser.add_argument('-o', '--output', required=True, help='Output directory')
+    # Don't define arguments here - let the underlying script handle them
     
     # PCP command  
     pcp_parser = subparsers.add_parser('pcp', help='Process PCP format data')
-    pcp_parser.add_argument('-i', '--input', required=True, nargs='+', help='Input PCP CSV file(s)')
-    pcp_parser.add_argument('-o', '--output', required=True, help='Output directory')
+    # Don't define arguments here - let the underlying script handle them
     
-    args = parser.parse_args()
-    
-    if args.command == 'process':
-        process_data()
-    elif args.command == 'airr':
-        process_airr()
-    elif args.command == 'pcp':
-        process_pcp()
+    # Parse only the command, not the full arguments
+    if len(sys.argv) > 1 and sys.argv[1] in ['process', 'airr', 'pcp']:
+        command = sys.argv[1]
+        # Remove the script name and command from sys.argv so the underlying scripts see clean arguments
+        sys.argv = [sys.argv[0]] + sys.argv[2:]
+        
+        if command == 'process':
+            process_data()
+        elif command == 'airr':
+            process_airr()
+        elif command == 'pcp':
+            process_pcp()
     else:
-        parser.print_help()
-        sys.exit(1)
+        parser.parse_args()  # This will show help or error
 
 
 def process_data():
     """Run the unified process_data.py script."""
-    # Handle help before importing
-    if '--help' in sys.argv or '-h' in sys.argv:
-        # Pass through to the actual script
-        sys.argv[0] = 'olmsted-process'
-    
     # Save current directory and change to package root for schema access
     original_dir = os.getcwd()
     package_dir = Path(__file__).parent.parent
@@ -78,11 +73,6 @@ def process_data():
 
 def process_airr():
     """Run the process_airr_data.py script."""
-    # Handle help before importing
-    if '--help' in sys.argv or '-h' in sys.argv:
-        # Pass through to the actual script
-        sys.argv[0] = 'olmsted-airr'
-    
     original_dir = os.getcwd()
     package_dir = Path(__file__).parent.parent
     
@@ -96,11 +86,6 @@ def process_airr():
 
 def process_pcp():
     """Run the process_pcp_data.py script."""
-    # Handle help before importing
-    if '--help' in sys.argv or '-h' in sys.argv:
-        # Pass through to the actual script
-        sys.argv[0] = 'olmsted-pcp'
-    
     original_dir = os.getcwd()
     package_dir = Path(__file__).parent.parent
     
