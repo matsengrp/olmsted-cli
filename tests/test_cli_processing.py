@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import datetime
 from pathlib import Path
 
 import pytest
@@ -67,13 +68,22 @@ class TestOlmstedCLI:
         self.golden_airr_dir = self.test_data_dir / "airr" / "golden_airr_data"
         self.golden_pcp_dir = self.test_data_dir / "pcp" / "golden_pcp_data"
         
-        # Create temporary output directory
-        self.temp_dir = tempfile.mkdtemp(prefix="olmsted_test_")
+        # Create test output directory
+        self.test_output_root = self.cli_root / "_test_output"
+        self.test_output_root.mkdir(exist_ok=True)
+        
+        # Create a unique subdirectory for this test run
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.temp_dir = self.test_output_root / f"run_{timestamp}_{os.getpid()}"
+        self.temp_dir.mkdir(exist_ok=True)
         
         yield
         
-        # Clean up
-        shutil.rmtree(self.temp_dir, ignore_errors=True)
+        # Optionally clean up old test runs (keep last 10)
+        test_dirs = sorted(self.test_output_root.glob("run_*"))
+        if len(test_dirs) > 10:
+            for old_dir in test_dirs[:-10]:
+                shutil.rmtree(old_dir, ignore_errors=True)
     
     
     @pytest.mark.airr
