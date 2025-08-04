@@ -18,11 +18,11 @@ Examples:
   # Auto-detect format and process
   olmsted process -i data.json -o output/
   
-  # Process AIRR format data  
-  olmsted airr -i data.json -o output/
+  # Process AIRR format data explicitly
+  olmsted process -f airr -i data.json -o output/
   
-  # Process PCP format data
-  olmsted pcp -i data.csv -o output/
+  # Process PCP format data explicitly
+  olmsted process -f pcp -i data.csv -o output/
         """
     )
     
@@ -32,26 +32,14 @@ Examples:
     process_parser = subparsers.add_parser('process', help='Process data with automatic format detection')
     # Don't define arguments here - let the underlying script handle them
     
-    # AIRR command
-    airr_parser = subparsers.add_parser('airr', help='Process AIRR format data')
-    # Don't define arguments here - let the underlying script handle them
-    
-    # PCP command  
-    pcp_parser = subparsers.add_parser('pcp', help='Process PCP format data')
-    # Don't define arguments here - let the underlying script handle them
-    
     # Parse only the command, not the full arguments
-    if len(sys.argv) > 1 and sys.argv[1] in ['process', 'airr', 'pcp']:
+    if len(sys.argv) > 1 and sys.argv[1] == 'process':
         command = sys.argv[1]
         # Remove the script name and command from sys.argv so the underlying scripts see clean arguments
         sys.argv = [sys.argv[0]] + sys.argv[2:]
         
         if command == 'process':
             process_data()
-        elif command == 'airr':
-            process_airr()
-        elif command == 'pcp':
-            process_pcp()
     else:
         parser.parse_args()  # This will show help or error
 
@@ -71,30 +59,6 @@ def process_data():
         os.chdir(original_dir)
 
 
-def process_airr():
-    """Run the process_airr_data.py script."""
-    original_dir = os.getcwd()
-    package_dir = Path(__file__).parent.parent
-    
-    try:
-        os.chdir(package_dir)
-        from olmsted_cli import process_airr_data
-        process_airr_data.main()
-    finally:
-        os.chdir(original_dir)
-
-
-def process_pcp():
-    """Run the process_pcp_data.py script."""
-    original_dir = os.getcwd()
-    package_dir = Path(__file__).parent.parent
-    
-    try:
-        os.chdir(package_dir)
-        from olmsted_cli import process_pcp_data
-        process_pcp_data.main()
-    finally:
-        os.chdir(original_dir)
 
 
 if __name__ == "__main__":

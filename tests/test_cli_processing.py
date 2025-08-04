@@ -94,15 +94,16 @@ class TestOlmstedCLI:
     
     
     @pytest.mark.airr
-    def test_airr_processing_with_subcommand(self):
-        """Test AIRR data processing using olmsted airr subcommand."""
+    def test_airr_processing(self):
+        """Test AIRR data processing using olmsted process command."""
         # Input and output paths
         input_file = self.test_data_dir / "airr" / "full_schema_dataset.json"
-        output_dir = Path(self.temp_dir) / "airr_subcommand_output"
+        output_dir = Path(self.temp_dir) / "airr_output"
         
-        # Run the subcommand
+        # Run the process command
         cmd = [
-            "olmsted", "airr",
+            "olmsted", "process",
+            "-f", "airr",
             "-i", str(input_file),
             "-o", str(output_dir),
             "--seed", "42"
@@ -119,18 +120,17 @@ class TestOlmstedCLI:
     
     
     @pytest.mark.pcp
-    def test_pcp_processing_with_subcommand(self):
-        """Test PCP data processing using olmsted pcp subcommand."""
+    def test_pcp_processing(self):
+        """Test PCP data processing using olmsted process command."""
         # Input and output paths
         input_clones = self.test_data_dir / "pcp" / "clones.csv"
-        input_trees = self.test_data_dir / "pcp" / "trees.csv"
-        output_dir = Path(self.temp_dir) / "pcp_subcommand_output"
+        output_dir = Path(self.temp_dir) / "pcp_output"
         
-        # Run the subcommand
+        # Run the process command
         cmd = [
-            "olmsted", "pcp",
+            "olmsted", "process",
+            "-f", "pcp",
             "-i", str(input_clones),
-            "-t", str(input_trees),
             "-o", str(output_dir),
             "--seed", "42"
         ]
@@ -211,9 +211,7 @@ class TestOlmstedCLI:
         logger.info("Testing help commands")
         help_commands = [
             ["olmsted", "--help"],
-            ["olmsted", "process", "--help"],
-            ["olmsted", "airr", "--help"],
-            ["olmsted", "pcp", "--help"]
+            ["olmsted", "process", "--help"]
         ]
         
         for cmd in help_commands:
