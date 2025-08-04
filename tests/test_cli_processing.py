@@ -123,7 +123,7 @@ class TestOlmstedCLI:
     def test_pcp_processing(self):
         """Test PCP data processing using olmsted process command."""
         # Input and output paths
-        input_clones = self.test_data_dir / "pcp" / "clones.csv"
+        input_clones = self.test_data_dir / "pcp" / "pcp.csv"
         output_dir = Path(self.temp_dir) / "pcp_output"
         
         # Run the process command
@@ -170,14 +170,13 @@ class TestOlmstedCLI:
     def test_auto_format_detection_pcp(self):
         """Test automatic format detection for PCP CSV files."""
         # Input and output paths
-        input_clones = self.test_data_dir / "pcp" / "clones.csv"
-        input_trees = self.test_data_dir / "pcp" / "trees.csv"
+        input_clones = self.test_data_dir / "pcp" / "pcp.csv"
         output_dir = Path(self.temp_dir) / "auto_pcp_output"
         
         # Run without specifying format using subcommand
         cmd = [
             "olmsted", "process",
-            "-i", str(input_clones), str(input_trees),
+            "-i", str(input_clones),
             "-o", str(output_dir),
             "-f", "auto",  # Explicit auto-detection
             "--seed", "42"
