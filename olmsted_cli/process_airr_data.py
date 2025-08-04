@@ -75,7 +75,7 @@ def validate_output_data(datasets, clones_dict, trees, args):
             airr_data["clones"].extend(clones)
 
         # Validate main structure
-        main_schema_path = get_schema_path('airr_main_schema.json', args)
+        main_schema_path = get_schema_path('airr_main_schema.yaml', args)
         is_valid, error = validate_airr_main(airr_data, main_schema_path)
         if not is_valid:
             validation_errors.append(f"Main AIRR validation failed: {error}")
@@ -83,7 +83,7 @@ def validate_output_data(datasets, clones_dict, trees, args):
             print("✓ Main AIRR data structure validation passed")
 
         # Validate each tree
-        tree_schema_path = get_schema_path('airr_trees_schema.json', args)
+        tree_schema_path = get_schema_path('airr_trees_schema.yaml', args)
         for i, tree in enumerate(trees):
             is_valid, error = validate_airr_tree(tree, tree_schema_path)
             if not is_valid:

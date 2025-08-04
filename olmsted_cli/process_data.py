@@ -191,7 +191,7 @@ def process_airr_format(args):
     airr_args.root_trees = getattr(args, 'root_trees', False)
     
     # Process using AIRR logic (adapted from process_airr_data.py)
-    from process_airr_data import (
+    from .process_airr_data import (
         validate, olmsted_dataset_schema, process_dataset, 
         validate_output_data, json_rep
     )
@@ -204,7 +204,7 @@ def process_airr_format(args):
             with open(infile, "r") as fh:
                 dataset = json.load(fh)
                 if airr_args.remove_invalid_clones:
-                    from process_airr_data import clone_spec
+                    from .process_airr_data import clone_spec
                     import jsonschema
                     dataset["clones"] = list(filter(
                         jsonschema.Draft4Validator(clone_spec).is_valid,
@@ -262,7 +262,7 @@ def process_pcp_format(args):
         nonlocal uuid_counter
         if hasattr(args, 'seed') and args.seed is not None:
             uuid_counter += 1
-            from process_pcp_data import deterministic_uuid
+            from .process_pcp_data import deterministic_uuid
             return deterministic_uuid(args.seed, uuid_counter)
         else:
             return str(uuid.uuid4())
@@ -295,7 +295,7 @@ def process_pcp_format(args):
 
         # Validate data if requested
         if args.validate:
-            from process_pcp_data import validate_airr_output
+            from .process_pcp_data import validate_airr_output
             pcp_args = argparse.Namespace()
             pcp_args.verbose = args.verbose
             if not validate_airr_output(datasets, clones_dict, trees, pcp_args):

@@ -12,6 +12,11 @@ import os
 import datetime
 import jsonschema
 from collections import OrderedDict
+try:
+    from importlib import resources
+except ImportError:
+    # Python < 3.7
+    import importlib_resources as resources
 
 # Constants
 SCHEMA_VERSION = "2.0.0"
@@ -144,17 +149,28 @@ def load_official_airr_schema():
         dict: The full AIRR schema dictionary, or None if not found
     """
     try:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        schema_path = os.path.join(script_dir, '..', 'airr-standards', 'specs', 'airr-schema.yaml')
-        
-        with open(schema_path, 'r') as f:
-            return yaml.safe_load(f)
-    except FileNotFoundError:
-        print("Warning: Official AIRR schema not found at airr-standards/specs/airr-schema.yaml")
-        return None
-    except Exception as e:
-        print(f"Warning: Failed to load official AIRR schema: {e}")
-        return None
+        # First try to load from package resources (for pip-installed package)
+        try:
+            with resources.files('olmsted_cli.schemas').joinpath('airr-schema.yaml').open('r') as f:
+                return yaml.safe_load(f)
+        except:
+            # Python < 3.9 compatibility
+            with resources.open_text('olmsted_cli.schemas', 'airr-schema.yaml') as f:
+                return yaml.safe_load(f)
+    except:
+        # Fallback to file system path (for development)
+        try:
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            schema_path = os.path.join(script_dir, '..', 'airr-standards', 'specs', 'airr-schema.yaml')
+            
+            with open(schema_path, 'r') as f:
+                return yaml.safe_load(f)
+        except FileNotFoundError:
+            print("Warning: Official AIRR schema not found")
+            return None
+        except Exception as e:
+            print(f"Warning: Failed to load official AIRR schema: {e}")
+            return None
 
 
 def validate_against_airr_schema(data, schema_object_name, schema=None):
@@ -262,9 +278,24 @@ def get_schema_path(schema_name, args):
     if hasattr(args, 'schema_dir') and args.schema_dir:
         return os.path.join(args.schema_dir, schema_name)
     else:
-        # Default to schema in data_schema directory relative to this script
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        return os.path.join(script_dir, '..', 'data_schema', schema_name)
+        # For pip-installed package, extract schema to temp file
+        try:
+            import tempfile
+            # Try to load from package resources
+            try:
+                content = resources.files('olmsted_cli.schemas').joinpath(schema_name).read_text()
+            except:
+                # Python < 3.9 compatibility
+                content = resources.read_text('olmsted_cli.schemas', schema_name)
+            
+            # Write to a temporary file so existing code can open it
+            with tempfile.NamedTemporaryFile(mode='w', suffix=schema_name, delete=False) as f:
+                f.write(content)
+                return f.name
+        except:
+            # Fallback to file system path (for development)
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            return os.path.join(script_dir, '..', 'data_schema', schema_name)
 
 
 def validate_airr_main(data, schema_path=None):

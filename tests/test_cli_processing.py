@@ -2,6 +2,7 @@
 """Tests for olmsted-cli data processing using pytest."""
 
 import json
+import logging
 import os
 import shutil
 import subprocess
@@ -10,6 +11,9 @@ import datetime
 from pathlib import Path
 
 import pytest
+
+# Set up logging for tests
+logger = logging.getLogger(__name__)
 
 
 def normalize_json(obj):
@@ -60,7 +64,7 @@ class TestOlmstedCLI:
     """Test suite for olmsted-cli."""
     
     @pytest.fixture(autouse=True)
-    def setup_and_teardown(self):
+    def setup_and_teardown(self, test_session_dir, request):
         """Set up and tear down test environment."""
         # Get paths relative to the package root
         self.cli_root = Path(__file__).parent.parent
@@ -68,22 +72,12 @@ class TestOlmstedCLI:
         self.golden_airr_dir = self.test_data_dir / "airr" / "golden_airr_data"
         self.golden_pcp_dir = self.test_data_dir / "pcp" / "golden_pcp_data"
         
-        # Create test output directory
-        self.test_output_root = self.cli_root / "_test_output"
-        self.test_output_root.mkdir(exist_ok=True)
-        
-        # Create a unique subdirectory for this test run
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.temp_dir = self.test_output_root / f"run_{timestamp}_{os.getpid()}"
+        # Use the session directory and create a subdirectory for this specific test
+        test_name = request.node.name
+        self.temp_dir = test_session_dir / test_name
         self.temp_dir.mkdir(exist_ok=True)
         
         yield
-        
-        # Optionally clean up old test runs (keep last 10)
-        test_dirs = sorted(self.test_output_root.glob("run_*"))
-        if len(test_dirs) > 10:
-            for old_dir in test_dirs[:-10]:
-                shutil.rmtree(old_dir, ignore_errors=True)
     
     
     @pytest.mark.airr
@@ -201,6 +195,7 @@ class TestOlmstedCLI:
     
     def test_help_commands(self):
         """Test that help commands work."""
+        logger.info("Testing help commands")
         help_commands = [
             ["olmsted", "--help"],
             ["olmsted", "process", "--help"],
@@ -209,9 +204,12 @@ class TestOlmstedCLI:
         ]
         
         for cmd in help_commands:
+            logger.info(f"Running command: {' '.join(cmd)}")
             result = subprocess.run(cmd, capture_output=True, text=True)
+            logger.debug(f"Command output: {result.stdout[:200]}...")
             assert result.returncode == 0, f"Help command failed: {cmd}"
             assert "help" in result.stdout.lower() or "usage" in result.stdout.lower()
+        logger.info("All help commands passed")
 
 
 if __name__ == "__main__":
