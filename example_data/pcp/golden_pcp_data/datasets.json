@@ -4,7 +4,7 @@
             "commit": "pcp-import",
             "time": ""
         },
-        "clone_count": 6,
+        "clone_count": 2,
         "dataset_id": "pcp-14b429db-6afa-5d76-5c16-dd7dab2897af",
         "ident": "9fd49829-96aa-d2c8-d415-44cdffcac37f",
         "samples": [
@@ -18,30 +18,6 @@
                 "ident": "bfdd83da-8e95-1048-1ec0-fc750e65bc19",
                 "locus": "igh",
                 "sample_id": "sample-igg-201c",
-                "timepoint_id": "merged"
-            },
-            {
-                "ident": "8ad370da-caa2-665c-2cdc-b78f8886901f",
-                "locus": "igh",
-                "sample_id": "sample-igg-0007",
-                "timepoint_id": "merged"
-            },
-            {
-                "ident": "d20f0d49-77e8-15c5-ebe4-2927bc6aeb1f",
-                "locus": "igh",
-                "sample_id": "sample-igg-705c",
-                "timepoint_id": "merged"
-            },
-            {
-                "ident": "12e70729-8abf-66ae-3611-fd397f3f50ce",
-                "locus": "igh",
-                "sample_id": "sample-igg-4002",
-                "timepoint_id": "merged"
-            },
-            {
-                "ident": "b3598fe2-630b-536f-74e7-274c35d14209",
-                "locus": "igh",
-                "sample_id": "sample-igg-5001",
                 "timepoint_id": "merged"
             }
         ],
