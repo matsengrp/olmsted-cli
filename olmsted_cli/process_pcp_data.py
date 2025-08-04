@@ -100,15 +100,22 @@ def validate_pcp_trees(data, schema_path=None):
 
 def parse_pcp_csv(csv_path):
     """
-    Parse PCP CSV file and return a dict of families.
+    Parse PCP CSV file and return a dict of families with rich immunological data.
 
     Expected CSV format:
-    sample_id,parent_name,child_name,edge_length,sample_count
+    sample_id,family,parent_name,parent_heavy,child_name,child_heavy,branch_length,
+    v_gene_heavy,j_gene_heavy,cdr1_codon_start_heavy,cdr1_codon_end_heavy,
+    cdr2_codon_start_heavy,cdr2_codon_end_heavy,cdr3_codon_start_heavy,
+    cdr3_codon_end_heavy,parent_is_naive,child_is_leaf
 
     Returns:
-        dict: {family_id: {nodes: {node_id: node_data}, edges: [(parent, child, length)]}}
+        dict: {family_id: {
+            nodes: {node_id: node_data}, 
+            edges: [(parent, child, length)],
+            family_data: {v_gene, j_gene, cdr_positions, etc.}
+        }}
     """
-    families = defaultdict(lambda: {"nodes": {}, "edges": []})
+    families = defaultdict(lambda: {"nodes": {}, "edges": [], "family_data": {}})
 
     # Determine if file is gzipped
     if csv_path.endswith('.gz'):
@@ -142,28 +149,113 @@ def parse_pcp_csv(csv_path):
             if 'sample_count' in row:
                 sample_count = int(row['sample_count'])
 
-            # Add nodes if not already present
+            # Extract rich immunological fields
+            parent_sequence = row.get('parent_heavy', '')
+            child_sequence = row.get('child_heavy', '')
+            v_gene = row.get('v_gene_heavy', '')
+            j_gene = row.get('j_gene_heavy', '')
+            parent_is_naive = row.get('parent_is_naive', '').lower() == 'true'
+            child_is_leaf = row.get('child_is_leaf', '').lower() == 'true'
+            
+            # Extract distance/mutation data
+            distance = float(row.get('distance', 0)) if row.get('distance') else 0.0
+            branch_length = float(row.get('branch_length', 0)) if row.get('branch_length') else 0.0
+            
+            # Extract CDR position data
+            cdr1_start = int(row.get('cdr1_codon_start_heavy', 0)) if row.get('cdr1_codon_start_heavy') else 0
+            cdr1_end = int(row.get('cdr1_codon_end_heavy', 0)) if row.get('cdr1_codon_end_heavy') else 0
+            cdr2_start = int(row.get('cdr2_codon_start_heavy', 0)) if row.get('cdr2_codon_start_heavy') else 0
+            cdr2_end = int(row.get('cdr2_codon_end_heavy', 0)) if row.get('cdr2_codon_end_heavy') else 0
+            cdr3_start = int(row.get('cdr3_codon_start_heavy', 0)) if row.get('cdr3_codon_start_heavy') else 0
+            cdr3_end = int(row.get('cdr3_codon_end_heavy', 0)) if row.get('cdr3_codon_end_heavy') else 0
+
+            # Store family-level data (will be same for all rows of same family)
+            families[sample_id]["family_data"] = {
+                "v_gene": v_gene,
+                "j_gene": j_gene,
+                "cdr1_start": cdr1_start,
+                "cdr1_end": cdr1_end,
+                "cdr2_start": cdr2_start,
+                "cdr2_end": cdr2_end,
+                "cdr3_start": cdr3_start,
+                "cdr3_end": cdr3_end
+            }
+
+            # Add parent node if not already present
             if parent not in families[sample_id]["nodes"]:
                 families[sample_id]["nodes"][parent] = {
                     "sequence_id": parent,
                     "multiplicity": 0,
-                    "timepoint_multiplicities": []
+                    "timepoint_multiplicities": [],
+                    "sequence_alignment": parent_sequence,
+                    "is_naive": parent_is_naive,
+                    "is_leaf": False,
+                    "distances": []  # Track distances for mutation frequency calculation
                 }
 
+            # Add child node if not already present
             if child not in families[sample_id]["nodes"]:
                 families[sample_id]["nodes"][child] = {
                     "sequence_id": child,
                     "multiplicity": sample_count,
-                    "timepoint_multiplicities": []
+                    "timepoint_multiplicities": [],
+                    "sequence_alignment": child_sequence,
+                    "is_naive": False,
+                    "is_leaf": child_is_leaf,
+                    "distances": [distance] if distance > 0 else []
                 }
             else:
                 # Update multiplicity if node appears multiple times
                 families[sample_id]["nodes"][child]["multiplicity"] += sample_count
+                # Add distance data
+                if distance > 0:
+                    families[sample_id]["nodes"][child]["distances"].append(distance)
 
             # Add edge
             families[sample_id]["edges"].append((parent, child, edge_length))
 
     return dict(families)
+
+
+def translate_dna_to_aa(dna_sequence):
+    """
+    Translate DNA sequence to amino acid sequence.
+    Uses standard genetic code, handles ambiguous bases.
+    """
+    if not dna_sequence:
+        return ""
+    
+    # Standard genetic code
+    codon_table = {
+        'TTT': 'F', 'TTC': 'F', 'TTA': 'L', 'TTG': 'L',
+        'TCT': 'S', 'TCC': 'S', 'TCA': 'S', 'TCG': 'S',
+        'TAT': 'Y', 'TAC': 'Y', 'TAA': '*', 'TAG': '*',
+        'TGT': 'C', 'TGC': 'C', 'TGA': '*', 'TGG': 'W',
+        'CTT': 'L', 'CTC': 'L', 'CTA': 'L', 'CTG': 'L',
+        'CCT': 'P', 'CCC': 'P', 'CCA': 'P', 'CCG': 'P',
+        'CAT': 'H', 'CAC': 'H', 'CAA': 'Q', 'CAG': 'Q',
+        'CGT': 'R', 'CGC': 'R', 'CGA': 'R', 'CGG': 'R',
+        'ATT': 'I', 'ATC': 'I', 'ATA': 'I', 'ATG': 'M',
+        'ACT': 'T', 'ACC': 'T', 'ACA': 'T', 'ACG': 'T',
+        'AAT': 'N', 'AAC': 'N', 'AAA': 'K', 'AAG': 'K',
+        'AGT': 'S', 'AGC': 'S', 'AGA': 'R', 'AGG': 'R',
+        'GTT': 'V', 'GTC': 'V', 'GTA': 'V', 'GTG': 'V',
+        'GCT': 'A', 'GCC': 'A', 'GCA': 'A', 'GCG': 'A',
+        'GAT': 'D', 'GAC': 'D', 'GAA': 'E', 'GAG': 'E',
+        'GGT': 'G', 'GGC': 'G', 'GGA': 'G', 'GGG': 'G'
+    }
+    
+    aa_sequence = ""
+    # Process in chunks of 3 nucleotides
+    for i in range(0, len(dna_sequence) - 2, 3):
+        codon = dna_sequence[i:i+3].upper()
+        # Handle ambiguous bases by using 'X' for unknown amino acids
+        if len(codon) == 3 and codon in codon_table:
+            aa_sequence += codon_table[codon]
+        else:
+            aa_sequence += 'X'  # Unknown amino acid for ambiguous codons
+    
+    return aa_sequence
 
 
 def parse_newick_csv(csv_path):
@@ -325,22 +417,74 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None)
         else:
             newick = build_newick_from_edges(family_data["nodes"], family_data["edges"])
 
-        # Process nodes - add required fields
+        # Process nodes - add required fields with rich PCP data
         processed_nodes = {}
         for node_id, node_data in family_data["nodes"].items():
+            # Get sequence alignment from PCP data
+            sequence_alignment = node_data.get("sequence_alignment", "")
+            sequence_alignment_aa = translate_dna_to_aa(sequence_alignment)
+            
+            # Determine node type based on PCP metadata
+            if node_data.get("is_naive", False):
+                node_type = "root"
+            elif node_data.get("is_leaf", False):
+                node_type = "leaf"
+            else:
+                # This is an internal/ancestral node (Node1, Node2, etc.)
+                node_type = "internal"
+            
             processed_node = {
                 "sequence_id": node_id,
-                "sequence_alignment": "",  # Empty for PCP format
-                "sequence_alignment_aa": "",  # Empty for PCP format
+                "sequence_alignment": sequence_alignment,
+                "sequence_alignment_aa": sequence_alignment_aa,
                 "multiplicity": node_data.get("multiplicity", 0),
                 "timepoint_multiplicities": node_data.get("timepoint_multiplicities", []),
+                "type": node_type,
+                "parent": None,  # Will be set later based on tree structure
                 "lbi": None,
                 "lbr": None,
                 "affinity": None
             }
             processed_nodes[node_id] = processed_node
 
-        # Create clone
+        # Extract family-level immunological data
+        family_meta = family_data.get("family_data", {})
+        v_call = family_meta.get("v_gene", "")
+        j_call = family_meta.get("j_gene", "")
+        
+        # Calculate alignment positions from CDR data
+        cdr1_start = family_meta.get("cdr1_start", 0)
+        cdr2_end = family_meta.get("cdr2_end", 0)
+        cdr3_start = family_meta.get("cdr3_start", 0)
+        cdr3_end = family_meta.get("cdr3_end", 0)
+        
+        # Use CDR positions to estimate V and J alignment positions
+        v_alignment_start = cdr1_start if cdr1_start > 0 else 0
+        v_alignment_end = cdr2_end if cdr2_end > 0 else 0
+        j_alignment_start = cdr3_end if cdr3_end > 0 else 0
+        j_alignment_end = j_alignment_start + 50 if j_alignment_start > 0 else 0  # Estimate
+        
+        junction_start = cdr3_start
+        junction_length = (cdr3_end - cdr3_start) if (cdr3_end > cdr3_start) else 0
+        
+        # Calculate mean mutation frequency from distance data
+        all_distances = []
+        for node_id, node_data in family_data["nodes"].items():
+            distances = node_data.get("distances", [])
+            all_distances.extend(distances)
+        
+        mean_mut_freq = sum(all_distances) / len(all_distances) if all_distances else 0.0
+        # Convert to more realistic scale (distances are very small scientific notation)
+        mean_mut_freq = mean_mut_freq * 1000000  # Scale up for better visualization
+        
+        # Get germline sequence from naive node
+        germline_alignment = ""
+        for node_id, node_data in processed_nodes.items():
+            if node_data.get("type") == "root":
+                germline_alignment = node_data.get("sequence_alignment", "")
+                break
+
+        # Create clone with rich PCP data
         clone = {
             "clone_id": f"family-{family_idx}",
             "ident": clone_ident,
@@ -349,26 +493,47 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None)
             "subject_id": "pcp-subject",
             "unique_seqs_count": len(processed_nodes),
             "total_read_count": sum(n.get("multiplicity", 0) for n in processed_nodes.values()),
-            "mean_mut_freq": 0.0,  # Not available in PCP format
-            "v_alignment_start": 0,
-            "v_alignment_end": 0,
-            "j_alignment_start": 0,
-            "j_alignment_end": 0,
-            "v_call": "",
-            "j_call": "",
-            "germline_alignment": "",
+            "mean_mut_freq": mean_mut_freq,
+            "v_alignment_start": v_alignment_start,
+            "v_alignment_end": v_alignment_end,
+            "j_alignment_start": j_alignment_start,
+            "j_alignment_end": j_alignment_end,
+            "junction_start": junction_start,
+            "junction_length": junction_length,
+            "v_call": v_call,
+            "j_call": j_call,
+            "d_call": "",  # Not available in PCP format
+            "d_alignment_start": 0,
+            "d_alignment_end": 0,
+            "germline_alignment": germline_alignment,
             "has_seed": False,
-            "trees": [{"ident": tree_ident}]
+            "trees": [{"ident": tree_ident}],
+            # Add nested sample and dataset objects for webapp compatibility
+            "sample": {
+                "ident": clone_ident,
+                "locus": "igh",
+                "sample_id": family_id,
+                "timepoint_id": "merged"
+            },
+            "dataset": {
+                "ident": dataset_ident,
+                "dataset_id": dataset_id
+            }
         }
         clones_dict[dataset_id].append(clone)
 
-        # Create tree
+        # Convert nodes to array format (required by webapp)
+        nodes_array = []
+        for node_id, node_data in processed_nodes.items():
+            nodes_array.append(node_data)
+
+        # Create tree with nodes as array
         tree = {
             "ident": tree_ident,
             "tree_id": f"pcp-tree-{family_idx}",
             "clone_id": clone["clone_id"],
             "newick": newick,
-            "nodes": processed_nodes
+            "nodes": nodes_array
         }
         trees.append(tree)
 
