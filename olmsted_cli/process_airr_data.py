@@ -1,43 +1,38 @@
 #!/usr/bin/env python
 
-from collections import OrderedDict
 import argparse
-import jsonschema
-import json
-import pprint
-import uuid
-import traceback
-import warnings
-import ete3
-import functools
-import sys
-import os
-import yaml
-import ntpl
 import datetime
+import functools
+import json
+import os
+import pprint
+import sys
+import traceback
+import uuid
+from collections import OrderedDict
 from functools import reduce
+
+import ete3
+import jsonschema
+import ntpl
+import yaml
 
 # Import shared utilities from process_data_utils
 from .process_utils import (
     SCHEMA_VERSION,
-    clean_record,
+    clone_spec,
+    dataset_spec,
     dict_subset,
-    get_in,
-    merge,
-    strip_ns,
-    write_out,
-    load_schema,
     get_schema_path,
+    merge,
+    node_spec,
+    tree_spec,
+    validate_airr_clone,
     validate_airr_main,
     validate_airr_tree,
-    validate_airr_clone,
-    validate_airr_node,
-    load_official_airr_schema,
-    dataset_spec,
-    clone_spec,
-    tree_spec,
-    node_spec,
+    write_out,
 )
+
 
 def validate_output_data(datasets, clones_dict, trees, args):
     """
@@ -65,9 +60,9 @@ def validate_output_data(datasets, clones_dict, trees, args):
             "build": {
                 "commit": "unknown",
                 "id": "validation-build",
-                "time": str(datetime.datetime.now())
+                "time": str(datetime.datetime.now()),
             },
-            "clones": []
+            "clones": [],
         }
 
         # Add all clones from all datasets
@@ -75,7 +70,7 @@ def validate_output_data(datasets, clones_dict, trees, args):
             airr_data["clones"].extend(clones)
 
         # Validate main structure
-        main_schema_path = get_schema_path('airr_main_schema.yaml', args)
+        main_schema_path = get_schema_path("airr_main_schema.yaml", args)
         is_valid, error = validate_airr_main(airr_data, main_schema_path)
         if not is_valid:
             validation_errors.append(f"Main AIRR validation failed: {error}")
@@ -83,11 +78,13 @@ def validate_output_data(datasets, clones_dict, trees, args):
             print("✓ Main AIRR data structure validation passed")
 
         # Validate each tree
-        tree_schema_path = get_schema_path('airr_trees_schema.yaml', args)
+        tree_schema_path = get_schema_path("airr_trees_schema.yaml", args)
         for i, tree in enumerate(trees):
             is_valid, error = validate_airr_tree(tree, tree_schema_path)
             if not is_valid:
-                validation_errors.append(f"Tree {i} (id: {tree.get('ident', 'unknown')}) validation failed: {error}")
+                validation_errors.append(
+                    f"Tree {i} (id: {tree.get('ident', 'unknown')}) validation failed: {error}"
+                )
             else:
                 print(f"✓ Tree {i} validation passed")
 
@@ -114,7 +111,10 @@ def id_spec(desc=None):
 def multiplicity_spec(desc=None):
     # QUESTION not sure if we actually want nullable here...
     return dict(
-        description=(desc or "Number of times sequence was observed in the sample. The presence of a given sequence in a clonal family may represent many identical such sequences in the original sample."),
+        description=(
+            desc
+            or "Number of times sequence was observed in the sample. The presence of a given sequence in a clonal family may represent many identical such sequences in the original sample."
+        ),
         type=["integer", "null"],
         minimum=0,
     )
@@ -226,7 +226,10 @@ node_spec = {
             "type": "array",
             "items": timepoint_multiplicity_spec,
         },
-        "lbi": {"description": "Local branching index (see https://arxiv.org/abs/2004.11868).", "type": ["number", "null"]},
+        "lbi": {
+            "description": "Local branching index (see https://arxiv.org/abs/2004.11868).",
+            "type": ["number", "null"],
+        },
         "lbr": {
             "description": "Local branching rate (derivative of lbi; see https://arxiv.org/abs/2004.11868).",
             "type": ["number", "null"],
@@ -536,12 +539,17 @@ def process_tree(args, clone_id, tree):
 
 def validate_airr_clone_and_trees(args, clone):
     # Set repertoire_id to sample_id or clone_id if not available (required by AIRR schema)
-    clone["repertoire_id"] = clone.get("sample_id") or clone.get("clone_id") or "unknown"
+    clone["repertoire_id"] = (
+        clone.get("sample_id") or clone.get("clone_id") or "unknown"
+    )
 
     # prepare tree(s)
-    clone["trees"] = list(map(
-        functools.partial(process_tree, args, clone["clone_id"]), clone.get("trees", [])
-    ))
+    clone["trees"] = list(
+        map(
+            functools.partial(process_tree, args, clone["clone_id"]),
+            clone.get("trees", []),
+        )
+    )
 
     # Use common validation function with official AIRR schema
     is_valid, error = validate_airr_clone(clone)
@@ -551,7 +559,9 @@ def validate_airr_clone_and_trees(args, clone):
         # Fall back to original validation if needed
         validate(clone, airr_clone_schema, verbose=args.verbose, object_name="Clone")
     elif args.verbose:
-        print(f"Clone {clone.get('clone_id', 'unknown')} validated successfully against official AIRR schema")
+        print(
+            f"Clone {clone.get('clone_id', 'unknown')} validated successfully against official AIRR schema"
+        )
 
 
 def process_clone(args, dataset, clone):
@@ -568,10 +578,12 @@ def process_clone(args, dataset, clone):
     _dataset = dataset.copy()
     del _dataset["clones"]
     clone["dataset"] = _dataset
-    clone["sample"] = list(filter(
-        lambda sample: sample["sample_id"] == clone["sample_id"],
-        clone["dataset"]["samples"],
-    ))[0]
+    clone["sample"] = list(
+        filter(
+            lambda sample: sample["sample_id"] == clone["sample_id"],
+            clone["dataset"]["samples"],
+        )
+    )[0]
     del clone["dataset"]["samples"]
     return ensure_ident(clone)
 
@@ -582,7 +594,9 @@ def process_dataset(args, dataset, clones_dict, trees):
     dataset["timepoints_count"] = len(
         set(sample["timepoint_id"] for sample in dataset["samples"])
     )
-    clones = list(map(functools.partial(process_clone, args, dataset), dataset["clones"]))
+    clones = list(
+        map(functools.partial(process_clone, args, dataset), dataset["clones"])
+    )
     trees += reduce(lambda agg_trees, cf: agg_trees + cf["trees"], clones, [])
     for cf in clones:
         cf["trees"] = [
@@ -620,15 +634,15 @@ def write_out(data, dirname, filename, args):
 def hiccup_rep(schema, depth=1, property=None):
     depth = min(depth, 2)
     if depth == 1 or schema["type"] == "object":
-        style = "padding-left: 10;"+\
-                "margin-left: 25;"+\
-                "margin-top: 40;"+\
-                "border-left-style: solid;"+\
-                "border-color: grey;"
+        style = (
+            "padding-left: 10;"
+            + "margin-left: 25;"
+            + "margin-top: 40;"
+            + "border-left-style: solid;"
+            + "border-color: grey;"
+        )
     else:
-        style = "padding-left: 10;"+\
-                "margin-left: 25;"+\
-                "margin-top: 10;"
+        style = "padding-left: 10;" + "margin-left: 25;" + "margin-top: 10;"
     return [
         "div",
         {"style": style},
@@ -649,7 +663,7 @@ def hiccup_rep(schema, depth=1, property=None):
                 {"style": "margin-left: 10px;"},
                 ["h3", ["code", k]],
                 # Assume val is either a title, as produced in hiccup_rep2, or an actual schema
-                ["b", {"style": "padding-left: 15; font-size: 18;"}, "{%s}"%val]
+                ["b", {"style": "padding-left: 15; font-size: 18;"}, "{%s}" % val]
                 if isinstance(val, str)
                 else hiccup_rep(val, depth=depth + 1),
             ]
@@ -664,7 +678,7 @@ def hiccup_rep(schema, depth=1, property=None):
             [
                 "b",
                 {"style": "padding-left: 15; font-size: 18;"},
-                "{%s}"%schema["items"],
+                "{%s}" % schema["items"],
             ]
             if isinstance(schema.get("items"), str)
             else hiccup_rep(schema.get("items"), depth=depth + 1),
@@ -678,7 +692,7 @@ def hiccup_rep(schema, depth=1, property=None):
             [
                 "b",
                 {"style": "padding-left: 15; font-size: 18;"},
-                "{%s}"%schema["additionalProperties"],
+                "{%s}" % schema["additionalProperties"],
             ]
             if isinstance(schema.get("additionalProperties"), str)
             else hiccup_rep(schema.get("additionalProperties"), depth=depth + 1),
@@ -696,7 +710,7 @@ def hiccup_rep2(schema):
         if items and items.get("title"):
             schema["items"] = items["title"]
             items_schemas = flatten_schema_by_title(items)
-        #object
+        # object
         additionalProperties = schema.get("additionalProperties")
         if additionalProperties and additionalProperties.get("title"):
             schema["additionalProperties"] = additionalProperties["title"]
@@ -712,12 +726,20 @@ def hiccup_rep2(schema):
             if items and items.get("title"):
                 properties_schemas += flatten_schema_by_title(items)
                 subschema["items"] = items["title"]
-            #object
+            # object
             additionalProperties = subschema.get("additionalProperties")
             if additionalProperties and additionalProperties.get("title"):
                 properties_schemas += flatten_schema_by_title(additionalProperties)
                 subschema["additionalProperties"] = additionalProperties["title"]
-        return list(OrderedDict([(schema["title"], schema) for schema in [schema] + items_schemas + properties_schemas]).values())
+        return list(
+            OrderedDict(
+                [
+                    (schema["title"], schema)
+                    for schema in [schema] + items_schemas + properties_schemas
+                ]
+            ).values()
+        )
+
     return ["div", list(map(hiccup_rep, flatten_schema_by_title(schema)))]
 
 
@@ -756,21 +778,21 @@ def get_args():
     parser.add_argument(
         "--validate",
         action="store_true",
-        help="Validate output data against AIRR JSON schemas before writing"
+        help="Validate output data against AIRR JSON schemas before writing",
     )
     parser.add_argument(
         "--strict-validation",
         action="store_true",
-        help="Exit with error if validation fails (requires --validate)"
+        help="Exit with error if validation fails (requires --validate)",
     )
     parser.add_argument(
         "--schema-dir",
-        help="Path to directory containing JSON schema files (defaults to ../data_schema)"
+        help="Path to directory containing JSON schema files (defaults to ../data_schema)",
     )
     parser.add_argument(
         "--seed",
         type=int,
-        help="Random seed for deterministic processing (currently unused for AIRR format, added for API consistency)"
+        help="Random seed for deterministic processing (currently unused for AIRR format, added for API consistency)",
     )
     return parser.parse_args()
 
@@ -784,10 +806,12 @@ def main():
             with open(infile, "r") as fh:
                 dataset = json.load(fh)
                 if args.remove_invalid_clones:
-                    dataset["clones"] = list(filter(
-                        jsonschema.Draft4Validator(clone_spec).is_valid,
-                        dataset["clones"],
-                    ))
+                    dataset["clones"] = list(
+                        filter(
+                            jsonschema.Draft4Validator(clone_spec).is_valid,
+                            dataset["clones"],
+                        )
+                    )
                 validate(
                     dataset,
                     olmsted_dataset_schema,
@@ -797,7 +821,7 @@ def main():
                 # Process the dataset, including validation of clones, trees against the AIRR schema
                 dataset = process_dataset(args, dataset, clones_dict, trees)
                 datasets.append(dataset)
-        except Exception as e:
+        except Exception:
             print(f"Unable to process infile: {infile}")
             if args.verbose:
                 exc_info = sys.exc_info()

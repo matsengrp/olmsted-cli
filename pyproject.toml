@@ -63,6 +63,11 @@ include-package-data = true
 line-length = 88  # Match black
 target-version = "py38"
 
+# Exclude external code directories
+exclude = [
+    "airr-standards/",
+]
+
 [tool.ruff.lint]
 # Enable similar rules to loris-experiments
 select = [

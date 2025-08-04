@@ -4,14 +4,12 @@
 import json
 import logging
 import os
-import shutil
 import subprocess
-import tempfile
-import datetime
 from pathlib import Path
 
 import pytest
-from .conftest import JSONAssertions, format_json_diff
+
+from .conftest import format_json_diff
 
 # Set up logging for tests
 logger = logging.getLogger(__name__)
@@ -33,18 +31,18 @@ def compare_json_files(file1, file2):
         data1 = json.load(f)
     with open(file2) as f:
         data2 = json.load(f)
-    
+
     norm1 = normalize_json(data1)
     norm2 = normalize_json(data2)
-    
+
     return norm1 == norm2
 
 
 def compare_directories(dir1, dir2):
     """Compare all JSON files in two directories with detailed error reporting."""
-    files1 = set(f for f in os.listdir(dir1) if f.endswith('.json'))
-    files2 = set(f for f in os.listdir(dir2) if f.endswith('.json'))
-    
+    files1 = set(f for f in os.listdir(dir1) if f.endswith(".json"))
+    files2 = set(f for f in os.listdir(dir2) if f.endswith(".json"))
+
     if files1 != files2:
         missing_in_dir2 = files1 - files2
         missing_in_dir1 = files2 - files1
@@ -54,7 +52,7 @@ def compare_directories(dir1, dir2):
         if missing_in_dir1:
             error_msg.append(f"Files missing in {dir1}: {missing_in_dir1}")
         return False, "\n".join(error_msg)
-    
+
     # Check each file and collect detailed differences
     all_differences = []
     for fname in sorted(files1):
@@ -63,16 +61,16 @@ def compare_directories(dir1, dir2):
         if not compare_json_files(file1, file2):
             diff_output = format_json_diff(file1, file2)
             all_differences.append(diff_output)
-    
+
     if all_differences:
         return False, "\n\n".join(all_differences)
-    
+
     return True, "All files match"
 
 
 class TestOlmstedCLI:
     """Test suite for olmsted-cli."""
-    
+
     @pytest.fixture(autouse=True)
     def setup_and_teardown(self, test_session_dir, request, json_assertions):
         """Set up and tear down test environment."""
@@ -81,138 +79,160 @@ class TestOlmstedCLI:
         self.test_data_dir = self.cli_root / "example_data"
         self.golden_airr_dir = self.test_data_dir / "airr" / "golden_airr_data"
         self.golden_pcp_dir = self.test_data_dir / "pcp" / "golden_pcp_data"
-        
+
         # Use the session directory and create a subdirectory for this specific test
         test_name = request.node.name
         self.temp_dir = test_session_dir / test_name
         self.temp_dir.mkdir(exist_ok=True)
-        
+
         # Store json_assertions for use in tests
         self.json_assertions = json_assertions
-        
+
         yield
-    
-    
+
     @pytest.mark.airr
     def test_airr_processing(self):
         """Test AIRR data processing using olmsted process command."""
         # Input and output paths
         input_file = self.test_data_dir / "airr" / "full_schema_dataset.json"
         output_dir = Path(self.temp_dir) / "airr_output"
-        
+
         # Run the process command
         cmd = [
-            "olmsted", "process",
-            "-f", "airr",
-            "-i", str(input_file),
-            "-o", str(output_dir),
-            "--seed", "42"
+            "olmsted",
+            "process",
+            "-f",
+            "airr",
+            "-i",
+            str(input_file),
+            "-o",
+            str(output_dir),
+            "--seed",
+            "42",
         ]
-        
+
         result = subprocess.run(cmd, capture_output=True, text=True)
-        
+
         # Check command succeeded
         assert result.returncode == 0, f"Command failed: {result.stderr}"
-        
+
         # Compare output with golden data
         match, message = compare_directories(str(self.golden_airr_dir), str(output_dir))
         assert match, f"Output doesn't match golden data: {message}"
-    
-    
+
     @pytest.mark.pcp
     def test_pcp_processing(self):
         """Test PCP data processing using olmsted process command."""
         # Input and output paths
         input_clones = self.test_data_dir / "pcp" / "pcp.csv"
         output_dir = Path(self.temp_dir) / "pcp_output"
-        
+
         # Run the process command
         cmd = [
-            "olmsted", "process",
-            "-f", "pcp",
-            "-i", str(input_clones),
-            "-o", str(output_dir),
-            "--seed", "42"
+            "olmsted",
+            "process",
+            "-f",
+            "pcp",
+            "-i",
+            str(input_clones),
+            "-o",
+            str(output_dir),
+            "--seed",
+            "42",
         ]
-        
+
         result = subprocess.run(cmd, capture_output=True, text=True)
-        
+
         # Check command succeeded
         assert result.returncode == 0, f"Command failed: {result.stderr}"
-        
+
         # Compare output with golden data
         match, message = compare_directories(str(self.golden_pcp_dir), str(output_dir))
         assert match, f"Output doesn't match golden data: {message}"
-    
+
     def test_auto_format_detection_airr(self):
         """Test automatic format detection for AIRR JSON files."""
         # Input and output paths
         input_file = self.test_data_dir / "airr" / "full_schema_dataset.json"
         output_dir = Path(self.temp_dir) / "auto_airr_output"
-        
+
         # Run without specifying format using subcommand
         cmd = [
-            "olmsted", "process",
-            "-i", str(input_file),
-            "-o", str(output_dir),
-            "-f", "auto",  # Explicit auto-detection
-            "--seed", "42"
+            "olmsted",
+            "process",
+            "-i",
+            str(input_file),
+            "-o",
+            str(output_dir),
+            "-f",
+            "auto",  # Explicit auto-detection
+            "--seed",
+            "42",
         ]
-        
+
         result = subprocess.run(cmd, capture_output=True, text=True)
-        
+
         # Check command succeeded
         assert result.returncode == 0, f"Command failed: {result.stderr}"
-        
+
         # Verify it detected AIRR format
-        assert "airr" in result.stdout.lower() or len(list(output_dir.glob("*.json"))) > 0
-    
+        assert (
+            "airr" in result.stdout.lower() or len(list(output_dir.glob("*.json"))) > 0
+        )
+
     def test_auto_format_detection_pcp(self):
         """Test automatic format detection for PCP CSV files."""
         # Input and output paths
         input_clones = self.test_data_dir / "pcp" / "pcp.csv"
         output_dir = Path(self.temp_dir) / "auto_pcp_output"
-        
+
         # Run without specifying format using subcommand
         cmd = [
-            "olmsted", "process",
-            "-i", str(input_clones),
-            "-o", str(output_dir),
-            "-f", "auto",  # Explicit auto-detection
-            "--seed", "42"
+            "olmsted",
+            "process",
+            "-i",
+            str(input_clones),
+            "-o",
+            str(output_dir),
+            "-f",
+            "auto",  # Explicit auto-detection
+            "--seed",
+            "42",
         ]
-        
+
         result = subprocess.run(cmd, capture_output=True, text=True)
-        
+
         # Check command succeeded
         assert result.returncode == 0, f"Command failed: {result.stderr}"
-        
+
         # Verify it detected PCP format
-        assert "pcp" in result.stdout.lower() or len(list(output_dir.glob("*.json"))) > 0
-    
+        assert (
+            "pcp" in result.stdout.lower() or len(list(output_dir.glob("*.json"))) > 0
+        )
+
     def test_invalid_input_file(self):
         """Test handling of invalid input file."""
         output_dir = Path(self.temp_dir) / "invalid_output"
-        
+
         cmd = [
-            "olmsted", "process",
-            "-i", "nonexistent_file.json",
-            "-o", str(output_dir)
+            "olmsted",
+            "process",
+            "-i",
+            "nonexistent_file.json",
+            "-o",
+            str(output_dir),
         ]
-        
+
         result = subprocess.run(cmd, capture_output=True, text=True)
-        
+
         # Should fail
         assert result.returncode != 0
-    
+
     def test_help_commands(self):
         """Test that help commands work."""
         logger.info("Testing help commands")
-        help_commands = [
-            ["olmsted", "--help"],
-            ["olmsted", "process", "--help"]
-        ]
-        
+        help_commands = [["olmsted", "--help"], ["olmsted", "process", "--help"]]
+
         for cmd in help_commands:
             logger.info(f"Running command: {' '.join(cmd)}")
             result = subprocess.run(cmd, capture_output=True, text=True)
@@ -220,7 +240,6 @@ class TestOlmstedCLI:
             assert result.returncode == 0, f"Help command failed: {cmd}"
             assert "help" in result.stdout.lower() or "usage" in result.stdout.lower()
         logger.info("All help commands passed")
-    
 
 
 if __name__ == "__main__":

@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 import argparse
-import boto3
-import yaml
 import os
 
+import boto3
+import yaml
 
 elide = [".git", "data"]
 

@@ -1,16 +1,18 @@
 #!/usr/bin/env python
 
 from __future__ import division
+
 import argparse
-import json
-import csv
-import warnings
-import ete3
-import functools as fun
-import os
 import copy
-import inflect
+import csv
+import functools as fun
+import json
+import os
 import sys
+import warnings
+
+import ete3
+import inflect
 
 sys.path = [os.path.join(os.getcwd(), "tripl")] + sys.path
 from tripl import tripl
@@ -128,13 +130,13 @@ ple = inflect.engine()
 
 
 def trim_tripl_naming(a):
-    """ 
+    """
     tripl works like: <namespace>.<entity>:<attribute>
     This handles that in the following way:
     if a reverse lookup, take the name before the colon and make it plural
     e.g. if cft.partition:_sample (lookup of all partitions for a sample),
-    the result should be the plural of 'partition'. Otherwise just take the 
-    name after the colon, e.g. 'cft.sample.locus' -> 'locus'. 
+    the result should be the plural of 'partition'. Otherwise just take the
+    name after the colon, e.g. 'cft.sample.locus' -> 'locus'.
     """
     attr_name = a.split(":")[-1]
     if attr_name.startswith("_"):
@@ -353,6 +355,7 @@ def parse_tree_data(args, c):
     seqmeta_dict = create_seqmeta_dict(
         c["cft.reconstruction:seqmeta"]["tripl.csv:data"]
     )
+
     # Note that this function is impure; it's mutable over the internal nodes
     def process_node(node):
         node.dna_seq = dna_seqs_dict[node.name]
@@ -376,7 +379,7 @@ def parse_tree_data(args, c):
                     if seqmeta.get(attr)
                     else None
                 )
-            except ValueError as e:
+            except ValueError:
                 value = None
             node.__dict__[attr.split(":")[1]] = value
         node.type = "node"
@@ -478,7 +481,7 @@ def clean_clonal_family_record(args, d):
         try_del(c, "cft.reconstruction:_cluster")
         try_del(c, "cft.cluster:unique_ids")
         return c
-    except Exception as e:
+    except Exception:
         if args.verbose:
             warnings.warn("Failed to process cluster: " + str(d.get("db:ident")))
         # raise e

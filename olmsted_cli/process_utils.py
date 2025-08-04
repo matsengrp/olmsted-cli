@@ -7,11 +7,11 @@ used by process_airr_data.py, process_pcp_data.py, and other data processors.
 """
 
 import json
-import yaml
 import os
-import datetime
+
 import jsonschema
-from collections import OrderedDict
+import yaml
+
 try:
     from importlib import resources
 except ImportError:
@@ -21,13 +21,16 @@ except ImportError:
 # Constants
 SCHEMA_VERSION = "2.0.0"
 
+
 # Utility functions
 def comp(f, g):
     """
     Function composition: comp(f, g)(x) == f(g(x))
     """
+
     def h(*args, **kw_args):
         return f(g(*args, **kw_args))
+
     return h
 
 
@@ -70,6 +73,7 @@ def get_in(d, path):
 # Constants for infinity handling
 inf = float("inf")
 neginf = float("-inf")
+
 
 def clean_record(d):
     """
@@ -124,7 +128,7 @@ def write_out(data, dirname, filename, args):
     # Ensure directory exists
     os.makedirs(dirname, exist_ok=True)
 
-    with open(output_path, 'w') as fh:
+    with open(output_path, "w") as fh:
         if isinstance(data, list) or isinstance(data, dict):
             json.dump(data, fh, indent=4, sort_keys=True)
         else:
@@ -134,8 +138,8 @@ def write_out(data, dirname, filename, args):
 # Schema loading and validation functions
 def load_schema(schema_path):
     """Load a JSON schema from file (supports both JSON and YAML)."""
-    with open(schema_path, 'r') as f:
-        if schema_path.endswith('.yaml') or schema_path.endswith('.yml'):
+    with open(schema_path, "r") as f:
+        if schema_path.endswith(".yaml") or schema_path.endswith(".yml"):
             return yaml.safe_load(f)
         else:
             return json.load(f)
@@ -144,26 +148,32 @@ def load_schema(schema_path):
 def load_official_airr_schema():
     """
     Load the official AIRR schema from airr-standards/specs/airr-schema.yaml.
-    
+
     Returns:
         dict: The full AIRR schema dictionary, or None if not found
     """
     try:
         # First try to load from package resources (for pip-installed package)
         try:
-            with resources.files('olmsted_cli.schemas').joinpath('airr-schema.yaml').open('r') as f:
+            with (
+                resources.files("olmsted_cli.schemas")
+                .joinpath("airr-schema.yaml")
+                .open("r")
+            ) as f:
                 return yaml.safe_load(f)
         except:
             # Python < 3.9 compatibility
-            with resources.open_text('olmsted_cli.schemas', 'airr-schema.yaml') as f:
+            with resources.open_text("olmsted_cli.schemas", "airr-schema.yaml") as f:
                 return yaml.safe_load(f)
     except:
         # Fallback to file system path (for development)
         try:
             script_dir = os.path.dirname(os.path.abspath(__file__))
-            schema_path = os.path.join(script_dir, '..', 'airr-standards', 'specs', 'airr-schema.yaml')
-            
-            with open(schema_path, 'r') as f:
+            schema_path = os.path.join(
+                script_dir, "..", "airr-standards", "specs", "airr-schema.yaml"
+            )
+
+            with open(schema_path, "r") as f:
                 return yaml.safe_load(f)
         except FileNotFoundError:
             print("Warning: Official AIRR schema not found")
@@ -176,34 +186,39 @@ def load_official_airr_schema():
 def validate_against_airr_schema(data, schema_object_name, schema=None):
     """
     Validate data against a specific object in the official AIRR schema.
-    
+
     Args:
         data: The data to validate
         schema_object_name: Name of the schema object (e.g., 'Clone', 'Tree', 'Node')
         schema: Optional pre-loaded schema dict. If None, loads from official source.
-    
+
     Returns:
         tuple: (is_valid, error_message)
     """
     try:
         if schema is None:
             schema = load_official_airr_schema()
-            
+
         if schema is None:
             return False, "Official AIRR schema not available"
-            
+
         if schema_object_name not in schema:
-            return False, f"Schema object '{schema_object_name}' not found in AIRR schema"
-            
+            return (
+                False,
+                f"Schema object '{schema_object_name}' not found in AIRR schema",
+            )
+
         object_schema = schema[schema_object_name]
-        
+
         # Create a standalone JSON schema for validation with proper null handling
         properties = {}
         for prop_name, prop_schema in object_schema.get("properties", {}).items():
             # Handle nullable fields by allowing both the original type and null
             if isinstance(prop_schema, dict) and "type" in prop_schema:
-                if prop_schema.get("Description", "").lower().find("null") != -1 or \
-                   prop_schema.get("description", "").lower().find("null") != -1:
+                if (
+                    prop_schema.get("Description", "").lower().find("null") != -1
+                    or prop_schema.get("description", "").lower().find("null") != -1
+                ):
                     # Field explicitly mentions null in description, make it nullable
                     new_prop = prop_schema.copy()
                     if isinstance(new_prop["type"], str):
@@ -213,18 +228,18 @@ def validate_against_airr_schema(data, schema_object_name, schema=None):
                     properties[prop_name] = prop_schema
             else:
                 properties[prop_name] = prop_schema
-        
+
         validation_schema = {
             "$schema": "http://json-schema.org/draft-07/schema#",
             "type": object_schema.get("type", "object"),
             "required": object_schema.get("required", []),
             "properties": properties,
-            "additionalProperties": object_schema.get("additionalProperties", True)
+            "additionalProperties": object_schema.get("additionalProperties", True),
         }
-        
+
         jsonschema.validate(instance=data, schema=validation_schema)
         return True, None
-        
+
     except jsonschema.ValidationError as e:
         return False, str(e)
     except Exception as e:
@@ -234,68 +249,75 @@ def validate_against_airr_schema(data, schema_object_name, schema=None):
 def validate_airr_clone(clone_data, schema=None):
     """
     Validate clone data against official AIRR Clone schema.
-    
+
     Args:
         clone_data: The clone data to validate
         schema: Optional pre-loaded schema dict
-        
+
     Returns:
         tuple: (is_valid, error_message)
     """
-    return validate_against_airr_schema(clone_data, 'Clone', schema)
+    return validate_against_airr_schema(clone_data, "Clone", schema)
 
 
 def validate_airr_tree(tree_data, schema=None):
     """
     Validate tree data against official AIRR Tree schema.
-    
+
     Args:
         tree_data: The tree data to validate
         schema: Optional pre-loaded schema dict
-        
+
     Returns:
         tuple: (is_valid, error_message)
     """
-    return validate_against_airr_schema(tree_data, 'Tree', schema)
+    return validate_against_airr_schema(tree_data, "Tree", schema)
 
 
 def validate_airr_node(node_data, schema=None):
     """
     Validate node data against official AIRR Node schema.
-    
+
     Args:
         node_data: The node data to validate
         schema: Optional pre-loaded schema dict
-        
+
     Returns:
         tuple: (is_valid, error_message)
     """
-    return validate_against_airr_schema(node_data, 'Node', schema)
+    return validate_against_airr_schema(node_data, "Node", schema)
 
 
 def get_schema_path(schema_name, args):
     """Get the path to a schema file."""
-    if hasattr(args, 'schema_dir') and args.schema_dir:
+    if hasattr(args, "schema_dir") and args.schema_dir:
         return os.path.join(args.schema_dir, schema_name)
     else:
         # For pip-installed package, extract schema to temp file
         try:
             import tempfile
+
             # Try to load from package resources
             try:
-                content = resources.files('olmsted_cli.schemas').joinpath(schema_name).read_text()
+                content = (
+                    resources.files("olmsted_cli.schemas")
+                    .joinpath(schema_name)
+                    .read_text()
+                )
             except:
                 # Python < 3.9 compatibility
-                content = resources.read_text('olmsted_cli.schemas', schema_name)
-            
+                content = resources.read_text("olmsted_cli.schemas", schema_name)
+
             # Write to a temporary file so existing code can open it
-            with tempfile.NamedTemporaryFile(mode='w', suffix=schema_name, delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=schema_name, delete=False
+            ) as f:
                 f.write(content)
                 return f.name
         except:
             # Fallback to file system path (for development)
             script_dir = os.path.dirname(os.path.abspath(__file__))
-            return os.path.join(script_dir, '..', 'data_schema', schema_name)
+            return os.path.join(script_dir, "..", "data_schema", schema_name)
 
 
 def validate_airr_main(data, schema_path=None):
@@ -349,72 +371,52 @@ node_spec = {
     "type": "object",
     "required": ["sequence_id", "sequence_alignment", "sequence_alignment_aa"],
     "properties": {
-        "sequence_id": {
-            "description": "Identifier for this node",
-            "type": "string"
-        },
+        "sequence_id": {"description": "Identifier for this node", "type": "string"},
         "sequence_alignment": {
             "description": "Nucleotide sequence alignment",
-            "type": "string"
+            "type": "string",
         },
         "sequence_alignment_aa": {
             "description": "Amino acid sequence alignment",
-            "type": ["string", "null"]
+            "type": ["string", "null"],
         },
         "parent": {
             "description": "Sequence ID of parent node",
-            "type": ["string", "null"]
+            "type": ["string", "null"],
         },
         "type": {
             "description": "Type of node",
             "enum": ["leaf", "node"],
-            "type": "string"
+            "type": "string",
         },
         "confidence": {
             "description": "Bootstrap confidence",
-            "type": ["number", "null"]
+            "type": ["number", "null"],
         },
-        "lbi": {
-            "description": "Local branching index",
-            "type": ["number", "null"]
-        },
-        "lbr": {
-            "description": "Local branching ratio",
-            "type": ["number", "null"]
-        },
-        "distance": {
-            "description": "Distance from root",
-            "type": ["number", "null"]
-        },
-        "length": {
-            "description": "Branch length",
-            "type": ["number", "null"]
-        },
+        "lbi": {"description": "Local branching index", "type": ["number", "null"]},
+        "lbr": {"description": "Local branching ratio", "type": ["number", "null"]},
+        "distance": {"description": "Distance from root", "type": ["number", "null"]},
+        "length": {"description": "Branch length", "type": ["number", "null"]},
         "timepoint_id": {
             "description": "Time point identifier",
-            "type": ["string", "null"]
+            "type": ["string", "null"],
         },
         "timepoint_multiplicities": {
             "description": "Multiplicities at different time points",
             "type": "array",
-            "items": {
-                "type": ["integer", "null"]
-            }
+            "items": {"type": ["integer", "null"]},
         },
         "multiplicity": {
             "description": "Total multiplicity/abundance",
-            "type": ["integer", "null"]
+            "type": ["integer", "null"],
         },
         "cluster_multiplicity": {
             "description": "Cluster multiplicity",
-            "type": ["integer", "null"]
+            "type": ["integer", "null"],
         },
-        "affinity": {
-            "description": "Binding affinity",
-            "type": ["number", "null"]
-        }
+        "affinity": {"description": "Binding affinity", "type": ["number", "null"]},
     },
-    "additionalProperties": True
+    "additionalProperties": True,
 }
 
 tree_spec = {
@@ -423,26 +425,20 @@ tree_spec = {
     "type": "object",
     "required": ["newick", "nodes"],
     "properties": {
-        "ident": {
-            "description": "Tree identifier",
-            "type": "string"
-        },
+        "ident": {"description": "Tree identifier", "type": "string"},
         "timepoint_ids": {
             "description": "Time points included",
             "type": "array",
-            "items": {"type": "string"}
+            "items": {"type": "string"},
         },
-        "newick": {
-            "description": "Newick format tree string",
-            "type": "string"
-        },
+        "newick": {"description": "Newick format tree string", "type": "string"},
         "nodes": {
             "description": "Dictionary of nodes keyed by sequence ID",
             "type": "object",
-            "additionalProperties": node_spec
-        }
+            "additionalProperties": node_spec,
+        },
     },
-    "additionalProperties": True
+    "additionalProperties": True,
 }
 
 clone_spec = {
@@ -458,96 +454,66 @@ clone_spec = {
         "j_alignment_start",
         "j_alignment_end",
         "v_call",
-        "j_call"
+        "j_call",
     ],
     "properties": {
-        "ident": {
-            "description": "Clone identifier",
-            "type": "string"
-        },
-        "clone_id": {
-            "description": "Clone ID",
-            "type": "string"
-        },
-        "dataset_id": {
-            "description": "Dataset ID",
-            "type": "string"
-        },
-        "sample_id": {
-            "description": "Sample ID",
-            "type": "string"
-        },
-        "subject_id": {
-            "description": "Subject ID",
-            "type": "string"
-        },
+        "ident": {"description": "Clone identifier", "type": "string"},
+        "clone_id": {"description": "Clone ID", "type": "string"},
+        "dataset_id": {"description": "Dataset ID", "type": "string"},
+        "sample_id": {"description": "Sample ID", "type": "string"},
+        "subject_id": {"description": "Subject ID", "type": "string"},
         "unique_seqs_count": {
             "description": "Number of unique sequences",
-            "type": "integer"
+            "type": "integer",
         },
-        "total_read_count": {
-            "description": "Total number of reads",
-            "type": "integer"
-        },
-        "mean_mut_freq": {
-            "description": "Mean mutation frequency",
-            "type": "number"
-        },
+        "total_read_count": {"description": "Total number of reads", "type": "integer"},
+        "mean_mut_freq": {"description": "Mean mutation frequency", "type": "number"},
         "v_alignment_start": {
             "description": "V gene alignment start position",
-            "type": "integer"
+            "type": "integer",
         },
         "v_alignment_end": {
             "description": "V gene alignment end position",
-            "type": "integer"
+            "type": "integer",
         },
         "j_alignment_start": {
             "description": "J gene alignment start position",
-            "type": "integer"
+            "type": "integer",
         },
         "j_alignment_end": {
             "description": "J gene alignment end position",
-            "type": "integer"
+            "type": "integer",
         },
-        "v_call": {
-            "description": "V gene call",
-            "type": "string"
-        },
-        "j_call": {
-            "description": "J gene call",
-            "type": "string"
-        },
-        "d_call": {
-            "description": "D gene call",
-            "type": ["string", "null"]
-        },
+        "v_call": {"description": "V gene call", "type": "string"},
+        "j_call": {"description": "J gene call", "type": "string"},
+        "d_call": {"description": "D gene call", "type": ["string", "null"]},
         "d_alignment_start": {
             "description": "D gene alignment start position",
-            "type": ["integer", "null"]
+            "type": ["integer", "null"],
         },
         "d_alignment_end": {
             "description": "D gene alignment end position",
-            "type": ["integer", "null"]
+            "type": ["integer", "null"],
         },
         "junction_start": {
             "description": "Junction region start position",
-            "type": ["integer", "null"]
+            "type": ["integer", "null"],
         },
         "junction_length": {
             "description": "Junction region length",
-            "type": ["integer", "null"]
+            "type": ["integer", "null"],
         },
         "germline_alignment": {
             "description": "Germline sequence alignment",
-            "type": ["string", "null"]
+            "type": ["string", "null"],
         },
         "has_seed": {
             "description": "Whether clone has seed sequence",
-            "type": "boolean"
+            "type": "boolean",
         },
         "seed_id": {
             "description": "Seed sequence identifier",
-            "type": ["string", "null"]
+            "type": ["string", "null"],
         },
         "trees": {
             "description": "Associated trees",
@@ -555,23 +521,20 @@ clone_spec = {
             "items": {
                 "type": "object",
                 "properties": {
-                    "ident": {
-                        "description": "Tree identifier",
-                        "type": "string"
-                    }
-                }
-            }
+                    "ident": {"description": "Tree identifier", "type": "string"}
+                },
+            },
         },
         "v_per_gene_support": {
             "description": "V gene assignment probabilities",
-            "type": ["object", "null"]
+            "type": ["object", "null"],
         },
         "j_per_gene_support": {
             "description": "J gene assignment probabilities",
-            "type": ["object", "null"]
-        }
+            "type": ["object", "null"],
+        },
     },
-    "additionalProperties": True
+    "additionalProperties": True,
 }
 
 dataset_spec = {
@@ -582,29 +545,14 @@ dataset_spec = {
     "type": "object",
     "required": ["schema_version", "dataset_id"],
     "properties": {
-        "schema_version": {
-            "description": "Schema version",
-            "type": "string"
-        },
-        "ident": {
-            "description": "Dataset identifier",
-            "type": "string"
-        },
-        "dataset_id": {
-            "description": "Dataset ID",
-            "type": "string"
-        },
-        "type": {
-            "description": "Dataset type",
-            "type": "string"
-        },
+        "schema_version": {"description": "Schema version", "type": "string"},
+        "ident": {"description": "Dataset identifier", "type": "string"},
+        "dataset_id": {"description": "Dataset ID", "type": "string"},
+        "type": {"description": "Dataset type", "type": "string"},
         "build": {
             "description": "Build information",
             "type": "object",
-            "properties": {
-                "commit": {"type": "string"},
-                "time": {"type": "string"}
-            }
+            "properties": {"commit": {"type": "string"}, "time": {"type": "string"}},
         },
         "subjects": {
             "description": "Subject information",
@@ -613,9 +561,9 @@ dataset_spec = {
                 "type": "object",
                 "properties": {
                     "ident": {"type": "string"},
-                    "subject_id": {"type": "string"}
-                }
-            }
+                    "subject_id": {"type": "string"},
+                },
+            },
         },
         "samples": {
             "description": "Sample information",
@@ -626,26 +574,14 @@ dataset_spec = {
                     "ident": {"type": "string"},
                     "sample_id": {"type": "string"},
                     "locus": {"type": "string"},
-                    "timepoint_id": {"type": "string"}
-                }
-            }
+                    "timepoint_id": {"type": "string"},
+                },
+            },
         },
-        "seeds": {
-            "description": "Seed sequences",
-            "type": "array"
-        },
-        "clone_count": {
-            "description": "Number of clones",
-            "type": "integer"
-        },
-        "subjects_count": {
-            "description": "Number of subjects",
-            "type": "integer"
-        },
-        "timepoints_count": {
-            "description": "Number of time points",
-            "type": "integer"
-        }
+        "seeds": {"description": "Seed sequences", "type": "array"},
+        "clone_count": {"description": "Number of clones", "type": "integer"},
+        "subjects_count": {"description": "Number of subjects", "type": "integer"},
+        "timepoints_count": {"description": "Number of time points", "type": "integer"},
     },
-    "additionalProperties": True
+    "additionalProperties": True,
 }
