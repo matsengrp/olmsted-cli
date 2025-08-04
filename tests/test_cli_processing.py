@@ -224,27 +224,6 @@ class TestOlmstedCLI:
             assert "help" in result.stdout.lower() or "usage" in result.stdout.lower()
         logger.info("All help commands passed")
     
-    def test_json_comparison_demo(self):
-        """Demonstrate enhanced JSON comparison output."""
-        # Create two slightly different JSON objects for testing
-        obj1 = {
-            "name": "test",
-            "value": 42,
-            "items": [1, 2, 3],
-            "nested": {"key": "value1"}
-        }
-        
-        obj2 = {
-            "name": "test",
-            "value": 43,  # Different value
-            "items": [1, 2, 3, 4],  # Extra item
-            "nested": {"key": "value2"},  # Different nested value
-            "extra": "field"  # Extra field
-        }
-        
-        # This will fail and show detailed differences
-        # Uncomment to see the enhanced error output:
-        # self.json_assertions.assert_json_equal(obj1, obj2, "Demo: JSON objects differ")
 
 
 if __name__ == "__main__":
