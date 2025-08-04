@@ -11,6 +11,7 @@ import datetime
 from pathlib import Path
 
 import pytest
+from .conftest import JSONAssertions, format_json_diff
 
 # Set up logging for tests
 logger = logging.getLogger(__name__)
@@ -40,22 +41,31 @@ def compare_json_files(file1, file2):
 
 
 def compare_directories(dir1, dir2):
-    """Compare all JSON files in two directories."""
+    """Compare all JSON files in two directories with detailed error reporting."""
     files1 = set(f for f in os.listdir(dir1) if f.endswith('.json'))
     files2 = set(f for f in os.listdir(dir2) if f.endswith('.json'))
     
     if files1 != files2:
-        return False, f"Different files: {files1} vs {files2}"
+        missing_in_dir2 = files1 - files2
+        missing_in_dir1 = files2 - files1
+        error_msg = []
+        if missing_in_dir2:
+            error_msg.append(f"Files missing in {dir2}: {missing_in_dir2}")
+        if missing_in_dir1:
+            error_msg.append(f"Files missing in {dir1}: {missing_in_dir1}")
+        return False, "\n".join(error_msg)
     
-    mismatches = []
+    # Check each file and collect detailed differences
+    all_differences = []
     for fname in sorted(files1):
         file1 = os.path.join(dir1, fname)
         file2 = os.path.join(dir2, fname)
         if not compare_json_files(file1, file2):
-            mismatches.append(fname)
+            diff_output = format_json_diff(file1, file2)
+            all_differences.append(diff_output)
     
-    if mismatches:
-        return False, f"Mismatched files: {mismatches}"
+    if all_differences:
+        return False, "\n\n".join(all_differences)
     
     return True, "All files match"
 
@@ -64,7 +74,7 @@ class TestOlmstedCLI:
     """Test suite for olmsted-cli."""
     
     @pytest.fixture(autouse=True)
-    def setup_and_teardown(self, test_session_dir, request):
+    def setup_and_teardown(self, test_session_dir, request, json_assertions):
         """Set up and tear down test environment."""
         # Get paths relative to the package root
         self.cli_root = Path(__file__).parent.parent
@@ -76,6 +86,9 @@ class TestOlmstedCLI:
         test_name = request.node.name
         self.temp_dir = test_session_dir / test_name
         self.temp_dir.mkdir(exist_ok=True)
+        
+        # Store json_assertions for use in tests
+        self.json_assertions = json_assertions
         
         yield
     
@@ -210,6 +223,28 @@ class TestOlmstedCLI:
             assert result.returncode == 0, f"Help command failed: {cmd}"
             assert "help" in result.stdout.lower() or "usage" in result.stdout.lower()
         logger.info("All help commands passed")
+    
+    def test_json_comparison_demo(self):
+        """Demonstrate enhanced JSON comparison output."""
+        # Create two slightly different JSON objects for testing
+        obj1 = {
+            "name": "test",
+            "value": 42,
+            "items": [1, 2, 3],
+            "nested": {"key": "value1"}
+        }
+        
+        obj2 = {
+            "name": "test",
+            "value": 43,  # Different value
+            "items": [1, 2, 3, 4],  # Extra item
+            "nested": {"key": "value2"},  # Different nested value
+            "extra": "field"  # Extra field
+        }
+        
+        # This will fail and show detailed differences
+        # Uncomment to see the enhanced error output:
+        # self.json_assertions.assert_json_equal(obj1, obj2, "Demo: JSON objects differ")
 
 
 if __name__ == "__main__":
