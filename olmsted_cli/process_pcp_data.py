@@ -29,11 +29,8 @@ import jsonschema
 # Import shared utilities from process_data_utils
 from .process_utils import (
     SCHEMA_VERSION,
-    get_schema_path,
     load_official_airr_schema,
-    load_schema,
     validate_airr_clone,
-    validate_airr_main,
     validate_airr_tree,
     write_out,
 )
@@ -645,30 +642,6 @@ def validate_airr_output(datasets, clones_dict, trees, args):
                 f"❌ AIRR tree validation: {tree_failures}/{tree_validation_count} failed"
             )
 
-        # Fallback to old validation method if official schema not available
-        if official_schema is None:
-            # Validate datasets
-            airr_main_schema_path = get_schema_path("airr_main_schema.yaml", args)
-            if os.path.exists(airr_main_schema_path):
-                is_valid, error = validate_airr_main(datasets, airr_main_schema_path)
-                if not is_valid:
-                    print(f"AIRR main validation failed: {error}")
-                    validation_passed = False
-                else:
-                    print("✓ AIRR main data validation passed")
-
-            # Validate trees with old method
-            airr_trees_schema_path = get_schema_path("airr_trees_schema.yaml", args)
-            if os.path.exists(airr_trees_schema_path):
-                for tree in trees:
-                    is_valid, error = validate_airr_tree(tree, airr_trees_schema_path)
-                    if not is_valid:
-                        print(
-                            f"AIRR tree validation failed for {tree.get('ident', 'unknown')}: {error}"
-                        )
-                        validation_passed = False
-                if validation_passed:
-                    print(f"✓ AIRR trees validation passed ({len(trees)} trees)")
 
     except Exception as e:
         print(f"Validation error: {str(e)}")
@@ -722,10 +695,6 @@ def get_args():
         "--strict-validation",
         action="store_true",
         help="Exit with error if validation fails (requires --validate)",
-    )
-    parser.add_argument(
-        "--schema-dir",
-        help="Path to directory containing JSON schema files (defaults to ../data_schema)",
     )
     parser.add_argument(
         "--seed",

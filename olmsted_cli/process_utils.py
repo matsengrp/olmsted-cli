@@ -274,35 +274,6 @@ def validate_airr_node(node_data, schema=None):
     return validate_against_airr_schema(node_data, "Node", schema)
 
 
-def get_schema_path(schema_name, args):
-    """Get the path to a schema file."""
-    if hasattr(args, "schema_dir") and args.schema_dir:
-        return os.path.join(args.schema_dir, schema_name)
-    else:
-        # Use airr-standards for all schemas
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        return os.path.join(script_dir, "..", "airr-standards", "specs", schema_name)
-
-
-def validate_airr_main(data, schema_path=None):
-    """
-    Validate AIRR main data against JSON schema.
-
-    Args:
-        data: The data to validate
-        schema_path: Optional path to schema file. If not provided, uses default location.
-
-    Returns:
-        tuple: (is_valid, error_message)
-    """
-    try:
-        schema = load_schema(schema_path)
-        jsonschema.validate(instance=data, schema=schema)
-        return True, None
-    except jsonschema.ValidationError as e:
-        return False, str(e)
-    except Exception as e:
-        return False, f"Schema loading error: {str(e)}"
 
 
 

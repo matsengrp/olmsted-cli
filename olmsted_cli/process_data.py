@@ -409,10 +409,6 @@ Examples:
         help="Exit with error if validation fails (requires --validate)",
     )
     parser.add_argument(
-        "--schema-dir",
-        help="Path to directory containing schema files (defaults to ../data_schema)",
-    )
-    parser.add_argument(
         "--seed",
         type=int,
         help="Random seed for deterministic UUID generation",

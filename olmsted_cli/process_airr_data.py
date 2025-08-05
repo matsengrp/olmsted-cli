@@ -21,10 +21,8 @@ import yaml
 from .process_utils import (
     SCHEMA_VERSION,
     dict_subset,
-    get_schema_path,
     merge,
     validate_airr_clone,
-    validate_airr_main,
     validate_airr_tree,
 )
 
@@ -64,24 +62,22 @@ def validate_output_data(datasets, clones_dict, trees, args):
         for dataset_id, clones in clones_dict.items():
             airr_data["clones"].extend(clones)
 
-        # Validate main structure
-        main_schema_path = get_schema_path("airr_main_schema.yaml", args)
-        is_valid, error = validate_airr_main(airr_data, main_schema_path)
-        if not is_valid:
-            validation_errors.append(f"Main AIRR validation failed: {error}")
+        # Validate using official AIRR schema
+        from .process_utils import load_official_airr_schema
+        official_schema = load_official_airr_schema()
+        
+        if official_schema is not None:
+            # Validate each tree using official schema
+            for i, tree in enumerate(trees):
+                is_valid, error = validate_airr_tree(tree, official_schema)
+                if not is_valid:
+                    validation_errors.append(
+                        f"Tree {i} (id: {tree.get('ident', 'unknown')}) validation failed: {error}"
+                    )
+                else:
+                    print(f"✓ Tree {i} validation passed")
         else:
-            print("✓ Main AIRR data structure validation passed")
-
-        # Validate each tree
-        tree_schema_path = get_schema_path("airr_trees_schema.yaml", args)
-        for i, tree in enumerate(trees):
-            is_valid, error = validate_airr_tree(tree, tree_schema_path)
-            if not is_valid:
-                validation_errors.append(
-                    f"Tree {i} (id: {tree.get('ident', 'unknown')}) validation failed: {error}"
-                )
-            else:
-                print(f"✓ Tree {i} validation passed")
+            print("Warning: Official AIRR schema not available, skipping validation")
 
     if validation_errors:
         print("\nValidation errors encountered:")
@@ -779,10 +775,6 @@ def get_args():
         "--strict-validation",
         action="store_true",
         help="Exit with error if validation fails (requires --validate)",
-    )
-    parser.add_argument(
-        "--schema-dir",
-        help="Path to directory containing JSON schema files (defaults to ../data_schema)",
     )
     parser.add_argument(
         "--seed",
