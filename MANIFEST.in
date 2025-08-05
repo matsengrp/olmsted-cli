@@ -2,6 +2,5 @@ include README.md
 include requirements.txt
 include pytest.ini
 recursive-include olmsted_cli *.py *.yaml *.yml *.json
-recursive-include olmsted_cli/schemas *.yaml *.yml *.json
 recursive-include example_data *.json *.csv
 recursive-include tests *.py

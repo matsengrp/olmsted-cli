@@ -41,46 +41,7 @@ from .process_utils import (
 # Validation functions now imported from process_data_utils
 
 
-def validate_pcp_main(data, schema_path=None):
-    """
-    Validate PCP main data against JSON schema.
-
-    Args:
-        data: The data to validate (list of PCP records)
-        schema_path: Optional path to schema file.
-
-    Returns:
-        tuple: (is_valid, error_message)
-    """
-    try:
-        schema = load_schema(schema_path)
-        jsonschema.validate(instance=data, schema=schema)
-        return True, None
-    except jsonschema.ValidationError as e:
-        return False, str(e)
-    except Exception as e:
-        return False, f"Schema loading error: {str(e)}"
-
-
-def validate_pcp_trees(data, schema_path=None):
-    """
-    Validate PCP trees data against JSON schema.
-
-    Args:
-        data: The trees data to validate (list of tree records)
-        schema_path: Optional path to schema file.
-
-    Returns:
-        tuple: (is_valid, error_message)
-    """
-    try:
-        schema = load_schema(schema_path)
-        jsonschema.validate(instance=data, schema=schema)
-        return True, None
-    except jsonschema.ValidationError as e:
-        return False, str(e)
-    except Exception as e:
-        return False, f"Schema loading error: {str(e)}"
+# PCP validation removed - output is validated against AIRR schemas since PCP is converted to AIRR format
 
 
 def parse_pcp_csv(csv_path):

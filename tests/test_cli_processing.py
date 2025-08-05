@@ -109,6 +109,7 @@ class TestOlmstedCLI:
             str(output_dir),
             "--seed",
             "42",
+            "--validate",
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -139,6 +140,7 @@ class TestOlmstedCLI:
             str(output_dir),
             "--seed",
             "42",
+            "--validate",
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)

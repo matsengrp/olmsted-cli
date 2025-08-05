@@ -51,11 +51,10 @@ olmsted = "olmsted_cli.cli:main"
 "Source" = "https://github.com/matsengrp/olmsted-cli"
 
 [tool.setuptools]
-packages = ["olmsted_cli", "olmsted_cli.schemas"]
+packages = ["olmsted_cli"]
 include-package-data = true
 
 [tool.setuptools.package-data]
-"olmsted_cli.schemas" = ["*.yaml", "*.yml", "*.json"]
 "olmsted_cli" = ["*.py"]
 
 # Ruff configuration

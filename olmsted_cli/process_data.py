@@ -412,6 +412,11 @@ Examples:
         "--schema-dir",
         help="Path to directory containing schema files (defaults to ../data_schema)",
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        help="Random seed for deterministic UUID generation",
+    )
 
     # AIRR-specific options
     parser.add_argument(
@@ -425,19 +430,6 @@ Examples:
         "--root-trees",
         action="store_true",
         help="Root trees using naive node (AIRR only)",
-    )
-    parser.add_argument(
-        "-c",
-        "--remove-invalid-clones",
-        action="store_true",
-        help="Remove invalid clones and continue processing (AIRR only)",
-    )
-
-    # PCP-specific options
-    parser.add_argument(
-        "--seed",
-        type=int,
-        help="Random seed for deterministic UUID generation (PCP only, useful for testing)",
     )
 
     return parser.parse_args()
