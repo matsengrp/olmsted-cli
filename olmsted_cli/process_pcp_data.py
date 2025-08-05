@@ -119,6 +119,7 @@ def parse_pcp_csv(csv_path):
 
         for row in reader:
             sample_id = row["sample_id"]
+            family_id = row.get("family", sample_id)  # Use family if available, fallback to sample_id
             parent = row["parent_name"]
             child = row["child_name"]
 
@@ -180,8 +181,9 @@ def parse_pcp_csv(csv_path):
                 else 0
             )
 
-            # Store family-level data (will be same for all rows of same family)
-            families[sample_id]["family_data"] = {
+            # Store family-level data and sample_id for each family (will be same for all rows of same family)
+            families[family_id]["family_data"] = {
+                "sample_id": sample_id,  # Store original sample_id for reference
                 "v_gene": v_gene,
                 "j_gene": j_gene,
                 "cdr1_start": cdr1_start,
@@ -193,8 +195,8 @@ def parse_pcp_csv(csv_path):
             }
 
             # Add parent node if not already present
-            if parent not in families[sample_id]["nodes"]:
-                families[sample_id]["nodes"][parent] = {
+            if parent not in families[family_id]["nodes"]:
+                families[family_id]["nodes"][parent] = {
                     "sequence_id": parent,
                     "multiplicity": 0,
                     "timepoint_multiplicities": [],
@@ -202,11 +204,13 @@ def parse_pcp_csv(csv_path):
                     "is_naive": parent_is_naive,
                     "is_leaf": False,
                     "distances": [],  # Track distances for mutation frequency calculation
+                    "distance": 0.0,  # Root node has zero distance
+                    "length": 0.0,    # Root node has zero length
                 }
 
             # Add child node if not already present
-            if child not in families[sample_id]["nodes"]:
-                families[sample_id]["nodes"][child] = {
+            if child not in families[family_id]["nodes"]:
+                families[family_id]["nodes"][child] = {
                     "sequence_id": child,
                     "multiplicity": sample_count,
                     "timepoint_multiplicities": [],
@@ -214,16 +218,23 @@ def parse_pcp_csv(csv_path):
                     "is_naive": False,
                     "is_leaf": child_is_leaf,
                     "distances": [distance] if distance > 0 else [],
+                    "distance": distance,      # Distance from root
+                    "length": branch_length,   # Branch length to this node
                 }
             else:
                 # Update multiplicity if node appears multiple times
-                families[sample_id]["nodes"][child]["multiplicity"] += sample_count
+                families[family_id]["nodes"][child]["multiplicity"] += sample_count
                 # Add distance data
                 if distance > 0:
-                    families[sample_id]["nodes"][child]["distances"].append(distance)
+                    families[family_id]["nodes"][child]["distances"].append(distance)
+                # Update distance and length if this edge provides better data
+                if distance > 0:
+                    families[family_id]["nodes"][child]["distance"] = distance
+                if branch_length > 0:
+                    families[family_id]["nodes"][child]["length"] = branch_length
 
             # Add edge
-            families[sample_id]["edges"].append((parent, child, edge_length))
+            families[family_id]["edges"].append((parent, child, edge_length))
 
     return dict(families)
 
@@ -452,13 +463,17 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None)
         clone_ident = uuid_generator()
         tree_ident = uuid_generator()
 
+        # Get sample_id from family data
+        family_meta = family_data.get("family_data", {})
+        original_sample_id = family_meta.get("sample_id", family_id)
+        
         # Create sample if not already present
-        sample_exists = any(s["sample_id"] == family_id for s in dataset["samples"])
+        sample_exists = any(s["sample_id"] == original_sample_id for s in dataset["samples"])
         if not sample_exists:
             dataset["samples"].append(
                 {
                     "ident": uuid_generator(),
-                    "sample_id": family_id,
+                    "sample_id": original_sample_id,
                     "locus": "igh",  # Default locus
                     "timepoint_id": "merged",
                 }
@@ -496,14 +511,15 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None)
                 ),
                 "type": node_type,
                 "parent": None,  # Will be set later based on tree structure
+                "distance": node_data.get("distance", 0.0),  # Distance from root
+                "length": node_data.get("length", 0.0),      # Branch length
                 "lbi": None,
                 "lbr": None,
                 "affinity": None,
             }
             processed_nodes[node_id] = processed_node
 
-        # Extract family-level immunological data
-        family_meta = family_data.get("family_data", {})
+        # Extract family-level immunological data (already extracted above)
         v_call = family_meta.get("v_gene", "")
         j_call = family_meta.get("j_gene", "")
 
@@ -548,7 +564,7 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None)
             "clone_id": f"family-{family_idx}",
             "ident": clone_ident,
             "dataset_id": dataset_id,
-            "sample_id": family_id,
+            "sample_id": original_sample_id,
             "subject_id": "pcp-subject",
             "unique_seqs_count": len(processed_nodes),
             "total_read_count": sum(
@@ -568,12 +584,18 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None)
             "d_alignment_end": 0,
             "germline_alignment": germline_alignment,
             "has_seed": False,
-            "trees": [{"ident": tree_ident}],
+            "trees": [{
+                "ident": tree_ident,
+                "clone_id": f"family-{family_idx}",
+                "tree_id": f"pcp-tree-{family_idx}",
+                "newick": newick,
+                "type": "pcp.reconstruction"  # PCP-specific type
+            }],
             # Add nested sample and dataset objects for webapp compatibility
             "sample": {
                 "ident": clone_ident,
                 "locus": "igh",
-                "sample_id": family_id,
+                "sample_id": original_sample_id,
                 "timepoint_id": "merged",
             },
             "dataset": {"ident": dataset_ident, "dataset_id": dataset_id},
@@ -589,9 +611,10 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None)
         tree = {
             "ident": tree_ident,
             "tree_id": f"pcp-tree-{family_idx}",
-            "clone_id": clone["clone_id"],
+            "clone_id": f"family-{family_idx}",
             "newick": newick,
             "nodes": nodes_array,
+            "type": "pcp.reconstruction",  # PCP-specific reconstruction type
         }
         trees.append(tree)
 
