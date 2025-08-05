@@ -17,10 +17,10 @@ def main():
 Examples:
   # Auto-detect format and process
   olmsted process -i data.json -o output/
-  
+
   # Process AIRR format data explicitly
   olmsted process -f airr -i data.json -o output/
-  
+
   # Process PCP format data explicitly
   olmsted process -f pcp -i data.csv -o output/
         """,
@@ -29,7 +29,7 @@ Examples:
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # Process command (unified)
-    process_parser = subparsers.add_parser(
+    subparsers.add_parser(
         "process", help="Process data with automatic format detection"
     )
     # Don't define arguments here - let the underlying script handle them

@@ -161,11 +161,11 @@ def load_official_airr_schema():
                 .open("r")
             ) as f:
                 return yaml.safe_load(f)
-        except:
+        except (AttributeError, FileNotFoundError):
             # Python < 3.9 compatibility
             with resources.open_text("olmsted_cli.schemas", "airr-schema.yaml") as f:
                 return yaml.safe_load(f)
-    except:
+    except (ImportError, FileNotFoundError, AttributeError):
         # Fallback to file system path (for development)
         try:
             script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -304,7 +304,7 @@ def get_schema_path(schema_name, args):
                     .joinpath(schema_name)
                     .read_text()
                 )
-            except:
+            except (AttributeError, FileNotFoundError):
                 # Python < 3.9 compatibility
                 content = resources.read_text("olmsted_cli.schemas", schema_name)
 
@@ -314,7 +314,7 @@ def get_schema_path(schema_name, args):
             ) as f:
                 f.write(content)
                 return f.name
-        except:
+        except (ImportError, FileNotFoundError, AttributeError):
             # Fallback to file system path (for development)
             script_dir = os.path.dirname(os.path.abspath(__file__))
             return os.path.join(script_dir, "..", "data_schema", schema_name)
@@ -340,26 +340,6 @@ def validate_airr_main(data, schema_path=None):
     except Exception as e:
         return False, f"Schema loading error: {str(e)}"
 
-
-def validate_airr_tree(tree_data, schema_path=None):
-    """
-    Validate AIRR tree data against JSON schema.
-
-    Args:
-        tree_data: The tree data to validate
-        schema_path: Optional path to schema file. If not provided, uses default location.
-
-    Returns:
-        tuple: (is_valid, error_message)
-    """
-    try:
-        schema = load_schema(schema_path)
-        jsonschema.validate(instance=tree_data, schema=schema)
-        return True, None
-    except jsonschema.ValidationError as e:
-        return False, str(e)
-    except Exception as e:
-        return False, f"Schema loading error: {str(e)}"
 
 
 # Schema specifications

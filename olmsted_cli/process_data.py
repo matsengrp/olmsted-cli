@@ -81,7 +81,7 @@ def detect_file_format(file_path):
                     # Try to parse as JSON
                     json.loads(first_content)
                     return "airr"
-                except:
+                except (json.JSONDecodeError, ValueError):
                     pass
 
             # Check if it looks like CSV with PCP headers
@@ -359,14 +359,14 @@ Examples:
     # Auto-detect format and process
     python process_data.py -i data.json -o output/
     python process_data.py -i data.csv -o output/
-    
+
     # Force specific format
     python process_data.py -i data.json -o output/ -f airr
     python process_data.py -i data.csv -o output/ -f pcp
-    
+
     # PCP with separate trees file
     python process_data.py -i data.csv trees.csv -o output/ -f pcp
-    
+
     # With validation
     python process_data.py -i data.json -o output/ --validate --strict-validation
         """,

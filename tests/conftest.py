@@ -50,7 +50,7 @@ def json_diff(obj1: Any, obj2: Any, path: str = "") -> List[str]:
     """Generate detailed differences between two JSON objects."""
     differences = []
 
-    if type(obj1) != type(obj2):
+    if type(obj1) is not type(obj2):
         differences.append(
             f"{path}: Type mismatch - {type(obj1).__name__} vs {type(obj2).__name__}"
         )

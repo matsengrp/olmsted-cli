@@ -25,8 +25,8 @@ def rename_keys(record, mapping, to_keep=[]):
         record[mapping[k]] = record.pop(k) if k not in to_keep else record[k]
 
 
-def remap_list(l, mapping):
-    for element in l:
+def remap_list(lst, mapping):
+    for element in lst:
         rename_keys(element, mapping)
 
 
