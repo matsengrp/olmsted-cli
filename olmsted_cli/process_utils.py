@@ -12,12 +12,6 @@ import os
 import jsonschema
 import yaml
 
-try:
-    from importlib import resources
-except ImportError:
-    # Python < 3.7
-    import importlib_resources as resources
-
 # Constants
 SCHEMA_VERSION = "2.0.0"
 

@@ -24,8 +24,6 @@ import sys
 import uuid
 from collections import defaultdict
 
-import jsonschema
-
 # Import shared utilities from process_data_utils
 from .process_utils import (
     SCHEMA_VERSION,

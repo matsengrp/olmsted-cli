@@ -65,7 +65,7 @@ def validate_output_data(datasets, clones_dict, trees, args):
         # Validate using official AIRR schema
         from .process_utils import load_official_airr_schema
         official_schema = load_official_airr_schema()
-        
+
         if official_schema is not None:
             # Validate each tree using official schema
             for i, tree in enumerate(trees):
