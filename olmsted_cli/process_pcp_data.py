@@ -466,7 +466,7 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None)
         # Get sample_id from family data
         family_meta = family_data.get("family_data", {})
         original_sample_id = family_meta.get("sample_id", family_id)
-        
+
         # Create sample if not already present
         sample_exists = any(s["sample_id"] == original_sample_id for s in dataset["samples"])
         if not sample_exists:
