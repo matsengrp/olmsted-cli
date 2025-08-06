@@ -4,11 +4,14 @@ import argparse
 import datetime
 import functools
 import json
+import jsonschema
+import ntpl
 import os
 import pprint
 import sys
 import traceback
 import uuid
+import yaml
 from collections import OrderedDict
 from functools import reduce
 
@@ -40,9 +43,6 @@ except ImportError:
     sys.modules["cgi"] = CGIModule()
 
 import ete3
-import jsonschema
-import ntpl
-import yaml
 
 # Import shared utilities from process_data_utils
 from .process_utils import (
