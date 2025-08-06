@@ -75,7 +75,9 @@ def parse_pcp_csv(csv_path):
 
         for row in reader:
             sample_id = row["sample_id"]
-            family_id = row.get("family", sample_id)  # Use family if available, fallback to sample_id
+            family_id = row.get(
+                "family", sample_id
+            )  # Use family if available, fallback to sample_id
             parent = row["parent_name"]
             child = row["child_name"]
 
@@ -161,7 +163,7 @@ def parse_pcp_csv(csv_path):
                     "is_leaf": False,
                     "distances": [],  # Track distances for mutation frequency calculation
                     "distance": 0.0,  # Root node has zero distance
-                    "length": 0.0,    # Root node has zero length
+                    "length": 0.0,  # Root node has zero length
                 }
 
             # Add child node if not already present
@@ -174,8 +176,8 @@ def parse_pcp_csv(csv_path):
                     "is_naive": False,
                     "is_leaf": child_is_leaf,
                     "distances": [distance] if distance > 0 else [],
-                    "distance": distance,      # Distance from root
-                    "length": branch_length,   # Branch length to this node
+                    "distance": distance,  # Distance from root
+                    "length": branch_length,  # Branch length to this node
                 }
             else:
                 # Update multiplicity if node appears multiple times
@@ -424,7 +426,9 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None)
         original_sample_id = family_meta.get("sample_id", family_id)
 
         # Create sample if not already present
-        sample_exists = any(s["sample_id"] == original_sample_id for s in dataset["samples"])
+        sample_exists = any(
+            s["sample_id"] == original_sample_id for s in dataset["samples"]
+        )
         if not sample_exists:
             dataset["samples"].append(
                 {
@@ -468,7 +472,7 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None)
                 "type": node_type,
                 "parent": None,  # Will be set from edges below
                 "distance": node_data.get("distance", 0.0),  # Distance from root
-                "length": node_data.get("length", 0.0),      # Branch length
+                "length": node_data.get("length", 0.0),  # Branch length
                 "lbi": None,
                 "lbr": None,
                 "affinity": None,
@@ -545,13 +549,15 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None)
             "d_alignment_end": 0,
             "germline_alignment": germline_alignment,
             "has_seed": False,
-            "trees": [{
-                "ident": tree_ident,
-                "clone_id": f"family-{family_idx}",
-                "tree_id": f"pcp-tree-{family_idx}",
-                "newick": newick,
-                "type": "pcp.reconstruction"  # PCP-specific type
-            }],
+            "trees": [
+                {
+                    "ident": tree_ident,
+                    "clone_id": f"family-{family_idx}",
+                    "tree_id": f"pcp-tree-{family_idx}",
+                    "newick": newick,
+                    "type": "pcp.reconstruction",  # PCP-specific type
+                }
+            ],
             # Add nested sample and dataset objects for webapp compatibility
             "sample": {
                 "ident": clone_ident,
@@ -644,7 +650,6 @@ def validate_airr_output(datasets, clones_dict, trees, args):
             print(
                 f"❌ AIRR tree validation: {tree_failures}/{tree_validation_count} failed"
             )
-
 
     except Exception as e:
         print(f"Validation error: {str(e)}")

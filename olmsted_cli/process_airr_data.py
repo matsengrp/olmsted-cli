@@ -20,22 +20,24 @@ except ImportError:
     import html
     import sys
 
-
     class CGIModule:
         """Mock cgi module for Python 3.13+ compatibility."""
+
         escape = html.escape
 
         # Add other cgi functions that might be needed by ete3
         def parse_qs(self, *args, **kwargs):
             from urllib.parse import parse_qs
+
             return parse_qs(*args, **kwargs)
 
         def parse_qsl(self, *args, **kwargs):
             from urllib.parse import parse_qsl
+
             return parse_qsl(*args, **kwargs)
 
     # Make cgi available as a module
-    sys.modules['cgi'] = CGIModule()
+    sys.modules["cgi"] = CGIModule()
 
 import ete3
 import jsonschema
@@ -89,6 +91,7 @@ def validate_output_data(datasets, clones_dict, trees, args):
 
         # Validate using official AIRR schema
         from .process_utils import load_official_airr_schema
+
         official_schema = load_official_airr_schema()
 
         if official_schema is not None:

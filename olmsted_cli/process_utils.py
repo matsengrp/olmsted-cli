@@ -12,8 +12,6 @@ import os
 import jsonschema
 import yaml
 
-# Python 3.13+ compatibility layer available as compat module if needed
-
 # Constants
 SCHEMA_VERSION = "2.0.0"
 
@@ -268,9 +266,6 @@ def validate_airr_node(node_data, schema=None):
         tuple: (is_valid, error_message)
     """
     return validate_against_airr_schema(node_data, "Node", schema)
-
-
-
 
 
 # Schema specifications
