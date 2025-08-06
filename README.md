@@ -7,7 +7,15 @@ packaged as a standalone CLI tool for processing AIRR and PCP format immunologic
 
 ## Installation
 
-### From source
+### Recommended (pipx)
+
+Install using [pipx](https://pipx.pypa.io/) for isolated environment:
+
+```bash
+pipx install olmsted-cli
+```
+
+### For development
 
 ```bash
 git clone https://github.com/matsengrp/olmsted-cli.git
@@ -35,4 +43,4 @@ olmsted process -i data.csv -o output/ -f pcp
 ## Requirements
 
 - Python 3.8+
-- See `requirements.txt` for package dependencies
+- Dependencies are automatically installed during installation
