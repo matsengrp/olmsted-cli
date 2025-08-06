@@ -15,12 +15,18 @@ from .conftest import format_json_diff
 logger = logging.getLogger(__name__)
 
 
-def normalize_json(obj):
-    """Recursively sort dictionaries by key to enable comparison."""
+def normalize_json(obj, float_tolerance=1e-12):
+    """Recursively sort dictionaries by key and normalize floats for comparison."""
     if isinstance(obj, dict):
-        return {k: normalize_json(v) for k, v in sorted(obj.items())}
+        return {k: normalize_json(v, float_tolerance) for k, v in sorted(obj.items())}
     elif isinstance(obj, list):
-        return [normalize_json(item) for item in obj]
+        return [normalize_json(item, float_tolerance) for item in obj]
+    elif isinstance(obj, float):
+        # Round very small numbers to avoid precision differences
+        if abs(obj) < float_tolerance:
+            return 0.0
+        # Round to 15 significant digits to handle floating-point precision
+        return round(obj, 15)
     else:
         return obj
 

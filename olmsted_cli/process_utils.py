@@ -12,6 +12,13 @@ import os
 import jsonschema
 import yaml
 
+# Import compatibility layer for Python 3.13+ support
+try:
+    from . import compat
+except ImportError:
+    # Fallback if compat module not available
+    pass
+
 # Constants
 SCHEMA_VERSION = "2.0.0"
 

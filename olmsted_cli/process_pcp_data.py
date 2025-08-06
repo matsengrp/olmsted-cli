@@ -474,7 +474,7 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None)
                 "affinity": None,
             }
             processed_nodes[node_id] = processed_node
-        
+
         # Set parent field based on edges
         for parent_id, child_id, edge_length in family_data["edges"]:
             if child_id in processed_nodes:
