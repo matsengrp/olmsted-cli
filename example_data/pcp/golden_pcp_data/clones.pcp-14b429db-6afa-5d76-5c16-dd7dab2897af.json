@@ -59,7 +59,7 @@
         "j_call": "IGHJ4*02",
         "junction_length": 39,
         "junction_start": 288,
-        "mean_mut_freq": 12879.758739682535,
+        "mean_mut_freq": 12879.758739682538,
         "sample": {
             "ident": "7a034993-32cb-586f-c23b-ac88bfe296f8",
             "locus": "igh",
@@ -101,7 +101,7 @@
         "j_call": "IGHJ4*02",
         "junction_length": 36,
         "junction_start": 291,
-        "mean_mut_freq": 36285.32206551725,
+        "mean_mut_freq": 36285.322065517226,
         "sample": {
             "ident": "bfdd83da-8e95-1048-1ec0-fc750e65bc19",
             "locus": "igh",
@@ -227,7 +227,7 @@
         "j_call": "IGHJ3*02",
         "junction_length": 51,
         "junction_start": 288,
-        "mean_mut_freq": 47464.63949459459,
+        "mean_mut_freq": 47464.639494594594,
         "sample": {
             "ident": "e1d3a8ff-b4f1-0ab0-8d02-82857d1389c0",
             "locus": "igh",
@@ -311,7 +311,7 @@
         "j_call": "IGHJ4*02",
         "junction_length": 48,
         "junction_start": 285,
-        "mean_mut_freq": 74289.47994473681,
+        "mean_mut_freq": 74289.47994473683,
         "sample": {
             "ident": "649adb59-d0c9-dfa7-81a5-9d756e4ee282",
             "locus": "igh",

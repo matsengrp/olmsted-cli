@@ -12,6 +12,31 @@ import uuid
 from collections import OrderedDict
 from functools import reduce
 
+# Python 3.13+ compatibility: make cgi module available before ete3 import
+try:
+    import cgi  # noqa: F401
+except ImportError:
+    # Create a mock cgi module using our compatibility layer
+    import html
+    import sys
+
+
+    class CGIModule:
+        """Mock cgi module for Python 3.13+ compatibility."""
+        escape = html.escape
+
+        # Add other cgi functions that might be needed by ete3
+        def parse_qs(self, *args, **kwargs):
+            from urllib.parse import parse_qs
+            return parse_qs(*args, **kwargs)
+
+        def parse_qsl(self, *args, **kwargs):
+            from urllib.parse import parse_qsl
+            return parse_qsl(*args, **kwargs)
+
+    # Make cgi available as a module
+    sys.modules['cgi'] = CGIModule()
+
 import ete3
 import jsonschema
 import ntpl
