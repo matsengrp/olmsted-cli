@@ -19,17 +19,16 @@ import argparse
 import csv
 import gzip
 import json
-import jsonschema
 import os
 import sys
 import traceback
 import uuid
 from pathlib import Path
 
-# Import processing functions from existing scripts
+import jsonschema
+
 from .process_airr_data import (
     clone_spec,
-    olmsted_dataset_schema,
     process_dataset,
 )
 from .process_pcp_data import (

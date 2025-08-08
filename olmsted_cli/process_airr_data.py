@@ -4,16 +4,16 @@ import argparse
 import functools
 import html
 import json
-import jsonschema
-import ntpl
 import pprint
 import sys
 import traceback
 import uuid
-import yaml
 from collections import OrderedDict
-from functools import reduce
 from urllib.parse import parse_qs, parse_qsl
+
+import jsonschema
+import ntpl
+import yaml
 
 # Python 3.13+ compatibility: make cgi module available before ete3 import
 try:
@@ -38,24 +38,19 @@ except ImportError:
 
 import ete3
 
-# Import shared utilities from process_data_utils
 from .process_utils import (
     SCHEMA_VERSION,
     dict_subset,
     is_nullable_string,
     merge,
+    validate_dataset,
     validate_output_data,
     write_out,
 )
-
-# Import all schemas from centralized module
 from .schemas import (
     clone_spec,
     dataset_spec,
 )
-
-# Import validation functions
-from .process_utils import validate_dataset
 
 # OK; Here's what we're going to do.
 # We want constructors which describe the space of attrs we're talking about here.
@@ -176,21 +171,21 @@ def process_dataset(args, dataset, clones_dict, trees):
     clones = list(
         map(functools.partial(process_clone, args, dataset), dataset["clones"])
     )
-    
+
     # Process trees for each clone and set clone_id
     for cf in clones:
         # Add repertoire_id field (using sample_id)
         cf["repertoire_id"] = cf["sample_id"]
-        
+
         # Process each tree and set clone_id
         processed_trees = []
         for tree in cf["trees"]:
             processed_tree = process_tree(args, cf["clone_id"], tree)
             processed_trees.append(processed_tree)
-        
+
         # Add processed trees to the main trees list
         trees.extend(processed_trees)
-        
+
         # Keep tree references in clones but remove nodes for size
         cf["trees"] = [
             dict_subset(tree, set(tree.keys()) - {"nodes"}) for tree in processed_trees
@@ -423,7 +418,9 @@ def main():
     if args.validate:
         if not validate_output_data(datasets, clones_dict, trees, args):
             if args.strict_validation:
-                print("\nExiting due to validation errors (--strict-validation enabled)")
+                print(
+                    "\nExiting due to validation errors (--strict-validation enabled)"
+                )
                 sys.exit(1)
 
     # write out data

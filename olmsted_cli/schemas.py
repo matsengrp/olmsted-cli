@@ -222,8 +222,8 @@ tree_spec = {
                 {
                     "type": "object",
                     "additionalProperties": node_spec,
-                }
-            ]
+                },
+            ],
         },
     },
     "additionalProperties": True,
@@ -422,38 +422,38 @@ clone_spec = {
                 "properties": {
                     "gene": {"type": "string"},
                     "ident": {"type": "string"},
-                    "prob": {"type": "number"}
+                    "prob": {"type": "number"},
                 },
                 "required": ["gene", "ident", "prob"],
-                "additionalProperties": False
+                "additionalProperties": False,
             },
         },
         "j_per_gene_support": {
             "description": "J gene assignment probabilities",
             "type": ["array", "null"],
             "items": {
-                "type": "object", 
+                "type": "object",
                 "properties": {
                     "gene": {"type": "string"},
                     "ident": {"type": "string"},
-                    "prob": {"type": "number"}
+                    "prob": {"type": "number"},
                 },
                 "required": ["gene", "ident", "prob"],
-                "additionalProperties": False
+                "additionalProperties": False,
             },
         },
         "d_per_gene_support": {
             "description": "D gene assignment probabilities",
             "type": ["array", "null"],
             "items": {
-                "type": "object", 
+                "type": "object",
                 "properties": {
                     "gene": {"type": "string"},
                     "ident": {"type": "string"},
-                    "prob": {"type": "number"}
+                    "prob": {"type": "number"},
                 },
                 "required": ["gene", "ident", "prob"],
-                "additionalProperties": False
+                "additionalProperties": False,
             },
         },
     },
@@ -645,6 +645,7 @@ dataset_spec = {
     "additionalProperties": True,
 }
 
+
 # Helper functions for AIRR-specific schema generation
 def id_spec(description="Identifier"):
     """Create an ID specification with custom description."""
@@ -653,6 +654,7 @@ def id_spec(description="Identifier"):
         "type": "string",
     }
 
+
 def sequence_spec(description):
     """Create a sequence specification with custom description."""
     return {
@@ -660,13 +662,16 @@ def sequence_spec(description):
         "type": "string",
     }
 
+
 def multiplicity_spec(description=None):
     """Create a multiplicity specification for AIRR fields."""
     return {
-        "description": description or "Number of times sequence was observed in the sample. The presence of a given sequence in a clonal family may represent many identical such sequences in the original sample.",
+        "description": description
+        or "Number of times sequence was observed in the sample. The presence of a given sequence in a clonal family may represent many identical such sequences in the original sample.",
         "type": ["integer", "null"],
         "minimum": 0,
     }
+
 
 # AIRR-specific schemas
 ident_spec = {

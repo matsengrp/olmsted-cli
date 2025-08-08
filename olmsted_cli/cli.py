@@ -3,11 +3,8 @@
 
 import argparse
 import sys
-from pathlib import Path
 
-# Import modules that will be used by the command functions
-from olmsted_cli import process_data
-from olmsted_cli import validate
+from olmsted_cli import process_data, validate
 
 
 def main():

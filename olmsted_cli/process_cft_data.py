@@ -6,11 +6,12 @@ import argparse
 import copy
 import functools as fun
 import html
-import inflect
 import os
 import sys
 import warnings
 from urllib.parse import parse_qs, parse_qsl
+
+import inflect
 
 # Python 3.13+ compatibility: make cgi module available before ete3 import
 try:
@@ -43,16 +44,16 @@ from .process_utils import (
     comp,
     dict_subset,
     inf,
-    neginf,
-    nospy,
-    write_out,
-    # Additional utilities consolidated from CFT
-    rename_keys,
-    remap_list,
-    remap_dict_values,
-    try_del,
     listof,
     listofint,
+    neginf,
+    nospy,
+    remap_dict_values,
+    remap_list,
+    # Additional utilities consolidated from CFT
+    rename_keys,
+    try_del,
+    write_out,
 )
 
 default_schema_path = os.path.join(os.path.dirname(__file__), "..", "cft_schema.json")
@@ -137,6 +138,7 @@ def get_args():
     parser.add_argument("-n", "--inferred-naive-name", default="inferred_naive")
     parser.add_argument("-v", "--verbose", action="store_true")
     return parser.parse_args()
+
 
 ple = inflect.engine()
 

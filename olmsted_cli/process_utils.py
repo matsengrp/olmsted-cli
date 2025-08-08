@@ -8,18 +8,18 @@ process_airr_data.py, process_pcp_data.py, and other data processors.
 
 import csv
 import json
-import jsonschema
 import os
 import uuid
+
+import jsonschema
 import yaml
 
-# Import unified schema definitions
 from .schemas import clone_spec, dataset_spec, tree_spec
-
 
 # Constants for infinity handling
 inf = float("inf")
 neginf = float("-inf")
+
 
 # General utility functions
 def comp(f, g):
@@ -196,6 +196,7 @@ def translate_dna_to_aa(dna_sequence):
 
 # Additional utility functions consolidated from process_cft_data.py
 
+
 def rename_keys(record, mapping, to_keep=None):
     """
     Rename keys in a record based on a mapping dictionary.
@@ -291,7 +292,7 @@ def write_out(data, dirname, filename, args):
 
     with open(full_path, "w") as fh:
         # Check if CSV output is requested (for CFT data)
-        if hasattr(args, 'csv') and args.csv and isinstance(data, list):
+        if hasattr(args, "csv") and args.csv and isinstance(data, list):
             # Write as CSV
             if data:
                 # Ensure all items are dictionaries
@@ -485,7 +486,7 @@ def validate_output_data(datasets, clones_dict, trees, args):
     Returns:
         bool: True if all validation passes, False otherwise
     """
-    if not hasattr(args, 'validate') or not args.validate:
+    if not hasattr(args, "validate") or not args.validate:
         return True
 
     print("\nValidating output data against schemas...")
@@ -496,14 +497,14 @@ def validate_output_data(datasets, clones_dict, trees, args):
     try:
         # Validate datasets
         for i, dataset in enumerate(datasets):
-            errors = validate_dataset(dataset, verbose=getattr(args, 'verbose', False))
+            errors = validate_dataset(dataset, verbose=getattr(args, "verbose", False))
             if errors:
                 print(f"❌ Dataset {i} validation failed:")
                 for error in errors:
                     print(f"  - {error}")
                 validation_passed = False
                 total_errors += len(errors)
-            elif getattr(args, 'verbose', False):
+            elif getattr(args, "verbose", False):
                 print(f"✓ Dataset {i} validation passed")
 
         # Validate clones
@@ -512,11 +513,13 @@ def validate_output_data(datasets, clones_dict, trees, args):
         for dataset_id, clones in clones_dict.items():
             for clone in clones:
                 clone_count += 1
-                errors = validate_clone(clone, verbose=getattr(args, 'verbose', False))
+                errors = validate_clone(clone, verbose=getattr(args, "verbose", False))
                 if errors:
                     clone_failures += 1
-                    if getattr(args, 'verbose', False):
-                        print(f"❌ Clone {clone.get('clone_id', 'unknown')} validation failed:")
+                    if getattr(args, "verbose", False):
+                        print(
+                            f"❌ Clone {clone.get('clone_id', 'unknown')} validation failed:"
+                        )
                         for error in errors:
                             print(f"  - {error}")
                     validation_passed = False
@@ -532,10 +535,10 @@ def validate_output_data(datasets, clones_dict, trees, args):
         tree_failures = 0
         for tree in trees:
             tree_count += 1
-            errors = validate_tree(tree, verbose=getattr(args, 'verbose', False))
+            errors = validate_tree(tree, verbose=getattr(args, "verbose", False))
             if errors:
                 tree_failures += 1
-                if getattr(args, 'verbose', False):
+                if getattr(args, "verbose", False):
                     print(f"❌ Tree {tree.get('ident', 'unknown')} validation failed:")
                     for error in errors:
                         print(f"  - {error}")
@@ -577,8 +580,14 @@ def validate_dataset(data, verbose=False):
         if not validator.is_valid(data):
             if verbose:
                 for error in validator.iter_errors(data):
-                    error_path = " -> ".join(str(p) for p in error.path) if error.path else "root"
-                    errors.append(f"Dataset schema error at {error_path}: {error.message}")
+                    error_path = (
+                        " -> ".join(str(p) for p in error.path)
+                        if error.path
+                        else "root"
+                    )
+                    errors.append(
+                        f"Dataset schema error at {error_path}: {error.message}"
+                    )
             else:
                 errors.append("Dataset does not conform to schema (use -v for details)")
     except Exception as e:
@@ -609,8 +618,12 @@ def validate_clone(data, verbose=False):
         validator = jsonschema.Draft4Validator(clone_spec)
         if not validator.is_valid(data):
             for error in validator.iter_errors(data):
-                error_path = " -> ".join(str(p) for p in error.path) if error.path else "root"
-                olmsted_errors.append(f"Clone schema error at {error_path}: {error.message}")
+                error_path = (
+                    " -> ".join(str(p) for p in error.path) if error.path else "root"
+                )
+                olmsted_errors.append(
+                    f"Clone schema error at {error_path}: {error.message}"
+                )
     except Exception as e:
         olmsted_errors.append(f"Clone validation error: {e}")
 
@@ -620,7 +633,9 @@ def validate_clone(data, verbose=False):
             errors.append(f"AIRR validation: {airr_error}")
             errors.extend(olmsted_errors)
         else:
-            errors.append("Clone does not conform to AIRR or Olmsted schema (use -v for details)")
+            errors.append(
+                "Clone does not conform to AIRR or Olmsted schema (use -v for details)"
+            )
     elif olmsted_errors:
         # Only Olmsted validation failed
         errors.extend(olmsted_errors)
@@ -651,8 +666,12 @@ def validate_tree(data, verbose=False):
         validator = jsonschema.Draft4Validator(tree_spec)
         if not validator.is_valid(data):
             for error in validator.iter_errors(data):
-                error_path = " -> ".join(str(p) for p in error.path) if error.path else "root"
-                olmsted_errors.append(f"Tree schema error at {error_path}: {error.message}")
+                error_path = (
+                    " -> ".join(str(p) for p in error.path) if error.path else "root"
+                )
+                olmsted_errors.append(
+                    f"Tree schema error at {error_path}: {error.message}"
+                )
     except Exception as e:
         olmsted_errors.append(f"Tree validation error: {e}")
 
@@ -662,7 +681,9 @@ def validate_tree(data, verbose=False):
             errors.append(f"AIRR validation: {airr_error}")
             errors.extend(olmsted_errors)
         else:
-            errors.append("Tree does not conform to AIRR or Olmsted schema (use -v for details)")
+            errors.append(
+                "Tree does not conform to AIRR or Olmsted schema (use -v for details)"
+            )
     elif olmsted_errors:
         # Only Olmsted validation failed
         errors.extend(olmsted_errors)

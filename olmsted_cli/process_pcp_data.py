@@ -33,6 +33,7 @@ from .process_utils import (
     write_out,
 )
 
+
 def parse_pcp_csv(csv_path):
     """
     Parse PCP CSV file and return a dict of families with rich immunological data.
