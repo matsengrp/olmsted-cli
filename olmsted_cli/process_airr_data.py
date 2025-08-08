@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 
 import argparse
-import datetime
 import functools
+import html
 import json
 import jsonschema
 import ntpl
-import os
 import pprint
 import sys
 import traceback
@@ -14,14 +13,13 @@ import uuid
 import yaml
 from collections import OrderedDict
 from functools import reduce
+from urllib.parse import parse_qs, parse_qsl
 
 # Python 3.13+ compatibility: make cgi module available before ete3 import
 try:
     import cgi  # noqa: F401
 except ImportError:
     # Create a mock cgi module using our compatibility layer
-    import html
-    import sys
 
     class CGIModule:
         """Mock cgi module for Python 3.13+ compatibility."""
@@ -30,13 +28,9 @@ except ImportError:
 
         # Add other cgi functions that might be needed by ete3
         def parse_qs(self, *args, **kwargs):
-            from urllib.parse import parse_qs
-
             return parse_qs(*args, **kwargs)
 
         def parse_qsl(self, *args, **kwargs):
-            from urllib.parse import parse_qsl
-
             return parse_qsl(*args, **kwargs)
 
     # Make cgi available as a module
@@ -50,6 +44,7 @@ from .process_utils import (
     dict_subset,
     is_nullable_string,
     merge,
+    validate_output_data,
     write_out,
 )
 
@@ -59,8 +54,8 @@ from .schemas import (
     dataset_spec,
 )
 
-
-# Pulling datasets information out
+# Import validation functions
+from .process_utils import validate_dataset
 
 # OK; Here's what we're going to do.
 # We want constructors which describe the space of attrs we're talking about here.
@@ -83,9 +78,6 @@ try:
 except FileNotFoundError:
     # AIRR schema file not found - skip AIRR validation
     pass
-
-
-# Validation function removed - now using unified validation from validate_command.py
 
 
 def ensure_ident(record):
@@ -184,10 +176,24 @@ def process_dataset(args, dataset, clones_dict, trees):
     clones = list(
         map(functools.partial(process_clone, args, dataset), dataset["clones"])
     )
-    trees += reduce(lambda agg_trees, cf: agg_trees + cf["trees"], clones, [])
+    
+    # Process trees for each clone and set clone_id
     for cf in clones:
+        # Add repertoire_id field (using sample_id)
+        cf["repertoire_id"] = cf["sample_id"]
+        
+        # Process each tree and set clone_id
+        processed_trees = []
+        for tree in cf["trees"]:
+            processed_tree = process_tree(args, cf["clone_id"], tree)
+            processed_trees.append(processed_tree)
+        
+        # Add processed trees to the main trees list
+        trees.extend(processed_trees)
+        
+        # Keep tree references in clones but remove nodes for size
         cf["trees"] = [
-            dict_subset(tree, set(tree.keys()) - {"nodes"}) for tree in cf["trees"]
+            dict_subset(tree, set(tree.keys()) - {"nodes"}) for tree in processed_trees
         ]
     clones_dict[dataset["dataset_id"]] = clones
     del dataset["clones"]
@@ -372,8 +378,7 @@ def main():
                             dataset["clones"],
                         )
                     )
-                # Use unified validation from validate_command
-                from .validate_command import validate_dataset
+                # Use unified validation from validate module
                 errors = validate_dataset(dataset, verbose=args.verbose)
                 if errors:
                     error_msg = "Dataset validation failed"
@@ -416,8 +421,6 @@ def main():
             )
     # Validate data before writing if requested
     if args.validate:
-        from .process_utils import validate_output_data
-
         if not validate_output_data(datasets, clones_dict, trees, args):
             if args.strict_validation:
                 print("\nExiting due to validation errors (--strict-validation enabled)")

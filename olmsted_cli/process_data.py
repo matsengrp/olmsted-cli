@@ -19,6 +19,7 @@ import argparse
 import csv
 import gzip
 import json
+import jsonschema
 import os
 import sys
 import traceback
@@ -26,12 +27,18 @@ import uuid
 from pathlib import Path
 
 # Import processing functions from existing scripts
+from .process_airr_data import (
+    clone_spec,
+    olmsted_dataset_schema,
+    process_dataset,
+)
 from .process_pcp_data import (
+    deterministic_uuid,
     parse_newick_csv,
     parse_pcp_csv,
     process_pcp_to_olmsted,
 )
-from .process_utils import write_out
+from .process_utils import validate_dataset, validate_output_data, write_out
 
 
 def detect_file_format(file_path):
@@ -199,12 +206,6 @@ def process_airr_format(args):
     airr_args.root_trees = getattr(args, "root_trees", False)
 
     # Process using AIRR logic (adapted from process_airr_data.py)
-    from .process_airr_data import (
-        olmsted_dataset_schema,
-        process_dataset,
-    )
-    from .process_utils import validate_output_data
-
     datasets, clones_dict, trees = [], {}, []
 
     for infile in airr_args.inputs or []:
@@ -213,18 +214,13 @@ def process_airr_format(args):
             with open(infile, "r") as fh:
                 dataset = json.load(fh)
                 if airr_args.remove_invalid_clones:
-                    import jsonschema
-
-                    from .process_airr_data import clone_spec
-
                     dataset["clones"] = list(
                         filter(
                             jsonschema.Draft4Validator(clone_spec).is_valid,
                             dataset["clones"],
                         )
                     )
-                # Use unified validation from validate_command
-                from .validate_command import validate_dataset
+                # Use unified validation from validate module
                 errors = validate_dataset(dataset, verbose=airr_args.verbose)
                 if errors:
                     error_msg = "Dataset validation failed"
@@ -290,8 +286,6 @@ def process_pcp_format(args):
         nonlocal uuid_counter
         if hasattr(args, "seed") and args.seed is not None:
             uuid_counter += 1
-            from .process_pcp_data import deterministic_uuid
-
             return deterministic_uuid(args.seed, uuid_counter)
         else:
             return str(uuid.uuid4())
@@ -326,8 +320,6 @@ def process_pcp_format(args):
 
         # Validate data if requested
         if args.validate:
-            from .process_utils import validate_output_data
-
             if not validate_output_data(datasets, clones_dict, trees, args):
                 if args.strict_validation:
                     print(

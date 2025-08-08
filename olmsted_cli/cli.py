@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """CLI wrapper for Olmsted data processing scripts."""
 
-import os
+import argparse
 import sys
 from pathlib import Path
+
+# Import modules that will be used by the command functions
+from olmsted_cli import process_data
+from olmsted_cli import validate
 
 
 def main():
     """Main entry point for the olmsted CLI."""
-    import argparse
 
     parser = argparse.ArgumentParser(
         description="Olmsted CLI - Process AIRR and PCP format data",
@@ -32,7 +35,7 @@ Examples:
     subparsers.add_parser(
         "process", help="Process data with automatic format detection"
     )
-    
+
     # Validate command
     subparsers.add_parser(
         "validate", help="Validate data files against AIRR/Olmsted schemas"
@@ -42,43 +45,30 @@ Examples:
     # Parse only the command, not the full arguments
     if len(sys.argv) > 1:
         command = sys.argv[1]
-        
+
         if command == "process":
             # Remove the script name and command from sys.argv so the underlying scripts see clean arguments
             sys.argv = [sys.argv[0]] + sys.argv[2:]
-            process_data()
+            process_data_command()
         elif command == "validate":
             # Remove the script name and command from sys.argv
             sys.argv = [sys.argv[0]] + sys.argv[2:]
-            validate_data()
+            validate_data_command()
         else:
             parser.parse_args()  # This will show help or error
     else:
         parser.parse_args()  # This will show help or error
 
 
-def process_data():
+def process_data_command():
     """Run the unified process_data.py script."""
-    # Save current directory and change to package root for schema access
-    original_dir = os.getcwd()
-    package_dir = Path(__file__).parent.parent
-
-    try:
-        os.chdir(package_dir)
-        # Import from the package
-        from olmsted_cli import process_data
-
-        process_data.main()
-    finally:
-        os.chdir(original_dir)
+    # This preserves the user's current working directory for file resolution
+    process_data.main()
 
 
-def validate_data():
+def validate_data_command():
     """Run the validate command."""
-    # Import from the package
-    from olmsted_cli import validate_command
-    
-    validate_command.main()
+    validate.main()
 
 
 if __name__ == "__main__":

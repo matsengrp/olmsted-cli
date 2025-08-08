@@ -6,14 +6,15 @@ This module contains common functions and constants used by
 process_airr_data.py, process_pcp_data.py, and other data processors.
 """
 
+import csv
 import json
-import os
-
 import jsonschema
+import os
+import uuid
 import yaml
 
 # Import unified schema definitions
-from .schemas import clone_spec, dataset_spec, node_spec, tree_spec
+from .schemas import clone_spec, dataset_spec, tree_spec
 
 
 # Constants for infinity handling
@@ -258,7 +259,6 @@ def json_rep(x):
     Returns:
         JSON-serializable representation
     """
-    import uuid
     if isinstance(x, uuid.UUID):
         return str(x)
     else:
@@ -280,8 +280,6 @@ def write_out(data, dirname, filename, args):
         filename: File name
         args: Command line arguments (for verbose flag and csv flag)
     """
-    import csv
-
     # Ensure directory exists
     os.makedirs(dirname, exist_ok=True)
 
@@ -327,7 +325,6 @@ def natural_number(desc):
 
 def is_nullable_string(checker, instance):
     """Check if an instance is either a string or null (for JSON schema validation)."""
-    import jsonschema
     return jsonschema.Draft4Validator.TYPE_CHECKER.is_type(
         instance, "string"
     ) or jsonschema.Draft4Validator.TYPE_CHECKER.is_type(instance, "null")
@@ -474,7 +471,7 @@ def validate_airr_node(node_data, schema=None):
 
 def validate_output_data(datasets, clones_dict, trees, args):
     """
-    Generic output data validation function using unified validation from validate_command.
+    Generic output data validation function using unified validation from validate module.
 
     This replaces the processor-specific validation functions to provide a single
     validation entry point for all output data.
@@ -495,9 +492,6 @@ def validate_output_data(datasets, clones_dict, trees, args):
 
     validation_passed = True
     total_errors = 0
-
-    # Import unified validation functions
-    from .validate_command import validate_dataset, validate_clone, validate_tree
 
     try:
         # Validate datasets
@@ -563,3 +557,115 @@ def validate_output_data(datasets, clones_dict, trees, args):
     return validation_passed
 
 
+def validate_dataset(data, verbose=False):
+    """
+    Validate a dataset against the Olmsted dataset schema.
+
+    Args:
+        data: Dataset dictionary
+        verbose: Show detailed errors
+
+    Returns:
+        list: List of validation errors (empty if valid)
+    """
+    errors = []
+
+    try:
+        # Create validator
+        validator = jsonschema.Draft4Validator(dataset_spec)
+
+        if not validator.is_valid(data):
+            if verbose:
+                for error in validator.iter_errors(data):
+                    error_path = " -> ".join(str(p) for p in error.path) if error.path else "root"
+                    errors.append(f"Dataset schema error at {error_path}: {error.message}")
+            else:
+                errors.append("Dataset does not conform to schema (use -v for details)")
+    except Exception as e:
+        errors.append(f"Dataset validation error: {e}")
+
+    return errors
+
+
+def validate_clone(data, verbose=False):
+    """
+    Validate a clone against AIRR and Olmsted schemas.
+
+    Args:
+        data: Clone dictionary
+        verbose: Show detailed errors
+
+    Returns:
+        list: List of validation errors (empty if valid)
+    """
+    errors = []
+
+    # Try AIRR validation first (silently)
+    is_airr_valid, airr_error = validate_airr_clone(data)
+
+    # Try Olmsted schema validation
+    olmsted_errors = []
+    try:
+        validator = jsonschema.Draft4Validator(clone_spec)
+        if not validator.is_valid(data):
+            for error in validator.iter_errors(data):
+                error_path = " -> ".join(str(p) for p in error.path) if error.path else "root"
+                olmsted_errors.append(f"Clone schema error at {error_path}: {error.message}")
+    except Exception as e:
+        olmsted_errors.append(f"Clone validation error: {e}")
+
+    # If both validations fail, report errors
+    if not is_airr_valid and olmsted_errors:
+        if verbose:
+            errors.append(f"AIRR validation: {airr_error}")
+            errors.extend(olmsted_errors)
+        else:
+            errors.append("Clone does not conform to AIRR or Olmsted schema (use -v for details)")
+    elif olmsted_errors:
+        # Only Olmsted validation failed
+        errors.extend(olmsted_errors)
+    # If AIRR validation passed OR Olmsted validation passed, consider it valid (no errors)
+
+    return errors
+
+
+def validate_tree(data, verbose=False):
+    """
+    Validate a tree against AIRR and Olmsted schemas.
+
+    Args:
+        data: Tree dictionary
+        verbose: Show detailed errors
+
+    Returns:
+        list: List of validation errors (empty if valid)
+    """
+    errors = []
+
+    # Try AIRR validation first (silently)
+    is_airr_valid, airr_error = validate_airr_tree(data)
+
+    # Try Olmsted schema validation
+    olmsted_errors = []
+    try:
+        validator = jsonschema.Draft4Validator(tree_spec)
+        if not validator.is_valid(data):
+            for error in validator.iter_errors(data):
+                error_path = " -> ".join(str(p) for p in error.path) if error.path else "root"
+                olmsted_errors.append(f"Tree schema error at {error_path}: {error.message}")
+    except Exception as e:
+        olmsted_errors.append(f"Tree validation error: {e}")
+
+    # If both validations fail, report errors
+    if not is_airr_valid and olmsted_errors:
+        if verbose:
+            errors.append(f"AIRR validation: {airr_error}")
+            errors.extend(olmsted_errors)
+        else:
+            errors.append("Tree does not conform to AIRR or Olmsted schema (use -v for details)")
+    elif olmsted_errors:
+        # Only Olmsted validation failed
+        errors.extend(olmsted_errors)
+    # If AIRR validation passed OR Olmsted validation passed, consider it valid (no errors)
+
+    return errors

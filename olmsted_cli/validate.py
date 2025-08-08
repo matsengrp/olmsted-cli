@@ -8,35 +8,30 @@ Validates AIRR JSON or Olmsted dataset files against their schemas.
 import argparse
 import json
 import sys
-import traceback
 from pathlib import Path
 
-import jsonschema
-import yaml
-
 from .process_utils import (
-    load_official_airr_schema,
-    validate_airr_clone,
-    validate_airr_tree,
+    validate_clone,
+    validate_dataset,
+    validate_tree,
 )
-from .schemas import clone_spec, dataset_spec, tree_spec
 
 
 def validate_file(filepath, file_type=None, verbose=False, strict=False):
     """
     Validate a single data file.
-    
+
     Args:
         filepath: Path to the file to validate
         file_type: Explicit file type ('dataset', 'clone', 'tree', 'clones', 'trees', or None for auto-detect)
         verbose: Show detailed validation errors
         strict: Exit on first validation error
-        
+
     Returns:
         tuple: (is_valid, list of errors)
     """
     validation_errors = []
-    
+
     try:
         with open(filepath, 'r') as f:
             data = json.load(f)
@@ -44,24 +39,24 @@ def validate_file(filepath, file_type=None, verbose=False, strict=False):
         return False, [f"Failed to parse JSON: {e}"]
     except Exception as e:
         return False, [f"Failed to read file: {e}"]
-    
+
     # Use explicit file type if provided, otherwise auto-detect
     if file_type == "dataset":
         print(f"Validating as Olmsted dataset: {filepath}")
         validation_errors.extend(validate_dataset(data, verbose))
-        
+
         # If dataset is valid, validate its clones and trees
         if not validation_errors:
             for i, clone in enumerate(data.get("clones", [])):
                 errors = validate_clone(clone, verbose)
                 if errors:
                     validation_errors.extend([f"Clone {i}: {e}" for e in errors])
-                    
+
                 for j, tree in enumerate(clone.get("trees", [])):
                     errors = validate_tree(tree, verbose)
                     if errors:
                         validation_errors.extend([f"Clone {i}, Tree {j}: {e}" for e in errors])
-                        
+
     elif file_type == "clones":
         # Validate as a collection of clones
         print(f"Validating as clone collection: {filepath}")
@@ -72,13 +67,13 @@ def validate_file(filepath, file_type=None, verbose=False, strict=False):
                     validation_errors.extend([f"Clone {i}: {e}" for e in errors])
         else:
             validation_errors.append("Expected a list of clones")
-            
+
     elif file_type == "clone":
         # Single clone
         print(f"Validating as single clone: {filepath}")
         errors = validate_clone(data, verbose)
         validation_errors.extend(errors)
-        
+
     elif file_type == "trees":
         # Validate as a collection of trees
         print(f"Validating as tree collection: {filepath}")
@@ -89,13 +84,13 @@ def validate_file(filepath, file_type=None, verbose=False, strict=False):
                     validation_errors.extend([f"Tree {i}: {e}" for e in errors])
         else:
             validation_errors.append("Expected a list of trees")
-            
+
     elif file_type == "tree":
         # Single tree
         print(f"Validating as single tree: {filepath}")
         errors = validate_tree(data, verbose)
         validation_errors.extend(errors)
-        
+
     elif file_type is None:
         # Auto-detect file type based on content
         if isinstance(data, list):
@@ -104,7 +99,7 @@ def validate_file(filepath, file_type=None, verbose=False, strict=False):
                 first_item = data[0]
                 if isinstance(first_item, dict):
                     if "clone_id" in first_item or "germline_alignment" in first_item:
-                        # Array of clones  
+                        # Array of clones
                         print(f"Auto-detected as clone collection: {filepath}")
                         for i, clone in enumerate(data):
                             errors = validate_clone(clone, verbose)
@@ -134,19 +129,19 @@ def validate_file(filepath, file_type=None, verbose=False, strict=False):
             # This looks like a dataset file
             print(f"Auto-detected as Olmsted dataset: {filepath}")
             validation_errors.extend(validate_dataset(data, verbose))
-            
+
             # If dataset is valid, validate its clones and trees
             if not validation_errors:
                 for i, clone in enumerate(data.get("clones", [])):
                     errors = validate_clone(clone, verbose)
                     if errors:
                         validation_errors.extend([f"Clone {i}: {e}" for e in errors])
-                        
+
                     for j, tree in enumerate(clone.get("trees", [])):
                         errors = validate_tree(tree, verbose)
                         if errors:
                             validation_errors.extend([f"Clone {i}, Tree {j}: {e}" for e in errors])
-                            
+
         elif "trees" in data and isinstance(data.get("trees"), list):
             # Validate as a collection of trees
             print(f"Auto-detected as tree collection: {filepath}")
@@ -154,13 +149,13 @@ def validate_file(filepath, file_type=None, verbose=False, strict=False):
                 errors = validate_tree(tree, verbose)
                 if errors:
                     validation_errors.extend([f"Tree {i}: {e}" for e in errors])
-                    
+
         elif "newick" in data and "nodes" in data:
             # Single tree
             print(f"Auto-detected as single tree: {filepath}")
             errors = validate_tree(data, verbose)
             validation_errors.extend(errors)
-            
+
         elif "clone_id" in data or "germline_alignment" in data:
             # Single clone
             print(f"Auto-detected as single clone: {filepath}")
@@ -170,122 +165,8 @@ def validate_file(filepath, file_type=None, verbose=False, strict=False):
             validation_errors.append("Unable to determine file type for validation. Use --dataset, --clone(s), or --tree(s) to specify.")
     else:
         validation_errors.append(f"Unknown file type: {file_type}")
-    
+
     return len(validation_errors) == 0, validation_errors
-
-
-def validate_dataset(data, verbose=False):
-    """
-    Validate a dataset against the Olmsted dataset schema.
-    
-    Args:
-        data: Dataset dictionary
-        verbose: Show detailed errors
-        
-    Returns:
-        list: List of validation errors (empty if valid)
-    """
-    errors = []
-    
-    try:
-        # Create validator
-        validator = jsonschema.Draft4Validator(dataset_spec)
-        
-        if not validator.is_valid(data):
-            if verbose:
-                for error in validator.iter_errors(data):
-                    error_path = " -> ".join(str(p) for p in error.path) if error.path else "root"
-                    errors.append(f"Dataset schema error at {error_path}: {error.message}")
-            else:
-                errors.append("Dataset does not conform to schema (use -v for details)")
-    except Exception as e:
-        errors.append(f"Dataset validation error: {e}")
-    
-    return errors
-
-
-def validate_clone(data, verbose=False):
-    """
-    Validate a clone against AIRR and Olmsted schemas.
-    
-    Args:
-        data: Clone dictionary
-        verbose: Show detailed errors
-        
-    Returns:
-        list: List of validation errors (empty if valid)
-    """
-    errors = []
-    
-    # Try AIRR validation first (silently)
-    is_airr_valid, airr_error = validate_airr_clone(data)
-    
-    # Try Olmsted schema validation
-    olmsted_errors = []
-    try:
-        validator = jsonschema.Draft4Validator(clone_spec)
-        if not validator.is_valid(data):
-            for error in validator.iter_errors(data):
-                error_path = " -> ".join(str(p) for p in error.path) if error.path else "root"
-                olmsted_errors.append(f"Clone schema error at {error_path}: {error.message}")
-    except Exception as e:
-        olmsted_errors.append(f"Clone validation error: {e}")
-    
-    # If both validations fail, report errors
-    if not is_airr_valid and olmsted_errors:
-        if verbose:
-            errors.append(f"AIRR validation: {airr_error}")
-            errors.extend(olmsted_errors)
-        else:
-            errors.append("Clone does not conform to AIRR or Olmsted schema (use -v for details)")
-    elif olmsted_errors:
-        # Only Olmsted validation failed
-        errors.extend(olmsted_errors)
-    # If AIRR validation passed OR Olmsted validation passed, consider it valid (no errors)
-    
-    return errors
-
-
-def validate_tree(data, verbose=False):
-    """
-    Validate a tree against AIRR and Olmsted schemas.
-    
-    Args:
-        data: Tree dictionary
-        verbose: Show detailed errors
-        
-    Returns:
-        list: List of validation errors (empty if valid)
-    """
-    errors = []
-    
-    # Try AIRR validation first (silently)
-    is_airr_valid, airr_error = validate_airr_tree(data)
-    
-    # Try Olmsted schema validation
-    olmsted_errors = []
-    try:
-        validator = jsonschema.Draft4Validator(tree_spec)
-        if not validator.is_valid(data):
-            for error in validator.iter_errors(data):
-                error_path = " -> ".join(str(p) for p in error.path) if error.path else "root"
-                olmsted_errors.append(f"Tree schema error at {error_path}: {error.message}")
-    except Exception as e:
-        olmsted_errors.append(f"Tree validation error: {e}")
-    
-    # If both validations fail, report errors
-    if not is_airr_valid and olmsted_errors:
-        if verbose:
-            errors.append(f"AIRR validation: {airr_error}")
-            errors.extend(olmsted_errors)
-        else:
-            errors.append("Tree does not conform to AIRR or Olmsted schema (use -v for details)")
-    elif olmsted_errors:
-        # Only Olmsted validation failed
-        errors.extend(olmsted_errors)
-    # If AIRR validation passed OR Olmsted validation passed, consider it valid (no errors)
-    
-    return errors
 
 
 def get_args():
@@ -297,29 +178,29 @@ def get_args():
 Examples:
   # Auto-detect file type
   olmsted validate data.json
-  
+
   # Explicitly specify file type
   olmsted validate --dataset datasets.json
   olmsted validate --clones clones.family1.json clones.family2.json
   olmsted validate --tree tree.abc123.json
   olmsted validate --trees trees.collection.json
-  
+
   # Validate multiple files of different types
   olmsted validate --dataset dataset.json --clones clones.*.json --tree tree.*.json
-  
+
   # Validate with verbose output
   olmsted validate -v data.json
-  
+
   # Validate and exit on first error
   olmsted validate --strict data.json
-  
+
 File types:
   --dataset: Olmsted dataset file containing clones
   --clone:   Single clone object
-  --clones:  Array/collection of clone objects  
+  --clones:  Array/collection of clone objects
   --tree:    Single tree object with newick and nodes
   --trees:   Array/collection of tree objects
-  
+
 Auto-detection (when no type specified):
   - Olmsted datasets (contain 'clones' field)
   - Clone collections (contain 'clone_id' or 'germline_alignment')
@@ -327,14 +208,14 @@ Auto-detection (when no type specified):
   - Single trees (contain 'newick' and 'nodes')
         """
     )
-    
+
     # File arguments with explicit types
     parser.add_argument(
         "files",
         nargs="*",
         help="JSON files to validate (auto-detect type)"
     )
-    
+
     parser.add_argument(
         "--dataset", "--datasets",
         nargs="+",
@@ -342,7 +223,7 @@ Auto-detection (when no type specified):
         metavar="FILE",
         help="Validate files as Olmsted datasets"
     )
-    
+
     parser.add_argument(
         "--clone",
         nargs="+",
@@ -350,7 +231,7 @@ Auto-detection (when no type specified):
         metavar="FILE",
         help="Validate files as single clone objects"
     )
-    
+
     parser.add_argument(
         "--clones",
         nargs="+",
@@ -358,7 +239,7 @@ Auto-detection (when no type specified):
         metavar="FILE",
         help="Validate files as clone collections (arrays)"
     )
-    
+
     parser.add_argument(
         "--tree",
         nargs="+",
@@ -366,7 +247,7 @@ Auto-detection (when no type specified):
         metavar="FILE",
         help="Validate files as single tree objects"
     )
-    
+
     parser.add_argument(
         "--trees",
         nargs="+",
@@ -374,65 +255,65 @@ Auto-detection (when no type specified):
         metavar="FILE",
         help="Validate files as tree collections (arrays)"
     )
-    
+
     # Validation options
     parser.add_argument(
         "-v", "--verbose",
         action="store_true",
         help="Show detailed validation errors"
     )
-    
+
     parser.add_argument(
         "--strict",
         action="store_true",
         help="Exit with error code on first validation failure"
     )
-    
+
     parser.add_argument(
         "--schema",
         choices=["airr", "olmsted", "both"],
         default="both",
         help="Which schema to validate against (default: both)"
     )
-    
+
     return parser.parse_args()
 
 
 def main():
     """Main entry point for validate command."""
     args = get_args()
-    
+
     # Collect all files to validate with their types
     files_to_validate = []
-    
+
     # Add files with auto-detect
     for filepath in args.files or []:
         files_to_validate.append((filepath, None))
-    
+
     # Add explicitly typed files
     for filepath in args.dataset_files or []:
         files_to_validate.append((filepath, "dataset"))
-    
+
     for filepath in args.clone_files or []:
         files_to_validate.append((filepath, "clone"))
-        
+
     for filepath in args.clones_files or []:
         files_to_validate.append((filepath, "clones"))
-        
+
     for filepath in args.tree_files or []:
         files_to_validate.append((filepath, "tree"))
-        
+
     for filepath in args.trees_files or []:
         files_to_validate.append((filepath, "trees"))
-    
+
     if not files_to_validate:
         print("Error: No files specified for validation")
         print("Use 'olmsted validate --help' for usage information")
         sys.exit(1)
-    
+
     all_valid = True
     total_errors = 0
-    
+
     for filepath, file_type in files_to_validate:
         print(f"\n{'='*60}")
         print(f"Validating: {filepath}")
@@ -441,7 +322,7 @@ def main():
         else:
             print(f"Type: auto-detect")
         print(f"{'='*60}")
-        
+
         if not Path(filepath).exists():
             print(f"ERROR: File not found: {filepath}")
             all_valid = False
@@ -449,33 +330,33 @@ def main():
             if args.strict:
                 sys.exit(1)
             continue
-        
+
         is_valid, errors = validate_file(filepath, file_type, args.verbose, args.strict)
-        
+
         if is_valid:
             print(f"✅ VALID - {filepath}")
         else:
             print(f"❌ INVALID - {filepath}")
             total_errors += len(errors)
-            
+
             if args.verbose:
                 print("\nErrors found:")
                 for error in errors:
                     print(f"  - {error}")
             else:
                 print(f"  {len(errors)} error(s) found (use -v for details)")
-            
+
             all_valid = False
             if args.strict:
                 sys.exit(1)
-    
+
     # Summary
     print(f"\n{'='*60}")
     print("VALIDATION SUMMARY")
     print(f"{'='*60}")
     print(f"Files validated: {len(files_to_validate)}")
     print(f"Total errors: {total_errors}")
-    
+
     if all_valid:
         print("\n✅ All files are valid!")
         sys.exit(0)

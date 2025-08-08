@@ -21,14 +21,16 @@ import gzip
 import hashlib
 import os
 import sys
+import traceback
 import uuid
 from collections import defaultdict
 
 # Import shared utilities from process_data_utils
 from .process_utils import (
     SCHEMA_VERSION,
-    write_out,
     translate_dna_to_aa,
+    validate_output_data,
+    write_out,
 )
 
 def parse_pcp_csv(csv_path):
@@ -590,8 +592,6 @@ def main():
 
         # Validate output data if requested
         if args.validate:
-            from .process_utils import validate_output_data
-
             if not validate_output_data(datasets, clones_dict, trees, args):
                 if args.strict_validation:
                     print(
@@ -613,8 +613,6 @@ def main():
     except Exception as e:
         print(f"Error: {e}")
         if args.verbose:
-            import traceback
-
             traceback.print_exc()
         sys.exit(1)
 

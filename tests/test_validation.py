@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from olmsted_cli.validate_command import (
+from olmsted_cli.validate import (
     validate_clone,
     validate_dataset,
     validate_file,

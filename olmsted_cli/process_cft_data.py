@@ -4,21 +4,19 @@ from __future__ import division
 
 import argparse
 import copy
-import csv
 import functools as fun
-import json
+import html
+import inflect
 import os
 import sys
 import warnings
-import inflect
+from urllib.parse import parse_qs, parse_qsl
 
 # Python 3.13+ compatibility: make cgi module available before ete3 import
 try:
     import cgi  # noqa: F401
 except ImportError:
     # Create a mock cgi module using our compatibility layer
-    import html
-    import sys
 
     class CGIModule:
         """Mock cgi module for Python 3.13+ compatibility."""
@@ -27,13 +25,9 @@ except ImportError:
 
         # Add other cgi functions that might be needed by ete3
         def parse_qs(self, *args, **kwargs):
-            from urllib.parse import parse_qs
-
             return parse_qs(*args, **kwargs)
 
         def parse_qsl(self, *args, **kwargs):
-            from urllib.parse import parse_qsl
-
             return parse_qsl(*args, **kwargs)
 
     # Make cgi available as a module
