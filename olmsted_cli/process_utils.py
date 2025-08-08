@@ -319,7 +319,9 @@ def write_out(data, dirname, filename, args):
 CONSOLIDATED_JSON_VERSION = "1.0"
 
 
-def create_consolidated_data(datasets, clones_dict, trees, input_files, detected_format, args=None):
+def create_consolidated_data(
+    datasets, clones_dict, trees, input_files, detected_format, args=None
+):
     """
     Create consolidated data structure with metadata.
 
@@ -349,22 +351,22 @@ def create_consolidated_data(datasets, clones_dict, trees, input_files, detected
         "generated_by": {
             "tool": "olmsted-cli",
             "version": SCHEMA_VERSION,
-        }
+        },
     }
 
     # Add processing options if available
     if args:
         metadata["processing_options"] = {
-            "validation": getattr(args, 'validate', False),
-            "strict_validation": getattr(args, 'strict_validation', False),
-            "seed": getattr(args, 'seed', None),
+            "validation": getattr(args, "validate", False),
+            "strict_validation": getattr(args, "strict_validation", False),
+            "seed": getattr(args, "seed", None),
         }
 
         # Add format-specific options
         if detected_format == "airr":
             metadata["processing_options"]["airr"] = {
-                "naive_name": getattr(args, 'naive_name', 'naive'),
-                "root_trees": getattr(args, 'root_trees', False),
+                "naive_name": getattr(args, "naive_name", "naive"),
+                "root_trees": getattr(args, "root_trees", False),
             }
 
     return {
@@ -773,7 +775,12 @@ def validate_consolidated_data(data, verbose=False):
 
     # Validate metadata
     metadata = data.get("metadata", {})
-    required_metadata_keys = ["format_version", "schema_version", "created_at", "source_format"]
+    required_metadata_keys = [
+        "format_version",
+        "schema_version",
+        "created_at",
+        "source_format",
+    ]
     for key in required_metadata_keys:
         if key not in metadata:
             errors.append(f"Missing required metadata key: {key}")
@@ -805,7 +812,9 @@ def validate_consolidated_data(data, verbose=False):
             for i, clone in enumerate(clones):
                 clone_errors = validate_clone(clone, verbose)
                 if clone_errors:
-                    errors.extend([f"Clone {dataset_id}[{i}]: {e}" for e in clone_errors])
+                    errors.extend(
+                        [f"Clone {dataset_id}[{i}]: {e}" for e in clone_errors]
+                    )
 
     # Validate trees
     trees = data.get("trees", [])

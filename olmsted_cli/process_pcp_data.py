@@ -27,8 +27,8 @@ from collections import defaultdict
 
 # Import shared utilities from process_data_utils
 from .process_utils import (
-    create_consolidated_data,
     SCHEMA_VERSION,
+    create_consolidated_data,
     translate_dna_to_aa,
     validate_output_data,
     write_out,

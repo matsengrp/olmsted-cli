@@ -85,8 +85,12 @@ class TestOlmstedCLI:
         self.test_data_dir = self.cli_root / "example_data"
         self.golden_airr_dir = self.test_data_dir / "airr" / "split_golden_data"
         self.golden_pcp_dir = self.test_data_dir / "pcp" / "split_golden_data"
-        self.consolidated_airr_file = self.test_data_dir / "airr" / "consolidated_golden_data.json"
-        self.consolidated_pcp_file = self.test_data_dir / "pcp" / "consolidated_golden_data.json"
+        self.consolidated_airr_file = (
+            self.test_data_dir / "airr" / "consolidated_golden_data.json"
+        )
+        self.consolidated_pcp_file = (
+            self.test_data_dir / "pcp" / "consolidated_golden_data.json"
+        )
 
         # Use the session directory and create a subdirectory for this specific test
         test_name = request.node.name
@@ -171,8 +175,11 @@ class TestOlmstedCLI:
 
         # Verify metadata structure
         from olmsted_cli.process_utils import CONSOLIDATED_JSON_VERSION
+
         metadata = data["metadata"]
-        assert metadata["format_version"] == CONSOLIDATED_JSON_VERSION, "Should have correct format version"
+        assert metadata["format_version"] == CONSOLIDATED_JSON_VERSION, (
+            "Should have correct format version"
+        )
         assert metadata["source_format"] == "airr", "Should identify source format"
         assert "created_at" in metadata, "Should have creation timestamp"
         assert "processing_info" in metadata, "Should have processing info"
@@ -250,8 +257,11 @@ class TestOlmstedCLI:
 
         # Verify metadata structure
         from olmsted_cli.process_utils import CONSOLIDATED_JSON_VERSION
+
         metadata = data["metadata"]
-        assert metadata["format_version"] == CONSOLIDATED_JSON_VERSION, "Should have correct format version"
+        assert metadata["format_version"] == CONSOLIDATED_JSON_VERSION, (
+            "Should have correct format version"
+        )
         assert metadata["source_format"] == "pcp", "Should identify source format"
         assert "created_at" in metadata, "Should have creation timestamp"
         assert "processing_info" in metadata, "Should have processing info"

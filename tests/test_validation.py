@@ -74,11 +74,16 @@ class TestValidation:
     def test_validate_airr_consolidated_golden_output(self):
         """Test that AIRR consolidated golden output is valid."""
         consolidated_file = (
-            Path(__file__).parent.parent / "example_data" / "airr" / "consolidated_golden_data.json"
+            Path(__file__).parent.parent
+            / "example_data"
+            / "airr"
+            / "consolidated_golden_data.json"
         )
 
         if not consolidated_file.exists():
-            pytest.skip(f"Consolidated AIRR golden data file not found: {consolidated_file}")
+            pytest.skip(
+                f"Consolidated AIRR golden data file not found: {consolidated_file}"
+            )
 
         is_valid, errors = validate_file(
             str(consolidated_file), file_type=None, verbose=True
@@ -101,11 +106,16 @@ class TestValidation:
     def test_validate_pcp_consolidated_golden_output(self):
         """Test that PCP consolidated golden output is valid."""
         consolidated_file = (
-            Path(__file__).parent.parent / "example_data" / "pcp" / "consolidated_golden_data.json"
+            Path(__file__).parent.parent
+            / "example_data"
+            / "pcp"
+            / "consolidated_golden_data.json"
         )
 
         if not consolidated_file.exists():
-            pytest.skip(f"Consolidated PCP golden data file not found: {consolidated_file}")
+            pytest.skip(
+                f"Consolidated PCP golden data file not found: {consolidated_file}"
+            )
 
         is_valid, errors = validate_file(
             str(consolidated_file), file_type=None, verbose=True

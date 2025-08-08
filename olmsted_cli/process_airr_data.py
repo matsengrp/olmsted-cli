@@ -4,6 +4,7 @@ import argparse
 import functools
 import html
 import json
+import os
 import pprint
 import sys
 import traceback
@@ -39,11 +40,11 @@ except ImportError:
 import ete3
 
 from .process_utils import (
+    SCHEMA_VERSION,
     create_consolidated_data,
     dict_subset,
     is_nullable_string,
     merge,
-    SCHEMA_VERSION,
     validate_dataset,
     validate_output_data,
     write_out,
