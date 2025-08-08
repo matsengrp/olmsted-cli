@@ -170,8 +170,9 @@ class TestOlmstedCLI:
         assert "trees" in data, "Consolidated data should have trees"
 
         # Verify metadata structure
+        from olmsted_cli.process_utils import CONSOLIDATED_JSON_VERSION
         metadata = data["metadata"]
-        assert metadata["format_version"] == "1.0", "Should have correct format version"
+        assert metadata["format_version"] == CONSOLIDATED_JSON_VERSION, "Should have correct format version"
         assert metadata["source_format"] == "airr", "Should identify source format"
         assert "created_at" in metadata, "Should have creation timestamp"
         assert "processing_info" in metadata, "Should have processing info"
@@ -248,8 +249,9 @@ class TestOlmstedCLI:
         assert "trees" in data, "Consolidated data should have trees"
 
         # Verify metadata structure
+        from olmsted_cli.process_utils import CONSOLIDATED_JSON_VERSION
         metadata = data["metadata"]
-        assert metadata["format_version"] == "1.0", "Should have correct format version"
+        assert metadata["format_version"] == CONSOLIDATED_JSON_VERSION, "Should have correct format version"
         assert metadata["source_format"] == "pcp", "Should identify source format"
         assert "created_at" in metadata, "Should have creation timestamp"
         assert "processing_info" in metadata, "Should have processing info"

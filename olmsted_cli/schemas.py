@@ -7,7 +7,15 @@ used throughout the Olmsted CLI for both AIRR and PCP data processing.
 
 The schemas are designed to be flexible enough to accommodate both formats while
 maintaining consistency in the output structure.
+
+NOTE: The AIRR schema components reference the official AIRR schema from
+airr-standards/specs/airr-schema.yaml. The SCHEMA_VERSION constant corresponds
+to the 'version' field in the Info section of that schema.
 """
+
+# Version Constants
+# SCHEMA_VERSION corresponds to Info.version in airr-standards/specs/airr-schema.yaml
+SCHEMA_VERSION = "2.0.0"
 
 # Timepoint multiplicity schema - for individual timepoint/multiplicity pairs
 timepoint_multiplicity_spec = {
@@ -763,8 +771,10 @@ seed_spec = {
     },
 }
 
-# Export all schemas and helper functions
+# Export all schemas, constants, and helper functions
 __all__ = [
+    # Version constants
+    "SCHEMA_VERSION",
     # Main unified schemas
     "node_spec",
     "tree_spec",

@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 import jsonschema
 import yaml
 
-from .schemas import clone_spec, dataset_spec, tree_spec
+from .schemas import SCHEMA_VERSION, clone_spec, dataset_spec, tree_spec
 
 # Constants for infinity handling
 inf = float("inf")
@@ -315,14 +315,14 @@ def write_out(data, dirname, filename, args):
             fh.write(data)
 
 
-# Constants
-SCHEMA_VERSION = "2.0.0"
+# Version Constants
+CONSOLIDATED_JSON_VERSION = "1.0"
 
 
 def create_consolidated_data(datasets, clones_dict, trees, input_files, detected_format, args=None):
     """
     Create consolidated data structure with metadata.
-    
+
     Args:
         datasets: List of dataset objects
         clones_dict: Dictionary of clone lists by dataset_id
@@ -330,13 +330,13 @@ def create_consolidated_data(datasets, clones_dict, trees, input_files, detected
         input_files: List of input file paths
         detected_format: Detected or specified format ('airr' or 'pcp')
         args: Command line arguments (optional)
-    
+
     Returns:
         dict: Consolidated data with metadata
     """
     # Generate metadata
     metadata = {
-        "format_version": "1.0",
+        "format_version": CONSOLIDATED_JSON_VERSION,
         "schema_version": SCHEMA_VERSION,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "source_format": detected_format,
@@ -351,7 +351,7 @@ def create_consolidated_data(datasets, clones_dict, trees, input_files, detected
             "version": SCHEMA_VERSION,
         }
     }
-    
+
     # Add processing options if available
     if args:
         metadata["processing_options"] = {
@@ -359,14 +359,14 @@ def create_consolidated_data(datasets, clones_dict, trees, input_files, detected
             "strict_validation": getattr(args, 'strict_validation', False),
             "seed": getattr(args, 'seed', None),
         }
-        
+
         # Add format-specific options
         if detected_format == "airr":
             metadata["processing_options"]["airr"] = {
                 "naive_name": getattr(args, 'naive_name', 'naive'),
                 "root_trees": getattr(args, 'root_trees', False),
             }
-    
+
     return {
         "metadata": metadata,
         "datasets": datasets,
@@ -761,28 +761,28 @@ def validate_consolidated_data(data, verbose=False):
         list: List of validation errors (empty if valid)
     """
     errors = []
-    
+
     # Check top-level structure
     required_keys = ["metadata", "datasets", "clones", "trees"]
     for key in required_keys:
         if key not in data:
             errors.append(f"Missing required key: {key}")
-    
+
     if errors:
         return errors
-    
+
     # Validate metadata
     metadata = data.get("metadata", {})
     required_metadata_keys = ["format_version", "schema_version", "created_at", "source_format"]
     for key in required_metadata_keys:
         if key not in metadata:
             errors.append(f"Missing required metadata key: {key}")
-    
+
     # Validate format version compatibility
     format_version = metadata.get("format_version")
-    if format_version and format_version != "1.0":
+    if format_version and format_version != CONSOLIDATED_JSON_VERSION:
         errors.append(f"Unsupported format version: {format_version}")
-    
+
     # Validate datasets
     datasets = data.get("datasets", [])
     if not isinstance(datasets, list):
@@ -792,7 +792,7 @@ def validate_consolidated_data(data, verbose=False):
             dataset_errors = validate_dataset(dataset, verbose)
             if dataset_errors:
                 errors.extend([f"Dataset {i}: {e}" for e in dataset_errors])
-    
+
     # Validate clones
     clones_dict = data.get("clones", {})
     if not isinstance(clones_dict, dict):
@@ -806,7 +806,7 @@ def validate_consolidated_data(data, verbose=False):
                 clone_errors = validate_clone(clone, verbose)
                 if clone_errors:
                     errors.extend([f"Clone {dataset_id}[{i}]: {e}" for e in clone_errors])
-    
+
     # Validate trees
     trees = data.get("trees", [])
     if not isinstance(trees, list):
@@ -816,5 +816,5 @@ def validate_consolidated_data(data, verbose=False):
             tree_errors = validate_tree(tree, verbose)
             if tree_errors:
                 errors.extend([f"Tree {i}: {e}" for e in tree_errors])
-    
+
     return errors
