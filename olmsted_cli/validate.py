@@ -12,6 +12,7 @@ from pathlib import Path
 
 from .process_utils import (
     validate_clone,
+    validate_consolidated_data,
     validate_dataset,
     validate_tree,
 )
@@ -133,7 +134,13 @@ def _auto_detect_object_type(data, filepath, verbose):
     """Auto-detect and validate object-type data."""
     validation_errors = []
 
-    if "clones" in data:
+    if "metadata" in data and "datasets" in data and "clones" in data and "trees" in data:
+        # This looks like consolidated format
+        print(f"Auto-detected as consolidated Olmsted format: {filepath}")
+        errors = validate_consolidated_data(data, verbose)
+        validation_errors.extend(errors)
+
+    elif "clones" in data:
         # This looks like a dataset file
         print(f"Auto-detected as Olmsted dataset: {filepath}")
         _validate_dataset_with_children(data, verbose, validation_errors)

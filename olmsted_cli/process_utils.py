@@ -10,6 +10,7 @@ import csv
 import json
 import os
 import uuid
+from datetime import datetime, timezone
 
 import jsonschema
 import yaml
@@ -316,6 +317,62 @@ def write_out(data, dirname, filename, args):
 
 # Constants
 SCHEMA_VERSION = "2.0.0"
+
+
+def create_consolidated_data(datasets, clones_dict, trees, input_files, detected_format, args=None):
+    """
+    Create consolidated data structure with metadata.
+    
+    Args:
+        datasets: List of dataset objects
+        clones_dict: Dictionary of clone lists by dataset_id
+        trees: List of tree objects
+        input_files: List of input file paths
+        detected_format: Detected or specified format ('airr' or 'pcp')
+        args: Command line arguments (optional)
+    
+    Returns:
+        dict: Consolidated data with metadata
+    """
+    # Generate metadata
+    metadata = {
+        "format_version": "1.0",
+        "schema_version": SCHEMA_VERSION,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "source_format": detected_format,
+        "source_files": [os.path.basename(f) for f in input_files],
+        "processing_info": {
+            "datasets_count": len(datasets),
+            "total_clones_count": sum(len(clones) for clones in clones_dict.values()),
+            "total_trees_count": len(trees),
+        },
+        "generated_by": {
+            "tool": "olmsted-cli",
+            "version": SCHEMA_VERSION,
+        }
+    }
+    
+    # Add processing options if available
+    if args:
+        metadata["processing_options"] = {
+            "validation": getattr(args, 'validate', False),
+            "strict_validation": getattr(args, 'strict_validation', False),
+            "seed": getattr(args, 'seed', None),
+        }
+        
+        # Add format-specific options
+        if detected_format == "airr":
+            metadata["processing_options"]["airr"] = {
+                "naive_name": getattr(args, 'naive_name', 'naive'),
+                "root_trees": getattr(args, 'root_trees', False),
+            }
+    
+    return {
+        "metadata": metadata,
+        "datasets": datasets,
+        "clones": clones_dict,
+        "trees": trees,
+    }
 
 
 # Schema utility functions
@@ -689,4 +746,75 @@ def validate_tree(data, verbose=False):
         errors.extend(olmsted_errors)
     # If AIRR validation passed OR Olmsted validation passed, consider it valid (no errors)
 
+    return errors
+
+
+def validate_consolidated_data(data, verbose=False):
+    """
+    Validate consolidated data format containing metadata, datasets, clones, and trees.
+
+    Args:
+        data: Consolidated data dictionary
+        verbose: Show detailed errors
+
+    Returns:
+        list: List of validation errors (empty if valid)
+    """
+    errors = []
+    
+    # Check top-level structure
+    required_keys = ["metadata", "datasets", "clones", "trees"]
+    for key in required_keys:
+        if key not in data:
+            errors.append(f"Missing required key: {key}")
+    
+    if errors:
+        return errors
+    
+    # Validate metadata
+    metadata = data.get("metadata", {})
+    required_metadata_keys = ["format_version", "schema_version", "created_at", "source_format"]
+    for key in required_metadata_keys:
+        if key not in metadata:
+            errors.append(f"Missing required metadata key: {key}")
+    
+    # Validate format version compatibility
+    format_version = metadata.get("format_version")
+    if format_version and format_version != "1.0":
+        errors.append(f"Unsupported format version: {format_version}")
+    
+    # Validate datasets
+    datasets = data.get("datasets", [])
+    if not isinstance(datasets, list):
+        errors.append("'datasets' must be a list")
+    else:
+        for i, dataset in enumerate(datasets):
+            dataset_errors = validate_dataset(dataset, verbose)
+            if dataset_errors:
+                errors.extend([f"Dataset {i}: {e}" for e in dataset_errors])
+    
+    # Validate clones
+    clones_dict = data.get("clones", {})
+    if not isinstance(clones_dict, dict):
+        errors.append("'clones' must be a dictionary")
+    else:
+        for dataset_id, clones in clones_dict.items():
+            if not isinstance(clones, list):
+                errors.append(f"Clones for dataset '{dataset_id}' must be a list")
+                continue
+            for i, clone in enumerate(clones):
+                clone_errors = validate_clone(clone, verbose)
+                if clone_errors:
+                    errors.extend([f"Clone {dataset_id}[{i}]: {e}" for e in clone_errors])
+    
+    # Validate trees
+    trees = data.get("trees", [])
+    if not isinstance(trees, list):
+        errors.append("'trees' must be a list")
+    else:
+        for i, tree in enumerate(trees):
+            tree_errors = validate_tree(tree, verbose)
+            if tree_errors:
+                errors.extend([f"Tree {i}: {e}" for e in tree_errors])
+    
     return errors

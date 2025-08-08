@@ -39,10 +39,11 @@ except ImportError:
 import ete3
 
 from .process_utils import (
-    SCHEMA_VERSION,
+    create_consolidated_data,
     dict_subset,
     is_nullable_string,
     merge,
+    SCHEMA_VERSION,
     validate_dataset,
     validate_output_data,
     write_out,
@@ -313,8 +314,15 @@ def get_args():
     parser.add_argument("-i", "--inputs", nargs="+")
     parser.add_argument(
         "-o",
-        "--data-outdir",
-        help="directory in which data will be saved; required for data output",
+        "--output",
+        required=True,
+        help="Output file path for consolidated JSON (default behavior)",
+    )
+    parser.add_argument(
+        "--split-files",
+        metavar="DIR",
+        dest="data_outdir",
+        help="Output to multiple files in specified directory (datasets.json, clones.*.json, tree.*.json) instead of single consolidated file",
     )
     parser.add_argument("-n", "--naive-name", default="naive")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -425,6 +433,7 @@ def main():
 
     # write out data
     if args.data_outdir:
+        # Multi-file output to specified directory
         write_out(datasets, args.data_outdir, "datasets.json", args)
         for dataset_id, clones in clones_dict.items():
             write_out(
@@ -434,6 +443,17 @@ def main():
             write_out(
                 tree, args.data_outdir + "/", "tree." + tree["ident"] + ".json", args
             )
+    else:
+        # Single consolidated file output (default)
+        consolidated_data = create_consolidated_data(
+            datasets, clones_dict, trees, args.inputs, "airr", args
+        )
+        # Ensure output directory exists
+        output_dir = os.path.dirname(args.output) or "."
+        output_file = os.path.basename(args.output)
+        os.makedirs(output_dir, exist_ok=True)
+        print(f"Writing consolidated output to {args.output}")
+        write_out(consolidated_data, output_dir, output_file, args)
 
 
 if __name__ == "__main__":

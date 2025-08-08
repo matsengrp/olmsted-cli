@@ -83,8 +83,10 @@ class TestOlmstedCLI:
         # Get paths relative to the package root
         self.cli_root = Path(__file__).parent.parent
         self.test_data_dir = self.cli_root / "example_data"
-        self.golden_airr_dir = self.test_data_dir / "airr" / "golden_airr_data"
-        self.golden_pcp_dir = self.test_data_dir / "pcp" / "golden_pcp_data"
+        self.golden_airr_dir = self.test_data_dir / "airr" / "split_golden_data"
+        self.golden_pcp_dir = self.test_data_dir / "pcp" / "split_golden_data"
+        self.consolidated_airr_file = self.test_data_dir / "airr" / "consolidated_golden_data.json"
+        self.consolidated_pcp_file = self.test_data_dir / "pcp" / "consolidated_golden_data.json"
 
         # Use the session directory and create a subdirectory for this specific test
         test_name = request.node.name
@@ -98,12 +100,12 @@ class TestOlmstedCLI:
 
     @pytest.mark.airr
     def test_airr_processing(self):
-        """Test AIRR data processing using olmsted process command."""
+        """Test AIRR data processing using olmsted process command with split files."""
         # Input and output paths
         input_file = self.test_data_dir / "airr" / "full_schema_dataset.json"
         output_dir = Path(self.temp_dir) / "airr_output"
 
-        # Run the process command
+        # Run the process command with split files to match golden data
         cmd = [
             "olmsted",
             "process",
@@ -111,7 +113,7 @@ class TestOlmstedCLI:
             "airr",
             "-i",
             str(input_file),
-            "-o",
+            "--split-files",
             str(output_dir),
             "--seed",
             "42",
@@ -127,14 +129,61 @@ class TestOlmstedCLI:
         match, message = compare_directories(str(self.golden_airr_dir), str(output_dir))
         assert match, f"Output doesn't match golden data: {message}"
 
+    @pytest.mark.airr
+    def test_airr_consolidated_processing(self):
+        """Test AIRR data processing using consolidated output format."""
+        # Input and output paths
+        input_file = self.test_data_dir / "airr" / "full_schema_dataset.json"
+        output_file = Path(self.temp_dir) / "airr_consolidated.json"
+
+        # Run the process command with consolidated output
+        cmd = [
+            "olmsted",
+            "process",
+            "-f",
+            "airr",
+            "-i",
+            str(input_file),
+            "-o",
+            str(output_file),
+            "--seed",
+            "42",
+            "--validate",
+        ]
+
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        # Check command succeeded
+        assert result.returncode == 0, f"Command failed: {result.stderr}"
+
+        # Verify output file exists
+        assert output_file.exists(), f"Output file not created: {output_file}"
+
+        # Load and verify structure
+        with open(output_file) as f:
+            data = json.load(f)
+
+        # Verify consolidated structure
+        assert "metadata" in data, "Consolidated data should have metadata"
+        assert "datasets" in data, "Consolidated data should have datasets"
+        assert "clones" in data, "Consolidated data should have clones"
+        assert "trees" in data, "Consolidated data should have trees"
+
+        # Verify metadata structure
+        metadata = data["metadata"]
+        assert metadata["format_version"] == "1.0", "Should have correct format version"
+        assert metadata["source_format"] == "airr", "Should identify source format"
+        assert "created_at" in metadata, "Should have creation timestamp"
+        assert "processing_info" in metadata, "Should have processing info"
+
     @pytest.mark.pcp
     def test_pcp_processing(self):
-        """Test PCP data processing using olmsted process command."""
+        """Test PCP data processing using olmsted process command with split files."""
         # Input and output paths
         input_clones = self.test_data_dir / "pcp" / "pcp.csv"
         output_dir = Path(self.temp_dir) / "pcp_output"
 
-        # Run the process command
+        # Run the process command with split files to match golden data
         cmd = [
             "olmsted",
             "process",
@@ -142,7 +191,7 @@ class TestOlmstedCLI:
             "pcp",
             "-i",
             str(input_clones),
-            "-o",
+            "--split-files",
             str(output_dir),
             "--seed",
             "42",
@@ -158,6 +207,53 @@ class TestOlmstedCLI:
         match, message = compare_directories(str(self.golden_pcp_dir), str(output_dir))
         assert match, f"Output doesn't match golden data: {message}"
 
+    @pytest.mark.pcp
+    def test_pcp_consolidated_processing(self):
+        """Test PCP data processing using consolidated output format."""
+        # Input and output paths
+        input_clones = self.test_data_dir / "pcp" / "pcp.csv"
+        output_file = Path(self.temp_dir) / "pcp_consolidated.json"
+
+        # Run the process command with consolidated output
+        cmd = [
+            "olmsted",
+            "process",
+            "-f",
+            "pcp",
+            "-i",
+            str(input_clones),
+            "-o",
+            str(output_file),
+            "--seed",
+            "42",
+            "--validate",
+        ]
+
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        # Check command succeeded
+        assert result.returncode == 0, f"Command failed: {result.stderr}"
+
+        # Verify output file exists
+        assert output_file.exists(), f"Output file not created: {output_file}"
+
+        # Load and verify structure
+        with open(output_file) as f:
+            data = json.load(f)
+
+        # Verify consolidated structure
+        assert "metadata" in data, "Consolidated data should have metadata"
+        assert "datasets" in data, "Consolidated data should have datasets"
+        assert "clones" in data, "Consolidated data should have clones"
+        assert "trees" in data, "Consolidated data should have trees"
+
+        # Verify metadata structure
+        metadata = data["metadata"]
+        assert metadata["format_version"] == "1.0", "Should have correct format version"
+        assert metadata["source_format"] == "pcp", "Should identify source format"
+        assert "created_at" in metadata, "Should have creation timestamp"
+        assert "processing_info" in metadata, "Should have processing info"
+
     def test_auto_format_detection_airr(self):
         """Test automatic format detection for AIRR JSON files."""
         # Input and output paths
@@ -170,7 +266,7 @@ class TestOlmstedCLI:
             "process",
             "-i",
             str(input_file),
-            "-o",
+            "--split-files",
             str(output_dir),
             "-f",
             "auto",  # Explicit auto-detection
@@ -200,7 +296,7 @@ class TestOlmstedCLI:
             "process",
             "-i",
             str(input_clones),
-            "-o",
+            "--split-files",
             str(output_dir),
             "-f",
             "auto",  # Explicit auto-detection
@@ -227,7 +323,7 @@ class TestOlmstedCLI:
             "process",
             "-i",
             "nonexistent_file.json",
-            "-o",
+            "--split-files",
             str(output_dir),
         ]
 

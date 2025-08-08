@@ -27,6 +27,7 @@ from collections import defaultdict
 
 # Import shared utilities from process_data_utils
 from .process_utils import (
+    create_consolidated_data,
     SCHEMA_VERSION,
     translate_dna_to_aa,
     validate_output_data,
@@ -526,9 +527,15 @@ def get_args():
     )
     parser.add_argument(
         "-o",
-        "--output-dir",
+        "--output",
         required=True,
-        help="Output directory for processed JSON files",
+        help="Output file path for consolidated JSON (default behavior)",
+    )
+    parser.add_argument(
+        "--split-files",
+        metavar="DIR",
+        dest="output_dir",
+        help="Output to multiple files in specified directory (datasets.json, clones.*.json, tree.*.json) instead of single consolidated file",
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
     parser.add_argument(
@@ -586,11 +593,6 @@ def main():
             pcp_families, newick_trees, get_uuid
         )
 
-        # Create output directory if needed
-        os.makedirs(args.output_dir, exist_ok=True)
-
-        # Only AIRR format output - no need to prepare other formats
-
         # Validate output data if requested
         if args.validate:
             if not validate_output_data(datasets, clones_dict, trees, args):
@@ -600,14 +602,27 @@ def main():
                     )
                     sys.exit(1)
 
-        # Write AIRR format output
-        print(f"Writing AIRR format output to {args.output_dir}")
-
-        write_out(datasets, args.output_dir, "datasets.json", args)
-        for dataset_id, clones in clones_dict.items():
-            write_out(clones, args.output_dir, f"clones.{dataset_id}.json", args)
-        for tree in trees:
-            write_out(tree, args.output_dir, f"tree.{tree['ident']}.json", args)
+        # Write output
+        if args.output_dir:
+            # Multi-file output to specified directory
+            os.makedirs(args.output_dir, exist_ok=True)
+            print(f"Writing multiple files to {args.output_dir}")
+            write_out(datasets, args.output_dir, "datasets.json", args)
+            for dataset_id, clones in clones_dict.items():
+                write_out(clones, args.output_dir, f"clones.{dataset_id}.json", args)
+            for tree in trees:
+                write_out(tree, args.output_dir, f"tree.{tree['ident']}.json", args)
+        else:
+            # Single consolidated file output (default)
+            consolidated_data = create_consolidated_data(
+                datasets, clones_dict, trees, args.inputs, "pcp", args
+            )
+            # Ensure output directory exists
+            output_dir = os.path.dirname(args.output) or "."
+            output_file = os.path.basename(args.output)
+            os.makedirs(output_dir, exist_ok=True)
+            print(f"Writing consolidated output to {args.output}")
+            write_out(consolidated_data, output_dir, output_file, args)
 
         print("Processing complete!")
 

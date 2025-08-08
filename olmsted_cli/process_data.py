@@ -9,10 +9,9 @@ Supported formats:
 - AIRR JSON: Standard AIRR format with clones and trees
 - PCP CSV: Parent-Child Pair format with optional Newick trees
 
-Usage:
-    python process_data.py -i input_file.json -o output_dir           # Auto-detect format
-    python process_data.py -i input_file.csv -o output_dir -f pcp    # Force PCP format
-    python process_data.py -i input_file.json -o output_dir -f airr  # Force AIRR format
+Output modes:
+- Single consolidated JSON file (default): All data in one file
+- Multiple files (--split-files): Separate datasets.json, clones.*.json, tree.*.json
 """
 
 import argparse
@@ -37,7 +36,12 @@ from .process_pcp_data import (
     parse_pcp_csv,
     process_pcp_to_olmsted,
 )
-from .process_utils import validate_dataset, validate_output_data, write_out
+from .process_utils import (
+    create_consolidated_data,
+    validate_dataset,
+    validate_output_data,
+    write_out,
+)
 
 
 def detect_file_format(file_path):
@@ -190,7 +194,8 @@ def process_airr_format(args):
 
     # Map common arguments
     airr_args.inputs = args.inputs
-    airr_args.data_outdir = args.output_dir
+    airr_args.output = args.output
+    airr_args.data_outdir = getattr(args, "split_files", None)  # For split files mode
     airr_args.verbose = args.verbose
     airr_args.validate = args.validate
     airr_args.strict_validation = args.strict_validation
@@ -251,22 +256,36 @@ def process_airr_format(args):
             sys.exit(1)
 
     # Write output
-    if airr_args.data_outdir:
-        write_out(datasets, airr_args.data_outdir, "datasets.json", airr_args)
+    if args.split_files:
+        # Multi-file output to specified directory
+        output_dir = args.split_files
+        os.makedirs(output_dir, exist_ok=True)
+        write_out(datasets, output_dir, "datasets.json", airr_args)
         for dataset_id, clones in clones_dict.items():
             write_out(
                 clones,
-                airr_args.data_outdir + "/",
+                output_dir + "/",
                 "clones." + dataset_id + ".json",
                 airr_args,
             )
         for tree in trees:
             write_out(
                 tree,
-                airr_args.data_outdir + "/",
+                output_dir + "/",
                 "tree." + tree["ident"] + ".json",
                 airr_args,
             )
+    else:
+        # Single consolidated file output (default)
+        consolidated_data = create_consolidated_data(
+            datasets, clones_dict, trees, args.inputs, "airr", args
+        )
+        # Ensure output directory exists
+        output_dir = os.path.dirname(args.output) or "."
+        output_file = os.path.basename(args.output)
+        os.makedirs(output_dir, exist_ok=True)
+        print(f"Writing consolidated output to {args.output}")
+        write_out(consolidated_data, output_dir, output_file, airr_args)
 
 
 def process_pcp_format(args):
@@ -314,9 +333,6 @@ def process_pcp_format(args):
             pcp_families, newick_trees, get_uuid
         )
 
-        # Create output directory if needed
-        os.makedirs(args.output_dir, exist_ok=True)
-
         # Validate data if requested
         if args.validate:
             if not validate_output_data(datasets, clones_dict, trees, args):
@@ -327,12 +343,27 @@ def process_pcp_format(args):
                     sys.exit(1)
 
         # Write output
-        print(f"Writing output to {args.output_dir}")
-        write_out(datasets, args.output_dir, "datasets.json", args)
-        for dataset_id, clones in clones_dict.items():
-            write_out(clones, args.output_dir, f"clones.{dataset_id}.json", args)
-        for tree in trees:
-            write_out(tree, args.output_dir, f"tree.{tree['ident']}.json", args)
+        if args.split_files:
+            # Multi-file output to specified directory
+            output_dir = args.split_files
+            os.makedirs(output_dir, exist_ok=True)
+            print(f"Writing output to {output_dir}")
+            write_out(datasets, output_dir, "datasets.json", args)
+            for dataset_id, clones in clones_dict.items():
+                write_out(clones, output_dir, f"clones.{dataset_id}.json", args)
+            for tree in trees:
+                write_out(tree, output_dir, f"tree.{tree['ident']}.json", args)
+        else:
+            # Single consolidated file output (default)
+            consolidated_data = create_consolidated_data(
+                datasets, clones_dict, trees, args.inputs, "pcp", args
+            )
+            # Ensure output directory exists
+            output_dir = os.path.dirname(args.output) or "."
+            output_file = os.path.basename(args.output)
+            os.makedirs(output_dir, exist_ok=True)
+            print(f"Writing consolidated output to {args.output}")
+            write_out(consolidated_data, output_dir, output_file, args)
 
         print("Processing complete!")
 
@@ -350,19 +381,23 @@ def get_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    # Auto-detect format and process
-    python process_data.py -i data.json -o output/
-    python process_data.py -i data.csv -o output/
+    # Auto-detect format and output to single consolidated file (default)
+    python process_data.py -i data.json -o output/olmsted_data.json
+    python process_data.py -i data.csv -o output/olmsted_data.json
+
+    # Output to multiple files (datasets.json, clones.*.json, tree.*.json)
+    python process_data.py -i data.json --split-files output_dir/
+    python process_data.py -i data.csv --split-files output_dir/
 
     # Force specific format
-    python process_data.py -i data.json -o output/ -f airr
-    python process_data.py -i data.csv -o output/ -f pcp
+    python process_data.py -i data.json -o output/data.json -f airr
+    python process_data.py -i data.csv -o output/data.json -f pcp
 
     # PCP with separate trees file
-    python process_data.py -i data.csv trees.csv -o output/ -f pcp
+    python process_data.py -i data.csv trees.csv -o output/data.json -f pcp
 
     # With validation
-    python process_data.py -i data.json -o output/ --validate --strict-validation
+    python process_data.py -i data.json -o output/data.json --validate --strict-validation
         """,
     )
 
@@ -376,9 +411,8 @@ Examples:
     )
     parser.add_argument(
         "-o",
-        "--output-dir",
-        required=True,
-        help="Output directory for processed JSON files",
+        "--output",
+        help="Output file path for consolidated JSON (required unless --split-files is used)",
     )
 
     # Format specification
@@ -388,6 +422,13 @@ Examples:
         choices=["airr", "pcp", "auto"],
         default="auto",
         help="Input format (default: auto-detect)",
+    )
+
+    # Output options
+    parser.add_argument(
+        "--split-files",
+        metavar="DIR",
+        help="Output to multiple files in specified directory (datasets.json, clones.*.json, tree.*.json) instead of single consolidated file",
     )
 
     # Common processing options
@@ -428,6 +469,15 @@ Examples:
 def main():
     """Main entry point for the unified processor."""
     args = get_args()
+
+    # Validate output arguments
+    if not args.output and not args.split_files:
+        print("Error: Either -o/--output or --split-files must be specified")
+        sys.exit(1)
+
+    if args.output and args.split_files:
+        print("Error: Cannot specify both -o/--output and --split-files")
+        sys.exit(1)
 
     # Validate inputs
     if not args.inputs:

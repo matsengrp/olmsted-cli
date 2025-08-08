@@ -22,7 +22,7 @@ class TestValidation:
     def test_validate_airr_golden_outputs(self):
         """Test that AIRR golden outputs are valid."""
         golden_dir = (
-            Path(__file__).parent.parent / "example_data" / "airr" / "golden_airr_data"
+            Path(__file__).parent.parent / "example_data" / "airr" / "split_golden_data"
         )
 
         if not golden_dir.exists():
@@ -48,7 +48,7 @@ class TestValidation:
     def test_validate_pcp_golden_outputs(self):
         """Test that PCP golden outputs are valid."""
         golden_dir = (
-            Path(__file__).parent.parent / "example_data" / "pcp" / "golden_pcp_data"
+            Path(__file__).parent.parent / "example_data" / "pcp" / "split_golden_data"
         )
 
         if not golden_dir.exists():
@@ -70,6 +70,60 @@ class TestValidation:
             f"PCP golden outputs should be valid. Errors found:\n"
             + "\n".join(validation_errors)
         )
+
+    def test_validate_airr_consolidated_golden_output(self):
+        """Test that AIRR consolidated golden output is valid."""
+        consolidated_file = (
+            Path(__file__).parent.parent / "example_data" / "airr" / "consolidated_golden_data.json"
+        )
+
+        if not consolidated_file.exists():
+            pytest.skip(f"Consolidated AIRR golden data file not found: {consolidated_file}")
+
+        is_valid, errors = validate_file(
+            str(consolidated_file), file_type=None, verbose=True
+        )
+        assert is_valid, (
+            f"AIRR consolidated golden output should be valid. Errors found:\n"
+            + "\n".join(str(e) for e in errors)
+        )
+
+        # Load and verify consolidated structure
+        with open(consolidated_file) as f:
+            data = json.load(f)
+
+        # Verify consolidated structure
+        assert "metadata" in data, "Consolidated data should have metadata"
+        assert "datasets" in data, "Consolidated data should have datasets"
+        assert "clones" in data, "Consolidated data should have clones"
+        assert "trees" in data, "Consolidated data should have trees"
+
+    def test_validate_pcp_consolidated_golden_output(self):
+        """Test that PCP consolidated golden output is valid."""
+        consolidated_file = (
+            Path(__file__).parent.parent / "example_data" / "pcp" / "consolidated_golden_data.json"
+        )
+
+        if not consolidated_file.exists():
+            pytest.skip(f"Consolidated PCP golden data file not found: {consolidated_file}")
+
+        is_valid, errors = validate_file(
+            str(consolidated_file), file_type=None, verbose=True
+        )
+        assert is_valid, (
+            f"PCP consolidated golden output should be valid. Errors found:\n"
+            + "\n".join(str(e) for e in errors)
+        )
+
+        # Load and verify consolidated structure
+        with open(consolidated_file) as f:
+            data = json.load(f)
+
+        # Verify consolidated structure
+        assert "metadata" in data, "Consolidated data should have metadata"
+        assert "datasets" in data, "Consolidated data should have datasets"
+        assert "clones" in data, "Consolidated data should have clones"
+        assert "trees" in data, "Consolidated data should have trees"
 
     def test_validate_invalid_dataset(self):
         """Test that invalid datasets are properly rejected."""
