@@ -48,407 +48,22 @@ import ete3
 from .process_utils import (
     SCHEMA_VERSION,
     dict_subset,
+    is_nullable_string,
     merge,
-    validate_airr_clone,
-    validate_airr_tree,
+    write_out,
 )
 
-
-def validate_output_data(datasets, clones_dict, trees, args):
-    """
-    Validate all output data before writing.
-
-    Args:
-        datasets: List of dataset objects
-        clones_dict: Dictionary of clone lists by dataset_id
-        trees: List of tree objects
-        args: Command line arguments
-
-    Returns:
-        bool: True if all validation passes, False otherwise
-    """
-    validation_errors = []
-
-    # Validate main AIRR data structure
-    if args.validate:
-        print("\nValidating AIRR data against schemas...")
-
-        # Construct the full AIRR data structure for validation
-        airr_data = {
-            "ident": str(uuid.uuid4()),
-            "format_version": SCHEMA_VERSION,
-            "build": {
-                "commit": "unknown",
-                "id": "validation-build",
-                "time": str(datetime.datetime.now()),
-            },
-            "clones": [],
-        }
-
-        # Add all clones from all datasets
-        for dataset_id, clones in clones_dict.items():
-            airr_data["clones"].extend(clones)
-
-        # Validate using official AIRR schema
-        from .process_utils import load_official_airr_schema
-
-        official_schema = load_official_airr_schema()
-
-        if official_schema is not None:
-            # Validate each tree using official schema
-            for i, tree in enumerate(trees):
-                is_valid, error = validate_airr_tree(tree, official_schema)
-                if not is_valid:
-                    validation_errors.append(
-                        f"Tree {i} (id: {tree.get('ident', 'unknown')}) validation failed: {error}"
-                    )
-                else:
-                    print(f"✓ Tree {i} validation passed")
-        else:
-            print("Warning: Official AIRR schema not available, skipping validation")
-
-    if validation_errors:
-        print("\nValidation errors encountered:")
-        for error in validation_errors:
-            print(f"  - {error}")
-        if args.strict_validation:
-            return False
-
-    return True
+# Import all schemas from centralized module
+from .schemas import (
+    clone_spec,
+    dataset_spec,
+)
 
 
 # Pulling datasets information out
 
 # OK; Here's what we're going to do.
 # We want constructors which describe the space of attrs we're talking about here.
-
-
-def id_spec(desc=None):
-    return dict(description=(desc or "Identifier"), type="string")
-
-
-def multiplicity_spec(desc=None):
-    # QUESTION not sure if we actually want nullable here...
-    return dict(
-        description=(
-            desc
-            or "Number of times sequence was observed in the sample. The presence of a given sequence in a clonal family may represent many identical such sequences in the original sample."
-        ),
-        type=["integer", "null"],
-        minimum=0,
-    )
-
-
-ident_spec = {"description": "UUID specific to the given object", "type": "string"}
-
-build_spec = {
-    "description": "Information about how a dataset was built.",
-    "type": "object",
-    "required": ["commit"],
-    "title": "Build info",
-    "properties": {
-        "commit": {
-            "description": "Commit sha of whatever build system you used to process the data",
-            "type": "string",
-        },
-        "time": {"description": "Time at which build was initiated", "type": "string"},
-    },
-}
-
-timepoint_multiplicity_spec = {
-    "title": "Timepoint multiplicity",
-    "description": "Multiplicity at a specific time.",
-    "type": "object",
-    "properties": {
-        "timepoint_id": {
-            "description": "Id associated with the timepoint in question",
-            "type": "string",
-        },
-        "multiplicity": multiplicity_spec(
-            "Number of times sequence was observed at the given timepoint"
-        ),
-    },
-}
-
-sample_spec = {
-    "title": "Sample",
-    "description": "A sample is a collection of sequences.",
-    "type": "object",
-    "required": ["locus"],
-    "properties": {
-        "ident": ident_spec,
-        "sample_id": id_spec("Sample id"),
-        "timepoint_id": {
-            "description": 'Timepoint associated with this sample (may choose "merged" if data has'
-            + " been combined from multiple timepoints)",
-            "type": "string",
-        },
-        "locus": {"description": "B-cell Locus.", "type": "string"},
-    },
-}
-
-subject_spec = {
-    "title": "Subject",
-    "description": "Subject from which the clonal family was sampled.",
-    "type": "object",
-    "required": ["subject_id"],
-    "properties": {"ident": ident_spec, "subject_id": id_spec("Subject id")},
-}
-
-seed_spec = {
-    # TODO https://github.com/matsengrp/olmsted/commit/4992ac4af5be0ef1d12034de37666c6cf7258988#r32297022
-    "title": "Seed",
-    "description": "A sequence of interest among other clonal family members.",
-    # QUESTION not sure if we actually want nullable here...
-    "type": ["object", "null"],
-    "required": ["seed_id"],
-    "properties": {"ident": ident_spec, "seed_id": id_spec("Seed id")},
-}
-
-node_spec = {
-    "title": "Node",
-    "description": "Information about the phylogenetic tree nodes and the sequences they represent",
-    "type": "object",
-    "required": ["sequence_id", "sequence_alignment", "sequence_alignment_aa"],
-    "properties": {
-        "sequence_id": id_spec(
-            "AIRR: Identifier for this node that matches the id in the newick string and, where possible, the sequence_id in the source repertoire."
-        ),
-        "sequence_alignment": {
-            "description": "AIRR: Nucleotide sequence of the node, aligned to the germline_alignment for this clone, including any indel corrections or spacers.",
-            # add pattern matching for AGCT-* etc?
-            "type": "string",
-        },
-        "sequence_alignment_aa": {
-            "description": "Amino acid sequence of the node, aligned to the germline_alignment for this clone, including any indel corrections or spacers.",
-            # add pattern matching for AGCT-* etc?
-            "type": "string",
-        },
-        "timepoint_id": {
-            "description": "Timepoint associated with sequence, if any.",
-            # QUESTION not sure if we actually want nullable here...
-            "type": ["string", "null"],
-        },
-        "multiplicity": multiplicity_spec(),
-        "cluster_multiplicity": multiplicity_spec(
-            "If clonal family sequences were downsampled by clustering, the cummulative number of times"
-            + " sequences in cluster were observed."
-        ),
-        "timepoint_multiplicities": {
-            "description": "Sequence multiplicity, broken down by timepoint.",
-            "type": "array",
-            "items": timepoint_multiplicity_spec,
-        },
-        "cluster_timepoint_multiplicities": {
-            "description": "Sequence multiplicity, broken down by timepoint, including sequences falling in"
-            + " the same cluster if clustering-based downsampling was performed.",
-            "type": "array",
-            "items": timepoint_multiplicity_spec,
-        },
-        "lbi": {
-            "description": "Local branching index (see https://arxiv.org/abs/2004.11868).",
-            "type": ["number", "null"],
-        },
-        "lbr": {
-            "description": "Local branching rate (derivative of lbi; see https://arxiv.org/abs/2004.11868).",
-            "type": ["number", "null"],
-        },
-        "affinity": {
-            "description": "Affinity of the antibody for some antigen. Typically inverse dissociation constant k_d in simulation, and inverse ic50 in data.",
-            "type": ["number", "null"],
-        },
-    },
-}
-
-tree_spec = {
-    "title": "Tree",
-    "description": "Phylogenetic tree and possibly ancestral state reconstruction of sequences in a clonal family.",
-    "type": "object",
-    "required": ["newick", "nodes"],
-    "properties": {
-        "ident": ident_spec,
-        "tree_id": id_spec("AIRR: Identifier for the tree."),
-        "clone_id": id_spec("AIRR: Identifier for the clone."),
-        "downsampling_strategy": {
-            "description": "If applicable, the downsampling method applied to the set of clonal sequences before passing them to a phylogenetic inference tool.",
-            "type": "string",
-        },
-        "downsampled_count": {
-            "description": "If applicable, the maximum number of sequences kept in the downsampling process.",
-            "minumum": 3,
-            "type": "integer",
-        },
-        "newick": {
-            "description": "AIRR: Newick string of the tree edges.",
-            "type": "string",
-        },
-        "nodes": {
-            "description": "AIRR: Dictionary of nodes in the tree, keyed by sequence_id string.",
-            "type": "object",
-            "additionalProperties": node_spec,
-        },
-    },
-}
-
-
-def natural_number(desc):
-    return dict(description=desc, minimum=0, type="integer")
-
-
-clone_spec = {
-    "title": "Clone",
-    "description": "Clonal family of sequences deriving from a particular reassortment event",
-    "type": "object",
-    "required": [
-        "unique_seqs_count",
-        "mean_mut_freq",
-        "v_alignment_start",
-        "v_alignment_end",
-        "j_alignment_start",
-        "j_alignment_end",
-    ],
-    "properties": {
-        "clone_id": id_spec("AIRR: Identifier for the clone."),
-        "ident": ident_spec,
-        "unique_seqs_count": {
-            "description": "Number of unique sequences in the clone",
-            "minimum": 1,
-            "type": "integer",
-        },
-        "total_read_count": {
-            "description": "Number of total reads represented by sequences in the clone.",
-            "minimum": 1,
-            "type": "integer",
-        },
-        # do we currently compute this pre downsampling or what? account for multiplicity?
-        "mean_mut_freq": {
-            "description": "Mean mutation frequency across sequences in the clone.",
-            "minimum": 0,
-            "type": "number",
-        },
-        "germline_alignment": {
-            "description": "AIRR: Assembled, aligned, full-length inferred ancestor of the clone spanning the same region as the sequence_alignment field of nodes (typically the V(D)J region) and including the same set of corrections and spacers (if any).",
-            "type": "string",
-        },
-        "has_seed": {
-            "description": "Does this clone have a seed sequence (see Seed schema) in it?",
-            "type": "boolean",
-        },
-        # Rearrangement data
-        "v_alignment_start": natural_number(
-            "AIRR: Start position in the V segment in both the sequence_alignment and germline_alignment fields (1-based closed interval)."
-        ),
-        "v_alignment_end": natural_number(
-            "AIRR: End position in the V segment in both the sequence_alignment and germline_alignment fields (1-based closed interval)."
-        ),
-        "v_call": {
-            "description": "AIRR: V gene with allele of the inferred ancestral of the clone. For example, IGHV4-59*01.",
-            "type": "string",
-        },
-        "d_alignment_start": natural_number(
-            "AIRR: Start position of the D segment in both the sequence_alignment and germline_alignment fields (1-based closed interval)."
-        ),
-        "d_alignment_end": natural_number(
-            "AIRR: End position of the D segment in both the sequence_alignment and germline_alignment fields (1-based closed interval)."
-        ),
-        "d_call": {
-            "description": "AIRR: D gene with allele of the inferred ancestor of the clone. For example, IGHD3-10*01.",
-            "type": "string",
-        },
-        "j_alignment_start": natural_number(
-            "AIRR: Start position of the J segment in both the sequence_alignment and germline_alignment fields (1-based closed interval)."
-        ),
-        "j_alignment_end": natural_number(
-            "AIRR: End position of the J segment in both the sequence_alignment and germline_alignment fields (1-based closed interval)."
-        ),
-        "j_call": {
-            "description": "AIRR: J gene with allele of the inferred ancestor of the clone. For example, IGHJ4*02.",
-            "type": "string",
-        },
-        "junction_length": natural_number(
-            "AIRR: Number of nucleotides in the junction. (see AIRR 'junction': Nucleotide sequence for the junction region of the inferred ancestor of the clone, where the junction is defined as the CDR3 plus the two flanking conserved codons.)"
-        ),
-        "junction_start": natural_number(
-            "AIRR: Junction region start position in the alignment (1-based closed interval)."
-        ),
-        "sample_id": {
-            "description": "sample id associated with this clonal family.",
-            "type": "string",
-        },
-        "subject_id": {
-            "description": "Id of subject from which the clonal family was sampled.",
-            "type": "string",
-        },
-        "seed_id": {
-            "description": "Seed sequence id if any.",
-            "type": ["string", "null"],
-        },
-        "trees": {
-            "description": "Phylogenetic trees, and possibly ancestral sequence reconstructions.",
-            "type": "array",
-            "items": tree_spec,
-        },
-    },
-}
-
-dataset_spec = {
-    "$schema": "https://json-schema.org/draft-07/schema#",
-    "$id": "https://olmstedviz.org/input.schema.json",
-    "title": "Olmsted Dataset",
-    "description": "Olmsted dataset input file.",
-    "type": "object",
-    "required": ["dataset_id", "clones"],
-    "properties": {
-        "ident": ident_spec,
-        "dataset_id": {
-            "description": "Unique identifier for a collection of data",
-            "type": "string",
-        },
-        "build": build_spec,
-        "samples": {
-            "description": "Information about each of the samples",
-            "type": "array",
-            "items": sample_spec,
-        },
-        "subjects": {
-            "description": "Information about each of the subjects",
-            "type": "array",
-            "items": subject_spec,
-        },
-        "seeds": {
-            "description": "Information about each of the seed sequences",
-            "type": "array",
-            "items": seed_spec,
-        },
-        "clones": {
-            "description": "Information about each of the clonal families",
-            "type": "array",
-            "items": clone_spec,
-        },
-        "paper": {
-            "description": "Information about a paper corresponding to this dataset",
-            "type": "object",
-            "required": ["authorstring"],
-            "title": "Paper info",
-            "properties": {
-                "url": {
-                    "description": "Link to online version of the paper.",
-                    "type": "string",
-                },
-                "authorstring": {
-                    "description": 'String to be displayed citing authors, e.g. "Doe, et. al.".',
-                    "type": "string",
-                },
-            },
-        },
-    },
-}
-
-
-def is_nullable_string(checker, instance):
-    return jsonschema.Draft4Validator.TYPE_CHECKER.is_type(
-        instance, "string"
-    ) or jsonschema.Draft4Validator.TYPE_CHECKER.is_type(instance, "null")
 
 
 type_checker = jsonschema.Draft4Validator.TYPE_CHECKER.redefine(
@@ -470,26 +85,7 @@ except FileNotFoundError:
     pass
 
 
-def validate(data, schema, verbose=False, object_name=None):
-    if schema is None:
-        # Schema not available - skip validation
-        return
-    if not schema.is_valid(data):
-        msg = "{} doesn't conform to spec.".format(
-            object_name if object_name is not None else "Input data"
-        )
-        if verbose:
-            last_error_path = None
-            for error in schema.iter_errors(data):
-                error_path = list(error.path)
-                if last_error_path != error_path:
-                    print(f"  Error at {str(error_path)}:")
-                    last_error_path = error_path
-                print(f"    {error.message}")
-            msg += " See above for detailed errors."
-        else:
-            msg += "Please rerun with `-v` for detailed errors"
-        raise Exception(msg)
+# Validation function removed - now using unified validation from validate_command.py
 
 
 def ensure_ident(record):
@@ -556,35 +152,7 @@ def process_tree(args, clone_id, tree):
     return ensure_ident(tree)
 
 
-def validate_airr_clone_and_trees(args, clone):
-    # Set repertoire_id to sample_id or clone_id if not available (required by AIRR schema)
-    clone["repertoire_id"] = (
-        clone.get("sample_id") or clone.get("clone_id") or "unknown"
-    )
-
-    # prepare tree(s)
-    clone["trees"] = list(
-        map(
-            functools.partial(process_tree, args, clone["clone_id"]),
-            clone.get("trees", []),
-        )
-    )
-
-    # Use common validation function with official AIRR schema
-    is_valid, error = validate_airr_clone(clone)
-    if not is_valid:
-        if args.verbose:
-            print(f"Clone validation failed: {error}")
-        # Fall back to original validation if needed
-        validate(clone, airr_clone_schema, verbose=args.verbose, object_name="Clone")
-    elif args.verbose:
-        print(
-            f"Clone {clone.get('clone_id', 'unknown')} validated successfully against official AIRR schema"
-        )
-
-
 def process_clone(args, dataset, clone):
-    validate_airr_clone_and_trees(args, clone)
     # -=1 *_start positions since AIRR schema uses 1-based closed interval but we need python slice conventions (0-based, open interval) for source code (vega visualization). See bin/process_data.py
     for start_pos_key in [
         "v_alignment_start",
@@ -625,29 +193,6 @@ def process_dataset(args, dataset, clones_dict, trees):
     del dataset["clones"]
     dataset["schema_version"] = SCHEMA_VERSION
     return ensure_ident(dataset)
-
-
-def json_rep(x):
-    if isinstance(x, uuid.UUID):
-        return str(x)
-    else:
-        return list(x)
-
-
-def write_out(data, dirname, filename, args):
-    if not os.path.exists(dirname):
-        os.makedirs(dirname)
-    full_path = os.path.normpath(os.path.join(dirname, filename))
-    with open(full_path, "w") as fh:
-        print(f"writing {full_path}")
-        # Then assume json
-        json.dump(
-            data,
-            fh,
-            default=json_rep,
-            indent=4,
-            # allow_nan=False
-        )
 
 
 def hiccup_rep(schema, depth=1, property=None):
@@ -827,12 +372,18 @@ def main():
                             dataset["clones"],
                         )
                     )
-                validate(
-                    dataset,
-                    olmsted_dataset_schema,
-                    verbose=args.verbose,
-                    object_name="Dataset",
-                )
+                # Use unified validation from validate_command
+                from .validate_command import validate_dataset
+                errors = validate_dataset(dataset, verbose=args.verbose)
+                if errors:
+                    error_msg = "Dataset validation failed"
+                    if args.verbose:
+                        print(f"Dataset validation failed:")
+                        for error in errors:
+                            print(f"  - {error}")
+                    else:
+                        error_msg += ". Please rerun with `-v` for detailed errors"
+                    raise Exception(error_msg)
                 # Process the dataset, including validation of clones, trees against the AIRR schema
                 dataset = process_dataset(args, dataset, clones_dict, trees)
                 datasets.append(dataset)
@@ -864,10 +415,13 @@ def main():
                 )
             )
     # Validate data before writing if requested
-    if args.validate and not validate_output_data(datasets, clones_dict, trees, args):
-        if args.strict_validation:
-            print("\nExiting due to validation errors (--strict-validation enabled)")
-            sys.exit(1)
+    if args.validate:
+        from .process_utils import validate_output_data
+
+        if not validate_output_data(datasets, clones_dict, trees, args):
+            if args.strict_validation:
+                print("\nExiting due to validation errors (--strict-validation enabled)")
+                sys.exit(1)
 
     # write out data
     if args.data_outdir:

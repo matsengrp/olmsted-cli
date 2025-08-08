@@ -2,8 +2,8 @@
 """
 Shared utilities for processing various data formats in Olmsted.
 
-This module contains common functions, constants, and schema definitions
-used by process_airr_data.py, process_pcp_data.py, and other data processors.
+This module contains common functions and constants used by
+process_airr_data.py, process_pcp_data.py, and other data processors.
 """
 
 import json
@@ -12,11 +12,15 @@ import os
 import jsonschema
 import yaml
 
-# Constants
-SCHEMA_VERSION = "2.0.0"
+# Import unified schema definitions
+from .schemas import clone_spec, dataset_spec, node_spec, tree_spec
 
 
-# Utility functions
+# Constants for infinity handling
+inf = float("inf")
+neginf = float("-inf")
+
+# General utility functions
 def comp(f, g):
     """
     Function composition: comp(f, g)(x) == f(g(x))
@@ -64,11 +68,6 @@ def get_in(d, path):
     )
 
 
-# Constants for infinity handling
-inf = float("inf")
-neginf = float("-inf")
-
-
 def clean_record(d):
     """
     Clean a record by removing namespaces and handling special values.
@@ -105,28 +104,233 @@ def nospy(xs):
     return xs
 
 
+def translate_dna_to_aa(dna_sequence):
+    """
+    Translate DNA sequence to amino acid sequence.
+    Uses standard genetic code, handles ambiguous bases.
+    """
+    if not dna_sequence:
+        return ""
+
+    # Standard genetic code
+    codon_table = {
+        "TTT": "F",
+        "TTC": "F",
+        "TTA": "L",
+        "TTG": "L",
+        "TCT": "S",
+        "TCC": "S",
+        "TCA": "S",
+        "TCG": "S",
+        "TAT": "Y",
+        "TAC": "Y",
+        "TAA": "*",
+        "TAG": "*",
+        "TGT": "C",
+        "TGC": "C",
+        "TGA": "*",
+        "TGG": "W",
+        "CTT": "L",
+        "CTC": "L",
+        "CTA": "L",
+        "CTG": "L",
+        "CCT": "P",
+        "CCC": "P",
+        "CCA": "P",
+        "CCG": "P",
+        "CAT": "H",
+        "CAC": "H",
+        "CAA": "Q",
+        "CAG": "Q",
+        "CGT": "R",
+        "CGC": "R",
+        "CGA": "R",
+        "CGG": "R",
+        "ATT": "I",
+        "ATC": "I",
+        "ATA": "I",
+        "ATG": "M",
+        "ACT": "T",
+        "ACC": "T",
+        "ACA": "T",
+        "ACG": "T",
+        "AAT": "N",
+        "AAC": "N",
+        "AAA": "K",
+        "AAG": "K",
+        "AGT": "S",
+        "AGC": "S",
+        "AGA": "R",
+        "AGG": "R",
+        "GTT": "V",
+        "GTC": "V",
+        "GTA": "V",
+        "GTG": "V",
+        "GCT": "A",
+        "GCC": "A",
+        "GCA": "A",
+        "GCG": "A",
+        "GAT": "D",
+        "GAC": "D",
+        "GAA": "E",
+        "GAG": "E",
+        "GGT": "G",
+        "GGC": "G",
+        "GGA": "G",
+        "GGG": "G",
+    }
+
+    aa_sequence = ""
+    # Process in chunks of 3 nucleotides
+    for i in range(0, len(dna_sequence) - 2, 3):
+        codon = dna_sequence[i : i + 3].upper()
+        # Handle ambiguous bases by using 'X' for unknown amino acids
+        if len(codon) == 3 and codon in codon_table:
+            aa_sequence += codon_table[codon]
+        else:
+            aa_sequence += "X"  # Unknown amino acid for ambiguous codons
+
+    return aa_sequence
+
+
+# Additional utility functions consolidated from process_cft_data.py
+
+def rename_keys(record, mapping, to_keep=None):
+    """
+    Rename keys in a record based on a mapping dictionary.
+
+    Args:
+        record: Dictionary to modify
+        mapping: Dict mapping old keys to new keys
+        to_keep: List of keys to keep with original name (copy, don't move)
+    """
+    if to_keep is None:
+        to_keep = []
+
+    for k in mapping.keys():
+        if k in record:
+            record[mapping[k]] = record.pop(k) if k not in to_keep else record[k]
+
+
+def remap_list(lst, mapping):
+    """Apply key renaming to all elements in a list."""
+    for element in lst:
+        rename_keys(element, mapping)
+
+
+def remap_dict_values(d, mapping):
+    """Apply key renaming to all values in a dictionary."""
+    for v in d.values():
+        rename_keys(v, mapping)
+
+
+def try_del(d, attr):
+    """Safely delete an attribute from a dictionary, ignoring errors."""
+    try:
+        del d[attr]
+    except (KeyError, TypeError):
+        pass
+
+
+def listof(xs_str, f=None):
+    """Split a colon-separated string and apply optional function to each element."""
+    if f is None:
+        f = lambda x: x
+    return list(map(f, xs_str.split(":")))
+
+
+def listofint(xs_str):
+    """Split a colon-separated string and convert each element to int."""
+    return listof(xs_str, int)
+
+
+# JSON utility functions
+def json_rep(x):
+    """
+    JSON serialization helper for non-standard types.
+
+    Converts UUID objects to strings and other iterables to lists.
+    Used as the 'default' parameter for json.dump().
+
+    Args:
+        x: Object to convert
+
+    Returns:
+        JSON-serializable representation
+    """
+    import uuid
+    if isinstance(x, uuid.UUID):
+        return str(x)
+    else:
+        # Try to convert to list (for sets, tuples, etc.)
+        try:
+            return list(x)
+        except TypeError:
+            # Let json.dump() handle the error for truly non-serializable types
+            raise
+
+
 def write_out(data, dirname, filename, args):
     """
-    Write data to JSON file.
+    Write data to JSON or CSV file with proper formatting and UUID handling.
 
     Args:
         data: Data to write
         dirname: Directory path
         filename: File name
-        args: Command line arguments (for verbose flag)
+        args: Command line arguments (for verbose flag and csv flag)
     """
-    output_path = os.path.join(dirname, filename)
-    if args.verbose:
-        print(f"writing {output_path}")
+    import csv
 
     # Ensure directory exists
     os.makedirs(dirname, exist_ok=True)
 
-    with open(output_path, "w") as fh:
-        if isinstance(data, list) or isinstance(data, dict):
-            json.dump(data, fh, indent=4, sort_keys=True)
+    # Normalize path
+    full_path = os.path.normpath(os.path.join(dirname, filename))
+
+    # Print status
+    print(f"writing {full_path}")
+
+    with open(full_path, "w") as fh:
+        # Check if CSV output is requested (for CFT data)
+        if hasattr(args, 'csv') and args.csv and isinstance(data, list):
+            # Write as CSV
+            if data:
+                # Ensure all items are dictionaries
+                data = [{k: v for k, v in d.items()} for d in data]
+                writer = csv.DictWriter(fh, fieldnames=sorted(data[0].keys()))
+                writer.writeheader()
+                writer.writerows(data)
+        elif isinstance(data, (list, dict)):
+            # Write as JSON
+            json.dump(
+                data,
+                fh,
+                default=json_rep,  # Handle UUIDs and other non-serializable types
+                indent=4,
+                # allow_nan=False  # Uncomment if you want to disallow NaN values
+            )
         else:
+            # Handle raw string data
             fh.write(data)
+
+
+# Constants
+SCHEMA_VERSION = "2.0.0"
+
+
+# Schema utility functions
+def natural_number(desc):
+    """Create a natural number schema specification with description."""
+    return {"description": desc, "minimum": 0, "type": "integer"}
+
+
+def is_nullable_string(checker, instance):
+    """Check if an instance is either a string or null (for JSON schema validation)."""
+    import jsonschema
+    return jsonschema.Draft4Validator.TYPE_CHECKER.is_type(
+        instance, "string"
+    ) or jsonschema.Draft4Validator.TYPE_CHECKER.is_type(instance, "null")
 
 
 # Schema loading and validation functions
@@ -268,226 +472,94 @@ def validate_airr_node(node_data, schema=None):
     return validate_against_airr_schema(node_data, "Node", schema)
 
 
-# Schema specifications
-# These are simplified versions for PCP processing
-# The full AIRR schemas with all validations remain in process_airr_data.py
-node_spec = {
-    "title": "Node",
-    "description": "Information about the phylogenetic tree nodes and the sequences they represent",
-    "type": "object",
-    "required": ["sequence_id", "sequence_alignment", "sequence_alignment_aa"],
-    "properties": {
-        "sequence_id": {"description": "Identifier for this node", "type": "string"},
-        "sequence_alignment": {
-            "description": "Nucleotide sequence alignment",
-            "type": "string",
-        },
-        "sequence_alignment_aa": {
-            "description": "Amino acid sequence alignment",
-            "type": ["string", "null"],
-        },
-        "parent": {
-            "description": "Sequence ID of parent node",
-            "type": ["string", "null"],
-        },
-        "type": {
-            "description": "Type of node",
-            "enum": ["leaf", "node"],
-            "type": "string",
-        },
-        "confidence": {
-            "description": "Bootstrap confidence",
-            "type": ["number", "null"],
-        },
-        "lbi": {"description": "Local branching index", "type": ["number", "null"]},
-        "lbr": {"description": "Local branching ratio", "type": ["number", "null"]},
-        "distance": {"description": "Distance from root", "type": ["number", "null"]},
-        "length": {"description": "Branch length", "type": ["number", "null"]},
-        "timepoint_id": {
-            "description": "Time point identifier",
-            "type": ["string", "null"],
-        },
-        "timepoint_multiplicities": {
-            "description": "Multiplicities at different time points",
-            "type": "array",
-            "items": {"type": ["integer", "null"]},
-        },
-        "multiplicity": {
-            "description": "Total multiplicity/abundance",
-            "type": ["integer", "null"],
-        },
-        "cluster_multiplicity": {
-            "description": "Cluster multiplicity",
-            "type": ["integer", "null"],
-        },
-        "affinity": {"description": "Binding affinity", "type": ["number", "null"]},
-    },
-    "additionalProperties": True,
-}
+def validate_output_data(datasets, clones_dict, trees, args):
+    """
+    Generic output data validation function using unified validation from validate_command.
 
-tree_spec = {
-    "title": "Tree",
-    "description": "Phylogenetic tree and possibly ancestral state reconstruction of sequences in a clonal family.",
-    "type": "object",
-    "required": ["newick", "nodes"],
-    "properties": {
-        "ident": {"description": "Tree identifier", "type": "string"},
-        "timepoint_ids": {
-            "description": "Time points included",
-            "type": "array",
-            "items": {"type": "string"},
-        },
-        "newick": {"description": "Newick format tree string", "type": "string"},
-        "nodes": {
-            "description": "Dictionary of nodes keyed by sequence ID",
-            "type": "object",
-            "additionalProperties": node_spec,
-        },
-    },
-    "additionalProperties": True,
-}
+    This replaces the processor-specific validation functions to provide a single
+    validation entry point for all output data.
 
-clone_spec = {
-    "title": "Clone",
-    "description": "Clonal family of sequences deriving from a particular reassortment event",
-    "type": "object",
-    "required": [
-        "unique_seqs_count",
-        "total_read_count",
-        "mean_mut_freq",
-        "v_alignment_start",
-        "v_alignment_end",
-        "j_alignment_start",
-        "j_alignment_end",
-        "v_call",
-        "j_call",
-    ],
-    "properties": {
-        "ident": {"description": "Clone identifier", "type": "string"},
-        "clone_id": {"description": "Clone ID", "type": "string"},
-        "dataset_id": {"description": "Dataset ID", "type": "string"},
-        "sample_id": {"description": "Sample ID", "type": "string"},
-        "subject_id": {"description": "Subject ID", "type": "string"},
-        "unique_seqs_count": {
-            "description": "Number of unique sequences",
-            "type": "integer",
-        },
-        "total_read_count": {"description": "Total number of reads", "type": "integer"},
-        "mean_mut_freq": {"description": "Mean mutation frequency", "type": "number"},
-        "v_alignment_start": {
-            "description": "V gene alignment start position",
-            "type": "integer",
-        },
-        "v_alignment_end": {
-            "description": "V gene alignment end position",
-            "type": "integer",
-        },
-        "j_alignment_start": {
-            "description": "J gene alignment start position",
-            "type": "integer",
-        },
-        "j_alignment_end": {
-            "description": "J gene alignment end position",
-            "type": "integer",
-        },
-        "v_call": {"description": "V gene call", "type": "string"},
-        "j_call": {"description": "J gene call", "type": "string"},
-        "d_call": {"description": "D gene call", "type": ["string", "null"]},
-        "d_alignment_start": {
-            "description": "D gene alignment start position",
-            "type": ["integer", "null"],
-        },
-        "d_alignment_end": {
-            "description": "D gene alignment end position",
-            "type": ["integer", "null"],
-        },
-        "junction_start": {
-            "description": "Junction region start position",
-            "type": ["integer", "null"],
-        },
-        "junction_length": {
-            "description": "Junction region length",
-            "type": ["integer", "null"],
-        },
-        "germline_alignment": {
-            "description": "Germline sequence alignment",
-            "type": ["string", "null"],
-        },
-        "has_seed": {
-            "description": "Whether clone has seed sequence",
-            "type": "boolean",
-        },
-        "seed_id": {
-            "description": "Seed sequence identifier",
-            "type": ["string", "null"],
-        },
-        "trees": {
-            "description": "Associated trees",
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "ident": {"description": "Tree identifier", "type": "string"}
-                },
-            },
-        },
-        "v_per_gene_support": {
-            "description": "V gene assignment probabilities",
-            "type": ["object", "null"],
-        },
-        "j_per_gene_support": {
-            "description": "J gene assignment probabilities",
-            "type": ["object", "null"],
-        },
-    },
-    "additionalProperties": True,
-}
+    Args:
+        datasets: List of dataset objects
+        clones_dict: Dictionary of clone lists by dataset_id
+        trees: List of tree objects
+        args: Command line arguments with validate and verbose flags
 
-dataset_spec = {
-    "$schema": "https://json-schema.org/draft-07/schema#",
-    "$id": "https://olmstedviz.org/input.schema.json",
-    "title": "Olmsted Dataset",
-    "description": "Olmsted dataset input file.",
-    "type": "object",
-    "required": ["schema_version", "dataset_id"],
-    "properties": {
-        "schema_version": {"description": "Schema version", "type": "string"},
-        "ident": {"description": "Dataset identifier", "type": "string"},
-        "dataset_id": {"description": "Dataset ID", "type": "string"},
-        "type": {"description": "Dataset type", "type": "string"},
-        "build": {
-            "description": "Build information",
-            "type": "object",
-            "properties": {"commit": {"type": "string"}, "time": {"type": "string"}},
-        },
-        "subjects": {
-            "description": "Subject information",
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "ident": {"type": "string"},
-                    "subject_id": {"type": "string"},
-                },
-            },
-        },
-        "samples": {
-            "description": "Sample information",
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "ident": {"type": "string"},
-                    "sample_id": {"type": "string"},
-                    "locus": {"type": "string"},
-                    "timepoint_id": {"type": "string"},
-                },
-            },
-        },
-        "seeds": {"description": "Seed sequences", "type": "array"},
-        "clone_count": {"description": "Number of clones", "type": "integer"},
-        "subjects_count": {"description": "Number of subjects", "type": "integer"},
-        "timepoints_count": {"description": "Number of time points", "type": "integer"},
-    },
-    "additionalProperties": True,
-}
+    Returns:
+        bool: True if all validation passes, False otherwise
+    """
+    if not hasattr(args, 'validate') or not args.validate:
+        return True
+
+    print("\nValidating output data against schemas...")
+
+    validation_passed = True
+    total_errors = 0
+
+    # Import unified validation functions
+    from .validate_command import validate_dataset, validate_clone, validate_tree
+
+    try:
+        # Validate datasets
+        for i, dataset in enumerate(datasets):
+            errors = validate_dataset(dataset, verbose=getattr(args, 'verbose', False))
+            if errors:
+                print(f"❌ Dataset {i} validation failed:")
+                for error in errors:
+                    print(f"  - {error}")
+                validation_passed = False
+                total_errors += len(errors)
+            elif getattr(args, 'verbose', False):
+                print(f"✓ Dataset {i} validation passed")
+
+        # Validate clones
+        clone_count = 0
+        clone_failures = 0
+        for dataset_id, clones in clones_dict.items():
+            for clone in clones:
+                clone_count += 1
+                errors = validate_clone(clone, verbose=getattr(args, 'verbose', False))
+                if errors:
+                    clone_failures += 1
+                    if getattr(args, 'verbose', False):
+                        print(f"❌ Clone {clone.get('clone_id', 'unknown')} validation failed:")
+                        for error in errors:
+                            print(f"  - {error}")
+                    validation_passed = False
+                    total_errors += len(errors)
+
+        if clone_failures == 0:
+            print(f"✓ Clone validation passed ({clone_count} clones)")
+        else:
+            print(f"❌ Clone validation: {clone_failures}/{clone_count} failed")
+
+        # Validate trees
+        tree_count = 0
+        tree_failures = 0
+        for tree in trees:
+            tree_count += 1
+            errors = validate_tree(tree, verbose=getattr(args, 'verbose', False))
+            if errors:
+                tree_failures += 1
+                if getattr(args, 'verbose', False):
+                    print(f"❌ Tree {tree.get('ident', 'unknown')} validation failed:")
+                    for error in errors:
+                        print(f"  - {error}")
+                validation_passed = False
+                total_errors += len(errors)
+
+        if tree_failures == 0:
+            print(f"✓ Tree validation passed ({tree_count} trees)")
+        else:
+            print(f"❌ Tree validation: {tree_failures}/{tree_count} failed")
+
+        if total_errors > 0:
+            print(f"\nTotal validation errors: {total_errors}")
+
+    except Exception as e:
+        print(f"Validation error: {str(e)}")
+        validation_passed = False
+
+    return validation_passed
+
+

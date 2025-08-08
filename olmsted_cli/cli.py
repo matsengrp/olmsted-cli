@@ -32,16 +32,27 @@ Examples:
     subparsers.add_parser(
         "process", help="Process data with automatic format detection"
     )
+    
+    # Validate command
+    subparsers.add_parser(
+        "validate", help="Validate data files against AIRR/Olmsted schemas"
+    )
     # Don't define arguments here - let the underlying script handle them
 
     # Parse only the command, not the full arguments
-    if len(sys.argv) > 1 and sys.argv[1] == "process":
+    if len(sys.argv) > 1:
         command = sys.argv[1]
-        # Remove the script name and command from sys.argv so the underlying scripts see clean arguments
-        sys.argv = [sys.argv[0]] + sys.argv[2:]
-
+        
         if command == "process":
+            # Remove the script name and command from sys.argv so the underlying scripts see clean arguments
+            sys.argv = [sys.argv[0]] + sys.argv[2:]
             process_data()
+        elif command == "validate":
+            # Remove the script name and command from sys.argv
+            sys.argv = [sys.argv[0]] + sys.argv[2:]
+            validate_data()
+        else:
+            parser.parse_args()  # This will show help or error
     else:
         parser.parse_args()  # This will show help or error
 
@@ -60,6 +71,14 @@ def process_data():
         process_data.main()
     finally:
         os.chdir(original_dir)
+
+
+def validate_data():
+    """Run the validate command."""
+    # Import from the package
+    from olmsted_cli import validate_command
+    
+    validate_command.main()
 
 
 if __name__ == "__main__":

@@ -202,9 +202,8 @@ def process_airr_format(args):
     from .process_airr_data import (
         olmsted_dataset_schema,
         process_dataset,
-        validate,
-        validate_output_data,
     )
+    from .process_utils import validate_output_data
 
     datasets, clones_dict, trees = [], {}, []
 
@@ -224,12 +223,18 @@ def process_airr_format(args):
                             dataset["clones"],
                         )
                     )
-                validate(
-                    dataset,
-                    olmsted_dataset_schema,
-                    verbose=airr_args.verbose,
-                    object_name="Dataset",
-                )
+                # Use unified validation from validate_command
+                from .validate_command import validate_dataset
+                errors = validate_dataset(dataset, verbose=airr_args.verbose)
+                if errors:
+                    error_msg = "Dataset validation failed"
+                    if airr_args.verbose:
+                        print(f"Dataset validation failed:")
+                        for error in errors:
+                            print(f"  - {error}")
+                    else:
+                        error_msg += ". Please rerun with `-v` for detailed errors"
+                    raise Exception(error_msg)
                 dataset = process_dataset(airr_args, dataset, clones_dict, trees)
                 datasets.append(dataset)
 
@@ -321,11 +326,9 @@ def process_pcp_format(args):
 
         # Validate data if requested
         if args.validate:
-            from .process_pcp_data import validate_airr_output
+            from .process_utils import validate_output_data
 
-            pcp_args = argparse.Namespace()
-            pcp_args.verbose = args.verbose
-            if not validate_airr_output(datasets, clones_dict, trees, pcp_args):
+            if not validate_output_data(datasets, clones_dict, trees, args):
                 if args.strict_validation:
                     print(
                         "\nExiting due to validation errors (--strict-validation enabled)"

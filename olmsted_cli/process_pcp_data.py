@@ -27,17 +27,9 @@ from collections import defaultdict
 # Import shared utilities from process_data_utils
 from .process_utils import (
     SCHEMA_VERSION,
-    load_official_airr_schema,
-    validate_airr_clone,
-    validate_airr_tree,
     write_out,
+    translate_dna_to_aa,
 )
-
-# Validation functions now imported from process_data_utils
-
-
-# PCP validation removed - output is validated against AIRR schemas since PCP is converted to AIRR format
-
 
 def parse_pcp_csv(csv_path):
     """
@@ -195,95 +187,6 @@ def parse_pcp_csv(csv_path):
             families[family_id]["edges"].append((parent, child, edge_length))
 
     return dict(families)
-
-
-def translate_dna_to_aa(dna_sequence):
-    """
-    Translate DNA sequence to amino acid sequence.
-    Uses standard genetic code, handles ambiguous bases.
-    """
-    if not dna_sequence:
-        return ""
-
-    # Standard genetic code
-    codon_table = {
-        "TTT": "F",
-        "TTC": "F",
-        "TTA": "L",
-        "TTG": "L",
-        "TCT": "S",
-        "TCC": "S",
-        "TCA": "S",
-        "TCG": "S",
-        "TAT": "Y",
-        "TAC": "Y",
-        "TAA": "*",
-        "TAG": "*",
-        "TGT": "C",
-        "TGC": "C",
-        "TGA": "*",
-        "TGG": "W",
-        "CTT": "L",
-        "CTC": "L",
-        "CTA": "L",
-        "CTG": "L",
-        "CCT": "P",
-        "CCC": "P",
-        "CCA": "P",
-        "CCG": "P",
-        "CAT": "H",
-        "CAC": "H",
-        "CAA": "Q",
-        "CAG": "Q",
-        "CGT": "R",
-        "CGC": "R",
-        "CGA": "R",
-        "CGG": "R",
-        "ATT": "I",
-        "ATC": "I",
-        "ATA": "I",
-        "ATG": "M",
-        "ACT": "T",
-        "ACC": "T",
-        "ACA": "T",
-        "ACG": "T",
-        "AAT": "N",
-        "AAC": "N",
-        "AAA": "K",
-        "AAG": "K",
-        "AGT": "S",
-        "AGC": "S",
-        "AGA": "R",
-        "AGG": "R",
-        "GTT": "V",
-        "GTC": "V",
-        "GTA": "V",
-        "GTG": "V",
-        "GCT": "A",
-        "GCC": "A",
-        "GCA": "A",
-        "GCG": "A",
-        "GAT": "D",
-        "GAC": "D",
-        "GAA": "E",
-        "GAG": "E",
-        "GGT": "G",
-        "GGC": "G",
-        "GGA": "G",
-        "GGG": "G",
-    }
-
-    aa_sequence = ""
-    # Process in chunks of 3 nucleotides
-    for i in range(0, len(dna_sequence) - 2, 3):
-        codon = dna_sequence[i : i + 3].upper()
-        # Handle ambiguous bases by using 'X' for unknown amino acids
-        if len(codon) == 3 and codon in codon_table:
-            aa_sequence += codon_table[codon]
-        else:
-            aa_sequence += "X"  # Unknown amino acid for ambiguous codons
-
-    return aa_sequence
 
 
 def parse_newick_csv(csv_path):
@@ -589,75 +492,6 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None)
     return datasets, clones_dict, trees
 
 
-def validate_airr_output(datasets, clones_dict, trees, args):
-    """
-    Validate AIRR output data against schemas using official AIRR schema.
-
-    Args:
-        datasets: AIRR datasets
-        clones_dict: AIRR clones dictionary
-        trees: AIRR trees
-        args: Command line arguments
-
-    Returns:
-        bool: True if validation passes, False otherwise
-    """
-    validation_passed = True
-    official_schema = load_official_airr_schema()
-
-    try:
-        # Validate clones using official AIRR schema
-        clone_validation_count = 0
-        clone_failures = 0
-
-        for dataset_id, clones in clones_dict.items():
-            for clone in clones:
-                clone_validation_count += 1
-                is_valid, error = validate_airr_clone(clone, official_schema)
-                if not is_valid:
-                    clone_failures += 1
-                    if args.verbose:
-                        print(
-                            f"Clone validation failed for {clone.get('clone_id', 'unknown')}: {error}"
-                        )
-                    validation_passed = False
-
-        if clone_failures == 0:
-            print(f"✓ AIRR clone validation passed ({clone_validation_count} clones)")
-        else:
-            print(
-                f"❌ AIRR clone validation: {clone_failures}/{clone_validation_count} failed"
-            )
-
-        # Validate trees using official AIRR schema
-        tree_validation_count = 0
-        tree_failures = 0
-
-        for tree in trees:
-            tree_validation_count += 1
-            is_valid, error = validate_airr_tree(tree, official_schema)
-            if not is_valid:
-                tree_failures += 1
-                if args.verbose:
-                    print(
-                        f"Tree validation failed for {tree.get('ident', 'unknown')}: {error}"
-                    )
-                validation_passed = False
-
-        if tree_failures == 0:
-            print(f"✓ AIRR tree validation passed ({tree_validation_count} trees)")
-        else:
-            print(
-                f"❌ AIRR tree validation: {tree_failures}/{tree_validation_count} failed"
-            )
-
-    except Exception as e:
-        print(f"Validation error: {str(e)}")
-        validation_passed = False
-
-    return validation_passed
-
-
 def deterministic_uuid(seed_base, counter=None):
     """Generate a deterministic UUID based on a seed and optional counter."""
     if counter is not None:
@@ -754,9 +588,11 @@ def main():
 
         # Only AIRR format output - no need to prepare other formats
 
-        # Validate AIRR data if requested
+        # Validate output data if requested
         if args.validate:
-            if not validate_airr_output(datasets, clones_dict, trees, args):
+            from .process_utils import validate_output_data
+
+            if not validate_output_data(datasets, clones_dict, trees, args):
                 if args.strict_validation:
                     print(
                         "\nExiting due to validation errors (--strict-validation enabled)"

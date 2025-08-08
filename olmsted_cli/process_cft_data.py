@@ -10,29 +10,58 @@ import json
 import os
 import sys
 import warnings
+import inflect
+
+# Python 3.13+ compatibility: make cgi module available before ete3 import
+try:
+    import cgi  # noqa: F401
+except ImportError:
+    # Create a mock cgi module using our compatibility layer
+    import html
+    import sys
+
+    class CGIModule:
+        """Mock cgi module for Python 3.13+ compatibility."""
+
+        escape = html.escape
+
+        # Add other cgi functions that might be needed by ete3
+        def parse_qs(self, *args, **kwargs):
+            from urllib.parse import parse_qs
+
+            return parse_qs(*args, **kwargs)
+
+        def parse_qsl(self, *args, **kwargs):
+            from urllib.parse import parse_qsl
+
+            return parse_qsl(*args, **kwargs)
+
+    # Make cgi available as a module
+    sys.modules["cgi"] = CGIModule()
 
 import ete3
-import inflect
 
 sys.path = [os.path.join(os.getcwd(), "tripl")] + sys.path
 from tripl import tripl
 
+# Import shared utilities
+from .process_utils import (
+    comp,
+    dict_subset,
+    inf,
+    neginf,
+    nospy,
+    write_out,
+    # Additional utilities consolidated from CFT
+    rename_keys,
+    remap_list,
+    remap_dict_values,
+    try_del,
+    listof,
+    listofint,
+)
+
 default_schema_path = os.path.join(os.path.dirname(__file__), "..", "cft_schema.json")
-
-
-def rename_keys(record, mapping, to_keep=[]):
-    for k in mapping.keys():
-        record[mapping[k]] = record.pop(k) if k not in to_keep else record[k]
-
-
-def remap_list(lst, mapping):
-    for element in lst:
-        rename_keys(element, mapping)
-
-
-def remap_dict_values(d, mapping):
-    for v in d.values():
-        rename_keys(v, mapping)
 
 
 cft_to_olmsted_fns = dict(
@@ -115,17 +144,6 @@ def get_args():
     parser.add_argument("-v", "--verbose", action="store_true")
     return parser.parse_args()
 
-
-# Some generic data processing helpers helpers
-
-
-def comp(f, g):
-    def h(*args, **kw_args):
-        return f(g(*args, **kw_args))
-
-    return h
-
-
 ple = inflect.engine()
 
 
@@ -145,15 +163,9 @@ def trim_tripl_naming(a):
     return attr_name
 
 
-def dict_subset(d, keys):
-    return {k: d[k] for k in keys if k in d}
-
-
-inf = float("inf")
-neginf = float("-inf")
-
-
+# dict_subset, inf, neginf, spy, lspy, nospy now imported from process_utils
 def clean_record(d):
+    """CFT-specific version of clean_record that handles tripl naming."""
     if isinstance(d, list):
         return map(clean_record, d)
     elif isinstance(d, dict):
@@ -163,21 +175,6 @@ def clean_record(d):
         return None
     else:
         return d
-
-
-def spy(x):
-    print("debugging:", x)
-    return x
-
-
-def lspy(xs):
-    xs_ = list(xs)
-    print("debugging listable:", xs_)
-    return xs_
-
-
-def nospy(xs):
-    return xs
 
 
 partition_pull_pattern = [
@@ -330,19 +327,7 @@ def create_seqmeta_dict(seqmeta_records):
     return d
 
 
-def try_del(d, attr):
-    try:
-        del d[attr]
-    except Exception:
-        pass
-
-
-def listof(xs_str, f=lambda x: x):
-    return map(f, xs_str.split(":"))
-
-
-def listofint(xs_str):
-    return listof(xs_str, int)
+# try_del, listof, listofint now imported from process_utils
 
 
 def parse_tree_data(args, c):
@@ -505,28 +490,6 @@ def pull_clonal_families(args, t):
     else:
         print("processed {} clonal families successfully".format(len(result)))
     return good_families
-
-
-def write_out(data, dirname, filename, args):
-    if not os.path.exists(dirname):
-        os.makedirs(dirname)
-    full_path = os.path.normpath(os.path.join(dirname, filename))
-    with open(full_path, "w") as fh:
-        print("writing " + full_path)
-        if args.csv:
-            data = [{k: v for k, v in d.items()} for d in data]
-            writer = csv.DictWriter(fh, fieldnames=sorted(data[0].keys()))
-            writer.writeheader()
-            writer.writerows(data)
-        else:
-            # Then assume json
-            json.dump(
-                data,
-                fh,
-                default=list,
-                indent=4,
-                # allow_nan=False
-            )
 
 
 def main():
