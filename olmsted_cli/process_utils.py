@@ -353,7 +353,7 @@ def create_consolidated_data(
             "version": SCHEMA_VERSION,
         },
     }
-    
+
     # Add optional name if provided
     if args and hasattr(args, "name") and args.name:
         metadata["name"] = args.name

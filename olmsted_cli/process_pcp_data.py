@@ -158,8 +158,12 @@ def parse_pcp_csv(csv_path):
                     "is_naive": parent_is_naive,
                     "is_leaf": False,
                     "distances": [],  # Will be updated if this node appears as child
-                    "distance": 0.0 if parent_is_naive else None,  # Will be set when node appears as child
-                    "length": 0.0 if parent_is_naive else None,  # Will be set when node appears as child
+                    "distance": 0.0
+                    if parent_is_naive
+                    else None,  # Will be set when node appears as child
+                    "length": 0.0
+                    if parent_is_naive
+                    else None,  # Will be set when node appears as child
                 }
 
             # Add child node if not already present
@@ -178,7 +182,7 @@ def parse_pcp_csv(csv_path):
             else:
                 # Update multiplicity if node appears multiple times
                 families[family_id]["nodes"][child]["multiplicity"] += sample_count
-            
+
             # Update parent node distance/length if this parent appears as a child in another row
             if parent in families[family_id]["nodes"]:
                 parent_node = families[family_id]["nodes"][parent]
@@ -209,20 +213,20 @@ def parse_pcp_csv(csv_path):
 def _fix_node_distances_and_lengths(family_data):
     """
     Post-process family data to ensure all nodes have correct distance and length values.
-    
+
     Args:
         family_data: Dictionary containing nodes and edges for one family
     """
     nodes = family_data["nodes"]
     edges = family_data["edges"]
-    
+
     # Create lookup for child -> (parent, edge_length, child_distance)
     child_info = {}
     for parent, child, edge_length in edges:
         if child in nodes:
             child_distance = nodes[child]["distance"]
             child_info[child] = (parent, edge_length, child_distance)
-    
+
     # Update parent nodes that don't have distance/length set
     for node_id, node_data in nodes.items():
         if node_data["distance"] is None or node_data["length"] is None:
@@ -668,7 +672,7 @@ def main():
             input_files = [args.input_pcp]
             if args.input_trees:
                 input_files.append(args.input_trees)
-            
+
             consolidated_data = create_consolidated_data(
                 datasets, clones_dict, trees, input_files, "pcp", args
             )
