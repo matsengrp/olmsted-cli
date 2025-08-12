@@ -39,7 +39,6 @@ import ete3
 sys.path = [os.path.join(os.getcwd(), "tripl")] + sys.path
 from tripl import tripl
 
-# Import shared utilities
 from .process_utils import (
     comp,
     dict_subset,
@@ -50,7 +49,6 @@ from .process_utils import (
     nospy,
     remap_dict_values,
     remap_list,
-    # Additional utilities consolidated from CFT
     rename_keys,
     try_del,
     write_out,
@@ -159,7 +157,6 @@ def trim_tripl_naming(a):
     return attr_name
 
 
-# dict_subset, inf, neginf, spy, lspy, nospy now imported from process_utils
 def clean_record(d):
     """CFT-specific version of clean_record that handles tripl naming."""
     if isinstance(d, list):
@@ -321,9 +318,6 @@ def create_seqmeta_dict(seqmeta_records):
         seq_id = record["bio.seq:id"]
         d[seq_id] = record
     return d
-
-
-# try_del, listof, listofint now imported from process_utils
 
 
 def parse_tree_data(args, c):

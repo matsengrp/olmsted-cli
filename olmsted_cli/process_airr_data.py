@@ -54,10 +54,6 @@ from .schemas import (
     dataset_spec,
 )
 
-# OK; Here's what we're going to do.
-# We want constructors which describe the space of attrs we're talking about here.
-
-
 type_checker = jsonschema.Draft4Validator.TYPE_CHECKER.redefine(
     "string", is_nullable_string
 )
