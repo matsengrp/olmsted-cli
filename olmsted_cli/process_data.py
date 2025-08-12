@@ -432,6 +432,10 @@ Examples:
     )
 
     # Common processing options
+    parser.add_argument(
+        "--name",
+        help="Optional name for the dataset (stored in metadata)",
+    )
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
     parser.add_argument(
         "--validate",

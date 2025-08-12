@@ -157,9 +157,9 @@ def parse_pcp_csv(csv_path):
                     "sequence_alignment": parent_sequence,
                     "is_naive": parent_is_naive,
                     "is_leaf": False,
-                    "distances": [],  # Track distances for mutation frequency calculation
-                    "distance": 0.0,  # Root node has zero distance
-                    "length": 0.0,  # Root node has zero length
+                    "distances": [],  # Will be updated if this node appears as child
+                    "distance": 0.0 if parent_is_naive else None,  # Will be set when node appears as child
+                    "length": 0.0 if parent_is_naive else None,  # Will be set when node appears as child
                 }
 
             # Add child node if not already present
@@ -178,6 +178,15 @@ def parse_pcp_csv(csv_path):
             else:
                 # Update multiplicity if node appears multiple times
                 families[family_id]["nodes"][child]["multiplicity"] += sample_count
+            
+            # Update parent node distance/length if this parent appears as a child in another row
+            if parent in families[family_id]["nodes"]:
+                parent_node = families[family_id]["nodes"][parent]
+                # Only update if not already set (and not naive)
+                if parent_node["distance"] is None and not parent_node["is_naive"]:
+                    # We need to find the row where this parent is a child to get its distance
+                    # For now, we'll handle this in a post-processing step
+                    pass
                 # Add distance data
                 if distance > 0:
                     families[family_id]["nodes"][child]["distances"].append(distance)
@@ -190,7 +199,44 @@ def parse_pcp_csv(csv_path):
             # Add edge
             families[family_id]["edges"].append((parent, child, edge_length))
 
+    # Post-process to ensure all nodes have correct distance/length values
+    for family_id, family_data in families.items():
+        _fix_node_distances_and_lengths(family_data)
+
     return dict(families)
+
+
+def _fix_node_distances_and_lengths(family_data):
+    """
+    Post-process family data to ensure all nodes have correct distance and length values.
+    
+    Args:
+        family_data: Dictionary containing nodes and edges for one family
+    """
+    nodes = family_data["nodes"]
+    edges = family_data["edges"]
+    
+    # Create lookup for child -> (parent, edge_length, child_distance)
+    child_info = {}
+    for parent, child, edge_length in edges:
+        if child in nodes:
+            child_distance = nodes[child]["distance"]
+            child_info[child] = (parent, edge_length, child_distance)
+    
+    # Update parent nodes that don't have distance/length set
+    for node_id, node_data in nodes.items():
+        if node_data["distance"] is None or node_data["length"] is None:
+            # This node is a parent but we haven't seen it as a child yet
+            # Check if it appears as a child in child_info
+            if node_id in child_info:
+                parent, edge_length, child_distance = child_info[node_id]
+                if node_data["distance"] is None:
+                    node_data["distance"] = child_distance
+                if node_data["length"] is None:
+                    node_data["length"] = edge_length
+                # Add to distances list for mutation frequency calculation
+                if child_distance > 0 and child_distance not in node_data["distances"]:
+                    node_data["distances"].append(child_distance)
 
 
 def parse_newick_csv(csv_path):
@@ -433,7 +479,7 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None)
 
         # Create clone with rich PCP data
         clone = {
-            "clone_id": f"family-{family_idx}",
+            "clone_id": family_id,  # Use actual family name from PCP data
             "ident": clone_ident,
             "dataset_id": dataset_id,
             "sample_id": original_sample_id,
@@ -459,8 +505,8 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None)
             "trees": [
                 {
                     "ident": tree_ident,
-                    "clone_id": f"family-{family_idx}",
-                    "tree_id": f"pcp-tree-{family_idx}",
+                    "clone_id": family_id,  # Use actual family name
+                    "tree_id": f"pcp-tree-{family_id}",  # Use family name in tree ID
                     "newick": newick,
                     "type": "pcp.reconstruction",  # PCP-specific type
                 }
@@ -484,8 +530,8 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None)
         # Create tree with nodes as array
         tree = {
             "ident": tree_ident,
-            "tree_id": f"pcp-tree-{family_idx}",
-            "clone_id": f"family-{family_idx}",
+            "tree_id": f"pcp-tree-{family_id}",  # Use family name in tree ID
+            "clone_id": family_id,  # Use actual family name
             "newick": newick,
             "nodes": nodes_array,
             "type": "pcp.reconstruction",  # PCP-specific reconstruction type
@@ -536,6 +582,10 @@ def get_args():
         metavar="DIR",
         dest="output_dir",
         help="Output to multiple files in specified directory (datasets.json, clones.*.json, tree.*.json) instead of single consolidated file",
+    )
+    parser.add_argument(
+        "--name",
+        help="Optional name for the dataset (stored in metadata)",
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
     parser.add_argument(
@@ -614,8 +664,13 @@ def main():
                 write_out(tree, args.output_dir, f"tree.{tree['ident']}.json", args)
         else:
             # Single consolidated file output (default)
+            # Build input files list for metadata
+            input_files = [args.input_pcp]
+            if args.input_trees:
+                input_files.append(args.input_trees)
+            
             consolidated_data = create_consolidated_data(
-                datasets, clones_dict, trees, args.inputs, "pcp", args
+                datasets, clones_dict, trees, input_files, "pcp", args
             )
             # Ensure output directory exists
             output_dir = os.path.dirname(args.output) or "."

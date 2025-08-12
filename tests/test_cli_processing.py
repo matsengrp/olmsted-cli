@@ -121,6 +121,8 @@ class TestOlmstedCLI:
             str(output_dir),
             "--seed",
             "42",
+            "--name",
+            "airr-example",
             "--validate",
         ]
 
@@ -152,6 +154,8 @@ class TestOlmstedCLI:
             str(output_file),
             "--seed",
             "42",
+            "--name",
+            "airr-example",
             "--validate",
         ]
 
@@ -183,6 +187,7 @@ class TestOlmstedCLI:
         assert metadata["source_format"] == "airr", "Should identify source format"
         assert "created_at" in metadata, "Should have creation timestamp"
         assert "processing_info" in metadata, "Should have processing info"
+        assert metadata["name"] == "airr-example", "Should have correct name"
 
     @pytest.mark.pcp
     def test_pcp_processing(self):
@@ -203,6 +208,8 @@ class TestOlmstedCLI:
             str(output_dir),
             "--seed",
             "42",
+            "--name",
+            "pcp-example",
             "--validate",
         ]
 
@@ -234,6 +241,8 @@ class TestOlmstedCLI:
             str(output_file),
             "--seed",
             "42",
+            "--name",
+            "pcp-example",
             "--validate",
         ]
 
@@ -265,6 +274,7 @@ class TestOlmstedCLI:
         assert metadata["source_format"] == "pcp", "Should identify source format"
         assert "created_at" in metadata, "Should have creation timestamp"
         assert "processing_info" in metadata, "Should have processing info"
+        assert metadata["name"] == "pcp-example", "Should have correct name"
 
     def test_auto_format_detection_airr(self):
         """Test automatic format detection for AIRR JSON files."""
