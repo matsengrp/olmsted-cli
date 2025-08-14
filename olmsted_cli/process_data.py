@@ -25,6 +25,7 @@ import uuid
 from pathlib import Path
 
 import jsonschema
+from tqdm import tqdm
 
 from .process_airr_data import (
     clone_spec,
@@ -37,6 +38,7 @@ from .process_pcp_data import (
     process_pcp_to_olmsted,
 )
 from .process_utils import (
+    VerbosePrinter,
     create_consolidated_data,
     validate_dataset,
     validate_output_data,
@@ -187,7 +189,10 @@ def process_airr_format(args):
     Args:
         args: Parsed command line arguments
     """
-    print("Processing AIRR format...")
+    # Create verbosity printer
+    vprint = VerbosePrinter(args.verbose)
+
+    vprint.status("Processing AIRR format...")
 
     # Convert unified args to AIRR-specific args
     airr_args = argparse.Namespace()
@@ -212,47 +217,67 @@ def process_airr_format(args):
     # Process using AIRR logic (adapted from process_airr_data.py)
     datasets, clones_dict, trees = [], {}, []
 
-    for infile in airr_args.inputs or []:
-        print(f"\nProcessing AIRR file: {infile}")
-        try:
-            with open(infile, "r") as fh:
-                dataset = json.load(fh)
-                if airr_args.remove_invalid_clones:
-                    dataset["clones"] = list(
-                        filter(
-                            jsonschema.Draft4Validator(clone_spec).is_valid,
-                            dataset["clones"],
-                        )
-                    )
-                # Use unified validation from validate module
-                errors = validate_dataset(dataset, verbose=airr_args.verbose)
-                if errors:
-                    error_msg = "Dataset validation failed"
-                    if airr_args.verbose:
-                        print(f"Dataset validation failed:")
-                        for error in errors:
-                            print(f"  - {error}")
-                    else:
-                        error_msg += ". Please rerun with `-v` for detailed errors"
-                    raise Exception(error_msg)
-                dataset = process_dataset(airr_args, dataset, clones_dict, trees)
-                datasets.append(dataset)
+    # Process input files with progress bar
+    input_files = airr_args.inputs or []
+    with tqdm(input_files, desc="Processing AIRR files", unit="file", disable=len(input_files) == 1) as pbar:
+        for infile in pbar:
+            pbar.set_description(f"Processing {Path(infile).name}")
 
-        except Exception:
-            print(f"Unable to process AIRR file: {infile}")
-            if airr_args.verbose:
-                exc_info = sys.exc_info()
-                traceback.print_exception(*exc_info)
-            else:
-                print("Please rerun with `-v` for detailed errors.")
-            sys.exit(1)
+            if len(input_files) == 1 or airr_args.verbose:
+                vprint.status(f"\nProcessing AIRR file: {infile}")
+
+            try:
+                with open(infile, "r") as fh:
+                    dataset = json.load(fh)
+
+                    # Filter invalid clones if requested
+                    if airr_args.remove_invalid_clones:
+                        original_count = len(dataset.get("clones", []))
+                        dataset["clones"] = list(
+                            filter(
+                                jsonschema.Draft4Validator(clone_spec).is_valid,
+                                dataset["clones"],
+                            )
+                        )
+                        filtered_count = original_count - len(dataset["clones"])
+                        if filtered_count > 0:
+                            pbar.set_postfix({"filtered": filtered_count})
+
+                    # Use unified validation from validate module
+                    errors = validate_dataset(dataset, verbose=airr_args.verbose)
+                    if errors:
+                        error_msg = "Dataset validation failed"
+                        if airr_args.verbose:
+                            vprint.error("Dataset validation failed:")
+                            for error in errors:
+                                vprint.error(f"  - {error}")
+                        else:
+                            error_msg += ". Please rerun with `-v` for detailed errors"
+                        raise Exception(error_msg)
+
+                    # Process dataset
+                    dataset = process_dataset(airr_args, dataset, clones_dict, trees)
+                    datasets.append(dataset)
+
+                    # Update progress bar with clone count
+                    if "clones" in dataset:
+                        pbar.set_postfix({"clones": len(dataset["clones"])})
+
+            except Exception:
+                vprint.error(f"\nUnable to process AIRR file: {infile}")
+                if airr_args.verbose:
+                    exc_info = sys.exc_info()
+                    traceback.print_exception(*exc_info)
+                else:
+                    vprint.error("Please rerun with `-v` for detailed errors.")
+                sys.exit(1)
 
     # Validate data before writing if requested
     if airr_args.validate and not validate_output_data(
         datasets, clones_dict, trees, airr_args
     ):
         if airr_args.strict_validation:
-            print("\nExiting due to validation errors (--strict-validation enabled)")
+            vprint.error("\nExiting due to validation errors (--strict-validation enabled)")
             sys.exit(1)
 
     # Write output
@@ -284,7 +309,7 @@ def process_airr_format(args):
         output_dir = os.path.dirname(args.output) or "."
         output_file = os.path.basename(args.output)
         os.makedirs(output_dir, exist_ok=True)
-        print(f"Writing consolidated output to {args.output}")
+        vprint.status(f"Writing consolidated output to {args.output}")
         write_out(consolidated_data, output_dir, output_file, airr_args)
 
 
@@ -295,49 +320,89 @@ def process_pcp_format(args):
     Args:
         args: Parsed command line arguments
     """
-    print("Processing PCP format...")
+    # Create verbosity printer
+    vprint = VerbosePrinter(args.verbose)
+
+    vprint.status("Processing PCP format...")
+
+    # Print command arguments at verbosity level 2
+    vprint.verbose("=== Command Arguments ===")
+    vprint.verbose(f"  Input PCP file: {args.inputs[0]}")
+    if hasattr(args, 'tree') and args.tree:
+        vprint.verbose(f"  Input trees file: {args.tree}")
+    if args.output:
+        vprint.verbose(f"  Output file: {args.output}")
+    if args.split_files:
+        vprint.verbose(f"  Output directory: {args.split_files}")
+    if hasattr(args, 'name') and args.name:
+        vprint.verbose(f"  Dataset name: {args.name}")
+    vprint.verbose(f"  Verbosity level: {args.verbose}")
+    vprint.verbose(f"  Validation: {args.validate}")
+    if args.validate:
+        vprint.verbose(f"  Strict validation: {args.strict_validation}")
+    if hasattr(args, 'seed') and args.seed is not None:
+        vprint.verbose(f"  Random seed: {args.seed}")
+    vprint.verbose(f"  Show disagreement warnings: {args.warnings}")
+    vprint.verbose(f"  Compute metrics: {getattr(args, 'compute_metrics', False)}")
+    if getattr(args, 'compute_metrics', False):
+        vprint.verbose(f"    LBI tau: {getattr(args, 'lbi_tau', 0.0125)}")
+    vprint.verbose(f"  Standardize names: {getattr(args, 'standardize_names', False)}")
+    vprint.verbose("=" * 25)
+    vprint.verbose("")
 
     # Set up deterministic UUID generation if seed is provided
     uuid_counter = 0
 
-    def get_uuid():
+    def get_uuid(prefix=""):
         nonlocal uuid_counter
         if hasattr(args, "seed") and args.seed is not None:
             uuid_counter += 1
-            return deterministic_uuid(args.seed, uuid_counter)
+            uuid_str = deterministic_uuid(args.seed, uuid_counter)
         else:
-            return str(uuid.uuid4())
+            uuid_str = str(uuid.uuid4())
+        return f"{prefix}{uuid_str}" if prefix else uuid_str
 
     try:
-        # Assume first input is PCP CSV, second (if provided) is Newick trees
+        # Get PCP file from inputs
         pcp_file = args.inputs[0]
-        trees_file = args.inputs[1] if len(args.inputs) > 1 else None
 
-        print(f"Processing PCP CSV: {pcp_file}")
+        # Get trees file from --tree argument if provided
+        trees_file = args.tree if hasattr(args, 'tree') else None
+
+        vprint.status(f"Processing PCP CSV: {pcp_file}")
         if hasattr(args, "seed") and args.seed is not None:
-            print(f"Using deterministic UUIDs with seed: {args.seed}")
+            vprint.status(f"Using deterministic UUIDs with seed: {args.seed}")
 
+        # Parse PCP families with progress bar
+        vprint.status("Parsing PCP CSV...")
         pcp_families = parse_pcp_csv(pcp_file)
-        print(f"Found {len(pcp_families)} families")
+        vprint.status(f"Found {len(pcp_families)} families")
 
-        # Parse Newick trees if provided
+        # Parse Newick trees if provided with progress bar
         newick_trees = None
         if trees_file:
-            print(f"Processing Newick trees: {trees_file}")
+            vprint.status(f"Processing Newick trees: {trees_file}")
             newick_trees = parse_newick_csv(trees_file)
-            print(f"Found {len(newick_trees)} trees")
+            vprint.status(f"Found {len(newick_trees)} trees")
 
-        # Convert to Olmsted format
-        print("Converting to Olmsted format...")
+        # Convert to Olmsted format with progress bar
+        vprint.status("Converting to Olmsted format...")
         datasets, clones_dict, trees = process_pcp_to_olmsted(
-            pcp_families, newick_trees, get_uuid
+            pcp_families,
+            newick_trees,
+            get_uuid,
+            args.warnings,
+            compute_metrics=getattr(args, 'compute_metrics', False),
+            lbi_tau=getattr(args, 'lbi_tau', 0.0125),
+            standardize_names=getattr(args, 'standardize_names', False),
+            verbosity=args.verbose
         )
 
         # Validate data if requested
         if args.validate:
             if not validate_output_data(datasets, clones_dict, trees, args):
                 if args.strict_validation:
-                    print(
+                    vprint.error(
                         "\nExiting due to validation errors (--strict-validation enabled)"
                     )
                     sys.exit(1)
@@ -347,7 +412,7 @@ def process_pcp_format(args):
             # Multi-file output to specified directory
             output_dir = args.split_files
             os.makedirs(output_dir, exist_ok=True)
-            print(f"Writing output to {output_dir}")
+            vprint.status(f"Writing output to {output_dir}")
             write_out(datasets, output_dir, "datasets.json", args)
             for dataset_id, clones in clones_dict.items():
                 write_out(clones, output_dir, f"clones.{dataset_id}.json", args)
@@ -362,13 +427,13 @@ def process_pcp_format(args):
             output_dir = os.path.dirname(args.output) or "."
             output_file = os.path.basename(args.output)
             os.makedirs(output_dir, exist_ok=True)
-            print(f"Writing consolidated output to {args.output}")
+            vprint.status(f"Writing consolidated output to {args.output}")
             write_out(consolidated_data, output_dir, output_file, args)
 
-        print("Processing complete!")
+        vprint.status("Processing complete!")
 
     except Exception as e:
-        print(f"Error processing PCP format: {e}")
+        vprint.error(f"Error processing PCP format: {e}")
         if args.verbose:
             traceback.print_exc()
         sys.exit(1)
@@ -394,7 +459,7 @@ Examples:
     python process_data.py -i data.csv -o output/data.json -f pcp
 
     # PCP with separate trees file
-    python process_data.py -i data.csv trees.csv -o output/data.json -f pcp
+    python process_data.py -i data.csv --tree trees.csv -o output/data.json -f pcp
 
     # With validation
     python process_data.py -i data.json -o output/data.json --validate --strict-validation
@@ -407,7 +472,7 @@ Examples:
         "--inputs",
         nargs="+",
         required=True,
-        help="Input file(s). For AIRR: one or more JSON files. For PCP: CSV file and optional trees CSV file",
+        help="Input file(s). For AIRR: one or more JSON files. For PCP: CSV file (use --tree for trees file)",
     )
     parser.add_argument(
         "-o",
@@ -433,10 +498,24 @@ Examples:
 
     # Common processing options
     parser.add_argument(
+        "-n",
         "--name",
         help="Optional name for the dataset (stored in metadata)",
     )
-    parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        type=int,
+        choices=[0, 1, 2, 3],
+        default=1,
+        help="Set verbosity level: 0=quiet (errors only), 1=normal (default), 2=verbose, 3=debug",
+    )
+    parser.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="Quiet mode - only show errors (equivalent to -v 0)",
+    )
     parser.add_argument(
         "--validate",
         action="store_true",
@@ -452,10 +531,23 @@ Examples:
         type=int,
         help="Random seed for deterministic UUID generation",
     )
+    parser.add_argument(
+        "-w",
+        "--warnings",
+        action="store_true",
+        help="Show warnings when tree and PCP data disagree on edges or branch lengths (PCP format only)",
+    )
+
+    # PCP-specific options
+    parser.add_argument(
+        "-t",
+        "--tree",
+        "--trees",
+        help="Input CSV file containing Newick trees (for PCP format, optional, can be gzipped)",
+    )
 
     # AIRR-specific options
     parser.add_argument(
-        "-n",
         "--naive-name",
         default="naive",
         help="Name of naive/root node for tree rooting (AIRR only)",
@@ -467,6 +559,24 @@ Examples:
         help="Root trees using naive node (AIRR only)",
     )
 
+    # PCP-specific tree metric options
+    parser.add_argument(
+        "--compute-metrics",
+        action="store_true",
+        help="Compute phylogenetic metrics (LBI, LBR, affinity, scaled_affinity, mean_mut_freq) for all nodes (PCP only)",
+    )
+    parser.add_argument(
+        "--lbi-tau",
+        type=float,
+        default=0.0125,
+        help="Time scale parameter for LBI calculation (default: 0.0125, PCP only)",
+    )
+    parser.add_argument(
+        "--standardize-names",
+        action="store_true",
+        help="Rename nodes to standardized names: naive (root), Node1, Node2, ... (internal), Leaf1, Leaf2, ... (leaves) (PCP only)",
+    )
+
     return parser.parse_args()
 
 
@@ -474,24 +584,31 @@ def main():
     """Main entry point for the unified processor."""
     args = get_args()
 
+    # Handle quiet mode
+    if args.quiet:
+        args.verbose = 0
+
+    # Create verbosity printer
+    vprint = VerbosePrinter(args.verbose)
+
     # Validate output arguments
     if not args.output and not args.split_files:
-        print("Error: Either -o/--output or --split-files must be specified")
+        vprint.error("Error: Either -o/--output or --split-files must be specified")
         sys.exit(1)
 
     if args.output and args.split_files:
-        print("Error: Cannot specify both -o/--output and --split-files")
+        vprint.error("Error: Cannot specify both -o/--output and --split-files")
         sys.exit(1)
 
     # Validate inputs
     if not args.inputs:
-        print("Error: No input files specified")
+        vprint.error("Error: No input files specified")
         sys.exit(1)
 
     # Check that input files exist
     for input_file in args.inputs:
         if not os.path.exists(input_file):
-            print(f"Error: Input file does not exist: {input_file}")
+            vprint.error(f"Error: Input file does not exist: {input_file}")
             sys.exit(1)
 
     # Determine format
@@ -499,23 +616,23 @@ def main():
         # Auto-detect using first input file
         detected_format = detect_file_format(args.inputs[0])
         if detected_format == "unknown":
-            print(f"Error: Could not auto-detect format for {args.inputs[0]}")
-            print("Please specify format with -f/--format option")
+            vprint.error(f"Error: Could not auto-detect format for {args.inputs[0]}")
+            vprint.error("Please specify format with -f/--format option")
             sys.exit(1)
         format_to_use = detected_format
-        print(f"Auto-detected format: {format_to_use}")
+        vprint.status(f"Auto-detected format: {format_to_use}")
     else:
         format_to_use = args.format
-        print(f"Using specified format: {format_to_use}")
+        vprint.status(f"Using specified format: {format_to_use}")
 
     # Validate format matches file content
     if format_to_use == "airr":
         for input_file in args.inputs:
             if not validate_airr_file(input_file):
-                print(f"Warning: {input_file} may not be valid AIRR format")
+                vprint.status(f"Warning: {input_file} may not be valid AIRR format")
     elif format_to_use == "pcp":
         if not validate_pcp_file(args.inputs[0]):
-            print(f"Warning: {args.inputs[0]} may not be valid PCP format")
+            vprint.status(f"Warning: {args.inputs[0]} may not be valid PCP format")
 
     # Process based on format
     try:
@@ -524,16 +641,16 @@ def main():
         elif format_to_use == "pcp":
             process_pcp_format(args)
         else:
-            print(f"Error: Unsupported format: {format_to_use}")
+            vprint.error(f"Error: Unsupported format: {format_to_use}")
             sys.exit(1)
 
-        print(f"\n✓ Successfully processed {format_to_use.upper()} format data")
+        vprint.status(f"\n✓ Successfully processed {format_to_use.upper()} format data")
 
     except KeyboardInterrupt:
-        print("\nProcessing interrupted by user")
+        vprint.error("\nProcessing interrupted by user")
         sys.exit(1)
     except Exception as e:
-        print(f"Error during processing: {e}")
+        vprint.error(f"Error during processing: {e}")
         if args.verbose:
             traceback.print_exc()
         sys.exit(1)

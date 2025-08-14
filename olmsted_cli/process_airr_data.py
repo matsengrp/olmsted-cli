@@ -73,9 +73,13 @@ except FileNotFoundError:
     pass
 
 
-def ensure_ident(record):
+def ensure_ident(record, prefix=""):
     "Want to let people choose their own uuids if they like, but not require them to"
-    return record if record.get("ident") else merge(record, {"ident": uuid.uuid4()})
+    if record.get("ident"):
+        return record
+    uuid_str = str(uuid.uuid4())
+    ident_value = f"{prefix}{uuid_str}" if prefix else uuid_str
+    return merge(record, {"ident": ident_value})
 
 
 # reroot the tree on node matching regex pattern.
@@ -134,7 +138,7 @@ def process_tree(args, clone_id, tree):
     tree["nodes"] = process_tree_nodes(
         args, ete_tree, tree["nodes"], reroot=args.root_trees
     )
-    return ensure_ident(tree)
+    return ensure_ident(tree, prefix="tree-")
 
 
 def process_clone(args, dataset, clone):
@@ -157,7 +161,7 @@ def process_clone(args, dataset, clone):
         )
     )[0]
     del clone["dataset"]["samples"]
-    return ensure_ident(clone)
+    return ensure_ident(clone, prefix="clone-")
 
 
 def process_dataset(args, dataset, clones_dict, trees):
@@ -191,7 +195,7 @@ def process_dataset(args, dataset, clones_dict, trees):
     clones_dict[dataset["dataset_id"]] = clones
     del dataset["clones"]
     dataset["schema_version"] = SCHEMA_VERSION
-    return ensure_ident(dataset)
+    return ensure_ident(dataset, prefix="dataset-")
 
 
 def hiccup_rep(schema, depth=1, property=None):
@@ -321,7 +325,7 @@ def get_args():
         dest="data_outdir",
         help="Output to multiple files in specified directory (datasets.json, clones.*.json, tree.*.json) instead of single consolidated file",
     )
-    parser.add_argument("-n", "--naive-name", default="naive")
+    parser.add_argument("--naive-name", default="naive")
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument(
         "-c",

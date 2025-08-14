@@ -4,7 +4,7 @@
 import argparse
 import sys
 
-from olmsted_cli import process_data, validate
+from olmsted_cli import process_data, validate, summary, split
 
 
 def main():
@@ -37,6 +37,16 @@ Examples:
     subparsers.add_parser(
         "validate", help="Validate data files against AIRR/Olmsted schemas"
     )
+    
+    # Summary command
+    subparsers.add_parser(
+        "summary", help="Generate summary statistics for consolidated data files"
+    )
+    
+    # Split command
+    subparsers.add_parser(
+        "split", help="Split consolidated data files into smaller files"
+    )
     # Don't define arguments here - let the underlying script handle them
 
     # Parse only the command, not the full arguments
@@ -51,6 +61,14 @@ Examples:
             # Remove the script name and command from sys.argv
             sys.argv = [sys.argv[0]] + sys.argv[2:]
             validate_data_command()
+        elif command == "summary":
+            # Remove the script name and command from sys.argv
+            sys.argv = [sys.argv[0]] + sys.argv[2:]
+            summary_data_command()
+        elif command == "split":
+            # Remove the script name and command from sys.argv
+            sys.argv = [sys.argv[0]] + sys.argv[2:]
+            split_data_command()
         else:
             parser.parse_args()  # This will show help or error
     else:
@@ -66,6 +84,16 @@ def process_data_command():
 def validate_data_command():
     """Run the validate command."""
     validate.main()
+
+
+def summary_data_command():
+    """Run the summary command."""
+    summary.main()
+
+
+def split_data_command():
+    """Run the split command."""
+    split.main()
 
 
 if __name__ == "__main__":
