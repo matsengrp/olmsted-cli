@@ -1,7 +1,7 @@
 [
     {
-        "ident": "ef1b2e59-94fc-dd16-333c-e4b42fcf7ea5",
-        "dataset_id": "pcp-0685e8ef-a9aa-5028-d360-1b1f60b55c9f",
+        "ident": "dataset-9fd49829-96aa-d2c8-d415-44cdffcac37f",
+        "dataset_id": "pcp-14b429db-6afa-5d76-5c16-dd7dab2897af",
         "schema_version": "2.0.0",
         "type": "pcp.dataset",
         "build": {
@@ -10,68 +10,50 @@
         },
         "subjects": [
             {
-                "ident": "127e8e66-71d4-feb8-e15b-89ad17883db0",
+                "ident": "subject-6a5eb4e0-90d9-e591-ee20-6debc0f4b040",
                 "subject_id": "pcp-subject"
             }
         ],
         "samples": [
             {
-                "ident": "e4a27ab7-3455-43a9-2f6b-fc9a224649b1",
+                "ident": "sample-6fad0c6f-ef46-f158-7391-728cb379fcec",
                 "sample_id": "sample-igg-1008",
                 "locus": "igh",
                 "timepoint_id": "merged"
             },
             {
-                "ident": "73e6fe26-cf04-7a93-5c34-022eb4dc3887",
-                "sample_id": "sample-igg-0007",
-                "locus": "igh",
-                "timepoint_id": "merged"
-            },
-            {
-                "ident": "43b80216-9d3c-a8e0-dab8-79679641fcdb",
-                "sample_id": "sample-igg-5001",
-                "locus": "igh",
-                "timepoint_id": "merged"
-            },
-            {
-                "ident": "31beafe8-b5e9-d1bf-f294-0e06e15c6395",
-                "sample_id": "sample-igg-705c",
-                "locus": "igh",
-                "timepoint_id": "merged"
-            },
-            {
-                "ident": "3258bd82-9885-8f65-dcee-29c85439bbbd",
-                "sample_id": "sample-igg-201c",
-                "locus": "igh",
-                "timepoint_id": "merged"
-            },
-            {
-                "ident": "861eede1-c6a5-e125-de27-278a6cec283f",
-                "sample_id": "sample-igg-2008",
-                "locus": "igh",
-                "timepoint_id": "merged"
-            },
-            {
-                "ident": "0b40b665-387d-7586-31d6-296c1ed3eba8",
-                "sample_id": "sample-igg-4002",
-                "locus": "igh",
-                "timepoint_id": "merged"
-            },
-            {
-                "ident": "9ebfb72d-0d74-be1d-5129-ba68c514fcce",
+                "ident": "sample-cc42c52c-6fb9-faa8-b57f-3933f1ac3d30",
                 "sample_id": "sample-igg-1013",
                 "locus": "igh",
                 "timepoint_id": "merged"
             },
             {
-                "ident": "a37a80cf-96d0-812b-8eb3-97be93186808",
-                "sample_id": "sample-igg-602c",
+                "ident": "sample-654906d9-16e2-5db5-4643-0490059032c0",
+                "sample_id": "sample-igg-0007",
+                "locus": "igh",
+                "timepoint_id": "merged"
+            },
+            {
+                "ident": "sample-5d82ca72-029f-eb0a-694b-97f7c2233755",
+                "sample_id": "sample-igg-201c",
+                "locus": "igh",
+                "timepoint_id": "merged"
+            },
+            {
+                "ident": "sample-122c6f7f-bd3e-46f6-0113-bb7303ccdfef",
+                "sample_id": "sample-igg-4002",
+                "locus": "igh",
+                "timepoint_id": "merged"
+            },
+            {
+                "ident": "sample-c9d235f3-341d-19b6-246f-7fa44d5352eb",
+                "sample_id": "sample-igg-5001",
                 "locus": "igh",
                 "timepoint_id": "merged"
             }
         ],
         "seeds": [],
-        "clone_count": 28,
+        "clone_count": 8,
         "subjects_count": 1,
         "timepoints_count": 1
     }

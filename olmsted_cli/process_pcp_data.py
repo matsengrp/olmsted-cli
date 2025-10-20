@@ -1079,7 +1079,7 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
     with tqdm(family_items, desc="Processing families", unit="family", disable=len(family_items) == 1) as pbar:
         for family_idx, (family_id, family_data) in enumerate(pbar):
             clone_ident = uuid_generator("clone-")
-            tree_ident = uuid_generator("tree-")
+            tree_ident = uuid_generator()
 
             # Get sample_id from family data
             family_meta = family_data.get("family_data", {})
