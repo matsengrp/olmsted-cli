@@ -2,71 +2,71 @@
     "ident": "d20f0d49-77e8-15c5-ebe4-2927bc6aeb1f",
     "tree_id": "pcp-tree-160",
     "clone_id": "160",
-    "newick": "(((((1TTTTGATACGCTTAGTTCTTGG:1e-06,1TTGTTCGAATCTTGGGGGAGGA:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TGTAATTGCCTTATTTCTTGGG:1e-06)Node4:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TAGGCTACGTTGACGTCTTGGG:1e-06,1TAGATTCGGCTCGCGTCTTGGG:1e-06)Node3:1e-06,(1TCCGCTCGCGTTTGCTCTTGGG:1e-06,1TTGGATGACGTCCGGTCTTGGG:1e-06)Node6:1e-06,1TGTGGTTGTCTGGATTCTTGGG:1e-06,1TGTTGTGGAATAGTCTCTTGGG:1e-06,1TACCCTGTCATGATTTCTTGGG:1e-06,((1TTTTGATACGCTTAGTTCTTGG:1e-06,1TTGTTCGAATCTTGGGGGAGGA:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TGTAATTGCCTTATTTCTTGGG:1e-06)Node4:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TAGGCTACGTTGACGTCTTGGG:1e-06,1TAGATTCGGCTCGCGTCTTGGG:1e-06)Node3:1e-06)Node2:1e-06,1TTTTCTTAAATGCGGTCTTGGG:1e-06,(((1TTTTGATACGCTTAGTTCTTGG:1e-06,1TTGTTCGAATCTTGGGGGAGGA:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TGTAATTGCCTTATTTCTTGGG:1e-06)Node4:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TAGGCTACGTTGACGTCTTGGG:1e-06,1TAGATTCGGCTCGCGTCTTGGG:1e-06)Node3:1e-06,(1TCCGCTCGCGTTTGCTCTTGGG:1e-06,1TTGGATGACGTCCGGTCTTGGG:1e-06)Node6:1e-06,1TGTGGTTGTCTGGATTCTTGGG:1e-06,1TGTTGTGGAATAGTCTCTTGGG:1e-06,1TACCCTGTCATGATTTCTTGGG:1e-06,((1TTTTGATACGCTTAGTTCTTGG:1e-06,1TTGTTCGAATCTTGGGGGAGGA:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TGTAATTGCCTTATTTCTTGGG:1e-06)Node4:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TAGGCTACGTTGACGTCTTGGG:1e-06,1TAGATTCGGCTCGCGTCTTGGG:1e-06)Node3:1e-06)Node2:1e-06,1TGCCCTAATGTAGGCTCTTGGG:1e-06,(((1TTTTGATACGCTTAGTTCTTGG:1e-06,1TTGTTCGAATCTTGGGGGAGGA:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TGTAATTGCCTTATTTCTTGGG:1e-06)Node4:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TAGGCTACGTTGACGTCTTGGG:1e-06,1TAGATTCGGCTCGCGTCTTGGG:1e-06)Node3:1e-06,(1TCCGCTCGCGTTTGCTCTTGGG:1e-06,1TTGGATGACGTCCGGTCTTGGG:1e-06)Node6:1e-06,1TGTGGTTGTCTGGATTCTTGGG:1e-06,1TGTTGTGGAATAGTCTCTTGGG:1e-06,1TACCCTGTCATGATTTCTTGGG:1e-06,((1TTTTGATACGCTTAGTTCTTGG:1e-06,1TTGTTCGAATCTTGGGGGAGGA:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TGTAATTGCCTTATTTCTTGGG:1e-06)Node4:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TAGGCTACGTTGACGTCTTGGG:1e-06,1TAGATTCGGCTCGCGTCTTGGG:1e-06)Node3:1e-06)Node2:1e-06,(1TTTTGATACGCTTAGTTCTTGG:1e-06,1TTGTTCGAATCTTGGGGGAGGA:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TGTAATTGCCTTATTTCTTGGG:1e-06)Node4:1e-06)Node1:0.0354364196,((((1TTTTGATACGCTTAGTTCTTGG:1e-06,1TTGTTCGAATCTTGGGGGAGGA:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TGTAATTGCCTTATTTCTTGGG:1e-06)Node4:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TAGGCTACGTTGACGTCTTGGG:1e-06,1TAGATTCGGCTCGCGTCTTGGG:1e-06)Node3:1e-06,(1TCCGCTCGCGTTTGCTCTTGGG:1e-06,1TTGGATGACGTCCGGTCTTGGG:1e-06)Node6:1e-06,1TGTGGTTGTCTGGATTCTTGGG:1e-06,1TGTTGTGGAATAGTCTCTTGGG:1e-06,1TACCCTGTCATGATTTCTTGGG:1e-06,((1TTTTGATACGCTTAGTTCTTGG:1e-06,1TTGTTCGAATCTTGGGGGAGGA:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TGTAATTGCCTTATTTCTTGGG:1e-06)Node4:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TAGGCTACGTTGACGTCTTGGG:1e-06,1TAGATTCGGCTCGCGTCTTGGG:1e-06)Node3:1e-06)Node2:1e-06,1TTTTCTTAAATGCGGTCTTGGG:1e-06,(((1TTTTGATACGCTTAGTTCTTGG:1e-06,1TTGTTCGAATCTTGGGGGAGGA:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TGTAATTGCCTTATTTCTTGGG:1e-06)Node4:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TAGGCTACGTTGACGTCTTGGG:1e-06,1TAGATTCGGCTCGCGTCTTGGG:1e-06)Node3:1e-06,(1TCCGCTCGCGTTTGCTCTTGGG:1e-06,1TTGGATGACGTCCGGTCTTGGG:1e-06)Node6:1e-06,1TGTGGTTGTCTGGATTCTTGGG:1e-06,1TGTTGTGGAATAGTCTCTTGGG:1e-06,1TACCCTGTCATGATTTCTTGGG:1e-06,((1TTTTGATACGCTTAGTTCTTGG:1e-06,1TTGTTCGAATCTTGGGGGAGGA:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TGTAATTGCCTTATTTCTTGGG:1e-06)Node4:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TAGGCTACGTTGACGTCTTGGG:1e-06,1TAGATTCGGCTCGCGTCTTGGG:1e-06)Node3:1e-06)Node2:1e-06,1TGCCCTAATGTAGGCTCTTGGG:1e-06,(((1TTTTGATACGCTTAGTTCTTGG:1e-06,1TTGTTCGAATCTTGGGGGAGGA:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TGTAATTGCCTTATTTCTTGGG:1e-06)Node4:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TAGGCTACGTTGACGTCTTGGG:1e-06,1TAGATTCGGCTCGCGTCTTGGG:1e-06)Node3:1e-06,(1TCCGCTCGCGTTTGCTCTTGGG:1e-06,1TTGGATGACGTCCGGTCTTGGG:1e-06)Node6:1e-06,1TGTGGTTGTCTGGATTCTTGGG:1e-06,1TGTTGTGGAATAGTCTCTTGGG:1e-06,1TACCCTGTCATGATTTCTTGGG:1e-06,((1TTTTGATACGCTTAGTTCTTGG:1e-06,1TTGTTCGAATCTTGGGGGAGGA:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TGTAATTGCCTTATTTCTTGGG:1e-06)Node4:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TAGGCTACGTTGACGTCTTGGG:1e-06,1TAGATTCGGCTCGCGTCTTGGG:1e-06)Node3:1e-06)Node2:1e-06,(1TTTTGATACGCTTAGTTCTTGG:1e-06,1TTGTTCGAATCTTGGGGGAGGA:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TGTAATTGCCTTATTTCTTGGG:1e-06)Node4:1e-06)Node1:0.0354364196,((((1TTTTGATACGCTTAGTTCTTGG:1e-06,1TTGTTCGAATCTTGGGGGAGGA:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TGTAATTGCCTTATTTCTTGGG:1e-06)Node4:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TAGGCTACGTTGACGTCTTGGG:1e-06,1TAGATTCGGCTCGCGTCTTGGG:1e-06)Node3:1e-06,(1TCCGCTCGCGTTTGCTCTTGGG:1e-06,1TTGGATGACGTCCGGTCTTGGG:1e-06)Node6:1e-06,1TGTGGTTGTCTGGATTCTTGGG:1e-06,1TGTTGTGGAATAGTCTCTTGGG:1e-06,1TACCCTGTCATGATTTCTTGGG:1e-06,((1TTTTGATACGCTTAGTTCTTGG:1e-06,1TTGTTCGAATCTTGGGGGAGGA:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TGTAATTGCCTTATTTCTTGGG:1e-06)Node4:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TAGGCTACGTTGACGTCTTGGG:1e-06,1TAGATTCGGCTCGCGTCTTGGG:1e-06)Node3:1e-06)Node2:1e-06,1TTTTCTTAAATGCGGTCTTGGG:1e-06,(((1TTTTGATACGCTTAGTTCTTGG:1e-06,1TTGTTCGAATCTTGGGGGAGGA:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TGTAATTGCCTTATTTCTTGGG:1e-06)Node4:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TAGGCTACGTTGACGTCTTGGG:1e-06,1TAGATTCGGCTCGCGTCTTGGG:1e-06)Node3:1e-06,(1TCCGCTCGCGTTTGCTCTTGGG:1e-06,1TTGGATGACGTCCGGTCTTGGG:1e-06)Node6:1e-06,1TGTGGTTGTCTGGATTCTTGGG:1e-06,1TGTTGTGGAATAGTCTCTTGGG:1e-06,1TACCCTGTCATGATTTCTTGGG:1e-06,((1TTTTGATACGCTTAGTTCTTGG:1e-06,1TTGTTCGAATCTTGGGGGAGGA:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TGTAATTGCCTTATTTCTTGGG:1e-06)Node4:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TAGGCTACGTTGACGTCTTGGG:1e-06,1TAGATTCGGCTCGCGTCTTGGG:1e-06)Node3:1e-06)Node2:1e-06,1TGCCCTAATGTAGGCTCTTGGG:1e-06,(((1TTTTGATACGCTTAGTTCTTGG:1e-06,1TTGTTCGAATCTTGGGGGAGGA:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TGTAATTGCCTTATTTCTTGGG:1e-06)Node4:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TAGGCTACGTTGACGTCTTGGG:1e-06,1TAGATTCGGCTCGCGTCTTGGG:1e-06)Node3:1e-06,(1TCCGCTCGCGTTTGCTCTTGGG:1e-06,1TTGGATGACGTCCGGTCTTGGG:1e-06)Node6:1e-06,1TGTGGTTGTCTGGATTCTTGGG:1e-06,1TGTTGTGGAATAGTCTCTTGGG:1e-06,1TACCCTGTCATGATTTCTTGGG:1e-06,((1TTTTGATACGCTTAGTTCTTGG:1e-06,1TTGTTCGAATCTTGGGGGAGGA:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TGTAATTGCCTTATTTCTTGGG:1e-06)Node4:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TAGGCTACGTTGACGTCTTGGG:1e-06,1TAGATTCGGCTCGCGTCTTGGG:1e-06)Node3:1e-06)Node2:1e-06,(1TTTTGATACGCTTAGTTCTTGG:1e-06,1TTGTTCGAATCTTGGGGGAGGA:1e-06,(1TATGGTATGGTCTTTTCTTGGG:1e-06,1TGGATTGTTCTAGCATCTTGGG:1e-06,1TTACTTCGAGTTCGTTCTTGGG:1e-06,1TGGCCTGCTTTGTTGTCTTGGG:1e-06)Node5:1e-06,1TGTAATTGCCTTATTTCTTGGG:1e-06)Node4:1e-06)Node1:0.0354364196)naive:0.0;",
+    "newick": "(naive:0.0354364196,(1TACCCTGTCATGATTTCTTGGG:0.0000010000,(1TAGGCTACGTTGACGTCTTGGG:0.0000010000,1TAGATTCGGCTCGCGTCTTGGG:0.0000010000)Node3:0.0000010000)Node2:0.0000010000,((1TTACTTCGAGTTCGTTCTTGGG:0.0000010000,1TGGCCTGCTTTGTTGTCTTGGG:0.0000010000)Node5:0.0000010000,1TGTAATTGCCTTATTTCTTGGG:0.0000010000)Node4:0.0000010000)Node1;",
     "nodes": [
         {
             "sequence_id": "naive",
             "sequence_alignment": "GAGGTGCAGCTGGTGGAGTCTGGAGGAGGCTTGATCCAGCCTGGGGGGTCCCTGAGACTCTCCTGTGCAGCCTCTGGGTTCACCGTCAGTAGCAACTACATGAGCTGGGTCCGCCAGGCTCCAGGGAAGGGGCTGGAGTGGGTCTCAGTTATTTATAGCGGTGGTAGCACATACTACGCAGACTCCGTGAAGGGCCGATTCACCATCTCCAGAGACAATTCCAAGAACACGCTGTATCTTCAAATGAACAGCCTGAGAGCCGAGGACACGGCCGTGTATTACTGTGCGAGAAATTACTATGATAGTAGTGGTTACTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCA",
             "sequence_alignment_aa": "EVQLVESGGGLIQPGGSLRLSCAASGFTVSSNYMSWVRQAPGKGLEWVSVIYSGGSTYYADSVKGRFTISRDNSKNTLYLQMNSLRAEDTAVYYCARNYYDSSGYWGQGTLVTVSS",
             "multiplicity": 0,
-            "cluster_multiplicity": 306,
+            "cluster_multiplicity": 16,
             "timepoint_multiplicities": [],
             "type": "root",
             "parent": null,
             "distance": 0.0,
             "length": 0.0,
-            "lbi": null,
-            "lbr": null,
-            "affinity": null,
-            "scaled_affinity": null
+            "lbi": 0.0020821871525446307,
+            "lbr": 0.0,
+            "affinity": 0.0020821871525446307,
+            "scaled_affinity": 0.0
         },
         {
             "sequence_id": "Node1",
             "sequence_alignment": "GAGGTGCACCTGGTGGAGTCTGGAGGAGGCTTGATCCAGCCTGGGGGGTCCCTGAGACTCTCCTGTGCAGCCTCTGGATTCACCGTCAGTAACAACTATGTAATCTGGGTTCGCCAGGCTCCAGGGAGGGGACTGGAGTGGGTCTCACTTATTTATAGTGGTGGTGACACGCGCTACGTAGAGTCCGTGAAGGGCCGATTCACCATCTCCAGAGACAGTTCCCAGAACTCGGTGTATCTTCAAATGAACAGCCTGAGAGCCGACGACACGGCCGTGTATTACTGTGCGAGAAATTTCTATGATCGTGATGGTTACTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCG",
             "sequence_alignment_aa": "EVHLVESGGGLIQPGGSLRLSCAASGFTVSNNYVIWVRQAPGRGLEWVSLIYSGGDTRYVESVKGRFTISRDSSQNSVYLQMNSLRADDTAVYYCARNFYDRDGYWGQGTLVTVSS",
             "multiplicity": 3,
-            "cluster_multiplicity": 102,
+            "cluster_multiplicity": 16,
             "timepoint_multiplicities": [],
             "type": "internal",
             "parent": "naive",
             "distance": 0.0354364196,
             "length": 0.0354364196,
-            "lbi": null,
-            "lbr": null,
-            "affinity": null,
-            "scaled_affinity": null
+            "lbi": 0.002101950493359344,
+            "lbr": 3.044522437723423,
+            "affinity": 0.002101950493359344,
+            "scaled_affinity": 1.0
         },
         {
             "sequence_id": "Node2",
             "sequence_alignment": "GAGGTGCACCTGGTGGAGTCTGGAGGAGGCTTGATCCAGCCTGGGGGGTCCCTGAGACTCTCCTGTGCAGCCTCTGGATTCACCGTCAGTAACAACTATGTAATCTGGGTTCGCCAGGCTCCAGGGAGGGGACTGGAGTGGGTCTCACTTATTTATAGTGGTGGTGACACGCGCTACGTAGAGTCCGTGAAGGGCCGATTCACCATCTCCAGAGACAGTTCCCAGAACTCGGTGTATCTTCAAATGAACAGCCTGAGAGCCGACGACACGGCCGTGTATTACTGTGCGAGAAATTTCTATGATCGTGATGGTTACTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCG",
             "sequence_alignment_aa": "EVHLVESGGGLIQPGGSLRLSCAASGFTVSNNYVIWVRQAPGRGLEWVSLIYSGGDTRYVESVKGRFTISRDSSQNSVYLQMNSLRADDTAVYYCARNFYDRDGYWGQGTLVTVSS",
             "multiplicity": 3,
-            "cluster_multiplicity": 31,
+            "cluster_multiplicity": 7,
             "timepoint_multiplicities": [],
             "type": "internal",
             "parent": "Node1",
             "distance": 0.0354374196,
             "length": 1e-06,
-            "lbi": null,
-            "lbr": null,
-            "affinity": null,
-            "scaled_affinity": null
+            "lbi": 0.0021017847435723896,
+            "lbr": 1.5040773967762742,
+            "affinity": 0.0021017847435723896,
+            "scaled_affinity": 0.9916132708276323
         },
         {
             "sequence_id": "Node3",
             "sequence_alignment": "GAGGTGCACCTGGTGGAGTCTGGAGGAGGCTTGATCCAGCCTGGGGGGTCCCTGAGACTCTCCTGTGCAGCCTCTGGATTCACCGTCAGTAACAACTATGTAATCTGGGTTCGCCAGGCTCCAGGGAGGGGACTGGAGTGGGTCTCACTTATTTATAGTGGTGGTGACACGCGCTACGTAGAGTCCGTGAAGGGCCGATTCACCATCTCCAGAGACAGTTCCCAGAACTCGGTGTATCTTCAAATGAACAGCCTGAGAGCCGACGACACGGCCGTGTATTACTGTGCGAGAAATTTCTATGATCGTGATGGTTACTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCG",
             "sequence_alignment_aa": "EVHLVESGGGLIQPGGSLRLSCAASGFTVSNNYVIWVRQAPGRGLEWVSLIYSGGDTRYVESVKGRFTISRDSSQNSVYLQMNSLRADDTAVYYCARNFYDRDGYWGQGTLVTVSS",
             "multiplicity": 2,
-            "cluster_multiplicity": 13,
+            "cluster_multiplicity": 2,
             "timepoint_multiplicities": [],
             "type": "internal",
             "parent": "Node2",
             "distance": 0.0354384196,
             "length": 1e-06,
-            "lbi": null,
-            "lbr": null,
-            "affinity": null,
-            "scaled_affinity": null
+            "lbi": 0.0021016174873872465,
+            "lbr": -0.40546510810816444,
+            "affinity": 0.0021016174873872465,
+            "scaled_affinity": 0.9831503198158986
         },
         {
             "sequence_id": "Node4",
@@ -79,10 +79,10 @@
             "parent": "Node1",
             "distance": 0.0354374196,
             "length": 1e-06,
-            "lbi": null,
-            "lbr": null,
-            "affinity": null,
-            "scaled_affinity": null
+            "lbi": 0.002101784663581989,
+            "lbr": 1.3862943611198906,
+            "affinity": 0.002101784663581989,
+            "scaled_affinity": 0.9916092234147309
         },
         {
             "sequence_id": "1TTTTGATACGCTTAGTTCTTGG",
@@ -93,12 +93,12 @@
             "timepoint_multiplicities": [],
             "type": "leaf",
             "parent": "Node4",
-            "distance": 0.0934174975,
+            "distance": 0.0354384196,
             "length": 1e-06,
-            "lbi": null,
-            "lbr": null,
-            "affinity": null,
-            "scaled_affinity": null
+            "lbi": 0.002101617167432043,
+            "lbr": 0.0,
+            "affinity": 0.002101617167432043,
+            "scaled_affinity": 0.9831341304880724
         },
         {
             "sequence_id": "1TTGTTCGAATCTTGGGGGAGGA",
@@ -109,12 +109,12 @@
             "timepoint_multiplicities": [],
             "type": "leaf",
             "parent": "Node4",
-            "distance": 0.0934174975,
+            "distance": 0.0354384196,
             "length": 1e-06,
-            "lbi": null,
-            "lbr": null,
-            "affinity": null,
-            "scaled_affinity": null
+            "lbi": 0.002101617167432043,
+            "lbr": 0.0,
+            "affinity": 0.002101617167432043,
+            "scaled_affinity": 0.9831341304880724
         },
         {
             "sequence_id": "Node5",
@@ -127,10 +127,10 @@
             "parent": "Node4",
             "distance": 0.0354384196,
             "length": 1e-06,
-            "lbi": null,
-            "lbr": null,
-            "affinity": null,
-            "scaled_affinity": null
+            "lbi": 0.0021016174873936455,
+            "lbr": 0.28768207245178085,
+            "affinity": 0.0021016174873936455,
+            "scaled_affinity": 0.983150320139678
         },
         {
             "sequence_id": "1TATGGTATGGTCTTTTCTTGGG",
@@ -141,12 +141,12 @@
             "timepoint_multiplicities": [],
             "type": "leaf",
             "parent": "Node5",
-            "distance": 0.0934174975,
+            "distance": 0.0354394196,
             "length": 1e-06,
-            "lbi": null,
-            "lbr": null,
-            "affinity": null,
-            "scaled_affinity": null
+            "lbi": 0.002101449684681253,
+            "lbr": 0.0,
+            "affinity": 0.002101449684681253,
+            "scaled_affinity": 0.9746597155417231
         },
         {
             "sequence_id": "1TGGATTGTTCTAGCATCTTGGG",
@@ -157,12 +157,12 @@
             "timepoint_multiplicities": [],
             "type": "leaf",
             "parent": "Node5",
-            "distance": 0.0934174975,
+            "distance": 0.0354394196,
             "length": 1e-06,
-            "lbi": null,
-            "lbr": null,
-            "affinity": null,
-            "scaled_affinity": null
+            "lbi": 0.002101449684681253,
+            "lbr": 0.0,
+            "affinity": 0.002101449684681253,
+            "scaled_affinity": 0.9746597155417231
         },
         {
             "sequence_id": "Node6",
@@ -173,12 +173,12 @@
             "timepoint_multiplicities": [],
             "type": "internal",
             "parent": "Node2",
-            "distance": 0.0934154975,
+            "distance": 0.0354384196,
             "length": 1e-06,
-            "lbi": null,
-            "lbr": null,
-            "affinity": null,
-            "scaled_affinity": null
+            "lbi": 0.0021016174873872465,
+            "lbr": -0.40546510810816444,
+            "affinity": 0.0021016174873872465,
+            "scaled_affinity": 0.9831503198158986
         },
         {
             "sequence_id": "1TCCGCTCGCGTTTGCTCTTGGG",
@@ -189,12 +189,12 @@
             "timepoint_multiplicities": [],
             "type": "leaf",
             "parent": "Node6",
-            "distance": 0.0934164975,
+            "distance": 0.0354394196,
             "length": 1e-06,
-            "lbi": null,
-            "lbr": null,
-            "affinity": null,
-            "scaled_affinity": null
+            "lbi": 0.002101449524694054,
+            "lbr": 0.0,
+            "affinity": 0.002101449524694054,
+            "scaled_affinity": 0.974651620392185
         },
         {
             "sequence_id": "1TTGGATGACGTCCGGTCTTGGG",
@@ -205,12 +205,12 @@
             "timepoint_multiplicities": [],
             "type": "leaf",
             "parent": "Node6",
-            "distance": 0.0934164975,
+            "distance": 0.0354394196,
             "length": 1e-06,
-            "lbi": null,
-            "lbr": null,
-            "affinity": null,
-            "scaled_affinity": null
+            "lbi": 0.002101449524694054,
+            "lbr": 0.0,
+            "affinity": 0.002101449524694054,
+            "scaled_affinity": 0.974651620392185
         },
         {
             "sequence_id": "1TTTTCTTAAATGCGGTCTTGGG",
@@ -221,12 +221,12 @@
             "timepoint_multiplicities": [],
             "type": "leaf",
             "parent": "Node1",
-            "distance": 0.0934144975,
+            "distance": 0.0354374196,
             "length": 1e-06,
-            "lbi": null,
-            "lbr": null,
-            "affinity": null,
-            "scaled_affinity": null
+            "lbi": 0.00210178402368438,
+            "lbr": 0.0,
+            "affinity": 0.00210178402368438,
+            "scaled_affinity": 0.9915768454066372
         },
         {
             "sequence_id": "1TGTGGTTGTCTGGATTCTTGGG",
@@ -237,12 +237,12 @@
             "timepoint_multiplicities": [],
             "type": "leaf",
             "parent": "Node2",
-            "distance": 0.0294675986,
+            "distance": 0.0354384196,
             "length": 1e-06,
-            "lbi": null,
-            "lbr": null,
-            "affinity": null,
-            "scaled_affinity": null
+            "lbi": 0.0021016173274064453,
+            "lbr": 0.0,
+            "affinity": 0.0021016173274064453,
+            "scaled_affinity": 0.9831422249900958
         },
         {
             "sequence_id": "1TGTTGTGGAATAGTCTCTTGGG",
@@ -253,12 +253,12 @@
             "timepoint_multiplicities": [],
             "type": "leaf",
             "parent": "Node2",
-            "distance": 0.0294675986,
+            "distance": 0.0354384196,
             "length": 1e-06,
-            "lbi": null,
-            "lbr": null,
-            "affinity": null,
-            "scaled_affinity": null
+            "lbi": 0.0021016173274064453,
+            "lbr": 0.0,
+            "affinity": 0.0021016173274064453,
+            "scaled_affinity": 0.9831422249900958
         },
         {
             "sequence_id": "1TGCCCTAATGTAGGCTCTTGGG",
@@ -269,12 +269,12 @@
             "timepoint_multiplicities": [],
             "type": "leaf",
             "parent": "Node1",
-            "distance": 0.0294665986,
+            "distance": 0.0354374196,
             "length": 1e-06,
-            "lbi": null,
-            "lbr": null,
-            "affinity": null,
-            "scaled_affinity": null
+            "lbi": 0.00210178402368438,
+            "lbr": 0.0,
+            "affinity": 0.00210178402368438,
+            "scaled_affinity": 0.9915768454066372
         },
         {
             "sequence_id": "1TACCCTGTCATGATTTCTTGGG",
@@ -287,10 +287,10 @@
             "parent": "Node2",
             "distance": 0.0354384196,
             "length": 1e-06,
-            "lbi": null,
-            "lbr": null,
-            "affinity": null,
-            "scaled_affinity": null
+            "lbi": 0.0021016173274064453,
+            "lbr": 0.0,
+            "affinity": 0.0021016173274064453,
+            "scaled_affinity": 0.9831422249900958
         },
         {
             "sequence_id": "1TAGGCTACGTTGACGTCTTGGG",
@@ -303,10 +303,10 @@
             "parent": "Node3",
             "distance": 0.0354394196,
             "length": 1e-06,
-            "lbi": null,
-            "lbr": null,
-            "affinity": null,
-            "scaled_affinity": null
+            "lbi": 0.002101449524694054,
+            "lbr": 0.0,
+            "affinity": 0.002101449524694054,
+            "scaled_affinity": 0.974651620392185
         },
         {
             "sequence_id": "1TAGATTCGGCTCGCGTCTTGGG",
@@ -319,10 +319,10 @@
             "parent": "Node3",
             "distance": 0.0354394196,
             "length": 1e-06,
-            "lbi": null,
-            "lbr": null,
-            "affinity": null,
-            "scaled_affinity": null
+            "lbi": 0.002101449524694054,
+            "lbr": 0.0,
+            "affinity": 0.002101449524694054,
+            "scaled_affinity": 0.974651620392185
         },
         {
             "sequence_id": "1TTACTTCGAGTTCGTTCTTGGG",
@@ -335,10 +335,10 @@
             "parent": "Node5",
             "distance": 0.0354394196,
             "length": 1e-06,
-            "lbi": null,
-            "lbr": null,
-            "affinity": null,
-            "scaled_affinity": null
+            "lbi": 0.002101449684681253,
+            "lbr": 0.0,
+            "affinity": 0.002101449684681253,
+            "scaled_affinity": 0.9746597155417231
         },
         {
             "sequence_id": "1TGGCCTGCTTTGTTGTCTTGGG",
@@ -351,10 +351,10 @@
             "parent": "Node5",
             "distance": 0.0354394196,
             "length": 1e-06,
-            "lbi": null,
-            "lbr": null,
-            "affinity": null,
-            "scaled_affinity": null
+            "lbi": 0.002101449684681253,
+            "lbr": 0.0,
+            "affinity": 0.002101449684681253,
+            "scaled_affinity": 0.9746597155417231
         },
         {
             "sequence_id": "1TGTAATTGCCTTATTTCTTGGG",
@@ -367,10 +367,10 @@
             "parent": "Node4",
             "distance": 0.0354384196,
             "length": 1e-06,
-            "lbi": null,
-            "lbr": null,
-            "affinity": null,
-            "scaled_affinity": null
+            "lbi": 0.002101617167432043,
+            "lbr": 0.0,
+            "affinity": 0.002101617167432043,
+            "scaled_affinity": 0.9831341304880724
         }
     ],
     "type": "pcp.reconstruction"

@@ -636,10 +636,11 @@ def parse_newick_csv(csv_path):
     Parse CSV file containing Newick trees.
 
     Expected CSV format:
-    family_name,newick_tree
+    family_name,sample_id,newick_tree (or family_name,newick_tree for backwards compatibility)
 
     Returns:
-        dict: {family_name: newick_string}
+        dict: {(family_name, sample_id): newick_string} if sample_id present,
+              {family_name: newick_string} otherwise
     """
     newick_trees = {}
 
@@ -658,10 +659,20 @@ def parse_newick_csv(csv_path):
             missing = required_cols - set(reader.fieldnames)
             raise ValueError(f"Missing required columns: {missing}")
 
+        # Check if sample_id column exists
+        has_sample_id = "sample_id" in reader.fieldnames
+
         for row in reader:
             family_name = row["family_name"]
             newick_tree = row["newick_tree"]
-            newick_trees[family_name] = newick_tree
+
+            if has_sample_id:
+                sample_id = row["sample_id"]
+                # Use composite key (family_name, sample_id) to handle multiple samples with same family ID
+                newick_trees[(family_name, sample_id)] = newick_tree
+            else:
+                # Backwards compatibility: use just family_name
+                newick_trees[family_name] = newick_tree
 
     return newick_trees
 
@@ -1100,9 +1111,19 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
                 )
 
             # Merge tree topology with PCP data if Newick tree is available
-            if newick_trees and family_id in newick_trees:
+            # Try composite key first (family_id, sample_id), then fall back to just family_id
+            newick = None
+            if newick_trees:
+                # Try composite key (family_id, sample_id)
+                composite_key = (family_id, original_sample_id)
+                if composite_key in newick_trees:
+                    newick = newick_trees[composite_key]
+                # Fall back to just family_id for backwards compatibility
+                elif family_id in newick_trees:
+                    newick = newick_trees[family_id]
+
+            if newick:
                 # Use complete tree topology from Newick
-                newick = newick_trees[family_id]
                 family_data = merge_tree_topology_with_pcp(family_data, newick, warn_disagreements, family_id)
             else:
                 # Fallback to building tree from PCP edges only
