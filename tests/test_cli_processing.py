@@ -194,6 +194,7 @@ class TestOlmstedCLI:
         """Test PCP data processing using olmsted process command with split files."""
         # Input and output paths
         input_clones = self.test_data_dir / "pcp" / "pcp.csv"
+        input_trees = self.test_data_dir / "pcp" / "trees.csv"
         output_dir = Path(self.temp_dir) / "pcp_output"
 
         # Run the process command with split files to match golden data
@@ -204,6 +205,8 @@ class TestOlmstedCLI:
             "pcp",
             "-i",
             str(input_clones),
+            "-t",
+            str(input_trees),
             "--split-files",
             str(output_dir),
             "--seed",

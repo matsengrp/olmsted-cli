@@ -15,10 +15,10 @@
             "parent": null,
             "distance": 0.0,
             "length": 0.0,
-            "lbi": 1.0108734021435145e-06,
-            "lbr": 0.0,
-            "affinity": 1.0108734021435145e-06,
-            "scaled_affinity": 0.0
+            "lbi": null,
+            "lbr": null,
+            "affinity": null,
+            "scaled_affinity": null
         },
         {
             "sequence_id": "Node1",
@@ -31,10 +31,10 @@
             "parent": "naive",
             "distance": 7.78e-08,
             "length": 7.78e-08,
-            "lbi": 1.0108792096134562e-06,
-            "lbr": 2.4849066497880004,
-            "affinity": 1.0108792096134562e-06,
-            "scaled_affinity": 0.44469269775293624
+            "lbi": null,
+            "lbr": null,
+            "affinity": null,
+            "scaled_affinity": null
         },
         {
             "sequence_id": "Node2",
@@ -47,10 +47,10 @@
             "parent": "Node1",
             "distance": 1.5549999999999998e-07,
             "length": 7.77e-08,
-            "lbi": 1.0108835600919768e-06,
-            "lbr": 1.6094379124341003,
-            "affinity": 1.0108835600919768e-06,
-            "scaled_affinity": 0.7778198683191649
+            "lbi": null,
+            "lbr": null,
+            "affinity": null,
+            "scaled_affinity": null
         },
         {
             "sequence_id": "Node3",
@@ -63,10 +63,10 @@
             "parent": "Node2",
             "distance": 2.332e-07,
             "length": 7.77e-08,
-            "lbi": 1.0108859774395686e-06,
-            "lbr": 0.9808292530117262,
-            "affinity": 1.0108859774395686e-06,
-            "scaled_affinity": 0.9629223023907096
+            "lbi": null,
+            "lbr": null,
+            "affinity": null,
+            "scaled_affinity": null
         },
         {
             "sequence_id": "1TTGGGTTCTTTTCGATCTTGGG",
@@ -79,10 +79,10 @@
             "parent": "Node3",
             "distance": 3.1099999999999997e-07,
             "length": 7.78e-08,
-            "lbi": 1.0108835532286543e-06,
-            "lbr": 0.0,
-            "affinity": 1.0108835532286543e-06,
-            "scaled_affinity": 0.7772943263161958
+            "lbi": null,
+            "lbr": null,
+            "affinity": null,
+            "scaled_affinity": null
         },
         {
             "sequence_id": "Node4",
@@ -95,10 +95,10 @@
             "parent": "Node3",
             "distance": 3.109e-07,
             "length": 7.77e-08,
-            "lbi": 1.010886461656232e-06,
-            "lbr": 0.4054651081081644,
-            "affinity": 1.010886461656232e-06,
-            "scaled_affinity": 1.0
+            "lbi": null,
+            "lbr": null,
+            "affinity": null,
+            "scaled_affinity": null
         },
         {
             "sequence_id": "Node5",
@@ -111,10 +111,10 @@
             "parent": "Node4",
             "distance": 3.886e-07,
             "length": 7.77e-08,
-            "lbi": 1.0108850127419667e-06,
-            "lbr": -0.2231435513142097,
-            "affinity": 1.0108850127419667e-06,
-            "scaled_affinity": 0.8890529611146063
+            "lbi": null,
+            "lbr": null,
+            "affinity": null,
+            "scaled_affinity": null
         },
         {
             "sequence_id": "1TGGGTTCGTCTGGAGTCTTGGG",
@@ -127,10 +127,10 @@
             "parent": "Node5",
             "distance": 4.664e-07,
             "length": 7.78e-08,
-            "lbi": 1.0108806554091535e-06,
-            "lbr": 0.0,
-            "affinity": 1.0108806554091535e-06,
-            "scaled_affinity": 0.5554009399796855
+            "lbi": null,
+            "lbr": null,
+            "affinity": null,
+            "scaled_affinity": null
         },
         {
             "sequence_id": "Node6",
@@ -143,10 +143,10 @@
             "parent": "Node5",
             "distance": 4.6630000000000004e-07,
             "length": 7.77e-08,
-            "lbi": 1.010881630696773e-06,
-            "lbr": -1.0986122886681098,
-            "affinity": 1.010881630696773e-06,
-            "scaled_affinity": 0.6300811857507436
+            "lbi": null,
+            "lbr": null,
+            "affinity": null,
+            "scaled_affinity": null
         },
         {
             "sequence_id": "1TGGAATTAAGTTTTGTCTTGGG",
@@ -159,10 +159,10 @@
             "parent": "Node6",
             "distance": 5.441e-07,
             "length": 7.78e-08,
-            "lbi": 1.010876307434442e-06,
-            "lbr": 0.0,
-            "affinity": 1.010876307434442e-06,
-            "scaled_affinity": 0.2224654924216152
+            "lbi": null,
+            "lbr": null,
+            "affinity": null,
+            "scaled_affinity": null
         },
         {
             "sequence_id": "1TGCCGTGTTTTGTGTTCTTGGG",
@@ -175,10 +175,10 @@
             "parent": "Node6",
             "distance": 5.441e-07,
             "length": 7.78e-08,
-            "lbi": 1.010876307434442e-06,
-            "lbr": 0.0,
-            "affinity": 1.010876307434442e-06,
-            "scaled_affinity": 0.2224654924216152
+            "lbi": null,
+            "lbr": null,
+            "affinity": null,
+            "scaled_affinity": null
         },
         {
             "sequence_id": "1TGAATTAGTGTGTCTTCTTGGG",
@@ -191,10 +191,10 @@
             "parent": "Node4",
             "distance": 3.887e-07,
             "length": 7.78e-08,
-            "lbi": 1.0108830708813566e-06,
-            "lbr": 0.0,
-            "affinity": 1.0108830708813566e-06,
-            "scaled_affinity": 0.740359770779364
+            "lbi": null,
+            "lbr": null,
+            "affinity": null,
+            "scaled_affinity": null
         },
         {
             "sequence_id": "1TCCTCTCCCTTTACCTCTTGGG",
@@ -207,10 +207,10 @@
             "parent": "Node2",
             "distance": 2.3329999999999998e-07,
             "length": 7.78e-08,
-            "lbi": 1.0108821024510476e-06,
-            "lbr": 0.0,
-            "affinity": 1.0108821024510476e-06,
-            "scaled_affinity": 0.6662046066550404
+            "lbi": null,
+            "lbr": null,
+            "affinity": null,
+            "scaled_affinity": null
         },
         {
             "sequence_id": "1TTTGATGGGATGTGGTCTTGGG",
@@ -223,10 +223,10 @@
             "parent": "Node1",
             "distance": 1.556e-07,
             "length": 7.78e-08,
-            "lbi": 1.0108787185485356e-06,
-            "lbr": 0.0,
-            "affinity": 1.0108787185485356e-06,
-            "scaled_affinity": 0.40709061173103844
+            "lbi": null,
+            "lbr": null,
+            "affinity": null,
+            "scaled_affinity": null
         }
     ],
     "type": "pcp.reconstruction"
