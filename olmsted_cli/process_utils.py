@@ -14,12 +14,100 @@ from datetime import datetime, timezone
 
 import jsonschema
 import yaml
+from tqdm import tqdm
 
 from .schemas import SCHEMA_VERSION, clone_spec, dataset_spec, tree_spec
 
 # Constants for infinity handling
 inf = float("inf")
 neginf = float("-inf")
+
+
+# Verbosity-aware printing
+class VerbosePrinter:
+    """
+    Handle verbosity-aware printing for Olmsted CLI tools.
+
+    This class provides a clean interface for printing messages at different
+    verbosity levels without scattering if-statements throughout the code.
+
+    Verbosity levels:
+        0: Errors only (quiet mode)
+        1: Normal status messages (default)
+        2: Verbose output with detailed information
+        3: Debug output with extensive diagnostic information
+
+    Usage:
+        vprint = VerbosePrinter(args.verbose)
+        vprint.error("Something went wrong!")  # Always shown
+        vprint.status("Processing file...")     # Level 1+
+        vprint.verbose("Command arguments:")    # Level 2+
+        vprint.debug(f"Mutation count: {n}")   # Level 3+
+
+        # Or use the generic print with custom min_level
+        vprint.print("Custom message", min_level=2)
+    """
+
+    def __init__(self, level=1):
+        """
+        Initialize the VerbosePrinter.
+
+        Args:
+            level: Verbosity level (0=quiet, 1=normal, 2=verbose, 3=debug)
+        """
+        self.level = level
+
+    def print(self, *args, min_level=1, **kwargs):
+        """
+        Print if current verbosity level >= min_level.
+
+        Args:
+            *args: Arguments to pass to print()
+            min_level: Minimum verbosity level required to print
+            **kwargs: Keyword arguments to pass to print()
+        """
+        if self.level >= min_level:
+            print(*args, **kwargs)
+
+    def error(self, *args, **kwargs):
+        """
+        Always print errors (level 0+).
+
+        Args:
+            *args: Arguments to pass to print()
+            **kwargs: Keyword arguments to pass to print()
+        """
+        print(*args, **kwargs)
+
+    def status(self, *args, **kwargs):
+        """
+        Print status messages (level 1+).
+
+        Args:
+            *args: Arguments to pass to print()
+            **kwargs: Keyword arguments to pass to print()
+        """
+        self.print(*args, min_level=1, **kwargs)
+
+    def verbose(self, *args, **kwargs):
+        """
+        Print verbose messages (level 2+).
+
+        Args:
+            *args: Arguments to pass to print()
+            **kwargs: Keyword arguments to pass to print()
+        """
+        self.print(*args, min_level=2, **kwargs)
+
+    def debug(self, *args, **kwargs):
+        """
+        Print debug messages (level 3+).
+
+        Args:
+            *args: Arguments to pass to print()
+            **kwargs: Keyword arguments to pass to print()
+        """
+        self.print(*args, min_level=3, **kwargs)
 
 
 # General utility functions
@@ -573,20 +661,30 @@ def validate_output_data(datasets, clones_dict, trees, args):
         # Validate clones
         clone_count = 0
         clone_failures = 0
-        for dataset_id, clones in clones_dict.items():
-            for clone in clones:
-                clone_count += 1
-                errors = validate_clone(clone, verbose=getattr(args, "verbose", False))
-                if errors:
-                    clone_failures += 1
-                    if getattr(args, "verbose", False):
-                        print(
-                            f"❌ Clone {clone.get('clone_id', 'unknown')} validation failed:"
-                        )
-                        for error in errors:
-                            print(f"  - {error}")
-                    validation_passed = False
-                    total_errors += len(errors)
+        
+        # Count total clones for progress bar
+        total_clones = sum(len(clones) for clones in clones_dict.values())
+        
+        with tqdm(total=total_clones, desc="Validating clones", unit="clone", disable=total_clones <= 1) as pbar:
+            for dataset_id, clones in clones_dict.items():
+                for clone in clones:
+                    clone_count += 1
+                    clone_id = clone.get('clone_id', 'unknown')
+                    pbar.set_description(f"Validating clone {clone_id}")
+                    
+                    errors = validate_clone(clone, verbose=getattr(args, "verbose", False))
+                    if errors:
+                        clone_failures += 1
+                        if getattr(args, "verbose", False):
+                            print(
+                                f"❌ Clone {clone_id} validation failed:"
+                            )
+                            for error in errors:
+                                print(f"  - {error}")
+                        validation_passed = False
+                        total_errors += len(errors)
+                    
+                    pbar.update(1)
 
         if clone_failures == 0:
             print(f"✓ Clone validation passed ({clone_count} clones)")
@@ -596,17 +694,24 @@ def validate_output_data(datasets, clones_dict, trees, args):
         # Validate trees
         tree_count = 0
         tree_failures = 0
-        for tree in trees:
-            tree_count += 1
-            errors = validate_tree(tree, verbose=getattr(args, "verbose", False))
-            if errors:
-                tree_failures += 1
-                if getattr(args, "verbose", False):
-                    print(f"❌ Tree {tree.get('ident', 'unknown')} validation failed:")
-                    for error in errors:
-                        print(f"  - {error}")
-                validation_passed = False
-                total_errors += len(errors)
+        
+        with tqdm(trees, desc="Validating trees", unit="tree", disable=len(trees) <= 1) as pbar:
+            for tree in pbar:
+                tree_count += 1
+                tree_id = tree.get('ident', 'unknown')
+                pbar.set_description(f"Validating tree {tree_id}")
+                
+                # Check if time tree validation is enabled
+                check_time_tree = getattr(args, 'time_tree', False)
+                errors = validate_tree(tree, verbose=getattr(args, "verbose", False), check_time_tree=check_time_tree)
+                if errors:
+                    tree_failures += 1
+                    if getattr(args, "verbose", False):
+                        print(f"❌ Tree {tree_id} validation failed:")
+                        for error in errors:
+                            print(f"  - {error}")
+                    validation_passed = False
+                    total_errors += len(errors)
 
         if tree_failures == 0:
             print(f"✓ Tree validation passed ({tree_count} trees)")
@@ -707,13 +812,76 @@ def validate_clone(data, verbose=False):
     return errors
 
 
-def validate_tree(data, verbose=False):
+def validate_time_tree(nodes, verbose=False):
+    """
+    Validate that a tree is a valid time tree.
+    
+    For time trees, each child node's distance from root should be 
+    greater than or equal to its parent's distance from root.
+    
+    Args:
+        nodes: List of node dictionaries with 'sequence_id', 'parent', and 'distance' fields
+        verbose: Show detailed errors
+        
+    Returns:
+        list: List of validation errors (empty if valid)
+    """
+    errors = []
+    
+    if not nodes:
+        return errors  # Empty tree is valid
+    
+    # Build a dictionary for quick node lookup
+    node_dict = {}
+    for node in nodes:
+        if isinstance(node, dict) and 'sequence_id' in node:
+            node_dict[node['sequence_id']] = node
+    
+    # Check each node's distance relationship with its parent
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+            
+        node_id = node.get('sequence_id')
+        parent_id = node.get('parent')
+        node_distance = node.get('distance')
+        
+        # Skip if no parent (root node) or missing data
+        if not parent_id or parent_id == 'null' or node_distance is None:
+            continue
+            
+        # Find parent node
+        parent_node = node_dict.get(parent_id)
+        if not parent_node:
+            if verbose:
+                errors.append(f"Node {node_id}: parent {parent_id} not found in tree")
+            continue
+            
+        parent_distance = parent_node.get('distance')
+        if parent_distance is None:
+            continue
+            
+        # Check time tree constraint
+        try:
+            if float(node_distance) < float(parent_distance):
+                error_msg = (f"Time tree violation: Node {node_id} has distance {node_distance} "
+                           f"which is less than parent {parent_id} distance {parent_distance}")
+                errors.append(error_msg)
+        except (ValueError, TypeError):
+            if verbose:
+                errors.append(f"Node {node_id}: non-numeric distance value")
+    
+    return errors
+
+
+def validate_tree(data, verbose=False, check_time_tree=False):
     """
     Validate a tree against AIRR and Olmsted schemas.
 
     Args:
         data: Tree dictionary
         verbose: Show detailed errors
+        check_time_tree: Whether to validate time tree constraints (default: False)
 
     Returns:
         list: List of validation errors (empty if valid)
@@ -751,17 +919,24 @@ def validate_tree(data, verbose=False):
         # Only Olmsted validation failed
         errors.extend(olmsted_errors)
     # If AIRR validation passed OR Olmsted validation passed, consider it valid (no errors)
+    
+    # Check time tree constraints if requested and nodes are present
+    if check_time_tree and 'nodes' in data and isinstance(data['nodes'], list):
+        time_tree_errors = validate_time_tree(data['nodes'], verbose=verbose)
+        if time_tree_errors:
+            errors.extend(time_tree_errors)
 
     return errors
 
 
-def validate_consolidated_data(data, verbose=False):
+def validate_consolidated_data(data, verbose=False, check_time_tree=False):
     """
     Validate consolidated data format containing metadata, datasets, clones, and trees.
 
     Args:
         data: Consolidated data dictionary
         verbose: Show detailed errors
+        check_time_tree: Whether to validate time tree constraints
 
     Returns:
         list: List of validation errors (empty if valid)
@@ -809,25 +984,55 @@ def validate_consolidated_data(data, verbose=False):
     if not isinstance(clones_dict, dict):
         errors.append("'clones' must be a dictionary")
     else:
-        for dataset_id, clones in clones_dict.items():
-            if not isinstance(clones, list):
-                errors.append(f"Clones for dataset '{dataset_id}' must be a list")
-                continue
-            for i, clone in enumerate(clones):
-                clone_errors = validate_clone(clone, verbose)
-                if clone_errors:
-                    errors.extend(
-                        [f"Clone {dataset_id}[{i}]: {e}" for e in clone_errors]
-                    )
+        # Count total clones for progress bar
+        total_clones = sum(len(clones) if isinstance(clones, list) else 0 for clones in clones_dict.values())
+        
+        if total_clones > 1:  # Show progress bar if more than 1 clone
+            with tqdm(total=total_clones, desc="Validating clones", unit="clone", leave=False) as pbar:
+                for dataset_id, clones in clones_dict.items():
+                    if not isinstance(clones, list):
+                        errors.append(f"Clones for dataset '{dataset_id}' must be a list")
+                        continue
+                    for i, clone in enumerate(clones):
+                        clone_id = clone.get('clone_id', f'{dataset_id}[{i}]') if isinstance(clone, dict) else f'{dataset_id}[{i}]'
+                        pbar.set_description(f"Validating clone {clone_id}")
+                        clone_errors = validate_clone(clone, verbose)
+                        if clone_errors:
+                            errors.extend(
+                                [f"Clone {dataset_id}[{i}]: {e}" for e in clone_errors]
+                            )
+                        pbar.update(1)
+        else:
+            # No progress bar for single clone
+            for dataset_id, clones in clones_dict.items():
+                if not isinstance(clones, list):
+                    errors.append(f"Clones for dataset '{dataset_id}' must be a list")
+                    continue
+                for i, clone in enumerate(clones):
+                    clone_errors = validate_clone(clone, verbose)
+                    if clone_errors:
+                        errors.extend(
+                            [f"Clone {dataset_id}[{i}]: {e}" for e in clone_errors]
+                        )
 
     # Validate trees
     trees = data.get("trees", [])
     if not isinstance(trees, list):
         errors.append("'trees' must be a list")
     else:
-        for i, tree in enumerate(trees):
-            tree_errors = validate_tree(tree, verbose)
-            if tree_errors:
-                errors.extend([f"Tree {i}: {e}" for e in tree_errors])
+        if len(trees) > 1:  # Show progress bar if more than 1 tree
+            with tqdm(trees, desc="Validating trees", unit="tree", leave=False) as pbar:
+                for i, tree in enumerate(pbar):
+                    tree_id = tree.get('ident', tree.get('tree_id', f'tree-{i}')) if isinstance(tree, dict) else f'tree-{i}'
+                    pbar.set_description(f"Validating tree {tree_id}")
+                    tree_errors = validate_tree(tree, verbose, check_time_tree)
+                    if tree_errors:
+                        errors.extend([f"Tree {i}: {e}" for e in tree_errors])
+        else:
+            # No progress bar for single tree
+            for i, tree in enumerate(trees):
+                tree_errors = validate_tree(tree, verbose, check_time_tree)
+                if tree_errors:
+                    errors.extend([f"Tree {i}: {e}" for e in tree_errors])
 
     return errors

@@ -8,11 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from olmsted_cli.validate import (
+from olmsted_cli.validate import validate_file
+from olmsted_cli.process_utils import (
     validate_clone,
     validate_dataset,
-    validate_file,
     validate_tree,
+    validate_time_tree,
 )
 
 
@@ -32,10 +33,11 @@ class TestValidation:
         json_files = list(golden_dir.glob("*.json"))
         assert len(json_files) > 0, f"No JSON files found in {golden_dir}"
 
+        # Test without time tree validation (default)
         validation_errors = []
         for json_file in json_files:
             is_valid, errors = validate_file(
-                str(json_file), file_type=None, verbose=True
+                str(json_file), file_type=None, verbose=True, check_time_tree=False
             )
             if not is_valid:
                 validation_errors.append(f"{json_file.name}: {errors}")
@@ -43,6 +45,20 @@ class TestValidation:
         assert len(validation_errors) == 0, (
             f"AIRR golden outputs should be valid. Errors found:\n"
             + "\n".join(validation_errors)
+        )
+        
+        # Also test with time tree validation enabled
+        validation_errors_time_tree = []
+        for json_file in json_files:
+            is_valid, errors = validate_file(
+                str(json_file), file_type=None, verbose=True, check_time_tree=True
+            )
+            if not is_valid:
+                validation_errors_time_tree.append(f"{json_file.name}: {errors}")
+
+        assert len(validation_errors_time_tree) == 0, (
+            f"AIRR golden outputs should be valid time trees. Errors found:\n"
+            + "\n".join(validation_errors_time_tree)
         )
 
     def test_validate_pcp_golden_outputs(self):
@@ -58,10 +74,11 @@ class TestValidation:
         json_files = list(golden_dir.glob("*.json"))
         assert len(json_files) > 0, f"No JSON files found in {golden_dir}"
 
+        # Test without time tree validation (default)
         validation_errors = []
         for json_file in json_files:
             is_valid, errors = validate_file(
-                str(json_file), file_type=None, verbose=True
+                str(json_file), file_type=None, verbose=True, check_time_tree=False
             )
             if not is_valid:
                 validation_errors.append(f"{json_file.name}: {errors}")
@@ -69,6 +86,20 @@ class TestValidation:
         assert len(validation_errors) == 0, (
             f"PCP golden outputs should be valid. Errors found:\n"
             + "\n".join(validation_errors)
+        )
+        
+        # Also test with time tree validation enabled
+        validation_errors_time_tree = []
+        for json_file in json_files:
+            is_valid, errors = validate_file(
+                str(json_file), file_type=None, verbose=True, check_time_tree=True
+            )
+            if not is_valid:
+                validation_errors_time_tree.append(f"{json_file.name}: {errors}")
+
+        assert len(validation_errors_time_tree) == 0, (
+            f"PCP golden outputs should be valid time trees. Errors found:\n"
+            + "\n".join(validation_errors_time_tree)
         )
 
     def test_validate_airr_consolidated_golden_output(self):
@@ -85,12 +116,22 @@ class TestValidation:
                 f"Consolidated AIRR golden data file not found: {consolidated_file}"
             )
 
+        # Test without time tree validation (default)
         is_valid, errors = validate_file(
-            str(consolidated_file), file_type=None, verbose=True
+            str(consolidated_file), file_type=None, verbose=True, check_time_tree=False
         )
         assert is_valid, (
             f"AIRR consolidated golden output should be valid. Errors found:\n"
             + "\n".join(str(e) for e in errors)
+        )
+        
+        # Also test with time tree validation enabled
+        is_valid_time_tree, errors_time_tree = validate_file(
+            str(consolidated_file), file_type=None, verbose=True, check_time_tree=True
+        )
+        assert is_valid_time_tree, (
+            f"AIRR consolidated golden output should be valid time tree. Errors found:\n"
+            + "\n".join(str(e) for e in errors_time_tree)
         )
 
         # Load and verify consolidated structure
@@ -117,12 +158,22 @@ class TestValidation:
                 f"Consolidated PCP golden data file not found: {consolidated_file}"
             )
 
+        # Test without time tree validation (default)
         is_valid, errors = validate_file(
-            str(consolidated_file), file_type=None, verbose=True
+            str(consolidated_file), file_type=None, verbose=True, check_time_tree=False
         )
         assert is_valid, (
             f"PCP consolidated golden output should be valid. Errors found:\n"
             + "\n".join(str(e) for e in errors)
+        )
+        
+        # Also test with time tree validation enabled
+        is_valid_time_tree, errors_time_tree = validate_file(
+            str(consolidated_file), file_type=None, verbose=True, check_time_tree=True
+        )
+        assert is_valid_time_tree, (
+            f"PCP consolidated golden output should be valid time tree. Errors found:\n"
+            + "\n".join(str(e) for e in errors_time_tree)
         )
 
         # Load and verify consolidated structure

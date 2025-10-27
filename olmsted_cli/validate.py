@@ -9,6 +9,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from tqdm import tqdm
 
 from .process_utils import (
     validate_clone,
@@ -18,40 +19,71 @@ from .process_utils import (
 )
 
 
-def _validate_dataset_with_children(data, verbose, validation_errors):
+def _validate_dataset_with_children(data, verbose, validation_errors, check_time_tree=False):
     """Helper function to validate a dataset and its clones/trees."""
     validation_errors.extend(validate_dataset(data, verbose))
 
     # If dataset is valid, validate its clones and trees
     if not validation_errors:
-        for i, clone in enumerate(data.get("clones", [])):
-            errors = validate_clone(clone, verbose)
-            if errors:
-                validation_errors.extend([f"Clone {i}: {e}" for e in errors])
+        clones = data.get("clones", [])
+        
+        if len(clones) > 1:  # Show progress bar if more than 1 clone
+            with tqdm(clones, desc="Validating clones", unit="clone", leave=False) as pbar:
+                for i, clone in enumerate(pbar):
+                    clone_id = clone.get('clone_id', f'clone-{i}') if isinstance(clone, dict) else f'clone-{i}'
+                    pbar.set_description(f"Validating clone {clone_id}")
+                    errors = validate_clone(clone, verbose)
+                    if errors:
+                        validation_errors.extend([f"Clone {i}: {e}" for e in errors])
 
-            for j, tree in enumerate(clone.get("trees", [])):
-                errors = validate_tree(tree, verbose)
+                    # Validate trees for this clone
+                    trees = clone.get("trees", []) if isinstance(clone, dict) else []
+                    for j, tree in enumerate(trees):
+                        errors = validate_tree(tree, verbose, check_time_tree)
+                        if errors:
+                            validation_errors.extend(
+                                [f"Clone {i}, Tree {j}: {e}" for e in errors]
+                            )
+        else:
+            # No progress bar for single clone
+            for i, clone in enumerate(clones):
+                errors = validate_clone(clone, verbose)
                 if errors:
-                    validation_errors.extend(
-                        [f"Clone {i}, Tree {j}: {e}" for e in errors]
-                    )
+                    validation_errors.extend([f"Clone {i}: {e}" for e in errors])
+
+                for j, tree in enumerate(clone.get("trees", [])):
+                    errors = validate_tree(tree, verbose, check_time_tree)
+                    if errors:
+                        validation_errors.extend(
+                            [f"Clone {i}, Tree {j}: {e}" for e in errors]
+                        )
 
 
-def _validate_explicit_file_type(data, file_type, filepath, verbose):
+def _validate_explicit_file_type(data, file_type, filepath, verbose, check_time_tree=False):
     """Handle validation for explicitly specified file types."""
     validation_errors = []
 
     if file_type == "dataset":
         print(f"Validating as Olmsted dataset: {filepath}")
-        _validate_dataset_with_children(data, verbose, validation_errors)
+        _validate_dataset_with_children(data, verbose, validation_errors, check_time_tree)
 
     elif file_type == "clones":
         print(f"Validating as clone collection: {filepath}")
         if isinstance(data, list):
-            for i, clone in enumerate(data):
-                errors = validate_clone(clone, verbose)
-                if errors:
-                    validation_errors.extend([f"Clone {i}: {e}" for e in errors])
+            if len(data) > 1:  # Show progress bar if more than 1 clone
+                with tqdm(data, desc="Validating clones", unit="clone", leave=False) as pbar:
+                    for i, clone in enumerate(pbar):
+                        clone_id = clone.get('clone_id', f'clone-{i}') if isinstance(clone, dict) else f'clone-{i}'
+                        pbar.set_description(f"Validating clone {clone_id}")
+                        errors = validate_clone(clone, verbose)
+                        if errors:
+                            validation_errors.extend([f"Clone {i}: {e}" for e in errors])
+            else:
+                # No progress bar for single clone
+                for i, clone in enumerate(data):
+                    errors = validate_clone(clone, verbose)
+                    if errors:
+                        validation_errors.extend([f"Clone {i}: {e}" for e in errors])
         else:
             validation_errors.append("Expected a list of clones")
 
@@ -63,16 +95,26 @@ def _validate_explicit_file_type(data, file_type, filepath, verbose):
     elif file_type == "trees":
         print(f"Validating as tree collection: {filepath}")
         if isinstance(data, list):
-            for i, tree in enumerate(data):
-                errors = validate_tree(tree, verbose)
-                if errors:
-                    validation_errors.extend([f"Tree {i}: {e}" for e in errors])
+            if len(data) > 1:  # Show progress bar if more than 1 tree
+                with tqdm(data, desc="Validating trees", unit="tree", leave=False) as pbar:
+                    for i, tree in enumerate(pbar):
+                        tree_id = tree.get('ident', tree.get('tree_id', f'tree-{i}')) if isinstance(tree, dict) else f'tree-{i}'
+                        pbar.set_description(f"Validating tree {tree_id}")
+                        errors = validate_tree(tree, verbose, check_time_tree)
+                        if errors:
+                            validation_errors.extend([f"Tree {i}: {e}" for e in errors])
+            else:
+                # No progress bar for single tree
+                for i, tree in enumerate(data):
+                    errors = validate_tree(tree, verbose, check_time_tree)
+                    if errors:
+                        validation_errors.extend([f"Tree {i}: {e}" for e in errors])
         else:
             validation_errors.append("Expected a list of trees")
 
     elif file_type == "tree":
         print(f"Validating as single tree: {filepath}")
-        errors = validate_tree(data, verbose)
+        errors = validate_tree(data, verbose, check_time_tree)
         validation_errors.extend(errors)
 
     else:
@@ -81,7 +123,7 @@ def _validate_explicit_file_type(data, file_type, filepath, verbose):
     return validation_errors
 
 
-def _auto_detect_array_type(data, filepath, verbose):
+def _auto_detect_array_type(data, filepath, verbose, check_time_tree=False):
     """Auto-detect and validate array-type data."""
     validation_errors = []
 
@@ -101,26 +143,56 @@ def _auto_detect_array_type(data, filepath, verbose):
     if "clone_id" in first_item or "germline_alignment" in first_item:
         # Array of clones
         print(f"Auto-detected as clone collection: {filepath}")
-        for i, clone in enumerate(data):
-            errors = validate_clone(clone, verbose)
-            if errors:
-                validation_errors.extend([f"Clone {i}: {e}" for e in errors])
+        if len(data) > 1:  # Show progress bar if more than 1 clone
+            with tqdm(data, desc="Validating clones", unit="clone", leave=False) as pbar:
+                for i, clone in enumerate(pbar):
+                    clone_id = clone.get('clone_id', f'clone-{i}') if isinstance(clone, dict) else f'clone-{i}'
+                    pbar.set_description(f"Validating clone {clone_id}")
+                    errors = validate_clone(clone, verbose)
+                    if errors:
+                        validation_errors.extend([f"Clone {i}: {e}" for e in errors])
+        else:
+            # No progress bar for single clone
+            for i, clone in enumerate(data):
+                errors = validate_clone(clone, verbose)
+                if errors:
+                    validation_errors.extend([f"Clone {i}: {e}" for e in errors])
 
     elif "dataset_id" in first_item:
         # Array of datasets
         print(f"Auto-detected as dataset collection: {filepath}")
-        for i, dataset in enumerate(data):
-            errors = validate_dataset(dataset, verbose)
-            if errors:
-                validation_errors.extend([f"Dataset {i}: {e}" for e in errors])
+        if len(data) > 1:  # Show progress bar if more than 1 dataset
+            with tqdm(data, desc="Validating datasets", unit="dataset", leave=False) as pbar:
+                for i, dataset in enumerate(pbar):
+                    dataset_id = dataset.get('dataset_id', f'dataset-{i}') if isinstance(dataset, dict) else f'dataset-{i}'
+                    pbar.set_description(f"Validating dataset {dataset_id}")
+                    errors = validate_dataset(dataset, verbose)
+                    if errors:
+                        validation_errors.extend([f"Dataset {i}: {e}" for e in errors])
+        else:
+            # No progress bar for single dataset
+            for i, dataset in enumerate(data):
+                errors = validate_dataset(dataset, verbose)
+                if errors:
+                    validation_errors.extend([f"Dataset {i}: {e}" for e in errors])
 
     elif "newick" in first_item and "nodes" in first_item:
         # Array of trees
         print(f"Auto-detected as tree collection: {filepath}")
-        for i, tree in enumerate(data):
-            errors = validate_tree(tree, verbose)
-            if errors:
-                validation_errors.extend([f"Tree {i}: {e}" for e in errors])
+        if len(data) > 1:  # Show progress bar if more than 1 tree
+            with tqdm(data, desc="Validating trees", unit="tree", leave=False) as pbar:
+                for i, tree in enumerate(pbar):
+                    tree_id = tree.get('ident', tree.get('tree_id', f'tree-{i}')) if isinstance(tree, dict) else f'tree-{i}'
+                    pbar.set_description(f"Validating tree {tree_id}")
+                    errors = validate_tree(tree, verbose, check_time_tree)
+                    if errors:
+                        validation_errors.extend([f"Tree {i}: {e}" for e in errors])
+        else:
+            # No progress bar for single tree
+            for i, tree in enumerate(data):
+                errors = validate_tree(tree, verbose, check_time_tree)
+                if errors:
+                    validation_errors.extend([f"Tree {i}: {e}" for e in errors])
 
     else:
         validation_errors.append(
@@ -130,7 +202,7 @@ def _auto_detect_array_type(data, filepath, verbose):
     return validation_errors
 
 
-def _auto_detect_object_type(data, filepath, verbose):
+def _auto_detect_object_type(data, filepath, verbose, check_time_tree=False):
     """Auto-detect and validate object-type data."""
     validation_errors = []
 
@@ -142,26 +214,37 @@ def _auto_detect_object_type(data, filepath, verbose):
     ):
         # This looks like consolidated format
         print(f"Auto-detected as consolidated Olmsted format: {filepath}")
-        errors = validate_consolidated_data(data, verbose)
+        errors = validate_consolidated_data(data, verbose, check_time_tree)
         validation_errors.extend(errors)
 
     elif "clones" in data:
         # This looks like a dataset file
         print(f"Auto-detected as Olmsted dataset: {filepath}")
-        _validate_dataset_with_children(data, verbose, validation_errors)
+        _validate_dataset_with_children(data, verbose, validation_errors, check_time_tree)
 
     elif "trees" in data and isinstance(data.get("trees"), list):
         # Validate as a collection of trees
         print(f"Auto-detected as tree collection: {filepath}")
-        for i, tree in enumerate(data["trees"]):
-            errors = validate_tree(tree, verbose)
-            if errors:
-                validation_errors.extend([f"Tree {i}: {e}" for e in errors])
+        trees = data["trees"]
+        if len(trees) > 1:  # Show progress bar if more than 1 tree
+            with tqdm(trees, desc="Validating trees", unit="tree", leave=False) as pbar:
+                for i, tree in enumerate(pbar):
+                    tree_id = tree.get('ident', tree.get('tree_id', f'tree-{i}')) if isinstance(tree, dict) else f'tree-{i}'
+                    pbar.set_description(f"Validating tree {tree_id}")
+                    errors = validate_tree(tree, verbose, check_time_tree)
+                    if errors:
+                        validation_errors.extend([f"Tree {i}: {e}" for e in errors])
+        else:
+            # No progress bar for single tree
+            for i, tree in enumerate(trees):
+                errors = validate_tree(tree, verbose, check_time_tree)
+                if errors:
+                    validation_errors.extend([f"Tree {i}: {e}" for e in errors])
 
     elif "newick" in data and "nodes" in data:
         # Single tree
         print(f"Auto-detected as single tree: {filepath}")
-        errors = validate_tree(data, verbose)
+        errors = validate_tree(data, verbose, check_time_tree)
         validation_errors.extend(errors)
 
     elif "clone_id" in data or "germline_alignment" in data:
@@ -178,7 +261,7 @@ def _auto_detect_object_type(data, filepath, verbose):
     return validation_errors
 
 
-def validate_file(filepath, file_type=None, verbose=False, strict=False):
+def validate_file(filepath, file_type=None, verbose=False, strict=False, check_time_tree=False):
     """
     Validate a single data file.
 
@@ -187,6 +270,7 @@ def validate_file(filepath, file_type=None, verbose=False, strict=False):
         file_type: Explicit file type ('dataset', 'clone', 'tree', 'clones', 'trees', or None for auto-detect)
         verbose: Show detailed validation errors
         strict: Exit on first validation error
+        check_time_tree: Whether to validate time tree constraints
 
     Returns:
         tuple: (is_valid, list of errors)
@@ -204,14 +288,14 @@ def validate_file(filepath, file_type=None, verbose=False, strict=False):
     if file_type is not None:
         # Use explicitly specified file type
         validation_errors = _validate_explicit_file_type(
-            data, file_type, filepath, verbose
+            data, file_type, filepath, verbose, check_time_tree
         )
     else:
         # Auto-detect file type based on content
         if isinstance(data, list):
-            validation_errors = _auto_detect_array_type(data, filepath, verbose)
+            validation_errors = _auto_detect_array_type(data, filepath, verbose, check_time_tree)
         else:
-            validation_errors = _auto_detect_object_type(data, filepath, verbose)
+            validation_errors = _auto_detect_object_type(data, filepath, verbose, check_time_tree)
 
     return len(validation_errors) == 0, validation_errors
 
@@ -319,6 +403,12 @@ Auto-detection (when no type specified):
         default="both",
         help="Which schema to validate against (default: both)",
     )
+    
+    parser.add_argument(
+        "--time-tree",
+        action="store_true",
+        help="Enable time tree validation (check that child distances >= parent distances)",
+    )
 
     return parser.parse_args()
 
@@ -358,41 +448,49 @@ def main():
     all_valid = True
     total_errors = 0
 
-    for filepath, file_type in files_to_validate:
-        print(f"\n{'=' * 60}")
-        print(f"Validating: {filepath}")
-        if file_type:
-            print(f"Type: {file_type} (explicitly specified)")
-        else:
-            print(f"Type: auto-detect")
-        print(f"{'=' * 60}")
+    # Use progress bar for multiple files
+    with tqdm(files_to_validate, desc="Validating files", unit="file", disable=len(files_to_validate) == 1) as pbar:
+        for filepath, file_type in pbar:
+            # Update progress bar description
+            pbar.set_description(f"Validating {Path(filepath).name}")
+            
+            # Print header for single file or verbose mode
+            if len(files_to_validate) == 1 or args.verbose:
+                print(f"\n{'=' * 60}")
+                print(f"Validating: {filepath}")
+                if file_type:
+                    print(f"Type: {file_type} (explicitly specified)")
+                else:
+                    print(f"Type: auto-detect")
+                print(f"{'=' * 60}")
 
-        if not Path(filepath).exists():
-            print(f"ERROR: File not found: {filepath}")
-            all_valid = False
-            total_errors += 1
-            if args.strict:
-                sys.exit(1)
-            continue
+            if not Path(filepath).exists():
+                print(f"ERROR: File not found: {filepath}")
+                all_valid = False
+                total_errors += 1
+                if args.strict:
+                    sys.exit(1)
+                continue
 
-        is_valid, errors = validate_file(filepath, file_type, args.verbose, args.strict)
+            is_valid, errors = validate_file(filepath, file_type, args.verbose, args.strict, args.time_tree)
 
-        if is_valid:
-            print(f"✅ VALID - {filepath}")
-        else:
-            print(f"❌ INVALID - {filepath}")
-            total_errors += len(errors)
-
-            if args.verbose:
-                print("\nErrors found:")
-                for error in errors:
-                    print(f"  - {error}")
+            if is_valid:
+                if len(files_to_validate) == 1 or args.verbose:
+                    print(f"✅ VALID - {filepath}")
             else:
-                print(f"  {len(errors)} error(s) found (use -v for details)")
+                print(f"❌ INVALID - {filepath}")
+                total_errors += len(errors)
 
-            all_valid = False
-            if args.strict:
-                sys.exit(1)
+                if args.verbose:
+                    print("\nErrors found:")
+                    for error in errors:
+                        print(f"  - {error}")
+                else:
+                    print(f"  {len(errors)} error(s) found (use -v for details)")
+
+                all_valid = False
+                if args.strict:
+                    sys.exit(1)
 
     # Summary
     print(f"\n{'=' * 60}")

@@ -194,6 +194,7 @@ class TestOlmstedCLI:
         """Test PCP data processing using olmsted process command with split files."""
         # Input and output paths
         input_clones = self.test_data_dir / "pcp" / "pcp.csv"
+        input_trees = self.test_data_dir / "pcp" / "trees.csv"
         output_dir = Path(self.temp_dir) / "pcp_output"
 
         # Run the process command with split files to match golden data
@@ -204,6 +205,8 @@ class TestOlmstedCLI:
             "pcp",
             "-i",
             str(input_clones),
+            "-t",
+            str(input_trees),
             "--split-files",
             str(output_dir),
             "--seed",
@@ -221,6 +224,92 @@ class TestOlmstedCLI:
         # Compare output with golden data
         match, message = compare_directories(str(self.golden_pcp_dir), str(output_dir))
         assert match, f"Output doesn't match golden data: {message}"
+
+    @pytest.mark.pcp
+    def test_pcp_with_trees_processing(self):
+        """Test PCP data processing with separate trees file using --tree argument."""
+        # Input and output paths
+        input_clones = self.test_data_dir / "pcp" / "pcp.csv"
+        input_trees = self.test_data_dir / "pcp" / "trees.csv"
+        output_dir = Path(self.temp_dir) / "pcp_trees_output"
+
+        # Run the process command with --tree argument
+        cmd = [
+            "olmsted",
+            "process",
+            "-f",
+            "pcp",
+            "-i",
+            str(input_clones),
+            "--tree",
+            str(input_trees),
+            "--split-files",
+            str(output_dir),
+            "--seed",
+            "42",
+            "--name",
+            "pcp-with-trees",
+            "--validate",
+        ]
+
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        # Check command succeeded
+        assert result.returncode == 0, f"Command failed: {result.stderr}"
+
+        # Check that tree files were created
+        tree_files = list(output_dir.glob("tree.*.json"))
+        assert len(tree_files) > 0, "No tree files were created"
+
+        # Verify that trees contain newick data
+        for tree_file in tree_files:
+            with open(tree_file) as f:
+                tree_data = json.load(f)
+                assert "newick" in tree_data, f"Tree file {tree_file} missing newick data"
+                assert "nodes" in tree_data, f"Tree file {tree_file} missing nodes data"
+
+    @pytest.mark.pcp
+    def test_pcp_with_trees_short_option(self):
+        """Test PCP data processing with -t short option for trees."""
+        # Input and output paths
+        input_clones = self.test_data_dir / "pcp" / "pcp.csv"
+        input_trees = self.test_data_dir / "pcp" / "trees.csv"
+        output_file = Path(self.temp_dir) / "pcp_with_trees.json"
+
+        # Run the process command with -t short option
+        cmd = [
+            "olmsted",
+            "process",
+            "-f",
+            "pcp",
+            "-i",
+            str(input_clones),
+            "-t",
+            str(input_trees),
+            "-o",
+            str(output_file),
+            "--seed",
+            "42",
+            "--validate",
+        ]
+
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        # Check command succeeded
+        assert result.returncode == 0, f"Command failed: {result.stderr}"
+
+        # Verify output file exists
+        assert output_file.exists(), "Output file was not created"
+
+        # Verify that trees are included in consolidated output
+        with open(output_file) as f:
+            data = json.load(f)
+            assert "trees" in data, "Trees not found in consolidated output"
+            assert len(data["trees"]) > 0, "No trees in consolidated output"
+            # Check first tree has expected structure
+            first_tree = data["trees"][0]
+            assert "newick" in first_tree, "First tree missing newick data"
+            assert "nodes" in first_tree, "First tree missing nodes data"
 
     @pytest.mark.pcp
     def test_pcp_consolidated_processing(self):

@@ -133,7 +133,7 @@ def get_args():
     parser.add_argument("-i", "--inputs", nargs="+")
     parser.add_argument("-C", "--csv", action="store_true")
     parser.add_argument("-o", "--data-outdir")
-    parser.add_argument("-n", "--inferred-naive-name", default="inferred_naive")
+    parser.add_argument("--naive-name", default="inferred_naive")
     parser.add_argument("-v", "--verbose", action="store_true")
     return parser.parse_args()
 
@@ -365,12 +365,12 @@ def parse_tree_data(args, c):
             node.parent = node.up.name
             node.length = node.get_distance(node.up)
             try:
-                node.distance = node.get_distance(args.inferred_naive_name)
+                node.distance = node.get_distance(args.naive_name)
             except Exception as e:
                 if args.verbose:
                     warnings.warn(
                         "Unable to compute distance to naive '{}' in file {}".format(
-                            str(args.inferred_naive_name),
+                            str(args.naive_name),
                             str(c["cft.reconstruction:asr_tree"]["tripl.file:path"]),
                         )
                     )
