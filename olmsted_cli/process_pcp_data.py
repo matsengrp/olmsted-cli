@@ -1039,7 +1039,7 @@ def build_newick_from_edges(nodes, edges):
     return f"({','.join(subtrees)}){root}:0.0;"
 
 
-def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None, warn_disagreements=False, compute_metrics=False, lbi_tau=0.0125, standardize_names=False, alignment_method="truncate", verbosity=1):
+def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None, warn_disagreements=False, compute_metrics=False, lbi_tau=0.0125, standardize_names=False, alignment_method="truncate", name=None, verbosity=1):
     """
     Convert PCP format data to Olmsted format.
 
@@ -1052,6 +1052,7 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
         lbi_tau: Time scale parameter for LBI calculation (default: 0.0125)
         standardize_names: If True, rename nodes to naive/Node1/Node2.../Leaf1/Leaf2...
         alignment_method: Method for sequence alignment ("truncate" or "pad", default: "truncate")
+        name: Optional name for the dataset (default: None)
         verbosity: Verbosity level (0=quiet, 1=normal, 2=verbose, 3=debug)
 
     Returns:
@@ -1084,6 +1085,10 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
         "subjects_count": 1,
         "timepoints_count": 1,
     }
+
+    # Add name if provided
+    if name:
+        dataset["name"] = name
 
     # Process each family with progress bar
     family_items = list(pcp_families.items())
@@ -1784,7 +1789,7 @@ def main():
             pcp_families, newick_trees, get_uuid, args.warn_disagreements,
             compute_metrics=args.compute_metrics, lbi_tau=args.lbi_tau,
             standardize_names=args.standardize_names, alignment_method=args.alignment_method,
-            verbosity=args.verbose
+            name=args.name, verbosity=args.verbose
         )
 
         # Validate output data if requested

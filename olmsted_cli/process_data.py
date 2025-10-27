@@ -395,6 +395,7 @@ def process_pcp_format(args):
             compute_metrics=getattr(args, 'compute_metrics', False),
             lbi_tau=getattr(args, 'lbi_tau', 0.0125),
             standardize_names=getattr(args, 'standardize_names', False),
+            name=getattr(args, 'name', None),
             verbosity=args.verbose
         )
 

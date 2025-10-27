@@ -55,6 +55,7 @@
         "seeds": [],
         "clone_count": 8,
         "subjects_count": 1,
-        "timepoints_count": 1
+        "timepoints_count": 1,
+        "name": "pcp-example"
     }
 ]
