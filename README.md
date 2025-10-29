@@ -1,6 +1,6 @@
 # olmsted-cli
 
-Command-line interface and data processing utilities for [Olmsted webapp](https://github.com/matsengrp/olmsted).  The Olmsted web application can be launched locally through the git repository, or is also available at https://www.olmstedviz.org.
+Command-line interface and data processing utilities for the [Olmsted webapp](https://github.com/matsengrp/olmsted).  The Olmsted web application can be launched locally through the git repository, or is also available at https://www.olmstedviz.org.
 
 ## Overview
 
