@@ -636,7 +636,8 @@ def parse_newick_csv(csv_path):
     Parse CSV file containing Newick trees.
 
     Expected CSV format:
-    family_name,sample_id,newick_tree (or family_name,newick_tree for backwards compatibility)
+    family,sample_id,newick (or family,newick for backwards compatibility)
+    Also supports legacy column names: family_name,newick_tree
 
     Returns:
         dict: {(family_name, sample_id): newick_string} if sample_id present,
@@ -653,18 +654,36 @@ def parse_newick_csv(csv_path):
     with file_handle:
         reader = csv.DictReader(file_handle)
 
-        # Validate required columns
-        required_cols = {"family_name", "newick_tree"}
-        if not required_cols.issubset(reader.fieldnames):
-            missing = required_cols - set(reader.fieldnames)
-            raise ValueError(f"Missing required columns: {missing}")
+        # Support both new and legacy column names
+        # New format: family, newick
+        # Legacy format: family_name, newick_tree
+        family_col = None
+        newick_col = None
+
+        if "family" in reader.fieldnames:
+            family_col = "family"
+        elif "family_name" in reader.fieldnames:
+            family_col = "family_name"
+
+        if "newick" in reader.fieldnames:
+            newick_col = "newick"
+        elif "newick_tree" in reader.fieldnames:
+            newick_col = "newick_tree"
+
+        # Validate that we found the required columns
+        if family_col is None or newick_col is None:
+            available_cols = set(reader.fieldnames)
+            raise ValueError(
+                f"Missing required columns. Need either 'family' or 'family_name', "
+                f"and either 'newick' or 'newick_tree'. Found columns: {available_cols}"
+            )
 
         # Check if sample_id column exists
         has_sample_id = "sample_id" in reader.fieldnames
 
         for row in reader:
-            family_name = row["family_name"]
-            newick_tree = row["newick_tree"]
+            family_name = row[family_col]
+            newick_tree = row[newick_col]
 
             if has_sample_id:
                 sample_id = row["sample_id"]

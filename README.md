@@ -137,43 +137,7 @@ olmsted process -i dataset1.json dataset2.json -o combined.json
 
 # Process PCP format with separate trees file and compute metrics
 olmsted process -i sequences.csv --tree trees.csv -o output.json --compute-metrics
-
-# Unbundle output into separate component files (for backwards compatibility)
-olmsted process -i large_dataset.json --unbundle output_dir/
-
-# Process with validation and custom LBI tau parameter
-olmsted process -i data.csv -f pcp -o output.json --compute-metrics --lbi-tau 0.02 --validate
-
-# Quiet mode with standardized node names
-olmsted process -i data.csv -o output.json -q --standardize-names
 ```
-
-#### Output Formats
-
-**Consolidated Output** (single file, default):
-```json
-{
-  "datasets": [...],
-  "clones": {...},
-  "tree": {...}
-}
-```
-
-This is the recommended format for most use cases. It's simpler to manage and works with the modern Olmsted web app.
-
-**Unbundled Output** (multiple component files, `--unbundle`):
-```
-output_dir/
-├── datasets.json          # Dataset metadata
-├── clones.family1.json    # Clonal family 1 data
-├── clones.family2.json    # Clonal family 2 data
-├── tree.abc123.json       # Tree for family 1
-└── tree.def456.json       # Tree for family 2
-```
-
-This format separates the data into distinct component files. Use `--unbundle` when you need backwards compatibility with older Olmsted web app versions.
-
-**Note**: The Olmsted web app can load both formats, but consolidated format is simpler and recommended for new workflows.
 
 #### Input Formats
 
@@ -248,9 +212,6 @@ olmsted validate --tree tree.abc123.json
 ```bash
 # Validate complete consolidated file
 olmsted validate output.json
-
-# Validate unbundled component files
-olmsted validate --dataset datasets.json --clones clones.*.json --tree tree.*.json
 
 # Verbose validation with strict mode
 olmsted validate -v --strict processed_data.json
