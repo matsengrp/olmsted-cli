@@ -456,6 +456,74 @@ class TestOlmstedCLI:
             assert "help" in result.stdout.lower() or "usage" in result.stdout.lower()
         logger.info("All help commands passed")
 
+    @pytest.mark.pcp
+    @pytest.mark.paired
+    def test_paired_pcp_processing(self):
+        """Test processing of paired heavy/light chain PCP data."""
+        # Use paired PCP data (check if it exists, skip if not)
+        paired_pcp_dir = self.test_data_dir / "pcp-paired"
+        input_clones = paired_pcp_dir / "wyatt-10x-1p5m_fs-all-UnmutInv_paired-merged_pcp_2024-11-22.csv.gz"
+        input_trees = paired_pcp_dir / "wyatt-10x-1p5m_fs-all-UnmutInv_paired-merged_trees_2024-11-22.csv.gz"
+
+        if not input_clones.exists():
+            pytest.skip("Paired PCP test data not available")
+
+        output_file = Path(self.temp_dir) / "paired_pcp_output.json"
+
+        # Import processing functions directly for faster testing with subset
+        from olmsted_cli.process_pcp_data import (
+            parse_pcp_csv,
+            parse_newick_csv,
+            process_pcp_to_olmsted,
+        )
+
+        # Parse a small subset for testing
+        trees = parse_newick_csv(str(input_trees))
+        families = parse_pcp_csv(str(input_clones))
+
+        # Take just first 5 families for faster testing
+        family_ids = list(families.keys())[:5]
+        small_families = {k: families[k] for k in family_ids}
+
+        # Process
+        datasets, clones_dict, trees_out = process_pcp_to_olmsted(
+            small_families, trees, verbosity=0
+        )
+
+        # Verify paired data properties
+        dataset_id = list(clones_dict.keys())[0]
+        first_clone = clones_dict[dataset_id][0]
+
+        # Check that light chain fields are present
+        assert first_clone.get("is_paired") is True, "Clone should be marked as paired"
+        assert "v_call_light" in first_clone, "Clone should have v_call_light"
+        assert "j_call_light" in first_clone, "Clone should have j_call_light"
+        assert "light_chain_type" in first_clone, "Clone should have light_chain_type"
+        assert first_clone.get("light_chain_type") in ["kappa", "lambda"], \
+            f"light_chain_type should be kappa or lambda, got {first_clone.get('light_chain_type')}"
+
+        # Check rate scaling
+        assert "rate_scale_heavy" in first_clone, "Clone should have rate_scale_heavy"
+        assert "rate_scale_light" in first_clone, "Clone should have rate_scale_light"
+
+        # Check that nodes have light chain sequences
+        first_tree = trees_out[0]
+        assert len(first_tree["nodes"]) > 0, "Tree should have nodes"
+
+        # Find a node with sequence data
+        nodes_with_light_seq = [
+            n for n in first_tree["nodes"]
+            if n.get("sequence_alignment_light")
+        ]
+        assert len(nodes_with_light_seq) > 0, "At least one node should have light chain sequence"
+
+        # Check light chain AA translation
+        node_with_light = nodes_with_light_seq[0]
+        assert "sequence_alignment_light_aa" in node_with_light, \
+            "Node with light sequence should have AA translation"
+        assert len(node_with_light["sequence_alignment_light_aa"]) > 0, \
+            "Light chain AA sequence should not be empty"
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

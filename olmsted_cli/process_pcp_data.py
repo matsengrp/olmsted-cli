@@ -15,6 +15,8 @@ And a CSV file containing Newick trees:
 - newick_tree: Newick format tree string
 """
 
+from __future__ import annotations
+
 import argparse
 import csv
 import gzip
@@ -25,7 +27,11 @@ import sys
 import traceback
 import uuid
 from collections import defaultdict
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 from urllib.parse import parse_qs, parse_qsl
+
+if TYPE_CHECKING:
+    from .types import OlmstedClone, OlmstedDataset, OlmstedNode, OlmstedTree
 
 # Python 3.13+ compatibility: make cgi module available before ete3 import
 try:
@@ -62,7 +68,7 @@ from .process_utils import (
 )
 
 
-def parse_pcp_csv(csv_path):
+def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
     """
     Parse PCP CSV file and return a dict of families with rich immunological data.
 
@@ -71,24 +77,33 @@ def parse_pcp_csv(csv_path):
 
     Optional columns for rich immunological annotations:
     - family: Family identifier (defaults to sample_id if not present)
-    - parent_heavy, child_heavy: DNA sequences
+    - parent_heavy, child_heavy: Heavy chain DNA sequences
     - branch_length or edge_length: Branch length
     - sample_count: Number of sequences
-    - v_gene_heavy, d_gene_heavy, j_gene_heavy: Gene calls
+    - v_gene_heavy, d_gene_heavy, j_gene_heavy: Heavy chain gene calls
     - v_gene_start_heavy, v_gene_end_heavy: V gene alignment positions
     - d_gene_start_heavy, d_gene_end_heavy: D gene alignment positions
     - j_gene_start_heavy, j_gene_end_heavy: J gene alignment positions
-    - cdr1_codon_start_heavy, cdr1_codon_end_heavy: CDR1 positions
-    - cdr2_codon_start_heavy, cdr2_codon_end_heavy: CDR2 positions
-    - cdr3_codon_start_heavy, cdr3_codon_end_heavy: CDR3 positions
+    - cdr1_codon_start_heavy, cdr1_codon_end_heavy: CDR1 positions (heavy)
+    - cdr2_codon_start_heavy, cdr2_codon_end_heavy: CDR2 positions (heavy)
+    - cdr3_codon_start_heavy, cdr3_codon_end_heavy: CDR3 positions (heavy)
     - parent_is_naive, child_is_leaf: Boolean flags
     - distance: Distance from root
+
+    Paired heavy/light chain columns (optional):
+    - parent_light, child_light: Light chain DNA sequences
+    - v_gene_light, j_gene_light: Light chain gene calls
+    - cdr1_codon_start_light, cdr1_codon_end_light: CDR1 positions (light)
+    - cdr2_codon_start_light, cdr2_codon_end_light: CDR2 positions (light)
+    - cdr3_codon_start_light, cdr3_codon_end_light: CDR3 positions (light)
+    - light_chain_type: "kappa" or "lambda"
 
     Returns:
         dict: {family_id: {
             nodes: {node_id: node_data},
             edges: [(parent, child, length)],
-            family_data: {v_gene, d_gene, j_gene, gene_positions, cdr_positions, etc.}
+            family_data: {v_gene, d_gene, j_gene, gene_positions, cdr_positions, etc.},
+            is_paired: bool  # True if light chain data is present
         }}
     """
     families = defaultdict(lambda: {"nodes": {}, "edges": [], "family_data": {}})
@@ -107,6 +122,9 @@ def parse_pcp_csv(csv_path):
         if not required_cols.issubset(reader.fieldnames):
             missing = required_cols - set(reader.fieldnames)
             raise ValueError(f"Missing required columns: {missing}")
+
+        # Detect paired format (presence of light chain columns)
+        is_paired = "parent_light" in reader.fieldnames or "child_light" in reader.fieldnames
 
         for row in reader:
             sample_id = row["sample_id"]
@@ -207,9 +225,49 @@ def parse_pcp_csv(csv_path):
                 else None
             )
 
+            # Extract light chain data (for paired format)
+            parent_sequence_light = row.get("parent_light", "") if is_paired else ""
+            child_sequence_light = row.get("child_light", "") if is_paired else ""
+            v_gene_light = row.get("v_gene_light", "") if is_paired else ""
+            j_gene_light = row.get("j_gene_light", "") if is_paired else ""
+            light_chain_type = row.get("light_chain_type", "") if is_paired else ""
+
+            # Extract light chain CDR positions (for paired format)
+            cdr1_start_light = (
+                int(row.get("cdr1_codon_start_light", 0))
+                if row.get("cdr1_codon_start_light")
+                else 0
+            ) if is_paired else 0
+            cdr1_end_light = (
+                int(row.get("cdr1_codon_end_light", 0))
+                if row.get("cdr1_codon_end_light")
+                else 0
+            ) if is_paired else 0
+            cdr2_start_light = (
+                int(row.get("cdr2_codon_start_light", 0))
+                if row.get("cdr2_codon_start_light")
+                else 0
+            ) if is_paired else 0
+            cdr2_end_light = (
+                int(row.get("cdr2_codon_end_light", 0))
+                if row.get("cdr2_codon_end_light")
+                else 0
+            ) if is_paired else 0
+            cdr3_start_light = (
+                int(row.get("cdr3_codon_start_light", 0))
+                if row.get("cdr3_codon_start_light")
+                else 0
+            ) if is_paired else 0
+            cdr3_end_light = (
+                int(row.get("cdr3_codon_end_light", 0))
+                if row.get("cdr3_codon_end_light")
+                else 0
+            ) if is_paired else 0
+
             # Store family-level data and sample_id for each family (will be same for all rows of same family)
             families[family_id]["family_data"] = {
                 "sample_id": sample_id,  # Store original sample_id for reference
+                # Heavy chain data
                 "v_gene": v_gene,
                 "d_gene": d_gene,
                 "j_gene": j_gene,
@@ -225,11 +283,23 @@ def parse_pcp_csv(csv_path):
                 "cdr2_end": cdr2_end,
                 "cdr3_start": cdr3_start,
                 "cdr3_end": cdr3_end,
+                # Light chain data (for paired format)
+                "v_gene_light": v_gene_light,
+                "j_gene_light": j_gene_light,
+                "cdr1_start_light": cdr1_start_light,
+                "cdr1_end_light": cdr1_end_light,
+                "cdr2_start_light": cdr2_start_light,
+                "cdr2_end_light": cdr2_end_light,
+                "cdr3_start_light": cdr3_start_light,
+                "cdr3_end_light": cdr3_end_light,
+                "light_chain_type": light_chain_type,
             }
+            # Store paired format flag at family level
+            families[family_id]["is_paired"] = is_paired
 
             # Add parent node if not already present
             if parent not in families[family_id]["nodes"]:
-                families[family_id]["nodes"][parent] = {
+                parent_node_data = {
                     "sequence_id": parent,
                     "multiplicity": 0,
                     "timepoint_multiplicities": [],
@@ -244,10 +314,14 @@ def parse_pcp_csv(csv_path):
                     if parent_is_naive
                     else None,  # Will be set when node appears as child
                 }
+                # Add light chain sequence for paired format
+                if is_paired:
+                    parent_node_data["sequence_alignment_light"] = parent_sequence_light
+                families[family_id]["nodes"][parent] = parent_node_data
 
             # Add child node if not already present
             if child not in families[family_id]["nodes"]:
-                families[family_id]["nodes"][child] = {
+                child_node_data = {
                     "sequence_id": child,
                     "multiplicity": sample_count,
                     "timepoint_multiplicities": [],
@@ -258,6 +332,10 @@ def parse_pcp_csv(csv_path):
                     "distance": distance,  # Distance from root
                     "length": branch_length,  # Branch length to this node
                 }
+                # Add light chain sequence for paired format
+                if is_paired:
+                    child_node_data["sequence_alignment_light"] = child_sequence_light
+                families[family_id]["nodes"][child] = child_node_data
             else:
                 # Update multiplicity if node appears multiple times
                 families[family_id]["nodes"][child]["multiplicity"] += sample_count
@@ -623,24 +701,34 @@ def merge_tree_topology_with_pcp(pcp_family_data, newick_string, warn_disagreeme
             if node_distances.get(node_id, 0.0) > 0:
                 merged_nodes[node_id]["distances"] = [node_distances[node_id]]
 
-    # Return updated family data
+    # Return updated family data, preserving is_paired flag
     return {
         "family_data": pcp_family_data["family_data"],
         "nodes": merged_nodes,
         "edges": merged_edges,
+        "is_paired": pcp_family_data.get("is_paired", False),
     }
 
 
-def parse_newick_csv(csv_path):
+def parse_newick_csv(csv_path: str) -> Dict[str, Any]:
     """
     Parse CSV file containing Newick trees.
 
     Expected CSV format:
     family_name,sample_id,newick_tree (or family_name,newick_tree for backwards compatibility)
 
+    Optional columns for paired format:
+    - rate_scale_heavy: Rate scaling factor for heavy chain
+    - rate_scale_light: Rate scaling factor for light chain
+    - newick (alternative column name for newick_tree)
+    - family (alternative column name for family_name)
+
     Returns:
-        dict: {(family_name, sample_id): newick_string} if sample_id present,
-              {family_name: newick_string} otherwise
+        dict: {(family_name, sample_id): tree_data} if sample_id present,
+              {family_name: tree_data} otherwise
+              where tree_data is either:
+              - str: newick_string (for backwards compatibility)
+              - dict: {"newick": newick_string, "rate_scale_heavy": float, "rate_scale_light": float}
     """
     newick_trees = {}
 
@@ -653,26 +741,56 @@ def parse_newick_csv(csv_path):
     with file_handle:
         reader = csv.DictReader(file_handle)
 
-        # Validate required columns
-        required_cols = {"family_name", "newick_tree"}
-        if not required_cols.issubset(reader.fieldnames):
-            missing = required_cols - set(reader.fieldnames)
-            raise ValueError(f"Missing required columns: {missing}")
+        # Support alternative column names for backwards compatibility
+        # Check for newick column (paired format uses "newick", regular uses "newick_tree")
+        newick_col = None
+        if "newick" in reader.fieldnames:
+            newick_col = "newick"
+        elif "newick_tree" in reader.fieldnames:
+            newick_col = "newick_tree"
+
+        # Check for family column (paired format uses "family", regular uses "family_name")
+        family_col = None
+        if "family" in reader.fieldnames:
+            family_col = "family"
+        elif "family_name" in reader.fieldnames:
+            family_col = "family_name"
+
+        # Validate we have required columns
+        if newick_col is None:
+            raise ValueError("Missing required column: 'newick_tree' or 'newick'")
+        if family_col is None:
+            raise ValueError("Missing required column: 'family_name' or 'family'")
 
         # Check if sample_id column exists
         has_sample_id = "sample_id" in reader.fieldnames
 
+        # Check for rate scaling columns (paired format)
+        has_rate_scale = "rate_scale_heavy" in reader.fieldnames or "rate_scale_light" in reader.fieldnames
+
         for row in reader:
-            family_name = row["family_name"]
-            newick_tree = row["newick_tree"]
+            family_name = row[family_col]
+            newick_tree = row[newick_col]
+
+            # Build tree data
+            if has_rate_scale:
+                # Return dict with rate scaling for paired format
+                tree_data = {
+                    "newick": newick_tree,
+                    "rate_scale_heavy": float(row.get("rate_scale_heavy", 1.0)) if row.get("rate_scale_heavy") else 1.0,
+                    "rate_scale_light": float(row.get("rate_scale_light", 1.0)) if row.get("rate_scale_light") else 1.0,
+                }
+            else:
+                # Return just string for backwards compatibility
+                tree_data = newick_tree
 
             if has_sample_id:
                 sample_id = row["sample_id"]
                 # Use composite key (family_name, sample_id) to handle multiple samples with same family ID
-                newick_trees[(family_name, sample_id)] = newick_tree
+                newick_trees[(family_name, sample_id)] = tree_data
             else:
                 # Backwards compatibility: use just family_name
-                newick_trees[family_name] = newick_tree
+                newick_trees[family_name] = tree_data
 
     return newick_trees
 
@@ -981,6 +1099,27 @@ def compute_scaled_affinity(affinity_values):
     return scaled
 
 
+def _get_descendants(node, children_map):
+    """
+    Get all descendants of a node in a tree.
+
+    Args:
+        node: Node ID to get descendants for
+        children_map: Dict mapping parent -> list of children
+
+    Returns:
+        set: All descendant node IDs
+    """
+    descendants = set()
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        for child in children_map.get(current, []):
+            descendants.add(child)
+            stack.append(child)
+    return descendants
+
+
 def build_newick_from_edges(nodes, edges):
     """
     Build a Newick string from parent-child edges.
@@ -1005,8 +1144,21 @@ def build_newick_from_edges(nodes, edges):
     all_parents = {parent for parent, _, _ in edges}
     roots = all_parents - all_children
 
-    if len(roots) != 1:
-        raise ValueError(f"Expected exactly one root, found {len(roots)}: {roots}")
+    if len(roots) == 0:
+        # No edges or cyclic graph - use first node as root
+        if nodes:
+            roots = {list(nodes.keys())[0]}
+        else:
+            return ";"
+
+    if len(roots) > 1:
+        # Multiple potential roots - prefer "naive" if present, otherwise pick first
+        if "naive" in roots:
+            root = "naive"
+        else:
+            # Use the root with the most descendants (largest subtree)
+            root = max(roots, key=lambda r: len(_get_descendants(r, children)))
+        roots = {root}
 
     root = roots.pop()
 
@@ -1039,7 +1191,18 @@ def build_newick_from_edges(nodes, edges):
     return f"({','.join(subtrees)}){root}:0.0;"
 
 
-def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None, warn_disagreements=False, compute_metrics=False, lbi_tau=0.0125, standardize_names=False, alignment_method="truncate", name=None, verbosity=1):
+def process_pcp_to_olmsted(
+    pcp_families: Dict[str, Any],
+    newick_trees: Optional[Dict[str, Any]] = None,
+    uuid_generator: Optional[Callable[[str], str]] = None,
+    warn_disagreements: bool = False,
+    compute_metrics: bool = False,
+    lbi_tau: float = 0.0125,
+    standardize_names: bool = False,
+    alignment_method: str = "truncate",
+    name: Optional[str] = None,
+    verbosity: int = 1,
+) -> Tuple[List[OlmstedDataset], Dict[str, List[OlmstedClone]], List[OlmstedTree]]:
     """
     Convert PCP format data to Olmsted format.
 
@@ -1056,7 +1219,7 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
         verbosity: Verbosity level (0=quiet, 1=normal, 2=verbose, 3=debug)
 
     Returns:
-        tuple: (datasets, clones_dict, trees)
+        Tuple of (datasets, clones_dict, trees) with proper Olmsted types
     """
     # Create verbosity printer
     vprint = VerbosePrinter(verbosity)
@@ -1118,14 +1281,28 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
             # Merge tree topology with PCP data if Newick tree is available
             # Try composite key first (family_id, sample_id), then fall back to just family_id
             newick = None
+            newick_tree_data = None
+            rate_scale_heavy = 1.0
+            rate_scale_light = 1.0
+
             if newick_trees:
                 # Try composite key (family_id, sample_id)
                 composite_key = (family_id, original_sample_id)
                 if composite_key in newick_trees:
-                    newick = newick_trees[composite_key]
+                    newick_tree_data = newick_trees[composite_key]
                 # Fall back to just family_id for backwards compatibility
                 elif family_id in newick_trees:
-                    newick = newick_trees[family_id]
+                    newick_tree_data = newick_trees[family_id]
+
+                # Handle both string and dict return types from parse_newick_csv
+                if newick_tree_data is not None:
+                    if isinstance(newick_tree_data, dict):
+                        newick = newick_tree_data.get("newick", "")
+                        rate_scale_heavy = newick_tree_data.get("rate_scale_heavy", 1.0)
+                        rate_scale_light = newick_tree_data.get("rate_scale_light", 1.0)
+                    else:
+                        # String format (backwards compatibility)
+                        newick = newick_tree_data
 
             if newick:
                 # Use complete tree topology from Newick
@@ -1134,10 +1311,17 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
                 # Fallback to building tree from PCP edges only
                 newick = build_newick_from_edges(family_data["nodes"], family_data["edges"])
 
+            # Store rate scaling in family data for later use
+            family_data["family_data"]["rate_scale_heavy"] = rate_scale_heavy
+            family_data["family_data"]["rate_scale_light"] = rate_scale_light
+
+            # Check if this family has paired data
+            is_paired = family_data.get("is_paired", False)
+
             # Process nodes - add required fields with rich PCP data
             processed_nodes = {}
             for node_id, node_data in family_data["nodes"].items():
-                # Get sequence alignment from PCP data
+                # Get sequence alignment from PCP data (heavy chain)
                 sequence_alignment = node_data.get("sequence_alignment", "")
                 sequence_alignment_aa = translate_dna_to_aa(sequence_alignment)
 
@@ -1168,6 +1352,14 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
                     "affinity": None,
                     "scaled_affinity": None,
                 }
+
+                # Add light chain data for paired format
+                if is_paired:
+                    sequence_alignment_light = node_data.get("sequence_alignment_light", "")
+                    sequence_alignment_light_aa = translate_dna_to_aa(sequence_alignment_light)
+                    processed_node["sequence_alignment_light"] = sequence_alignment_light
+                    processed_node["sequence_alignment_light_aa"] = sequence_alignment_light_aa
+
                 processed_nodes[node_id] = processed_node
 
             # Set parent field based on edges
@@ -1300,11 +1492,34 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
             junction_start = cdr3_start
             junction_length = (cdr3_end - cdr3_start) if (cdr3_end > cdr3_start) else 0
 
+            # Extract light chain data for paired format
+            v_call_light = family_meta.get("v_gene_light", "") if is_paired else ""
+            j_call_light = family_meta.get("j_gene_light", "") if is_paired else ""
+            light_chain_type = family_meta.get("light_chain_type", "") if is_paired else ""
+
+            # Light chain CDR positions
+            cdr1_start_light = family_meta.get("cdr1_start_light", 0) if is_paired else 0
+            cdr1_end_light = family_meta.get("cdr1_end_light", 0) if is_paired else 0
+            cdr2_start_light = family_meta.get("cdr2_start_light", 0) if is_paired else 0
+            cdr2_end_light = family_meta.get("cdr2_end_light", 0) if is_paired else 0
+            cdr3_start_light = family_meta.get("cdr3_start_light", 0) if is_paired else 0
+            cdr3_end_light = family_meta.get("cdr3_end_light", 0) if is_paired else 0
+
+            junction_start_light = cdr3_start_light
+            junction_length_light = (cdr3_end_light - cdr3_start_light) if (cdr3_end_light > cdr3_start_light) else 0
+
+            # Rate scaling factors (from trees.csv)
+            rate_scale_heavy = family_meta.get("rate_scale_heavy", 1.0)
+            rate_scale_light = family_meta.get("rate_scale_light", 1.0) if is_paired else 1.0
+
             # Get germline sequence from naive node first (needed for mean_mut_freq calculation)
             germline_alignment = ""
+            germline_alignment_light = ""
             for node_id, node_data in processed_nodes.items():
                 if node_data.get("type") == "root":
                     germline_alignment = node_data.get("sequence_alignment", "")
+                    if is_paired:
+                        germline_alignment_light = node_data.get("sequence_alignment_light", "")
                     break
 
             # Calculate mean mutation frequency from observed leaf sequences only
@@ -1554,6 +1769,7 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
                     n.get("multiplicity", 0) for n in processed_nodes.values()
                 ),
                 "mean_mut_freq": mean_mut_freq,
+                # Heavy chain alignment positions
                 "v_alignment_start": v_alignment_start,
                 "v_alignment_end": v_alignment_end,
                 "j_alignment_start": j_alignment_start,
@@ -1564,6 +1780,7 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
                 "cdr2_alignment_end": cdr2_end,
                 "junction_start": junction_start,
                 "junction_length": junction_length,
+                # Heavy chain gene calls
                 "v_call": v_call,
                 "d_call": d_call,
                 "j_call": j_call,
@@ -1589,6 +1806,23 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
                 },
                 "dataset": {"ident": dataset_ident, "dataset_id": dataset_id},
             }
+
+            # Add light chain fields for paired format
+            if is_paired:
+                clone["v_call_light"] = v_call_light
+                clone["j_call_light"] = j_call_light
+                clone["light_chain_type"] = light_chain_type
+                clone["cdr1_alignment_start_light"] = cdr1_start_light
+                clone["cdr1_alignment_end_light"] = cdr1_end_light
+                clone["cdr2_alignment_start_light"] = cdr2_start_light
+                clone["cdr2_alignment_end_light"] = cdr2_end_light
+                clone["junction_start_light"] = junction_start_light
+                clone["junction_length_light"] = junction_length_light
+                clone["germline_alignment_light"] = germline_alignment_light
+                clone["rate_scale_heavy"] = rate_scale_heavy
+                clone["rate_scale_light"] = rate_scale_light
+                clone["is_paired"] = True
+
             clones_dict[dataset_id].append(clone)
 
             # Convert nodes to array format (required by webapp)
