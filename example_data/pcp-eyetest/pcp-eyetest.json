@@ -1,0 +1,531 @@
+{
+    "metadata": {
+        "format_version": "1.0",
+        "schema_version": "2.0.0",
+        "created_at": "2025-12-09T16:36:49.737418+00:00",
+        "source_format": "pcp",
+        "source_files": [
+            "pcp.csv"
+        ],
+        "processing_info": {
+            "datasets_count": 1,
+            "total_clones_count": 2,
+            "total_trees_count": 2
+        },
+        "generated_by": {
+            "tool": "olmsted-cli",
+            "version": "2.0.0"
+        },
+        "name": "pcp-eyetest",
+        "processing_options": {
+            "validation": false,
+            "strict_validation": false,
+            "seed": null
+        }
+    },
+    "datasets": [
+        {
+            "ident": "dataset-2b5c528b-f192-43d4-a655-2196db92a73d",
+            "dataset_id": "pcp-de247506-ebfe-4cb0-aaef-ab0d72881c4e",
+            "schema_version": "2.0.0",
+            "type": "pcp.dataset",
+            "build": {
+                "commit": "pcp-import",
+                "time": ""
+            },
+            "subjects": [
+                {
+                    "ident": "subject-07d32397-164d-4152-8b65-77a9da50df7e",
+                    "subject_id": "pcp-subject"
+                }
+            ],
+            "samples": [
+                {
+                    "ident": "sample-675db5cb-ca5b-4c3a-bef6-78ddafd5c00e",
+                    "sample_id": "sample-A",
+                    "locus": "igh",
+                    "timepoint_id": "merged"
+                },
+                {
+                    "ident": "sample-dff35dda-c936-45ec-a4d9-b4f495f16cb6",
+                    "sample_id": "sample-B",
+                    "locus": "igh",
+                    "timepoint_id": "merged"
+                }
+            ],
+            "seeds": [],
+            "clone_count": 2,
+            "subjects_count": 1,
+            "timepoints_count": 1,
+            "name": "pcp-eyetest"
+        }
+    ],
+    "clones": {
+        "pcp-de247506-ebfe-4cb0-aaef-ab0d72881c4e": [
+            {
+                "clone_id": "family-1",
+                "ident": "clone-7e566c3e-b584-4743-aa6b-0583ca5a0e52",
+                "dataset_id": "pcp-de247506-ebfe-4cb0-aaef-ab0d72881c4e",
+                "sample_id": "sample-A",
+                "subject_id": "pcp-subject",
+                "unique_seqs_count": 11,
+                "total_read_count": 9,
+                "mean_mut_freq": 0.016,
+                "v_alignment_start": 0,
+                "v_alignment_end": 0,
+                "j_alignment_start": 0,
+                "j_alignment_end": 0,
+                "cdr1_alignment_start": 4,
+                "cdr1_alignment_end": 8,
+                "cdr2_alignment_start": 12,
+                "cdr2_alignment_end": 16,
+                "junction_start": 35,
+                "junction_length": 10,
+                "v_call": "IGHV1-1*01",
+                "d_call": "",
+                "j_call": "IGHJ1*01",
+                "d_alignment_start": 0,
+                "d_alignment_end": 0,
+                "germline_alignment": "ATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAG",
+                "has_seed": false,
+                "trees": [
+                    {
+                        "ident": "55e7f1eb-ea82-45b9-8771-5afd47f69582",
+                        "clone_id": "family-1",
+                        "tree_id": "pcp-tree-family-1",
+                        "newick": "(naive:0.1,((Tip1:0.2,Tip2:0.3)Node2:0.2,((Tip3:0.4,Tip4:0.5)Node4:0.1,Tip5:0.2)Node3:0.3)Node1:0.1)root;",
+                        "type": "pcp.reconstruction"
+                    }
+                ],
+                "sample": {
+                    "ident": "clone-7e566c3e-b584-4743-aa6b-0583ca5a0e52",
+                    "locus": "igh",
+                    "sample_id": "sample-A",
+                    "timepoint_id": "merged"
+                },
+                "dataset": {
+                    "ident": "dataset-2b5c528b-f192-43d4-a655-2196db92a73d",
+                    "dataset_id": "pcp-de247506-ebfe-4cb0-aaef-ab0d72881c4e"
+                }
+            },
+            {
+                "clone_id": "family-2",
+                "ident": "clone-fc529006-e168-438e-9075-7ceb9d20a914",
+                "dataset_id": "pcp-de247506-ebfe-4cb0-aaef-ab0d72881c4e",
+                "sample_id": "sample-B",
+                "subject_id": "pcp-subject",
+                "unique_seqs_count": 11,
+                "total_read_count": 9,
+                "mean_mut_freq": 0.036000000000000004,
+                "v_alignment_start": 0,
+                "v_alignment_end": 0,
+                "j_alignment_start": 0,
+                "j_alignment_end": 0,
+                "cdr1_alignment_start": 5,
+                "cdr1_alignment_end": 12,
+                "cdr2_alignment_start": 18,
+                "cdr2_alignment_end": 25,
+                "junction_start": 30,
+                "junction_length": 20,
+                "v_call": "IGHV2-2*01",
+                "d_call": "",
+                "j_call": "IGHJ2*01",
+                "d_alignment_start": 0,
+                "d_alignment_end": 0,
+                "germline_alignment": "CAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTG",
+                "has_seed": false,
+                "trees": [
+                    {
+                        "ident": "2abc3bc1-4677-4fa1-9661-d138d60289d6",
+                        "clone_id": "family-2",
+                        "tree_id": "pcp-tree-family-2",
+                        "newick": "(naive:0.1,((Tip1:0.3,Tip2:0.4)Node2:0.2,(Tip3:0.2,(Tip4:0.5,Tip5:0.4)Node4:0.1)Node3:0.3)Node1:0.1)root;",
+                        "type": "pcp.reconstruction"
+                    }
+                ],
+                "sample": {
+                    "ident": "clone-fc529006-e168-438e-9075-7ceb9d20a914",
+                    "locus": "igh",
+                    "sample_id": "sample-B",
+                    "timepoint_id": "merged"
+                },
+                "dataset": {
+                    "ident": "dataset-2b5c528b-f192-43d4-a655-2196db92a73d",
+                    "dataset_id": "pcp-de247506-ebfe-4cb0-aaef-ab0d72881c4e"
+                }
+            }
+        ]
+    },
+    "trees": [
+        {
+            "ident": "55e7f1eb-ea82-45b9-8771-5afd47f69582",
+            "tree_id": "pcp-tree-family-1",
+            "clone_id": "family-1",
+            "newick": "(naive:0.1,((Tip1:0.2,Tip2:0.3)Node2:0.2,((Tip3:0.4,Tip4:0.5)Node4:0.1,Tip5:0.2)Node3:0.3)Node1:0.1)root;",
+            "nodes": [
+                {
+                    "sequence_id": "naive",
+                    "sequence_alignment": "ATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAG",
+                    "sequence_alignment_aa": "MQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQ",
+                    "multiplicity": 0,
+                    "cluster_multiplicity": 5,
+                    "timepoint_multiplicities": [],
+                    "type": "root",
+                    "parent": null,
+                    "distance": 0.0,
+                    "length": 0.0,
+                    "lbi": 3.355751631025722e-05,
+                    "lbr": 0.0,
+                    "affinity": 3.355751631025722e-05,
+                    "scaled_affinity": 0.3334451541966833
+                },
+                {
+                    "sequence_id": "Node1",
+                    "sequence_alignment": "ATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAG",
+                    "sequence_alignment_aa": "MQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQ",
+                    "multiplicity": 1,
+                    "cluster_multiplicity": 5,
+                    "timepoint_multiplicities": [],
+                    "type": "internal",
+                    "parent": "root",
+                    "distance": 0.2,
+                    "length": 0.1,
+                    "lbi": 3.3580034671871975e-05,
+                    "lbr": 1.3862943611198906,
+                    "affinity": 3.3580034671871975e-05,
+                    "scaled_affinity": 0.33366890849636
+                },
+                {
+                    "sequence_id": "Node2",
+                    "sequence_alignment": "ATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGTTGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAG",
+                    "sequence_alignment_aa": "MQMQMQMQMQMQLQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQ",
+                    "multiplicity": 1,
+                    "cluster_multiplicity": 2,
+                    "timepoint_multiplicities": [],
+                    "type": "internal",
+                    "parent": "Node1",
+                    "distance": 0.4,
+                    "length": 0.2,
+                    "lbi": 7.879350177545244e-08,
+                    "lbr": -0.40546510810816444,
+                    "affinity": 7.879350177545244e-08,
+                    "scaled_affinity": 0.0007829337280217479
+                },
+                {
+                    "sequence_id": "Node3",
+                    "sequence_alignment": "ATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGTTGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAG",
+                    "sequence_alignment_aa": "MQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQLQMQMQMQMQMQMQMQMQ",
+                    "multiplicity": 1,
+                    "cluster_multiplicity": 3,
+                    "timepoint_multiplicities": [],
+                    "type": "internal",
+                    "parent": "Node1",
+                    "distance": 0.5,
+                    "length": 0.3,
+                    "lbi": 3.356878870213715e-05,
+                    "lbr": 0.28768207245178085,
+                    "affinity": 3.356878870213715e-05,
+                    "scaled_affinity": 0.3335571626186958
+                },
+                {
+                    "sequence_id": "Tip1",
+                    "sequence_alignment": "ATGCAGATGCAGTTGCAGATGCAGATGCAGATGCAGTTGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAG",
+                    "sequence_alignment_aa": "MQMQLQMQMQMQLQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQ",
+                    "multiplicity": 1,
+                    "cluster_multiplicity": 1,
+                    "timepoint_multiplicities": [],
+                    "type": "leaf",
+                    "parent": "Node2",
+                    "distance": 0.6000000000000001,
+                    "length": 0.2,
+                    "lbi": 5.626759369256243e-08,
+                    "lbr": 0.0,
+                    "affinity": 5.626759369256243e-08,
+                    "scaled_affinity": 0.0005591044426635654
+                },
+                {
+                    "sequence_id": "Tip2",
+                    "sequence_alignment": "ATGCAGATGCAGATGCAGATGCAGTTGCAGATGCAGTTGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAG",
+                    "sequence_alignment_aa": "MQMQMQMQLQMQLQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQ",
+                    "multiplicity": 1,
+                    "cluster_multiplicity": 1,
+                    "timepoint_multiplicities": [],
+                    "type": "leaf",
+                    "parent": "Node2",
+                    "distance": 0.7,
+                    "length": 0.3,
+                    "lbi": 1.887567484585786e-11,
+                    "lbr": 0.0,
+                    "affinity": 1.887567484585786e-11,
+                    "scaled_affinity": 1.8755860762389103e-07
+                },
+                {
+                    "sequence_id": "Node4",
+                    "sequence_alignment": "ATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGTTGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGTTGCAGATGCAG",
+                    "sequence_alignment_aa": "MQMQMQMQMQMQMQMQMQMQMQMQMQMQMQMQLQMQMQMQMQMQMQLQMQ",
+                    "multiplicity": 1,
+                    "cluster_multiplicity": 2,
+                    "timepoint_multiplicities": [],
+                    "type": "internal",
+                    "parent": "Node3",
+                    "distance": 0.6,
+                    "length": 0.1,
+                    "lbi": 0.00010063878838215385,
+                    "lbr": -0.6931471805599453,
+                    "affinity": 0.00010063878838215385,
+                    "scaled_affinity": 1.0
+                },
+                {
+                    "sequence_id": "Tip3",
+                    "sequence_alignment": "ATGCAGATGCAGATGCAGATGCAGATGCAGTTGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGTTGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGTTGCAGATGCAG",
+                    "sequence_alignment_aa": "MQMQMQMQMQLQMQMQMQMQMQMQMQMQMQMQLQMQMQMQMQMQMQLQMQ",
+                    "multiplicity": 1,
+                    "cluster_multiplicity": 1,
+                    "timepoint_multiplicities": [],
+                    "type": "leaf",
+                    "parent": "Node4",
+                    "distance": 1.0,
+                    "length": 0.4,
+                    "lbi": 1.1399023500461425e-14,
+                    "lbr": 0.0,
+                    "affinity": 1.1399023500461425e-14,
+                    "scaled_affinity": 1.132287037360991e-10
+                },
+                {
+                    "sequence_id": "Tip4",
+                    "sequence_alignment": "ATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGTTGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGTTGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGTTGCAGATGCAG",
+                    "sequence_alignment_aa": "MQMQMQMQMQMQMQLQMQMQMQMQMQMQMQMQLQMQMQMQMQMQMQLQMQ",
+                    "multiplicity": 1,
+                    "cluster_multiplicity": 1,
+                    "timepoint_multiplicities": [],
+                    "type": "leaf",
+                    "parent": "Node4",
+                    "distance": 1.1,
+                    "length": 0.5,
+                    "lbi": 3.823946378987279e-18,
+                    "lbr": 0.0,
+                    "affinity": 3.823946378987279e-18,
+                    "scaled_affinity": 0.0
+                },
+                {
+                    "sequence_id": "Tip5",
+                    "sequence_alignment": "ATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGTTGCAGATGCAGATGCAGATGCAGATGCAGTTGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAGATGCAG",
+                    "sequence_alignment_aa": "MQMQMQMQMQMQMQMQMQMQMQLQMQMQMQMQLQMQMQMQMQMQMQMQMQ",
+                    "multiplicity": 1,
+                    "cluster_multiplicity": 1,
+                    "timepoint_multiplicities": [],
+                    "type": "leaf",
+                    "parent": "Node3",
+                    "distance": 0.7,
+                    "length": 0.2,
+                    "lbi": 3.376055241790263e-08,
+                    "lbr": 0.0,
+                    "affinity": 3.376055241790263e-08,
+                    "scaled_affinity": 0.0003354626278476409
+                },
+                {
+                    "sequence_id": "root",
+                    "sequence_alignment": "",
+                    "sequence_alignment_aa": "",
+                    "multiplicity": 0,
+                    "cluster_multiplicity": 5,
+                    "timepoint_multiplicities": [],
+                    "type": "internal",
+                    "parent": "naive",
+                    "distance": 0.1,
+                    "length": 0.0,
+                    "lbi": 6.709253313457199e-05,
+                    "lbr": 2.1972245773362196,
+                    "affinity": 6.709253313457199e-05,
+                    "scaled_affinity": 0.6666667416523483
+                }
+            ],
+            "type": "pcp.reconstruction"
+        },
+        {
+            "ident": "2abc3bc1-4677-4fa1-9661-d138d60289d6",
+            "tree_id": "pcp-tree-family-2",
+            "clone_id": "family-2",
+            "newick": "(naive:0.1,((Tip1:0.3,Tip2:0.4)Node2:0.2,(Tip3:0.2,(Tip4:0.5,Tip5:0.4)Node4:0.1)Node3:0.3)Node1:0.1)root;",
+            "nodes": [
+                {
+                    "sequence_id": "naive",
+                    "sequence_alignment": "CAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTG",
+                    "sequence_alignment_aa": "QLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQL",
+                    "multiplicity": 0,
+                    "cluster_multiplicity": 5,
+                    "timepoint_multiplicities": [],
+                    "type": "root",
+                    "parent": null,
+                    "distance": 0.0,
+                    "length": 0.0,
+                    "lbi": 3.355751631025722e-05,
+                    "lbr": 0.0,
+                    "affinity": 3.355751631025722e-05,
+                    "scaled_affinity": 0.3334451541966833
+                },
+                {
+                    "sequence_id": "Node1",
+                    "sequence_alignment": "CAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTG",
+                    "sequence_alignment_aa": "QLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQL",
+                    "multiplicity": 1,
+                    "cluster_multiplicity": 5,
+                    "timepoint_multiplicities": [],
+                    "type": "internal",
+                    "parent": "root",
+                    "distance": 0.2,
+                    "length": 0.1,
+                    "lbi": 3.358003466933914e-05,
+                    "lbr": 1.3862943611198906,
+                    "affinity": 3.358003466933914e-05,
+                    "scaled_affinity": 0.3336689084711924
+                },
+                {
+                    "sequence_id": "Node2",
+                    "sequence_alignment": "CAGTTGCAGTTGCAGTTGCAGATGCAGTTGCAGATGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTG",
+                    "sequence_alignment_aa": "QLQLQLQMQLQMQLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQLQL",
+                    "multiplicity": 1,
+                    "cluster_multiplicity": 2,
+                    "timepoint_multiplicities": [],
+                    "type": "internal",
+                    "parent": "Node1",
+                    "distance": 0.4,
+                    "length": 0.2,
+                    "lbi": 5.628647189726684e-08,
+                    "lbr": -0.40546510810816444,
+                    "affinity": 5.628647189726684e-08,
+                    "scaled_affinity": 0.0005592920264471928
+                },
+                {
+                    "sequence_id": "Tip1",
+                    "sequence_alignment": "CAGTTGCAGTTGCAGTTGCAGATGCAGTTGCAGATGCAGTTGCAGTTGCAGATGCAGTTGCAGATGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGATGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTG",
+                    "sequence_alignment_aa": "QLQLQLQMQLQMQLQLQMQLQMQLQLQLQLQLQLQMQLQLQLQLQLQLQL",
+                    "multiplicity": 1,
+                    "cluster_multiplicity": 1,
+                    "timepoint_multiplicities": [],
+                    "type": "leaf",
+                    "parent": "Node2",
+                    "distance": 0.7,
+                    "length": 0.3,
+                    "lbi": 2.642594393441608e-11,
+                    "lbr": 0.0,
+                    "affinity": 2.642594393441608e-11,
+                    "scaled_affinity": 2.6258205742823493e-07
+                },
+                {
+                    "sequence_id": "Tip2",
+                    "sequence_alignment": "CAGTTGCAGTTGCAGTTGCAGATGCAGTTGCAGATGCAGTTGCAGTTGCAGTTGCAGTTGCAGATGCAGTTGCAGATGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGATGCAGTTG",
+                    "sequence_alignment_aa": "QLQLQLQMQLQMQLQLQLQLQMQLQMQLQLQLQLQLQLQLQLQLQLQMQL",
+                    "multiplicity": 1,
+                    "cluster_multiplicity": 1,
+                    "timepoint_multiplicities": [],
+                    "type": "leaf",
+                    "parent": "Node2",
+                    "distance": 0.8,
+                    "length": 0.4,
+                    "lbi": 8.86491659704363e-15,
+                    "lbr": 0.0,
+                    "affinity": 8.86491659704363e-15,
+                    "scaled_affinity": 8.804848302641435e-11
+                },
+                {
+                    "sequence_id": "Node3",
+                    "sequence_alignment": "CAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGATGCAGATGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTG",
+                    "sequence_alignment_aa": "QLQLQLQLQLQLQLQLQLQLQLQLQLQMQMQLQLQLQLQLQLQLQLQLQL",
+                    "multiplicity": 1,
+                    "cluster_multiplicity": 3,
+                    "timepoint_multiplicities": [],
+                    "type": "internal",
+                    "parent": "Node1",
+                    "distance": 0.5,
+                    "length": 0.3,
+                    "lbi": 3.3568788702136296e-05,
+                    "lbr": 0.28768207245178085,
+                    "affinity": 3.3568788702136296e-05,
+                    "scaled_affinity": 0.3335571626186873
+                },
+                {
+                    "sequence_id": "Tip3",
+                    "sequence_alignment": "CAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGATGCAGATGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGATGCAGATGCAGTTGCAGTTGCAGATGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTG",
+                    "sequence_alignment_aa": "QLQLQLQLQLQMQMQLQLQLQLQLQLQMQMQLQLQMQLQLQLQLQLQLQL",
+                    "multiplicity": 1,
+                    "cluster_multiplicity": 1,
+                    "timepoint_multiplicities": [],
+                    "type": "leaf",
+                    "parent": "Node3",
+                    "distance": 0.7,
+                    "length": 0.2,
+                    "lbi": 3.376055241790263e-08,
+                    "lbr": 0.0,
+                    "affinity": 3.376055241790263e-08,
+                    "scaled_affinity": 0.0003354626278476409
+                },
+                {
+                    "sequence_id": "Node4",
+                    "sequence_alignment": "CAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGATGCAGATGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGATGCAGTTG",
+                    "sequence_alignment_aa": "QLQLQLQLQLQLQLQLQLQLQLQLQLQMQMQLQLQLQLQLQLQLQLQMQL",
+                    "multiplicity": 1,
+                    "cluster_multiplicity": 2,
+                    "timepoint_multiplicities": [],
+                    "type": "internal",
+                    "parent": "Node3",
+                    "distance": 0.6,
+                    "length": 0.1,
+                    "lbi": 0.00010063878838215385,
+                    "lbr": -0.6931471805599453,
+                    "affinity": 0.00010063878838215385,
+                    "scaled_affinity": 1.0
+                },
+                {
+                    "sequence_id": "Tip4",
+                    "sequence_alignment": "CAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGATGCAGATGCAGTTGCAGTTGCAGTTGCAGTTGCAGATGCAGATGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGATGCAGTTGCAGATGCAGTTG",
+                    "sequence_alignment_aa": "QLQLQLQLQLQLQLQMQMQLQLQLQLQMQMQLQLQLQLQLQLQMQLQMQL",
+                    "multiplicity": 1,
+                    "cluster_multiplicity": 1,
+                    "timepoint_multiplicities": [],
+                    "type": "leaf",
+                    "parent": "Node4",
+                    "distance": 1.1,
+                    "length": 0.5,
+                    "lbi": 3.823946378987279e-18,
+                    "lbr": 0.0,
+                    "affinity": 3.823946378987279e-18,
+                    "scaled_affinity": 0.0
+                },
+                {
+                    "sequence_id": "Tip5",
+                    "sequence_alignment": "CAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGTTGCAGATGCAGATGCAGTTGCAGTTGCAGATGCAGATGCAGTTGCAGTTGCAGTTGCAGATGCAGTTGCAGTTGCAGTTGCAGTTGCAGATGCAGTTG",
+                    "sequence_alignment_aa": "QLQLQLQLQLQLQLQLQLQMQMQLQLQMQMQLQLQLQMQLQLQLQLQMQL",
+                    "multiplicity": 1,
+                    "cluster_multiplicity": 1,
+                    "timepoint_multiplicities": [],
+                    "type": "leaf",
+                    "parent": "Node4",
+                    "distance": 1.0,
+                    "length": 0.4,
+                    "lbi": 1.1399023500461425e-14,
+                    "lbr": 0.0,
+                    "affinity": 1.1399023500461425e-14,
+                    "scaled_affinity": 1.132287037360991e-10
+                },
+                {
+                    "sequence_id": "root",
+                    "sequence_alignment": "",
+                    "sequence_alignment_aa": "",
+                    "multiplicity": 0,
+                    "cluster_multiplicity": 5,
+                    "timepoint_multiplicities": [],
+                    "type": "internal",
+                    "parent": "naive",
+                    "distance": 0.1,
+                    "length": 0.0,
+                    "lbi": 6.709253313457115e-05,
+                    "lbr": 2.1972245773362196,
+                    "affinity": 6.709253313457115e-05,
+                    "scaled_affinity": 0.66666674165234
+                }
+            ],
+            "type": "pcp.reconstruction"
+        }
+    ]
+}
