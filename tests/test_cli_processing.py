@@ -95,7 +95,7 @@ class TestOlmstedCLI:
         # Use the session directory and create a subdirectory for this specific test
         test_name = request.node.name
         self.temp_dir = test_session_dir / test_name
-        self.temp_dir.mkdir(exist_ok=True)
+        self.temp_dir.mkdir(parents=True, exist_ok=True)
 
         # Store json_assertions for use in tests
         self.json_assertions = json_assertions
@@ -106,7 +106,7 @@ class TestOlmstedCLI:
     def test_airr_processing(self):
         """Test AIRR data processing using olmsted process command with split files."""
         # Input and output paths
-        input_file = self.test_data_dir / "airr" / "full_schema_dataset.json"
+        input_file = self.test_data_dir / "airr" / "airr.json"
         output_dir = Path(self.temp_dir) / "airr_output"
 
         # Run the process command with split files to match golden data
@@ -139,7 +139,7 @@ class TestOlmstedCLI:
     def test_airr_consolidated_processing(self):
         """Test AIRR data processing using consolidated output format."""
         # Input and output paths
-        input_file = self.test_data_dir / "airr" / "full_schema_dataset.json"
+        input_file = self.test_data_dir / "airr" / "airr.json"
         output_file = Path(self.temp_dir) / "airr_consolidated.json"
 
         # Run the process command with consolidated output
@@ -368,7 +368,7 @@ class TestOlmstedCLI:
     def test_auto_format_detection_airr(self):
         """Test automatic format detection for AIRR JSON files."""
         # Input and output paths
-        input_file = self.test_data_dir / "airr" / "full_schema_dataset.json"
+        input_file = self.test_data_dir / "airr" / "airr.json"
         output_dir = Path(self.temp_dir) / "auto_airr_output"
 
         # Run without specifying format using subcommand
@@ -459,70 +459,101 @@ class TestOlmstedCLI:
     @pytest.mark.pcp
     @pytest.mark.paired
     def test_paired_pcp_processing(self):
-        """Test processing of paired heavy/light chain PCP data."""
-        # Use paired PCP data (check if it exists, skip if not)
+        """Test processing of paired heavy/light chain PCP data using two-clone architecture."""
+        # Use test paired PCP data subset
         paired_pcp_dir = self.test_data_dir / "pcp-paired"
-        input_clones = paired_pcp_dir / "wyatt-10x-1p5m_fs-all-UnmutInv_paired-merged_pcp_2024-11-22.csv.gz"
-        input_trees = paired_pcp_dir / "wyatt-10x-1p5m_fs-all-UnmutInv_paired-merged_trees_2024-11-22.csv.gz"
+        input_clones = paired_pcp_dir / "pcp.csv"
+        input_trees = paired_pcp_dir / "trees.csv"
 
         if not input_clones.exists():
             pytest.skip("Paired PCP test data not available")
 
         output_file = Path(self.temp_dir) / "paired_pcp_output.json"
 
-        # Import processing functions directly for faster testing with subset
+        # Import processing functions directly for faster testing
         from olmsted_cli.process_pcp_data import (
             parse_pcp_csv,
             parse_newick_csv,
             process_pcp_to_olmsted,
         )
 
-        # Parse a small subset for testing
+        # Parse the test data
         trees = parse_newick_csv(str(input_trees))
         families = parse_pcp_csv(str(input_clones))
 
-        # Take just first 5 families for faster testing
-        family_ids = list(families.keys())[:5]
-        small_families = {k: families[k] for k in family_ids}
-
         # Process
         datasets, clones_dict, trees_out = process_pcp_to_olmsted(
-            small_families, trees, verbosity=0
+            families, trees, verbosity=0
         )
 
-        # Verify paired data properties
+        # Verify two-clone architecture for paired data
         dataset_id = list(clones_dict.keys())[0]
-        first_clone = clones_dict[dataset_id][0]
+        all_clones = clones_dict[dataset_id]
 
-        # Check that light chain fields are present
-        assert first_clone.get("is_paired") is True, "Clone should be marked as paired"
-        assert "v_call_light" in first_clone, "Clone should have v_call_light"
-        assert "j_call_light" in first_clone, "Clone should have j_call_light"
-        assert "light_chain_type" in first_clone, "Clone should have light_chain_type"
-        assert first_clone.get("light_chain_type") in ["kappa", "lambda"], \
-            f"light_chain_type should be kappa or lambda, got {first_clone.get('light_chain_type')}"
+        # With the two-clone architecture, each paired family creates TWO clones
+        # Find a pair by looking for clones with matching pair_id
+        paired_clones = [c for c in all_clones if c.get("is_paired")]
+        assert len(paired_clones) > 0, "Should have paired clones"
 
-        # Check rate scaling
-        assert "rate_scale_heavy" in first_clone, "Clone should have rate_scale_heavy"
-        assert "rate_scale_light" in first_clone, "Clone should have rate_scale_light"
+        # Group clones by pair_id
+        from collections import defaultdict
+        pairs = defaultdict(list)
+        for clone in paired_clones:
+            pair_id = clone.get("pair_id")
+            if pair_id:
+                pairs[pair_id].append(clone)
 
-        # Check that nodes have light chain sequences
-        first_tree = trees_out[0]
-        assert len(first_tree["nodes"]) > 0, "Tree should have nodes"
+        # Verify we have complete pairs (heavy + light)
+        assert len(pairs) > 0, "Should have at least one pair"
+        first_pair_id = list(pairs.keys())[0]
+        pair = pairs[first_pair_id]
+        assert len(pair) == 2, f"Each pair should have exactly 2 clones (heavy + light), got {len(pair)}"
 
-        # Find a node with sequence data
-        nodes_with_light_seq = [
-            n for n in first_tree["nodes"]
-            if n.get("sequence_alignment_light")
-        ]
-        assert len(nodes_with_light_seq) > 0, "At least one node should have light chain sequence"
+        # Find heavy and light clones
+        heavy_clone = next((c for c in pair if c["sample"]["locus"] == "igh"), None)
+        light_clone = next((c for c in pair if c["sample"]["locus"] in ["igk", "igl"]), None)
 
-        # Check light chain AA translation
-        node_with_light = nodes_with_light_seq[0]
-        assert "sequence_alignment_light_aa" in node_with_light, \
-            "Node with light sequence should have AA translation"
-        assert len(node_with_light["sequence_alignment_light_aa"]) > 0, \
-            "Light chain AA sequence should not be empty"
+        assert heavy_clone is not None, "Should have heavy chain clone"
+        assert light_clone is not None, "Should have light chain clone"
+
+        # Verify both clones are marked as paired with matching pair_id
+        assert heavy_clone.get("is_paired") is True, "Heavy clone should be marked as paired"
+        assert light_clone.get("is_paired") is True, "Light clone should be marked as paired"
+        assert heavy_clone.get("pair_id") == light_clone.get("pair_id"), \
+            "Heavy and light clones should have matching pair_id"
+
+        # Verify locus is correct
+        assert heavy_clone["sample"]["locus"] == "igh", "Heavy clone should have locus igh"
+        assert light_clone["sample"]["locus"] in ["igk", "igl"], \
+            f"Light clone should have locus igk or igl, got {light_clone['sample']['locus']}"
+
+        # Verify VDJ genes are different between heavy and light
+        assert heavy_clone.get("v_call") != light_clone.get("v_call"), \
+            "Heavy and light clones should have different V genes"
+        assert heavy_clone.get("j_call") != light_clone.get("j_call"), \
+            "Heavy and light clones should have different J genes"
+
+        # Light chain should not have D gene (heavy chain may or may not have D gene depending on input data)
+        assert light_clone.get("d_call", "") == "", "Light clone should not have D gene"
+
+        # Verify trees exist for both chains
+        heavy_tree = next((t for t in trees_out if t["clone_id"] == heavy_clone["clone_id"]), None)
+        light_tree = next((t for t in trees_out if t["clone_id"] == light_clone["clone_id"]), None)
+
+        assert heavy_tree is not None, "Should have tree for heavy chain"
+        assert light_tree is not None, "Should have tree for light chain"
+
+        # Verify both trees have nodes
+        assert len(heavy_tree["nodes"]) > 0, "Heavy tree should have nodes"
+        assert len(light_tree["nodes"]) > 0, "Light tree should have nodes"
+
+        # Verify sequences are different between heavy and light trees
+        heavy_leaf = next((n for n in heavy_tree["nodes"] if n.get("type") == "leaf"), None)
+        light_leaf = next((n for n in light_tree["nodes"] if n.get("type") == "leaf"), None)
+
+        if heavy_leaf and light_leaf:
+            assert heavy_leaf.get("sequence_alignment") != light_leaf.get("sequence_alignment"), \
+                "Heavy and light trees should have different sequences"
 
 
 if __name__ == "__main__":
