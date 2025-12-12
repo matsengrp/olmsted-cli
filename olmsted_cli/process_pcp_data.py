@@ -1535,28 +1535,58 @@ def process_pcp_to_olmsted(
             # V gene alignment positions
             v_alignment_start = family_meta.get("v_gene_start")
             if v_alignment_start is None:
+                vprint.print(
+                    f"WARNING: Family {family_id} missing v_gene_start position, defaulting to 0. "
+                    "Gene region visualization may be incorrect.",
+                    min_level=2
+                )
                 v_alignment_start = 0
 
             v_alignment_end = family_meta.get("v_gene_end")
             if v_alignment_end is None:
+                vprint.print(
+                    f"WARNING: Family {family_id} missing v_gene_end position, defaulting to 0. "
+                    "Gene region visualization may be incorrect.",
+                    min_level=2
+                )
                 v_alignment_end = 0
 
             # D gene alignment positions
             d_alignment_start = family_meta.get("d_gene_start")
             if d_alignment_start is None:
+                vprint.print(
+                    f"WARNING: Family {family_id} missing d_gene_start position, defaulting to 0. "
+                    "Gene region visualization may be incorrect.",
+                    min_level=2
+                )
                 d_alignment_start = 0
 
             d_alignment_end = family_meta.get("d_gene_end")
             if d_alignment_end is None:
+                vprint.print(
+                    f"WARNING: Family {family_id} missing d_gene_end position, defaulting to 0. "
+                    "Gene region visualization may be incorrect.",
+                    min_level=2
+                )
                 d_alignment_end = 0
 
             # J gene alignment positions
             j_alignment_start = family_meta.get("j_gene_start")
             if j_alignment_start is None:
+                vprint.print(
+                    f"WARNING: Family {family_id} missing j_gene_start position, defaulting to 0. "
+                    "Gene region visualization may be incorrect.",
+                    min_level=2
+                )
                 j_alignment_start = 0
 
             j_alignment_end = family_meta.get("j_gene_end")
             if j_alignment_end is None:
+                vprint.print(
+                    f"WARNING: Family {family_id} missing j_gene_end position, defaulting to 0. "
+                    "Gene region visualization may be incorrect.",
+                    min_level=2
+                )
                 j_alignment_end = 0
 
             junction_start = cdr3_start
@@ -1583,19 +1613,45 @@ def process_pcp_to_olmsted(
             rate_scale_light = family_meta.get("rate_scale_light", 1.0) if is_paired else 1.0
 
             # Get germline sequence from naive node (needed for mean_mut_freq calculation)
-            germline_alignment = ""
-            germline_alignment_light = ""
-            for node_id, node_data in processed_nodes_heavy.items():
-                if node_data.get("type") == "root":
-                    germline_alignment = node_data.get("sequence_alignment", "")
-                    break
+            # Validate that exactly one root node exists with a valid sequence
+            root_nodes_heavy = [n for n in processed_nodes_heavy.values() if n.get("type") == "root"]
+            if len(root_nodes_heavy) != 1:
+                vprint.print(
+                    f"WARNING: Family {family_id} has {len(root_nodes_heavy)} root nodes (expected 1). "
+                    "This may indicate malformed data. Skipping this family.",
+                    min_level=1
+                )
+                continue  # Skip this family
+
+            germline_alignment = root_nodes_heavy[0].get("sequence_alignment", "")
+            if not germline_alignment:
+                vprint.print(
+                    f"WARNING: Family {family_id} root node missing sequence_alignment. "
+                    "Cannot calculate mutation frequency. Skipping this family.",
+                    min_level=1
+                )
+                continue  # Skip this family
 
             # Get light chain germline (if paired)
+            germline_alignment_light = ""
             if is_paired:
-                for node_id, node_data in processed_nodes_light.items():
-                    if node_data.get("type") == "root":
-                        germline_alignment_light = node_data.get("sequence_alignment", "")
-                        break
+                root_nodes_light = [n for n in processed_nodes_light.values() if n.get("type") == "root"]
+                if len(root_nodes_light) != 1:
+                    vprint.print(
+                        f"WARNING: Family {family_id} light chain has {len(root_nodes_light)} root nodes (expected 1). "
+                        "This may indicate malformed paired data. Skipping this family.",
+                        min_level=1
+                    )
+                    continue  # Skip this family
+
+                germline_alignment_light = root_nodes_light[0].get("sequence_alignment", "")
+                if not germline_alignment_light:
+                    vprint.print(
+                        f"WARNING: Family {family_id} light chain root node missing sequence_alignment. "
+                        "Cannot calculate mutation frequency for paired data. Skipping this family.",
+                        min_level=1
+                    )
+                    continue  # Skip this family
 
             # Calculate mean mutation frequency for HEAVY CHAIN from observed leaf sequences only
             # mean_mut_freq = average(mutations_per_site) across all leaf nodes, weighted by multiplicity
