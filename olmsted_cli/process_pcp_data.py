@@ -1597,18 +1597,18 @@ def process_pcp_to_olmsted(
                         germline_alignment_light = node_data.get("sequence_alignment", "")
                         break
 
-            # Calculate mean mutation frequency from observed leaf sequences only
+            # Calculate mean mutation frequency for HEAVY CHAIN from observed leaf sequences only
             # mean_mut_freq = average(mutations_per_site) across all leaf nodes, weighted by multiplicity
             # Count actual mutations by comparing leaf sequence to germline sequence
-            total_mut_freq = 0.0
-            total_sequences = 0
+            total_mut_freq_heavy = 0.0
+            total_sequences_heavy = 0
             germline_length = len(germline_alignment) if germline_alignment else 0
 
             # DEBUG: Print calculation details for all sequences
-            debug_info = []
-            skipped_nodes = []
+            debug_info_heavy = []
+            skipped_nodes_heavy = []
 
-            for node_id, node_data in processed_nodes.items():
+            for node_id, node_data in processed_nodes_heavy.items():
                 node_type = node_data.get("type")
                 multiplicity = node_data.get("multiplicity", 0)
                 # Only count LEAF nodes with observed sequences (type="leaf" and multiplicity > 0)
@@ -1630,8 +1630,8 @@ def process_pcp_to_olmsted(
                             # Calculate frequency based on truncated length
                             mut_freq = num_mutations / min_len if min_len > 0 else 0.0
 
-                            total_mut_freq += mut_freq * multiplicity
-                            total_sequences += multiplicity
+                            total_mut_freq_heavy += mut_freq * multiplicity
+                            total_sequences_heavy += multiplicity
 
                             # Collect mutation positions for display
                             mutation_positions = []
@@ -1644,7 +1644,7 @@ def process_pcp_to_olmsted(
                                     })
 
                             # Collect debug info
-                            debug_info.append({
+                            debug_info_heavy.append({
                                 'node': node_id,
                                 'type': node_type,
                                 'distance': node_data.get("distance", 0.0),
@@ -1674,8 +1674,8 @@ def process_pcp_to_olmsted(
                             # Calculate frequency based on the padded alignment length
                             mut_freq = num_mutations / max_len if max_len > 0 else 0.0
 
-                            total_mut_freq += mut_freq * multiplicity
-                            total_sequences += multiplicity
+                            total_mut_freq_heavy += mut_freq * multiplicity
+                            total_sequences_heavy += multiplicity
 
                             # Collect mutation positions for display (using padded sequences)
                             mutation_positions = []
@@ -1688,7 +1688,7 @@ def process_pcp_to_olmsted(
                                     })
 
                             # Collect debug info for sequences we can calculate
-                            debug_info.append({
+                            debug_info_heavy.append({
                                 'node': node_id,
                                 'type': node_type,
                                 'distance': node_data.get("distance", 0.0),
@@ -1715,7 +1715,7 @@ def process_pcp_to_olmsted(
                         else:
                             reason = 'unknown'
 
-                        skipped_nodes.append({
+                        skipped_nodes_heavy.append({
                             'node': node_id,
                             'type': node_type,
                             'multiplicity': multiplicity,
@@ -1734,25 +1734,25 @@ def process_pcp_to_olmsted(
                     else:
                         reason = 'unknown'
 
-                    skipped_nodes.append({
+                    skipped_nodes_heavy.append({
                         'node': node_id,
                         'type': node_type,
                         'multiplicity': multiplicity,
                         'reason': reason
                     })
 
-            mean_mut_freq = total_mut_freq / total_sequences if total_sequences > 0 else 0.0
+            mean_mut_freq = total_mut_freq_heavy / total_sequences_heavy if total_sequences_heavy > 0 else 0.0
 
             # DEBUG: Print for all families (only at debug verbosity level)
-            vprint.debug(f"\n=== DEBUG: mean_mut_freq calculation for family {family_id} ===")
+            vprint.debug(f"\n=== DEBUG: mean_mut_freq calculation for family {family_id} (HEAVY CHAIN) ===")
             vprint.debug(f"Germline length: {germline_length} nt")
 
             # Translate germline to amino acids
             germline_aa = translate_dna_to_aa(germline_alignment)
             vprint.debug(f"Germline AA length: {len(germline_aa)} aa")
 
-            vprint.debug(f"\nLEAF sequences only ({len(debug_info)} total):")
-            for info in debug_info:
+            vprint.debug(f"\nLEAF sequences only ({len(debug_info_heavy)} total):")
+            for info in debug_info_heavy:
                 padded_marker = " [PADDED]" if info.get('was_padded', False) else ""
                 # Show original lengths to verify they match the actual sequence data
                 orig_leaf = info.get('original_leaf_len', 0)
@@ -1805,17 +1805,17 @@ def process_pcp_to_olmsted(
                                   if germline_aa[i] != leaf_aa[i])
                 vprint.debug(f"    AA mutations: {aa_mutations}")
 
-            vprint.debug(f"\nTotal mutation frequency (weighted): {total_mut_freq:.6f}")
-            vprint.debug(f"Total leaf sequences: {total_sequences}")
-            vprint.debug(f"Mean mutation frequency: {mean_mut_freq:.6f}")
+            vprint.debug(f"\nTotal mutation frequency (weighted): {total_mut_freq_heavy:.6f}")
+            vprint.debug(f"Total leaf sequences: {total_sequences_heavy}")
+            vprint.debug(f"Mean mutation frequency (heavy): {mean_mut_freq:.6f}")
             vprint.debug(f"  (This means {mean_mut_freq*100:.2f}% of positions have mutations on average)")
 
             # Show skipped nodes summary
-            if skipped_nodes:
-                vprint.debug(f"\nSkipped {len(skipped_nodes)} nodes:")
+            if skipped_nodes_heavy:
+                vprint.debug(f"\nSkipped {len(skipped_nodes_heavy)} nodes:")
                 # Group by reason
                 by_reason = {}
-                for node in skipped_nodes:
+                for node in skipped_nodes_heavy:
                     reason = node['reason']
                     if reason not in by_reason:
                         by_reason[reason] = []
@@ -1831,6 +1831,48 @@ def process_pcp_to_olmsted(
                         vprint.debug(f"    ... and {len(nodes) - 3} more")
 
             vprint.debug(f"===================================================\n")
+
+            # Calculate mean mutation frequency for LIGHT CHAIN (if paired)
+            mean_mut_freq_light = 0.0
+            if is_paired:
+                total_mut_freq_light = 0.0
+                total_sequences_light = 0
+                germline_length_light = len(germline_alignment_light) if germline_alignment_light else 0
+
+                for node_id, node_data in processed_nodes_light.items():
+                    node_type = node_data.get("type")
+                    multiplicity = node_data.get("multiplicity", 0)
+
+                    if node_type == "leaf" and multiplicity > 0:
+                        leaf_sequence = node_data.get("sequence_alignment", "")
+
+                        if germline_alignment_light and leaf_sequence:
+                            # Use same alignment method as heavy chain
+                            if alignment_method == "truncate":
+                                min_len = min(len(germline_alignment_light), len(leaf_sequence))
+                                germline_compared = germline_alignment_light[:min_len]
+                                leaf_compared = leaf_sequence[:min_len]
+                                num_mutations = sum(1 for g, l in zip(germline_compared, leaf_compared)
+                                                  if g != l and g != '' and l != '')
+                                mut_freq = num_mutations / min_len if min_len > 0 else 0.0
+                            elif alignment_method == "pad":
+                                max_len = max(len(germline_alignment_light), len(leaf_sequence))
+                                germline_padded = germline_alignment_light.ljust(max_len, ".")
+                                leaf_padded = leaf_sequence.ljust(max_len, ".")
+                                num_mutations = sum(1 for g, l in zip(germline_padded, leaf_padded)
+                                                  if g != l and g != '' and l != '' and g != '.' and l != '.')
+                                mut_freq = num_mutations / max_len if max_len > 0 else 0.0
+
+                            total_mut_freq_light += mut_freq * multiplicity
+                            total_sequences_light += multiplicity
+
+                mean_mut_freq_light = total_mut_freq_light / total_sequences_light if total_sequences_light > 0 else 0.0
+                vprint.debug(f"\n=== Light chain mean_mut_freq for family {family_id} ===")
+                vprint.debug(f"Total mutation frequency (weighted): {total_mut_freq_light:.6f}")
+                vprint.debug(f"Total leaf sequences: {total_sequences_light}")
+                vprint.debug(f"Mean mutation frequency (light): {mean_mut_freq_light:.6f}")
+                vprint.debug(f"  (This means {mean_mut_freq_light*100:.2f}% of positions have mutations on average)")
+                vprint.debug(f"===================================================\n")
 
             # Generate pair_id for paired data (links heavy and light clone entries)
             pair_id = None
@@ -1916,7 +1958,7 @@ def process_pcp_to_olmsted(
                     "total_read_count": sum(
                         n.get("multiplicity", 0) for n in processed_nodes_light.values()
                     ),
-                    "mean_mut_freq": mean_mut_freq,  # Could calculate separately for light chain
+                    "mean_mut_freq": mean_mut_freq_light,  # Calculated separately for light chain
                     # Light chain alignment positions
                     "v_alignment_start": 0,  # Not typically provided for light chain
                     "v_alignment_end": 0,

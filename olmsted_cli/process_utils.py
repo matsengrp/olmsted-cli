@@ -472,6 +472,14 @@ def create_consolidated_data(
         dict: Consolidated data with metadata
     """
     # Generate metadata
+    # Count total leaf nodes across all trees
+    total_leaf_count = 0
+    for tree in trees:
+        if "nodes" in tree and tree["nodes"]:
+            for node in tree["nodes"]:
+                if node.get("type") == "leaf":
+                    total_leaf_count += 1
+
     metadata = {
         "format_version": CONSOLIDATED_JSON_VERSION,
         "schema_version": SCHEMA_VERSION,
@@ -482,6 +490,7 @@ def create_consolidated_data(
             "datasets_count": len(datasets),
             "total_clones_count": sum(len(clones) for clones in clones_dict.values()),
             "total_trees_count": len(trees),
+            "total_leaf_nodes_count": total_leaf_count,
         },
         "generated_by": {
             "tool": "olmsted-cli",
