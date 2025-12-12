@@ -62,6 +62,7 @@ from .process_utils import (
     SCHEMA_VERSION,
     VerbosePrinter,
     create_consolidated_data,
+    get_optional_int,
     translate_dna_to_aa,
     validate_output_data,
     write_out,
@@ -162,68 +163,20 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
             )
 
             # Extract CDR position data
-            cdr1_start = (
-                int(row.get("cdr1_codon_start_heavy", 0))
-                if row.get("cdr1_codon_start_heavy")
-                else 0
-            )
-            cdr1_end = (
-                int(row.get("cdr1_codon_end_heavy", 0))
-                if row.get("cdr1_codon_end_heavy")
-                else 0
-            )
-            cdr2_start = (
-                int(row.get("cdr2_codon_start_heavy", 0))
-                if row.get("cdr2_codon_start_heavy")
-                else 0
-            )
-            cdr2_end = (
-                int(row.get("cdr2_codon_end_heavy", 0))
-                if row.get("cdr2_codon_end_heavy")
-                else 0
-            )
-            cdr3_start = (
-                int(row.get("cdr3_codon_start_heavy", 0))
-                if row.get("cdr3_codon_start_heavy")
-                else 0
-            )
-            cdr3_end = (
-                int(row.get("cdr3_codon_end_heavy", 0))
-                if row.get("cdr3_codon_end_heavy")
-                else 0
-            )
+            cdr1_start = get_optional_int(row, "cdr1_codon_start_heavy")
+            cdr1_end = get_optional_int(row, "cdr1_codon_end_heavy")
+            cdr2_start = get_optional_int(row, "cdr2_codon_start_heavy")
+            cdr2_end = get_optional_int(row, "cdr2_codon_end_heavy")
+            cdr3_start = get_optional_int(row, "cdr3_codon_start_heavy")
+            cdr3_end = get_optional_int(row, "cdr3_codon_end_heavy")
 
             # Extract gene position data (V, D, J gene start/end positions)
-            v_gene_start = (
-                int(row.get("v_gene_start_heavy", 0))
-                if row.get("v_gene_start_heavy")
-                else None
-            )
-            v_gene_end = (
-                int(row.get("v_gene_end_heavy", 0))
-                if row.get("v_gene_end_heavy")
-                else None
-            )
-            d_gene_start = (
-                int(row.get("d_gene_start_heavy", 0))
-                if row.get("d_gene_start_heavy")
-                else None
-            )
-            d_gene_end = (
-                int(row.get("d_gene_end_heavy", 0))
-                if row.get("d_gene_end_heavy")
-                else None
-            )
-            j_gene_start = (
-                int(row.get("j_gene_start_heavy", 0))
-                if row.get("j_gene_start_heavy")
-                else None
-            )
-            j_gene_end = (
-                int(row.get("j_gene_end_heavy", 0))
-                if row.get("j_gene_end_heavy")
-                else None
-            )
+            v_gene_start = get_optional_int(row, "v_gene_start_heavy", default=None)
+            v_gene_end = get_optional_int(row, "v_gene_end_heavy", default=None)
+            d_gene_start = get_optional_int(row, "d_gene_start_heavy", default=None)
+            d_gene_end = get_optional_int(row, "d_gene_end_heavy", default=None)
+            j_gene_start = get_optional_int(row, "j_gene_start_heavy", default=None)
+            j_gene_end = get_optional_int(row, "j_gene_end_heavy", default=None)
 
             # Extract light chain data (for paired format)
             parent_sequence_light = row.get("parent_light", "") if is_paired else ""
@@ -1058,6 +1011,186 @@ def compute_cluster_multiplicity_for_tree(nodes_dict, edges, root_id):
     return cluster_mult
 
 
+def align_and_calculate_mutations(
+    germline: str,
+    leaf: str,
+    alignment_method: str = "truncate"
+) -> tuple[int, int, str, str]:
+    """
+    Align sequences and count mutations between germline and leaf.
+
+    This function consolidates the shared logic between truncate and pad alignment methods,
+    eliminating ~90% code duplication.
+
+    Args:
+        germline: Germline sequence string
+        leaf: Leaf sequence string
+        alignment_method: Either "truncate" or "pad"
+            - "truncate": Use min length, truncate longer sequence
+            - "pad": Use max length, pad shorter sequence with "."
+
+    Returns:
+        tuple: (mutation_count, alignment_length, germline_aligned, leaf_aligned)
+            - mutation_count: Number of mismatches (excluding gaps)
+            - alignment_length: Length of aligned sequences
+            - germline_aligned: Aligned germline sequence
+            - leaf_aligned: Aligned leaf sequence
+
+    Examples:
+        >>> align_and_calculate_mutations("ATGC", "ATGT", "truncate")
+        (1, 4, 'ATGC', 'ATGT')
+        >>> align_and_calculate_mutations("ATG", "ATGCC", "truncate")
+        (0, 3, 'ATG', 'ATG')
+        >>> align_and_calculate_mutations("ATG", "ATGCC", "pad")
+        (0, 5, 'ATG..', 'ATGCC')
+    """
+    if alignment_method == "truncate":
+        # Truncate to shorter sequence length
+        length = min(len(germline), len(leaf))
+        g_aligned = germline[:length]
+        l_aligned = leaf[:length]
+    else:  # pad
+        # Pad to longer sequence length
+        length = max(len(germline), len(leaf))
+        g_aligned = germline.ljust(length, ".")
+        l_aligned = leaf.ljust(length, ".")
+
+    # Count mutations (mismatches, excluding empty strings and gaps)
+    mutations = sum(
+        1 for g, l in zip(g_aligned, l_aligned)
+        if g != l and g not in ('', '.') and l not in ('', '.')
+    )
+
+    return mutations, length, g_aligned, l_aligned
+
+
+def log_mutation_frequency_debug(
+    family_id: str,
+    germline_alignment: str,
+    debug_info: list,
+    skipped_nodes: list,
+    total_mut_freq: float,
+    total_sequences: int,
+    mean_mut_freq: float,
+    chain_label: str,
+    vprint: 'VerbosePrinter'
+):
+    """
+    Log detailed mutation frequency calculation information for debugging.
+
+    This function extracts the 85+ lines of debug logging from the mutation
+    frequency calculation, improving code readability and maintainability.
+
+    Args:
+        family_id: Family identifier
+        germline_alignment: Germline DNA sequence
+        debug_info: List of dicts with per-node debug information
+        skipped_nodes: List of dicts with skipped node information
+        total_mut_freq: Total weighted mutation frequency
+        total_sequences: Total number of sequences (weighted by multiplicity)
+        mean_mut_freq: Calculated mean mutation frequency
+        chain_label: Label for the chain type (e.g., "HEAVY CHAIN", "LIGHT CHAIN")
+        vprint: VerbosePrinter instance for output
+
+    Note:
+        This function only produces output at debug verbosity level (3).
+    """
+    # Early return if not in debug mode
+    if vprint.level < 3:
+        return
+
+    vprint.debug(f"\n=== DEBUG: mean_mut_freq calculation for family {family_id} ({chain_label}) ===")
+    vprint.debug(f"Germline length: {len(germline_alignment)} nt")
+
+    # Translate germline to amino acids
+    germline_aa = translate_dna_to_aa(germline_alignment)
+    vprint.debug(f"Germline AA length: {len(germline_aa)} aa")
+
+    vprint.debug(f"\nLEAF sequences only ({len(debug_info)} total):")
+    for info in debug_info:
+        # Check alignment method used
+        alignment_marker = ""
+        if info.get('was_aligned', False):
+            alignment_marker = f" [{info.get('alignment_method', 'ALIGNED').upper()}]"
+
+        # Show original lengths to verify they match the actual sequence data
+        orig_leaf = info.get('original_leaf_len', 0)
+        orig_germ = info.get('original_germline_len', 0)
+        aligned_len = info['seq_length']
+
+        length_info = f"leaf_len={orig_leaf}, germ_len={orig_germ}, aligned_len={aligned_len}"
+
+        vprint.debug(f"\n  Node {info['node']} (type={info['type']}){alignment_marker}: "
+                  f"distance={info['distance']:.6f}, "
+                  f"mutations={info['num_mutations']:.1f} nt, "
+                  f"{length_info}, "
+                  f"mut_freq={info['mut_freq']:.6f}, "
+                  f"multiplicity={info['multiplicity']}, "
+                  f"weighted={info['weighted_contribution']:.6f}")
+
+        # Translate leaf sequence to amino acids (remove padding before translation)
+        leaf_seq_original = info['leaf_seq'].rstrip('.')
+        germline_seq_original = info['germline_seq'].rstrip('.')
+
+        leaf_aa = translate_dna_to_aa(leaf_seq_original)
+        germline_aa_for_this_leaf = translate_dna_to_aa(germline_seq_original)
+
+        # Pad the amino acid sequences with "."
+        max_aa_length = max(len(germline_aa_for_this_leaf), len(leaf_aa))
+        germline_aa_padded = germline_aa_for_this_leaf.ljust(max_aa_length, ".")
+        leaf_aa_padded = leaf_aa.ljust(max_aa_length, ".")
+
+        # Create alignment display (show full sequence)
+        naive_line = ""
+        node_line = ""
+
+        for i in range(max_aa_length):
+            naive_aa = germline_aa_padded[i]
+            leaf_aa_char = leaf_aa_padded[i]
+
+            naive_line += naive_aa
+            # Show "-" where sequences match, show actual AA where they differ
+            if naive_aa == leaf_aa_char:
+                node_line += "-"
+            else:
+                node_line += leaf_aa_char
+
+        vprint.debug(f"    Naive: {naive_line}")
+        vprint.debug(f"    Node:  {node_line}")
+
+        # Count AA mutations
+        aa_mutations = sum(1 for i in range(min(len(germline_aa), len(leaf_aa)))
+                          if germline_aa[i] != leaf_aa[i])
+        vprint.debug(f"    AA mutations: {aa_mutations}")
+
+    vprint.debug(f"\nTotal mutation frequency (weighted): {total_mut_freq:.6f}")
+    vprint.debug(f"Total leaf sequences: {total_sequences}")
+    vprint.debug(f"Mean mutation frequency ({chain_label.lower()}): {mean_mut_freq:.6f}")
+    vprint.debug(f"  (This means {mean_mut_freq*100:.2f}% of positions have mutations on average)")
+
+    # Show skipped nodes summary
+    if skipped_nodes:
+        vprint.debug(f"\nSkipped {len(skipped_nodes)} nodes:")
+        # Group by reason
+        by_reason = {}
+        for node in skipped_nodes:
+            reason = node['reason']
+            if reason not in by_reason:
+                by_reason[reason] = []
+            by_reason[reason].append(node)
+
+        for reason, nodes in by_reason.items():
+            vprint.debug(f"  {reason}: {len(nodes)} nodes")
+            # Show first few examples
+            for node in nodes[:3]:
+                seq_info = f"seq_len={node['seq_len']}" if node.get('has_sequence') else "no_seq"
+                vprint.debug(f"    - {node['node']} (type={node['type']}, mult={node['multiplicity']}, {seq_info})")
+            if len(nodes) > 3:
+                vprint.debug(f"    ... and {len(nodes) - 3} more")
+
+    vprint.debug(f"===================================================\n")
+
+
 def compute_scaled_affinity(affinity_values):
     """
     Compute scaled affinity using min-max normalization.
@@ -1674,92 +1807,45 @@ def process_pcp_to_olmsted(
 
                     # Count mutations by comparing to germline
                     if germline_alignment and leaf_sequence:
-                        if alignment_method == "truncate":
-                            # Truncate to shorter sequence length (default behavior)
-                            min_len = min(len(germline_alignment), len(leaf_sequence))
-                            germline_compared = germline_alignment[:min_len]
-                            leaf_compared = leaf_sequence[:min_len]
+                        # Use helper function to align and calculate mutations
+                        num_mutations, seq_length, germline_aligned, leaf_aligned = align_and_calculate_mutations(
+                            germline_alignment, leaf_sequence, alignment_method
+                        )
 
-                            # Count mutations in overlapping region
-                            num_mutations = sum(1 for g, l in zip(germline_compared, leaf_compared)
-                                              if g != l and g != '' and l != '')
-                            # Calculate frequency based on truncated length
-                            mut_freq = num_mutations / min_len if min_len > 0 else 0.0
+                        # Calculate mutation frequency
+                        mut_freq = num_mutations / seq_length if seq_length > 0 else 0.0
 
-                            total_mut_freq_heavy += mut_freq * multiplicity
-                            total_sequences_heavy += multiplicity
+                        total_mut_freq_heavy += mut_freq * multiplicity
+                        total_sequences_heavy += multiplicity
 
-                            # Collect mutation positions for display
-                            mutation_positions = []
-                            for pos, (g, l) in enumerate(zip(germline_compared, leaf_compared)):
-                                if g != l and g != '' and l != '':
-                                    mutation_positions.append({
-                                        'pos': pos,
-                                        'germline': g,
-                                        'leaf': l
-                                    })
+                        # Collect mutation positions for display
+                        mutation_positions = []
+                        for pos, (g, l) in enumerate(zip(germline_aligned, leaf_aligned)):
+                            if g != l and g not in ('', '.') and l not in ('', '.'):
+                                mutation_positions.append({
+                                    'pos': pos,
+                                    'germline': g,
+                                    'leaf': l
+                                })
 
-                            # Collect debug info
-                            debug_info_heavy.append({
-                                'node': node_id,
-                                'type': node_type,
-                                'distance': node_data.get("distance", 0.0),
-                                'num_mutations': num_mutations,
-                                'seq_length': min_len,  # Truncated length
-                                'original_leaf_len': len(leaf_sequence),
-                                'original_germline_len': len(germline_alignment),
-                                'mut_freq': mut_freq,
-                                'multiplicity': multiplicity,
-                                'weighted_contribution': mut_freq * multiplicity,
-                                'germline_seq': germline_compared,
-                                'leaf_seq': leaf_compared,
-                                'mutations': mutation_positions,
-                                'was_truncated': len(germline_alignment) != len(leaf_sequence)
-                            })
-
-                        elif alignment_method == "pad":
-                            # Pad the shorter sequence with "." (optional behavior)
-                            max_len = max(len(germline_alignment), len(leaf_sequence))
-                            germline_padded = germline_alignment.ljust(max_len, ".")
-                            leaf_padded = leaf_sequence.ljust(max_len, ".")
-
-                            # Use the padded sequences for comparison
-                            # Count mutations, treating "." as a gap (not a mutation)
-                            num_mutations = sum(1 for g, l in zip(germline_padded, leaf_padded)
-                                              if g != l and g != '' and l != '' and g != '.' and l != '.')
-                            # Calculate frequency based on the padded alignment length
-                            mut_freq = num_mutations / max_len if max_len > 0 else 0.0
-
-                            total_mut_freq_heavy += mut_freq * multiplicity
-                            total_sequences_heavy += multiplicity
-
-                            # Collect mutation positions for display (using padded sequences)
-                            mutation_positions = []
-                            for pos, (g, l) in enumerate(zip(germline_padded, leaf_padded)):
-                                if g != l and g != '' and l != '' and g != '.' and l != '.':
-                                    mutation_positions.append({
-                                        'pos': pos,
-                                        'germline': g,
-                                        'leaf': l
-                                    })
-
-                            # Collect debug info for sequences we can calculate
-                            debug_info_heavy.append({
-                                'node': node_id,
-                                'type': node_type,
-                                'distance': node_data.get("distance", 0.0),
-                                'num_mutations': num_mutations,
-                                'seq_length': max_len,  # Padded/aligned length
-                                'original_leaf_len': len(leaf_sequence),  # Original leaf sequence length
-                                'original_germline_len': len(germline_alignment),  # Original germline length
-                                'mut_freq': mut_freq,
-                                'multiplicity': multiplicity,
-                                'weighted_contribution': mut_freq * multiplicity,
-                                'germline_seq': germline_padded,  # Use padded sequence
-                                'leaf_seq': leaf_padded,  # Use padded sequence
-                                'mutations': mutation_positions,
-                                'was_padded': len(germline_alignment) != len(leaf_sequence)
-                            })
+                        # Collect debug info
+                        debug_info_heavy.append({
+                            'node': node_id,
+                            'type': node_type,
+                            'distance': node_data.get("distance", 0.0),
+                            'num_mutations': num_mutations,
+                            'seq_length': seq_length,
+                            'original_leaf_len': len(leaf_sequence),
+                            'original_germline_len': len(germline_alignment),
+                            'mut_freq': mut_freq,
+                            'multiplicity': multiplicity,
+                            'weighted_contribution': mut_freq * multiplicity,
+                            'germline_seq': germline_aligned,
+                            'leaf_seq': leaf_aligned,
+                            'mutations': mutation_positions,
+                            'was_aligned': len(germline_alignment) != len(leaf_sequence),
+                            'alignment_method': alignment_method
+                        })
                     else:
                         # Track why we skipped this sequence - be specific
                         if not leaf_sequence:
@@ -1799,94 +1885,18 @@ def process_pcp_to_olmsted(
 
             mean_mut_freq = total_mut_freq_heavy / total_sequences_heavy if total_sequences_heavy > 0 else 0.0
 
-            # DEBUG: Print for all families (only at debug verbosity level)
-            vprint.debug(f"\n=== DEBUG: mean_mut_freq calculation for family {family_id} (HEAVY CHAIN) ===")
-            vprint.debug(f"Germline length: {germline_length} nt")
-
-            # Translate germline to amino acids
-            germline_aa = translate_dna_to_aa(germline_alignment)
-            vprint.debug(f"Germline AA length: {len(germline_aa)} aa")
-
-            vprint.debug(f"\nLEAF sequences only ({len(debug_info_heavy)} total):")
-            for info in debug_info_heavy:
-                padded_marker = " [PADDED]" if info.get('was_padded', False) else ""
-                # Show original lengths to verify they match the actual sequence data
-                orig_leaf = info.get('original_leaf_len', 0)
-                orig_germ = info.get('original_germline_len', 0)
-                aligned_len = info['seq_length']
-
-                length_info = f"leaf_len={orig_leaf}, germ_len={orig_germ}, aligned_len={aligned_len}"
-
-                vprint.debug(f"\n  Node {info['node']} (type={info['type']}){padded_marker}: "
-                          f"distance={info['distance']:.6f}, "
-                          f"mutations={info['num_mutations']:.1f} nt, "
-                          f"{length_info}, "
-                          f"mut_freq={info['mut_freq']:.6f}, "
-                          f"multiplicity={info['multiplicity']}, "
-                          f"weighted={info['weighted_contribution']:.6f}")
-
-                # Translate leaf sequence to amino acids (before padding - translate original sequences)
-                # Remove padding before translation
-                leaf_seq_original = info['leaf_seq'].rstrip('.')
-                germline_seq_original = info['germline_seq'].rstrip('.')
-
-                leaf_aa = translate_dna_to_aa(leaf_seq_original)
-                germline_aa_for_this_leaf = translate_dna_to_aa(germline_seq_original)
-
-                # Now pad the amino acid sequences with "."
-                max_aa_length = max(len(germline_aa_for_this_leaf), len(leaf_aa))
-                germline_aa_padded = germline_aa_for_this_leaf.ljust(max_aa_length, ".")
-                leaf_aa_padded = leaf_aa.ljust(max_aa_length, ".")
-
-                # Create alignment display (show full sequence)
-                naive_line = ""
-                node_line = ""
-
-                for i in range(max_aa_length):
-                    naive_aa = germline_aa_padded[i]
-                    leaf_aa_char = leaf_aa_padded[i]
-
-                    naive_line += naive_aa
-                    # Show "-" where sequences match, show actual AA where they differ
-                    if naive_aa == leaf_aa_char:
-                        node_line += "-"
-                    else:
-                        node_line += leaf_aa_char
-
-                vprint.debug(f"    Naive: {naive_line}")
-                vprint.debug(f"    Node:  {node_line}")
-
-                # Count AA mutations
-                aa_mutations = sum(1 for i in range(min(len(germline_aa), len(leaf_aa)))
-                                  if germline_aa[i] != leaf_aa[i])
-                vprint.debug(f"    AA mutations: {aa_mutations}")
-
-            vprint.debug(f"\nTotal mutation frequency (weighted): {total_mut_freq_heavy:.6f}")
-            vprint.debug(f"Total leaf sequences: {total_sequences_heavy}")
-            vprint.debug(f"Mean mutation frequency (heavy): {mean_mut_freq:.6f}")
-            vprint.debug(f"  (This means {mean_mut_freq*100:.2f}% of positions have mutations on average)")
-
-            # Show skipped nodes summary
-            if skipped_nodes_heavy:
-                vprint.debug(f"\nSkipped {len(skipped_nodes_heavy)} nodes:")
-                # Group by reason
-                by_reason = {}
-                for node in skipped_nodes_heavy:
-                    reason = node['reason']
-                    if reason not in by_reason:
-                        by_reason[reason] = []
-                    by_reason[reason].append(node)
-
-                for reason, nodes in by_reason.items():
-                    vprint.debug(f"  {reason}: {len(nodes)} nodes")
-                    # Show first few examples
-                    for node in nodes[:3]:
-                        seq_info = f"seq_len={node['seq_len']}" if node.get('has_sequence') else "no_seq"
-                        vprint.debug(f"    - {node['node']} (type={node['type']}, mult={node['multiplicity']}, {seq_info})")
-                    if len(nodes) > 3:
-                        vprint.debug(f"    ... and {len(nodes) - 3} more")
-
-            vprint.debug(f"===================================================\n")
+            # Log debug information (only at debug verbosity level)
+            log_mutation_frequency_debug(
+                family_id=family_id,
+                germline_alignment=germline_alignment,
+                debug_info=debug_info_heavy,
+                skipped_nodes=skipped_nodes_heavy,
+                total_mut_freq=total_mut_freq_heavy,
+                total_sequences=total_sequences_heavy,
+                mean_mut_freq=mean_mut_freq,
+                chain_label="HEAVY CHAIN",
+                vprint=vprint
+            )
 
             # Calculate mean mutation frequency for LIGHT CHAIN (if paired)
             mean_mut_freq_light = 0.0

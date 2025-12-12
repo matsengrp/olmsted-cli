@@ -111,6 +111,39 @@ class VerbosePrinter:
         self.print(*args, min_level=3, **kwargs)
 
 
+# Data extraction utilities
+def get_optional_int(row, key, default=0):
+    """
+    Extract integer from row dictionary, returning default if missing or empty.
+
+    This helper consolidates the repeated pattern:
+        value = int(row.get(key, default)) if row.get(key) else default
+
+    Args:
+        row (dict): Dictionary containing data (typically a CSV row)
+        key (str): Key to extract from the dictionary
+        default (int): Value to return if key is missing or empty (default: 0)
+
+    Returns:
+        int: The integer value from row[key], or default if missing/empty
+
+    Examples:
+        >>> row = {"count": "42", "empty": "", "zero": "0"}
+        >>> get_optional_int(row, "count")
+        42
+        >>> get_optional_int(row, "empty")
+        0
+        >>> get_optional_int(row, "missing")
+        0
+        >>> get_optional_int(row, "zero")
+        0
+        >>> get_optional_int(row, "missing", default=None)
+        None
+    """
+    value = row.get(key)
+    return int(value) if value else default
+
+
 # General utility functions
 def comp(f, g):
     """
