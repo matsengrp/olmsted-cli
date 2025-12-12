@@ -1319,12 +1319,11 @@ def process_pcp_to_olmsted(
             is_paired = family_data.get("is_paired", False)
 
             # Process nodes - add required fields with rich PCP data
-            processed_nodes = {}
-            for node_id, node_data in family_data["nodes"].items():
-                # Get sequence alignment from PCP data (heavy chain)
-                sequence_alignment = node_data.get("sequence_alignment", "")
-                sequence_alignment_aa = translate_dna_to_aa(sequence_alignment)
+            # For paired data, we'll create TWO sets of nodes (heavy and light)
+            processed_nodes_heavy = {}
+            processed_nodes_light = {} if is_paired else None
 
+            for node_id, node_data in family_data["nodes"].items():
                 # Determine node type based on PCP metadata
                 if node_data.get("is_naive", False):
                     node_type = "root"
@@ -1334,10 +1333,14 @@ def process_pcp_to_olmsted(
                     # This is an internal/ancestral node (Node1, Node2, etc.)
                     node_type = "internal"
 
-                processed_node = {
+                # Create heavy chain node
+                sequence_alignment_heavy = node_data.get("sequence_alignment", "")
+                sequence_alignment_heavy_aa = translate_dna_to_aa(sequence_alignment_heavy)
+
+                processed_node_heavy = {
                     "sequence_id": node_id,
-                    "sequence_alignment": sequence_alignment,
-                    "sequence_alignment_aa": sequence_alignment_aa,
+                    "sequence_alignment": sequence_alignment_heavy,
+                    "sequence_alignment_aa": sequence_alignment_heavy_aa,
                     "multiplicity": node_data.get("multiplicity", 0),
                     "cluster_multiplicity": None,  # Will be computed below
                     "timepoint_multiplicities": node_data.get(
@@ -1352,17 +1355,37 @@ def process_pcp_to_olmsted(
                     "affinity": None,
                     "scaled_affinity": None,
                 }
+                processed_nodes_heavy[node_id] = processed_node_heavy
 
-                # Add light chain data for paired format
+                # Create light chain node (if paired data)
                 if is_paired:
                     sequence_alignment_light = node_data.get("sequence_alignment_light", "")
                     sequence_alignment_light_aa = translate_dna_to_aa(sequence_alignment_light)
-                    processed_node["sequence_alignment_light"] = sequence_alignment_light
-                    processed_node["sequence_alignment_light_aa"] = sequence_alignment_light_aa
 
-                processed_nodes[node_id] = processed_node
+                    processed_node_light = {
+                        "sequence_id": node_id,
+                        "sequence_alignment": sequence_alignment_light,  # Use light chain as main sequence
+                        "sequence_alignment_aa": sequence_alignment_light_aa,
+                        "multiplicity": node_data.get("multiplicity", 0),
+                        "cluster_multiplicity": None,
+                        "timepoint_multiplicities": node_data.get(
+                            "timepoint_multiplicities", []
+                        ),
+                        "type": node_type,
+                        "parent": None,  # Will be set from edges below
+                        "distance": node_data.get("distance", 0.0),
+                        "length": node_data.get("length", 0.0),
+                        "lbi": None,
+                        "lbr": None,
+                        "affinity": None,
+                        "scaled_affinity": None,
+                    }
+                    processed_nodes_light[node_id] = processed_node_light
 
-            # Set parent field based on edges
+            # For backward compatibility, keep processed_nodes pointing to heavy chain
+            processed_nodes = processed_nodes_heavy
+
+            # Set parent field based on edges (same topology for heavy and light)
             # First, find the true root (node that doesn't appear as a child in any edge)
             all_children = {child for _, child, _ in family_data["edges"]}
             all_parents = {parent for parent, _, _ in family_data["edges"]}
@@ -1373,56 +1396,88 @@ def process_pcp_to_olmsted(
                 tree_root = potential_roots.pop()
             else:
                 # If no clear root, use "naive" if present, otherwise use first node
-                tree_root = "naive" if "naive" in processed_nodes else list(processed_nodes.keys())[0]
+                tree_root = "naive" if "naive" in processed_nodes_heavy else list(processed_nodes_heavy.keys())[0]
 
-            # Set parent relationships, but ensure root has no parent
+            # Set parent relationships for heavy chain nodes
             for parent_id, child_id, edge_length in family_data["edges"]:
-                if child_id in processed_nodes and child_id != tree_root:
-                    processed_nodes[child_id]["parent"] = parent_id
+                if child_id in processed_nodes_heavy and child_id != tree_root:
+                    processed_nodes_heavy[child_id]["parent"] = parent_id
 
             # Ensure the root node has no parent
-            if tree_root in processed_nodes:
-                processed_nodes[tree_root]["parent"] = None
+            if tree_root in processed_nodes_heavy:
+                processed_nodes_heavy[tree_root]["parent"] = None
 
-            # Calculate cluster multiplicity (always computed)
+            # Set parent relationships for light chain nodes (if paired)
+            if is_paired:
+                for parent_id, child_id, edge_length in family_data["edges"]:
+                    if child_id in processed_nodes_light and child_id != tree_root:
+                        processed_nodes_light[child_id]["parent"] = parent_id
+
+                if tree_root in processed_nodes_light:
+                    processed_nodes_light[tree_root]["parent"] = None
+
+            # Calculate cluster multiplicity for heavy chain (always computed)
             vprint.verbose(f"  Computing cluster multiplicity for family {family_id}")
-            cluster_mult_values = compute_cluster_multiplicity_for_tree(processed_nodes, family_data["edges"], tree_root)
-            for node_id in processed_nodes:
-                processed_nodes[node_id]["cluster_multiplicity"] = cluster_mult_values.get(node_id, 0)
+            cluster_mult_values = compute_cluster_multiplicity_for_tree(processed_nodes_heavy, family_data["edges"], tree_root)
+            for node_id in processed_nodes_heavy:
+                processed_nodes_heavy[node_id]["cluster_multiplicity"] = cluster_mult_values.get(node_id, 0)
 
-            # Calculate phylogenetic metrics if requested
+            # Calculate cluster multiplicity for light chain (if paired)
+            if is_paired:
+                cluster_mult_values_light = compute_cluster_multiplicity_for_tree(processed_nodes_light, family_data["edges"], tree_root)
+                for node_id in processed_nodes_light:
+                    processed_nodes_light[node_id]["cluster_multiplicity"] = cluster_mult_values_light.get(node_id, 0)
+
+            # Calculate phylogenetic metrics if requested (computed for both heavy and light)
             if compute_metrics:
-                # Compute LBI
+                # Compute LBI for heavy chain
                 vprint.verbose(f"  Computing LBI for family {family_id} with tau={lbi_tau}")
-                lbi_values = compute_lbi_for_tree(processed_nodes, family_data["edges"], tree_root, tau=lbi_tau)
-                for node_id in processed_nodes:
+                lbi_values = compute_lbi_for_tree(processed_nodes_heavy, family_data["edges"], tree_root, tau=lbi_tau)
+                for node_id in processed_nodes_heavy:
                     lbi = lbi_values.get(node_id)
-                    processed_nodes[node_id]["lbi"] = lbi
+                    processed_nodes_heavy[node_id]["lbi"] = lbi
                     # Set affinity = LBI
-                    processed_nodes[node_id]["affinity"] = lbi
+                    processed_nodes_heavy[node_id]["affinity"] = lbi
 
-                # Compute scaled_affinity (min-max normalization)
+                # Compute scaled_affinity for heavy chain (min-max normalization)
                 vprint.verbose(f"  Computing scaled affinity for family {family_id}")
-                affinity_values = {node_id: processed_nodes[node_id]["affinity"] for node_id in processed_nodes}
+                affinity_values = {node_id: processed_nodes_heavy[node_id]["affinity"] for node_id in processed_nodes_heavy}
                 scaled_affinity_values = compute_scaled_affinity(affinity_values)
-                for node_id in processed_nodes:
-                    processed_nodes[node_id]["scaled_affinity"] = scaled_affinity_values.get(node_id)
+                for node_id in processed_nodes_heavy:
+                    processed_nodes_heavy[node_id]["scaled_affinity"] = scaled_affinity_values.get(node_id)
 
-                # Compute LBR
+                # Compute LBR for heavy chain
                 vprint.verbose(f"  Computing LBR for family {family_id}")
-                lbr_values = compute_lbr_for_tree(processed_nodes, family_data["edges"], tree_root)
-                for node_id in processed_nodes:
-                    processed_nodes[node_id]["lbr"] = lbr_values.get(node_id)
+                lbr_values = compute_lbr_for_tree(processed_nodes_heavy, family_data["edges"], tree_root)
+                for node_id in processed_nodes_heavy:
+                    processed_nodes_heavy[node_id]["lbr"] = lbr_values.get(node_id)
 
-            # Standardize node names if requested
+                # Compute metrics for light chain (if paired)
+                if is_paired:
+                    lbi_values_light = compute_lbi_for_tree(processed_nodes_light, family_data["edges"], tree_root, tau=lbi_tau)
+                    for node_id in processed_nodes_light:
+                        lbi = lbi_values_light.get(node_id)
+                        processed_nodes_light[node_id]["lbi"] = lbi
+                        processed_nodes_light[node_id]["affinity"] = lbi
+
+                    affinity_values_light = {node_id: processed_nodes_light[node_id]["affinity"] for node_id in processed_nodes_light}
+                    scaled_affinity_values_light = compute_scaled_affinity(affinity_values_light)
+                    for node_id in processed_nodes_light:
+                        processed_nodes_light[node_id]["scaled_affinity"] = scaled_affinity_values_light.get(node_id)
+
+                    lbr_values_light = compute_lbr_for_tree(processed_nodes_light, family_data["edges"], tree_root)
+                    for node_id in processed_nodes_light:
+                        processed_nodes_light[node_id]["lbr"] = lbr_values_light.get(node_id)
+
+            # Standardize node names if requested (apply same mapping to heavy and light)
             if standardize_names:
-                # Create name mapping: old_name -> new_name
+                # Create name mapping: old_name -> new_name (same for heavy and light chains)
                 name_mapping = {}
                 internal_counter = 1
                 leaf_counter = 1
 
-                # First pass: create mapping
-                for node_id, node_data in processed_nodes.items():
+                # First pass: create mapping (based on heavy chain node structure)
+                for node_id, node_data in processed_nodes_heavy.items():
                     node_type = node_data.get("type")
                     if node_type == "root":
                         name_mapping[node_id] = "naive"
@@ -1433,9 +1488,9 @@ def process_pcp_to_olmsted(
                         name_mapping[node_id] = f"Node{internal_counter}"
                         internal_counter += 1
 
-                # Second pass: rename nodes and update parent references
-                renamed_nodes = {}
-                for old_name, node_data in processed_nodes.items():
+                # Second pass: rename heavy chain nodes and update parent references
+                renamed_nodes_heavy = {}
+                for old_name, node_data in processed_nodes_heavy.items():
                     new_name = name_mapping[old_name]
                     # Update parent reference to use new name
                     if node_data["parent"] and node_data["parent"] in name_mapping:
@@ -1443,10 +1498,25 @@ def process_pcp_to_olmsted(
                     # Update sequence_id to new name
                     node_data["sequence_id"] = new_name
                     # Store under new name
-                    renamed_nodes[new_name] = node_data
+                    renamed_nodes_heavy[new_name] = node_data
 
-                processed_nodes = renamed_nodes
+                processed_nodes_heavy = renamed_nodes_heavy
+
+                # Rename light chain nodes using same mapping (if paired)
+                if is_paired:
+                    renamed_nodes_light = {}
+                    for old_name, node_data in processed_nodes_light.items():
+                        new_name = name_mapping[old_name]
+                        if node_data["parent"] and node_data["parent"] in name_mapping:
+                            node_data["parent"] = name_mapping[node_data["parent"]]
+                        node_data["sequence_id"] = new_name
+                        renamed_nodes_light[new_name] = node_data
+
+                    processed_nodes_light = renamed_nodes_light
+
+                # Update tree root and processed_nodes pointer
                 tree_root = name_mapping.get(tree_root, tree_root)
+                processed_nodes = processed_nodes_heavy
 
             # Extract family-level immunological data (already extracted above)
             v_call = family_meta.get("v_gene", "")
@@ -1512,15 +1582,20 @@ def process_pcp_to_olmsted(
             rate_scale_heavy = family_meta.get("rate_scale_heavy", 1.0)
             rate_scale_light = family_meta.get("rate_scale_light", 1.0) if is_paired else 1.0
 
-            # Get germline sequence from naive node first (needed for mean_mut_freq calculation)
+            # Get germline sequence from naive node (needed for mean_mut_freq calculation)
             germline_alignment = ""
             germline_alignment_light = ""
-            for node_id, node_data in processed_nodes.items():
+            for node_id, node_data in processed_nodes_heavy.items():
                 if node_data.get("type") == "root":
                     germline_alignment = node_data.get("sequence_alignment", "")
-                    if is_paired:
-                        germline_alignment_light = node_data.get("sequence_alignment_light", "")
                     break
+
+            # Get light chain germline (if paired)
+            if is_paired:
+                for node_id, node_data in processed_nodes_light.items():
+                    if node_data.get("type") == "root":
+                        germline_alignment_light = node_data.get("sequence_alignment", "")
+                        break
 
             # Calculate mean mutation frequency from observed leaf sequences only
             # mean_mut_freq = average(mutations_per_site) across all leaf nodes, weighted by multiplicity
@@ -1757,16 +1832,22 @@ def process_pcp_to_olmsted(
 
             vprint.debug(f"===================================================\n")
 
-            # Create clone with rich PCP data
-            clone = {
-                "clone_id": family_id,  # Use actual family name from PCP data
-                "ident": clone_ident,
+            # Generate pair_id for paired data (links heavy and light clone entries)
+            pair_id = None
+            if is_paired:
+                # Use family_id as base for pair_id to ensure consistency
+                pair_id = f"pair-{family_id}"
+
+            # Create heavy chain clone
+            clone_heavy = {
+                "clone_id": family_id if not is_paired else f"{family_id}-heavy",
+                "ident": clone_ident if not is_paired else f"{clone_ident}-heavy",
                 "dataset_id": dataset_id,
                 "sample_id": original_sample_id,
                 "subject_id": "pcp-subject",
-                "unique_seqs_count": len(processed_nodes),
+                "unique_seqs_count": len(processed_nodes_heavy),
                 "total_read_count": sum(
-                    n.get("multiplicity", 0) for n in processed_nodes.values()
+                    n.get("multiplicity", 0) for n in processed_nodes_heavy.values()
                 ),
                 "mean_mut_freq": mean_mut_freq,
                 # Heavy chain alignment positions
@@ -1790,16 +1871,16 @@ def process_pcp_to_olmsted(
                 "has_seed": False,
                 "trees": [
                     {
-                        "ident": tree_ident,
-                        "clone_id": family_id,  # Use actual family name
-                        "tree_id": f"pcp-tree-{family_id}",  # Use family name in tree ID
+                        "ident": tree_ident if not is_paired else f"{tree_ident}-heavy",
+                        "clone_id": family_id if not is_paired else f"{family_id}-heavy",
+                        "tree_id": f"pcp-tree-{family_id}" if not is_paired else f"pcp-tree-{family_id}-heavy",
                         "newick": newick,
-                        "type": "pcp.reconstruction",  # PCP-specific type
+                        "type": "pcp.reconstruction",
                     }
                 ],
                 # Add nested sample and dataset objects for webapp compatibility
                 "sample": {
-                    "ident": clone_ident,
+                    "ident": clone_ident if not is_paired else f"{clone_ident}-heavy",
                     "locus": "igh",
                     "sample_id": original_sample_id,
                     "timepoint_id": "merged",
@@ -1807,39 +1888,107 @@ def process_pcp_to_olmsted(
                 "dataset": {"ident": dataset_ident, "dataset_id": dataset_id},
             }
 
-            # Add light chain fields for paired format
+            # Add paired data fields
             if is_paired:
-                clone["v_call_light"] = v_call_light
-                clone["j_call_light"] = j_call_light
-                clone["light_chain_type"] = light_chain_type
-                clone["cdr1_alignment_start_light"] = cdr1_start_light
-                clone["cdr1_alignment_end_light"] = cdr1_end_light
-                clone["cdr2_alignment_start_light"] = cdr2_start_light
-                clone["cdr2_alignment_end_light"] = cdr2_end_light
-                clone["junction_start_light"] = junction_start_light
-                clone["junction_length_light"] = junction_length_light
-                clone["germline_alignment_light"] = germline_alignment_light
-                clone["rate_scale_heavy"] = rate_scale_heavy
-                clone["rate_scale_light"] = rate_scale_light
-                clone["is_paired"] = True
+                clone_heavy["is_paired"] = True
+                clone_heavy["pair_id"] = pair_id
 
-            clones_dict[dataset_id].append(clone)
+            clones_dict[dataset_id].append(clone_heavy)
 
-            # Convert nodes to array format (required by webapp)
-            nodes_array = []
-            for node_id, node_data in processed_nodes.items():
-                nodes_array.append(node_data)
+            # Create light chain clone (if paired data)
+            if is_paired:
+                # Determine light chain locus from light_chain_type
+                if light_chain_type.lower() == "kappa":
+                    light_locus = "igk"
+                elif light_chain_type.lower() == "lambda":
+                    light_locus = "igl"
+                else:
+                    # Default to igk if not specified
+                    light_locus = "igk"
 
-            # Create tree with nodes as array
-            tree = {
-                "ident": tree_ident,
-                "tree_id": f"pcp-tree-{family_id}",  # Use family name in tree ID
-                "clone_id": family_id,  # Use actual family name
+                clone_light = {
+                    "clone_id": f"{family_id}-light",
+                    "ident": f"{clone_ident}-light",
+                    "dataset_id": dataset_id,
+                    "sample_id": original_sample_id,
+                    "subject_id": "pcp-subject",
+                    "unique_seqs_count": len(processed_nodes_light),
+                    "total_read_count": sum(
+                        n.get("multiplicity", 0) for n in processed_nodes_light.values()
+                    ),
+                    "mean_mut_freq": mean_mut_freq,  # Could calculate separately for light chain
+                    # Light chain alignment positions
+                    "v_alignment_start": 0,  # Not typically provided for light chain
+                    "v_alignment_end": 0,
+                    "j_alignment_start": 0,
+                    "j_alignment_end": 0,
+                    "cdr1_alignment_start": cdr1_start_light,
+                    "cdr1_alignment_end": cdr1_end_light,
+                    "cdr2_alignment_start": cdr2_start_light,
+                    "cdr2_alignment_end": cdr2_end_light,
+                    "junction_start": junction_start_light,
+                    "junction_length": junction_length_light,
+                    # Light chain gene calls (no D gene)
+                    "v_call": v_call_light,
+                    "d_call": "",  # Light chains don't have D gene
+                    "j_call": j_call_light,
+                    "d_alignment_start": 0,
+                    "d_alignment_end": 0,
+                    "germline_alignment": germline_alignment_light,
+                    "has_seed": False,
+                    "trees": [
+                        {
+                            "ident": f"{tree_ident}-light",
+                            "clone_id": f"{family_id}-light",
+                            "tree_id": f"pcp-tree-{family_id}-light",
+                            "newick": newick,  # Same topology, different sequences
+                            "type": "pcp.reconstruction",
+                        }
+                    ],
+                    "sample": {
+                        "ident": f"{clone_ident}-light",
+                        "locus": light_locus,  # "igk" or "igl" based on light_chain_type
+                        "sample_id": original_sample_id,
+                        "timepoint_id": "merged",
+                    },
+                    "dataset": {"ident": dataset_ident, "dataset_id": dataset_id},
+                    "is_paired": True,
+                    "pair_id": pair_id,
+                }
+
+                clones_dict[dataset_id].append(clone_light)
+
+            # Convert heavy chain nodes to array format (required by webapp)
+            nodes_array_heavy = []
+            for node_id, node_data in processed_nodes_heavy.items():
+                nodes_array_heavy.append(node_data)
+
+            # Create heavy chain tree
+            tree_heavy = {
+                "ident": tree_ident if not is_paired else f"{tree_ident}-heavy",
+                "tree_id": f"pcp-tree-{family_id}" if not is_paired else f"pcp-tree-{family_id}-heavy",
+                "clone_id": family_id if not is_paired else f"{family_id}-heavy",
                 "newick": newick,
-                "nodes": nodes_array,
-                "type": "pcp.reconstruction",  # PCP-specific reconstruction type
+                "nodes": nodes_array_heavy,
+                "type": "pcp.reconstruction",
             }
-            trees.append(tree)
+            trees.append(tree_heavy)
+
+            # Create light chain tree (if paired)
+            if is_paired:
+                nodes_array_light = []
+                for node_id, node_data in processed_nodes_light.items():
+                    nodes_array_light.append(node_data)
+
+                tree_light = {
+                    "ident": f"{tree_ident}-light",
+                    "tree_id": f"pcp-tree-{family_id}-light",
+                    "clone_id": f"{family_id}-light",
+                    "newick": newick,  # Same topology, different sequences in nodes
+                    "nodes": nodes_array_light,
+                    "type": "pcp.reconstruction",
+                }
+                trees.append(tree_light)
 
     datasets.append(dataset)
     return datasets, clones_dict, trees

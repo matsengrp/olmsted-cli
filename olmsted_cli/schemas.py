@@ -168,15 +168,6 @@ node_spec = {
             "type": ["array", "null"],
             "items": timepoint_multiplicity_spec,
         },
-        # Light chain fields (for paired heavy/light data)
-        "sequence_alignment_light": {
-            "description": "Light chain nucleotide sequence alignment",
-            "type": ["string", "null"],
-        },
-        "sequence_alignment_light_aa": {
-            "description": "Light chain amino acid sequence alignment",
-            "type": ["string", "null"],
-        },
         "scaled_affinity": {
             "description": "Scaled binding affinity (min-max normalized)",
             "type": ["number", "null"],
@@ -477,59 +468,14 @@ clone_spec = {
                 "additionalProperties": False,
             },
         },
-        # Light chain fields (for paired heavy/light data)
-        "v_call_light": {
-            "description": "Light chain V gene assignment with allele",
-            "type": ["string", "null"],
-        },
-        "j_call_light": {
-            "description": "Light chain J gene assignment with allele",
-            "type": ["string", "null"],
-        },
-        "light_chain_type": {
-            "description": "Light chain type (kappa or lambda)",
-            "type": ["string", "null"],
-            "enum": ["kappa", "lambda", None],
-        },
-        "cdr1_alignment_start_light": {
-            "description": "Start position of CDR1 in light chain alignment",
-            "type": ["integer", "null"],
-        },
-        "cdr1_alignment_end_light": {
-            "description": "End position of CDR1 in light chain alignment",
-            "type": ["integer", "null"],
-        },
-        "cdr2_alignment_start_light": {
-            "description": "Start position of CDR2 in light chain alignment",
-            "type": ["integer", "null"],
-        },
-        "cdr2_alignment_end_light": {
-            "description": "End position of CDR2 in light chain alignment",
-            "type": ["integer", "null"],
-        },
-        "junction_start_light": {
-            "description": "Start position of CDR3 junction in light chain",
-            "type": ["integer", "null"],
-        },
-        "junction_length_light": {
-            "description": "Length of CDR3 junction in light chain",
-            "type": ["integer", "null"],
-        },
-        "germline_alignment_light": {
-            "description": "Assembled light chain germline sequence aligned to query",
-            "type": ["string", "null"],
-        },
-        "rate_scale_heavy": {
-            "description": "Rate scaling factor for heavy chain",
-            "type": ["number", "null"],
-        },
-        "rate_scale_light": {
-            "description": "Rate scaling factor for light chain",
-            "type": ["number", "null"],
-        },
+        # Paired data fields
         "is_paired": {
-            "description": "Whether this clone has paired heavy/light chain data",
+            "description": "Whether this clone is part of a paired heavy/light chain dataset",
             "type": ["boolean", "null"],
+        },
+        "pair_id": {
+            "description": "Identifier linking paired heavy and light chain clones",
+            "type": ["string", "null"],
         },
     },
     "additionalProperties": True,
