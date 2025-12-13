@@ -1,0 +1,4 @@
+family_name,sample_id,newick_tree
+family-heavy,sample-A,"((Tip1:0.2,Tip2:0.3)Node1:0.1)naive;"
+family-light,sample-B,"((Tip1:0.2,Tip2:0.3)Node1:0.1)naive;"
+family-paired,sample-C,"((Tip1:0.2,Tip2:0.3)Node1:0.1)naive;"
