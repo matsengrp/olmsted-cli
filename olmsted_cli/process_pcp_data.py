@@ -69,6 +69,28 @@ from .process_utils import (
 )
 
 
+def infer_locus_from_v_gene(v_gene: str) -> str:
+    """
+    Infer locus from V gene call.
+
+    Args:
+        v_gene: V gene call (e.g., "IGHV1-2*01", "IGKV3-20*01", "IGLV2-14*04")
+
+    Returns:
+        str: Locus ("igh", "igk", or "igl")
+    """
+    v_gene_upper = v_gene.upper()
+    if v_gene_upper.startswith("IGKV"):
+        return "igk"
+    elif v_gene_upper.startswith("IGLV"):
+        return "igl"
+    elif v_gene_upper.startswith("IGHV"):
+        return "igh"
+    else:
+        # Default to igh if cannot be determined
+        return "igh"
+
+
 def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
     """
     Parse PCP CSV file and return a dict of families with rich immunological data.
@@ -124,8 +146,16 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
             missing = required_cols - set(reader.fieldnames)
             raise ValueError(f"Missing required columns: {missing}")
 
-        # Detect paired format (presence of light chain columns)
-        is_paired = "parent_light" in reader.fieldnames or "child_light" in reader.fieldnames
+        # Detect format type based on column presence
+        has_heavy = "parent_heavy" in reader.fieldnames or "child_heavy" in reader.fieldnames
+        has_light = "parent_light" in reader.fieldnames or "child_light" in reader.fieldnames
+
+        # Determine format:
+        # - Paired: has both heavy and light columns
+        # - Light-only: has only light columns
+        # - Heavy-only: has only heavy columns (or neither)
+        is_paired = has_heavy and has_light
+        is_light_only = has_light and not has_heavy
 
         for row in reader:
             sample_id = row["sample_id"]
@@ -148,11 +178,20 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
                 sample_count = int(row["sample_count"])
 
             # Extract rich immunological fields
-            parent_sequence = row.get("parent_heavy", "")
-            child_sequence = row.get("child_heavy", "")
-            v_gene = row.get("v_gene_heavy", "")
-            d_gene = row.get("d_gene_heavy", "")
-            j_gene = row.get("j_gene_heavy", "")
+            # For paired/heavy-only: read from *_heavy columns
+            # For light-only: read from *_light columns
+            if has_heavy:
+                parent_sequence = row.get("parent_heavy", "")
+                child_sequence = row.get("child_heavy", "")
+                v_gene = row.get("v_gene_heavy", "")
+                d_gene = row.get("d_gene_heavy", "")
+                j_gene = row.get("j_gene_heavy", "")
+            else:
+                parent_sequence = row.get("parent_light", "")
+                child_sequence = row.get("child_light", "")
+                v_gene = row.get("v_gene_light", "")
+                d_gene = row.get("d_gene_light", "")
+                j_gene = row.get("j_gene_light", "")
             parent_is_naive = row.get("parent_is_naive", "").lower() == "true"
             child_is_leaf = row.get("child_is_leaf", "").lower() == "true"
 
@@ -163,20 +202,38 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
             )
 
             # Extract CDR position data
-            cdr1_start = get_optional_int(row, "cdr1_codon_start_heavy")
-            cdr1_end = get_optional_int(row, "cdr1_codon_end_heavy")
-            cdr2_start = get_optional_int(row, "cdr2_codon_start_heavy")
-            cdr2_end = get_optional_int(row, "cdr2_codon_end_heavy")
-            cdr3_start = get_optional_int(row, "cdr3_codon_start_heavy")
-            cdr3_end = get_optional_int(row, "cdr3_codon_end_heavy")
+            # For paired/heavy-only: read from *_heavy columns
+            # For light-only: read from *_light columns
+            if has_heavy:
+                cdr1_start = get_optional_int(row, "cdr1_codon_start_heavy")
+                cdr1_end = get_optional_int(row, "cdr1_codon_end_heavy")
+                cdr2_start = get_optional_int(row, "cdr2_codon_start_heavy")
+                cdr2_end = get_optional_int(row, "cdr2_codon_end_heavy")
+                cdr3_start = get_optional_int(row, "cdr3_codon_start_heavy")
+                cdr3_end = get_optional_int(row, "cdr3_codon_end_heavy")
+            else:
+                cdr1_start = get_optional_int(row, "cdr1_codon_start_light")
+                cdr1_end = get_optional_int(row, "cdr1_codon_end_light")
+                cdr2_start = get_optional_int(row, "cdr2_codon_start_light")
+                cdr2_end = get_optional_int(row, "cdr2_codon_end_light")
+                cdr3_start = get_optional_int(row, "cdr3_codon_start_light")
+                cdr3_end = get_optional_int(row, "cdr3_codon_end_light")
 
             # Extract gene position data (V, D, J gene start/end positions)
-            v_gene_start = get_optional_int(row, "v_gene_start_heavy", default=None)
-            v_gene_end = get_optional_int(row, "v_gene_end_heavy", default=None)
-            d_gene_start = get_optional_int(row, "d_gene_start_heavy", default=None)
-            d_gene_end = get_optional_int(row, "d_gene_end_heavy", default=None)
-            j_gene_start = get_optional_int(row, "j_gene_start_heavy", default=None)
-            j_gene_end = get_optional_int(row, "j_gene_end_heavy", default=None)
+            if has_heavy:
+                v_gene_start = get_optional_int(row, "v_gene_start_heavy", default=None)
+                v_gene_end = get_optional_int(row, "v_gene_end_heavy", default=None)
+                d_gene_start = get_optional_int(row, "d_gene_start_heavy", default=None)
+                d_gene_end = get_optional_int(row, "d_gene_end_heavy", default=None)
+                j_gene_start = get_optional_int(row, "j_gene_start_heavy", default=None)
+                j_gene_end = get_optional_int(row, "j_gene_end_heavy", default=None)
+            else:
+                v_gene_start = get_optional_int(row, "v_gene_start_light", default=None)
+                v_gene_end = get_optional_int(row, "v_gene_end_light", default=None)
+                d_gene_start = get_optional_int(row, "d_gene_start_light", default=None)
+                d_gene_end = get_optional_int(row, "d_gene_end_light", default=None)
+                j_gene_start = get_optional_int(row, "j_gene_start_light", default=None)
+                j_gene_end = get_optional_int(row, "j_gene_end_light", default=None)
 
             # Extract light chain data (for paired format)
             parent_sequence_light = row.get("parent_light", "") if is_paired else ""
@@ -1402,11 +1459,15 @@ def process_pcp_to_olmsted(
                 s["sample_id"] == original_sample_id for s in dataset["samples"]
             )
             if not sample_exists:
+                # Infer locus from V gene call
+                v_gene = family_meta.get("v_gene", "")
+                locus = infer_locus_from_v_gene(v_gene)
+
                 dataset["samples"].append(
                     {
                         "ident": uuid_generator("sample-"),
                         "sample_id": original_sample_id,
-                        "locus": "igh",  # Default locus
+                        "locus": locus,
                         "timepoint_id": "merged",
                     }
                 )
@@ -1989,7 +2050,7 @@ def process_pcp_to_olmsted(
                 # Add nested sample and dataset objects for webapp compatibility
                 "sample": {
                     "ident": clone_ident if not is_paired else f"{clone_ident}-heavy",
-                    "locus": "igh",
+                    "locus": infer_locus_from_v_gene(v_call),
                     "sample_id": original_sample_id,
                     "timepoint_id": "merged",
                 },
