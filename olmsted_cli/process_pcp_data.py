@@ -178,17 +178,26 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
                 sample_count = int(row["sample_count"])
 
             # Extract rich immunological fields
-            # For paired/heavy-only: read from *_heavy columns
-            # For light-only: read from *_light columns
-            if has_heavy:
-                parent_sequence = row.get("parent_heavy", "")
-                child_sequence = row.get("child_heavy", "")
+            # Check per-row which sequences are present (not just column existence)
+            # This handles mixed datasets with heavy-only, light-only, and paired families
+            parent_heavy_seq = row.get("parent_heavy", "")
+            parent_light_seq = row.get("parent_light", "")
+            child_heavy_seq = row.get("child_heavy", "")
+            child_light_seq = row.get("child_light", "")
+
+            # Determine which chain to use as primary sequence for this row
+            # Prefer heavy if available, otherwise use light
+            if parent_heavy_seq or child_heavy_seq:
+                # This row has heavy chain data
+                parent_sequence = parent_heavy_seq
+                child_sequence = child_heavy_seq
                 v_gene = row.get("v_gene_heavy", "")
                 d_gene = row.get("d_gene_heavy", "")
                 j_gene = row.get("j_gene_heavy", "")
             else:
-                parent_sequence = row.get("parent_light", "")
-                child_sequence = row.get("child_light", "")
+                # This row only has light chain data
+                parent_sequence = parent_light_seq
+                child_sequence = child_light_seq
                 v_gene = row.get("v_gene_light", "")
                 d_gene = row.get("d_gene_light", "")
                 j_gene = row.get("j_gene_light", "")
@@ -202,9 +211,9 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
             )
 
             # Extract CDR position data
-            # For paired/heavy-only: read from *_heavy columns
-            # For light-only: read from *_light columns
-            if has_heavy:
+            # Use same chain as primary sequence (determined above)
+            if parent_heavy_seq or child_heavy_seq:
+                # Heavy chain CDRs
                 cdr1_start = get_optional_int(row, "cdr1_codon_start_heavy")
                 cdr1_end = get_optional_int(row, "cdr1_codon_end_heavy")
                 cdr2_start = get_optional_int(row, "cdr2_codon_start_heavy")
@@ -212,6 +221,7 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
                 cdr3_start = get_optional_int(row, "cdr3_codon_start_heavy")
                 cdr3_end = get_optional_int(row, "cdr3_codon_end_heavy")
             else:
+                # Light chain CDRs
                 cdr1_start = get_optional_int(row, "cdr1_codon_start_light")
                 cdr1_end = get_optional_int(row, "cdr1_codon_end_light")
                 cdr2_start = get_optional_int(row, "cdr2_codon_start_light")
@@ -220,7 +230,9 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
                 cdr3_end = get_optional_int(row, "cdr3_codon_end_light")
 
             # Extract gene position data (V, D, J gene start/end positions)
-            if has_heavy:
+            # Use same chain as primary sequence (determined above)
+            if parent_heavy_seq or child_heavy_seq:
+                # Heavy chain gene positions
                 v_gene_start = get_optional_int(row, "v_gene_start_heavy", default=None)
                 v_gene_end = get_optional_int(row, "v_gene_end_heavy", default=None)
                 d_gene_start = get_optional_int(row, "d_gene_start_heavy", default=None)
@@ -228,6 +240,7 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
                 j_gene_start = get_optional_int(row, "j_gene_start_heavy", default=None)
                 j_gene_end = get_optional_int(row, "j_gene_end_heavy", default=None)
             else:
+                # Light chain gene positions
                 v_gene_start = get_optional_int(row, "v_gene_start_light", default=None)
                 v_gene_end = get_optional_int(row, "v_gene_end_light", default=None)
                 d_gene_start = get_optional_int(row, "d_gene_start_light", default=None)
@@ -236,43 +249,45 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
                 j_gene_end = get_optional_int(row, "j_gene_end_light", default=None)
 
             # Extract light chain data (for paired format)
-            parent_sequence_light = row.get("parent_light", "") if is_paired else ""
-            child_sequence_light = row.get("child_light", "") if is_paired else ""
-            v_gene_light = row.get("v_gene_light", "") if is_paired else ""
-            j_gene_light = row.get("j_gene_light", "") if is_paired else ""
-            light_chain_type = row.get("light_chain_type", "") if is_paired else ""
+            # Only extract if this row has BOTH heavy AND light sequences
+            row_is_paired = (parent_heavy_seq or child_heavy_seq) and (parent_light_seq or child_light_seq)
+            parent_sequence_light = parent_light_seq if row_is_paired else ""
+            child_sequence_light = child_light_seq if row_is_paired else ""
+            v_gene_light = row.get("v_gene_light", "") if row_is_paired else ""
+            j_gene_light = row.get("j_gene_light", "") if row_is_paired else ""
+            light_chain_type = row.get("light_chain_type", "") if row_is_paired else ""
 
             # Extract light chain CDR positions (for paired format)
             cdr1_start_light = (
                 int(row.get("cdr1_codon_start_light", 0))
                 if row.get("cdr1_codon_start_light")
                 else 0
-            ) if is_paired else 0
+            ) if row_is_paired else 0
             cdr1_end_light = (
                 int(row.get("cdr1_codon_end_light", 0))
                 if row.get("cdr1_codon_end_light")
                 else 0
-            ) if is_paired else 0
+            ) if row_is_paired else 0
             cdr2_start_light = (
                 int(row.get("cdr2_codon_start_light", 0))
                 if row.get("cdr2_codon_start_light")
                 else 0
-            ) if is_paired else 0
+            ) if row_is_paired else 0
             cdr2_end_light = (
                 int(row.get("cdr2_codon_end_light", 0))
                 if row.get("cdr2_codon_end_light")
                 else 0
-            ) if is_paired else 0
+            ) if row_is_paired else 0
             cdr3_start_light = (
                 int(row.get("cdr3_codon_start_light", 0))
                 if row.get("cdr3_codon_start_light")
                 else 0
-            ) if is_paired else 0
+            ) if row_is_paired else 0
             cdr3_end_light = (
                 int(row.get("cdr3_codon_end_light", 0))
                 if row.get("cdr3_codon_end_light")
                 else 0
-            ) if is_paired else 0
+            ) if row_is_paired else 0
 
             # Store family-level data and sample_id for each family (will be same for all rows of same family)
             families[family_id]["family_data"] = {
@@ -373,6 +388,20 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
     # Post-process to ensure all nodes have correct distance/length values
     for family_id, family_data in families.items():
         _fix_node_distances_and_lengths(family_data)
+
+    # Post-process to correctly determine is_paired per-family
+    # The global is_paired flag is based on CSV columns, but we need to check actual data
+    for family_id, family_data in families.items():
+        # Check if ANY node in this family has non-empty light chain sequence
+        has_light_data = False
+        for node_data in family_data["nodes"].values():
+            light_seq = node_data.get("sequence_alignment_light", "")
+            if light_seq:  # Non-empty light chain sequence
+                has_light_data = True
+                break
+
+        # Update is_paired based on actual data presence
+        family_data["is_paired"] = has_light_data
 
     return dict(families)
 
@@ -1421,7 +1450,7 @@ def process_pcp_to_olmsted(
     dataset_ident = uuid_generator("dataset-")
 
     datasets = []
-    clones_dict = {dataset_id: []}
+    clones_dict = {dataset_id: []}  # Clones array indexed by dataset_id
     trees = []
 
     # Create dataset
@@ -2062,6 +2091,7 @@ def process_pcp_to_olmsted(
                 clone_heavy["is_paired"] = True
                 clone_heavy["pair_id"] = pair_id
 
+            # Add clone to dataset's clones array
             clones_dict[dataset_id].append(clone_heavy)
 
             # Create light chain clone (if paired data)
@@ -2125,6 +2155,7 @@ def process_pcp_to_olmsted(
                     "pair_id": pair_id,
                 }
 
+                # Add clone to dataset's clones array
                 clones_dict[dataset_id].append(clone_light)
 
             # Convert heavy chain nodes to array format (required by webapp)

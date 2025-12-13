@@ -1,4 +1,4 @@
 family_name,sample_id,newick_tree
-family-heavy-ladder,sample-A,"((T1:0.1,(T2:0.1,(T3:0.1,(T4:0.1,T5:0.1)N4:0.1)N3:0.1)N2:0.1)N1:0.1)naive;"
+family-heavy,sample-A,"(((T1:0.2,T2:0.2)N2:0.1,(T3:0.2,T4:0.2)N3:0.1)N1:0.1,T5:0.2)naive;"
 family-light-balanced,sample-B,"(((T1:0.2,T2:0.2)N1:0.1,(T3:0.2,T4:0.2)N2:0.1)N3:0.1,((T5:0.2,T6:0.2)N4:0.1,T7:0.2)N5:0.1)naive;"
 family-paired-imbalanced,sample-C,"(T1:0.3,(T2:0.3,(T3:0.3,(T4:0.3,(T5:0.3,T6:0.3)N4:0.1)N3:0.1)N2:0.1)N1:0.1)naive;"
