@@ -7,6 +7,7 @@ process_airr_data.py, process_pcp_data.py, and other data processors.
 """
 
 import csv
+import gzip
 import json
 import os
 import uuid
@@ -108,6 +109,39 @@ class VerbosePrinter:
             **kwargs: Keyword arguments to pass to print()
         """
         self.print(*args, min_level=3, **kwargs)
+
+
+# Data extraction utilities
+def get_optional_int(row, key, default=0):
+    """
+    Extract integer from row dictionary, returning default if missing or empty.
+
+    This helper consolidates the repeated pattern:
+        value = int(row.get(key, default)) if row.get(key) else default
+
+    Args:
+        row (dict): Dictionary containing data (typically a CSV row)
+        key (str): Key to extract from the dictionary
+        default (int): Value to return if key is missing or empty (default: 0)
+
+    Returns:
+        int: The integer value from row[key], or default if missing/empty
+
+    Examples:
+        >>> row = {"count": "42", "empty": "", "zero": "0"}
+        >>> get_optional_int(row, "count")
+        42
+        >>> get_optional_int(row, "empty")
+        0
+        >>> get_optional_int(row, "missing")
+        0
+        >>> get_optional_int(row, "zero")
+        0
+        >>> get_optional_int(row, "missing", default=None)
+        None
+    """
+    value = row.get(key)
+    return int(value) if value else default
 
 
 # General utility functions
@@ -368,7 +402,7 @@ def write_out(data, dirname, filename, args):
         data: Data to write
         dirname: Directory path
         filename: File name
-        args: Command line arguments (for verbose flag and csv flag)
+        args: Command line arguments (for verbose flag, csv flag, and json_format)
     """
     # Ensure directory exists
     os.makedirs(dirname, exist_ok=True)
@@ -376,30 +410,76 @@ def write_out(data, dirname, filename, args):
     # Normalize path
     full_path = os.path.normpath(os.path.join(dirname, filename))
 
+    # Get JSON format setting (default to 'pretty' for backward compatibility)
+    json_format = getattr(args, "json_format", "pretty")
+
+    # For gzip format, add .gz extension if not already present
+    if json_format == "gzip" and not full_path.endswith(".gz"):
+        full_path = full_path + ".gz"
+
     # Print status
     print(f"writing {full_path}")
 
-    with open(full_path, "w") as fh:
-        # Check if CSV output is requested (for CFT data)
-        if hasattr(args, "csv") and args.csv and isinstance(data, list):
-            # Write as CSV
+    # Check if CSV output is requested (for CFT data)
+    if hasattr(args, "csv") and args.csv and isinstance(data, list):
+        # Write as CSV
+        with open(full_path, "w") as fh:
             if data:
                 # Ensure all items are dictionaries
                 data = [{k: v for k, v in d.items()} for d in data]
                 writer = csv.DictWriter(fh, fieldnames=sorted(data[0].keys()))
                 writer.writeheader()
                 writer.writerows(data)
-        elif isinstance(data, (list, dict)):
-            # Write as JSON
-            json.dump(
-                data,
-                fh,
-                default=json_rep,  # Handle UUIDs and other non-serializable types
-                indent=4,
-                # allow_nan=False  # Uncomment if you want to disallow NaN values
-            )
-        else:
-            # Handle raw string data
+    elif isinstance(data, (list, dict)):
+        # Write as JSON with selected format
+        if json_format == "pretty":
+            # Pretty-printed JSON (human-readable)
+            if full_path.endswith(".gz"):
+                with gzip.open(full_path, "wt") as fh:
+                    json.dump(
+                        data,
+                        fh,
+                        default=json_rep,
+                        indent=4,
+                    )
+            else:
+                with open(full_path, "w") as fh:
+                    json.dump(
+                        data,
+                        fh,
+                        default=json_rep,
+                        indent=4,
+                    )
+        elif json_format == "compact":
+            # Compact JSON (no whitespace)
+            if full_path.endswith(".gz"):
+                with gzip.open(full_path, "wt") as fh:
+                    json.dump(
+                        data,
+                        fh,
+                        default=json_rep,
+                        separators=(',', ':'),
+                    )
+            else:
+                with open(full_path, "w") as fh:
+                    json.dump(
+                        data,
+                        fh,
+                        default=json_rep,
+                        separators=(',', ':'),
+                    )
+        elif json_format == "gzip":
+            # Gzipped JSON (pretty-printed and compressed)
+            with gzip.open(full_path, "wt") as fh:
+                json.dump(
+                    data,
+                    fh,
+                    default=json_rep,
+                    indent=4,
+                )
+    else:
+        # Handle raw string data
+        with open(full_path, "w") as fh:
             fh.write(data)
 
 
@@ -425,6 +505,14 @@ def create_consolidated_data(
         dict: Consolidated data with metadata
     """
     # Generate metadata
+    # Count total leaf nodes across all trees
+    total_leaf_count = 0
+    for tree in trees:
+        if "nodes" in tree and tree["nodes"]:
+            for node in tree["nodes"]:
+                if node.get("type") == "leaf":
+                    total_leaf_count += 1
+
     metadata = {
         "format_version": CONSOLIDATED_JSON_VERSION,
         "schema_version": SCHEMA_VERSION,
@@ -435,6 +523,7 @@ def create_consolidated_data(
             "datasets_count": len(datasets),
             "total_clones_count": sum(len(clones) for clones in clones_dict.values()),
             "total_trees_count": len(trees),
+            "total_leaf_nodes_count": total_leaf_count,
         },
         "generated_by": {
             "tool": "olmsted-cli",

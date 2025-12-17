@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import annotations
+
 import argparse
 import functools
 import html
@@ -10,7 +12,13 @@ import sys
 import traceback
 import uuid
 from collections import OrderedDict
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from urllib.parse import parse_qs, parse_qsl
+
+if TYPE_CHECKING:
+    from argparse import Namespace
+
+    from .types import OlmstedClone, OlmstedDataset, OlmstedTree
 
 import jsonschema
 import ntpl
@@ -164,7 +172,24 @@ def process_clone(args, dataset, clone):
     return ensure_ident(clone, prefix="clone-")
 
 
-def process_dataset(args, dataset, clones_dict, trees):
+def process_dataset(
+    args: Namespace,
+    dataset: Dict[str, Any],
+    clones_dict: Dict[str, List[OlmstedClone]],
+    trees: List[OlmstedTree],
+) -> Optional[OlmstedDataset]:
+    """
+    Process a dataset from AIRR format to Olmsted format.
+
+    Args:
+        args: Command line arguments namespace
+        dataset: AIRR dataset dictionary
+        clones_dict: Dictionary to populate with clones keyed by dataset_id
+        trees: List to populate with processed trees
+
+    Returns:
+        Processed dataset in Olmsted format, or None if processing fails
+    """
     dataset["clone_count"] = len(dataset["clones"])
     dataset["subjects_count"] = len(set(cf["subject_id"] for cf in dataset["clones"]))
     dataset["timepoints_count"] = len(

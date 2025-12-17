@@ -496,6 +496,12 @@ Examples:
         metavar="DIR",
         help="Output to multiple files in specified directory (datasets.json, clones.*.json, tree.*.json) instead of single consolidated file",
     )
+    parser.add_argument(
+        "--json-format",
+        choices=["pretty", "compact", "gzip"],
+        default="pretty",
+        help="JSON output format: 'pretty' (indented, human-readable), 'compact' (no whitespace), 'gzip' (compressed) (default: pretty)",
+    )
 
     # Common processing options
     parser.add_argument(

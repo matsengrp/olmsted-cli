@@ -15,6 +15,8 @@ And a CSV file containing Newick trees:
 - newick_tree: Newick format tree string
 """
 
+from __future__ import annotations
+
 import argparse
 import csv
 import gzip
@@ -25,7 +27,11 @@ import sys
 import traceback
 import uuid
 from collections import defaultdict
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 from urllib.parse import parse_qs, parse_qsl
+
+if TYPE_CHECKING:
+    from .types import OlmstedClone, OlmstedDataset, OlmstedNode, OlmstedTree
 
 # Python 3.13+ compatibility: make cgi module available before ete3 import
 try:
@@ -56,13 +62,36 @@ from .process_utils import (
     SCHEMA_VERSION,
     VerbosePrinter,
     create_consolidated_data,
+    get_optional_int,
     translate_dna_to_aa,
     validate_output_data,
     write_out,
 )
 
 
-def parse_pcp_csv(csv_path):
+def infer_locus_from_v_gene(v_gene: str) -> str:
+    """
+    Infer locus from V gene call.
+
+    Args:
+        v_gene: V gene call (e.g., "IGHV1-2*01", "IGKV3-20*01", "IGLV2-14*04")
+
+    Returns:
+        str: Locus ("igh", "igk", or "igl")
+    """
+    v_gene_upper = v_gene.upper()
+    if v_gene_upper.startswith("IGKV"):
+        return "igk"
+    elif v_gene_upper.startswith("IGLV"):
+        return "igl"
+    elif v_gene_upper.startswith("IGHV"):
+        return "igh"
+    else:
+        # Default to igh if cannot be determined
+        return "igh"
+
+
+def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
     """
     Parse PCP CSV file and return a dict of families with rich immunological data.
 
@@ -71,24 +100,33 @@ def parse_pcp_csv(csv_path):
 
     Optional columns for rich immunological annotations:
     - family: Family identifier (defaults to sample_id if not present)
-    - parent_heavy, child_heavy: DNA sequences
+    - parent_heavy, child_heavy: Heavy chain DNA sequences
     - branch_length or edge_length: Branch length
     - sample_count: Number of sequences
-    - v_gene_heavy, d_gene_heavy, j_gene_heavy: Gene calls
+    - v_gene_heavy, d_gene_heavy, j_gene_heavy: Heavy chain gene calls
     - v_gene_start_heavy, v_gene_end_heavy: V gene alignment positions
     - d_gene_start_heavy, d_gene_end_heavy: D gene alignment positions
     - j_gene_start_heavy, j_gene_end_heavy: J gene alignment positions
-    - cdr1_codon_start_heavy, cdr1_codon_end_heavy: CDR1 positions
-    - cdr2_codon_start_heavy, cdr2_codon_end_heavy: CDR2 positions
-    - cdr3_codon_start_heavy, cdr3_codon_end_heavy: CDR3 positions
+    - cdr1_codon_start_heavy, cdr1_codon_end_heavy: CDR1 positions (heavy)
+    - cdr2_codon_start_heavy, cdr2_codon_end_heavy: CDR2 positions (heavy)
+    - cdr3_codon_start_heavy, cdr3_codon_end_heavy: CDR3 positions (heavy)
     - parent_is_naive, child_is_leaf: Boolean flags
     - distance: Distance from root
+
+    Paired heavy/light chain columns (optional):
+    - parent_light, child_light: Light chain DNA sequences
+    - v_gene_light, j_gene_light: Light chain gene calls
+    - cdr1_codon_start_light, cdr1_codon_end_light: CDR1 positions (light)
+    - cdr2_codon_start_light, cdr2_codon_end_light: CDR2 positions (light)
+    - cdr3_codon_start_light, cdr3_codon_end_light: CDR3 positions (light)
+    - light_chain_type: "kappa" or "lambda"
 
     Returns:
         dict: {family_id: {
             nodes: {node_id: node_data},
             edges: [(parent, child, length)],
-            family_data: {v_gene, d_gene, j_gene, gene_positions, cdr_positions, etc.}
+            family_data: {v_gene, d_gene, j_gene, gene_positions, cdr_positions, etc.},
+            is_paired: bool  # True if light chain data is present
         }}
     """
     families = defaultdict(lambda: {"nodes": {}, "edges": [], "family_data": {}})
@@ -107,6 +145,17 @@ def parse_pcp_csv(csv_path):
         if not required_cols.issubset(reader.fieldnames):
             missing = required_cols - set(reader.fieldnames)
             raise ValueError(f"Missing required columns: {missing}")
+
+        # Detect format type based on column presence
+        has_heavy = "parent_heavy" in reader.fieldnames or "child_heavy" in reader.fieldnames
+        has_light = "parent_light" in reader.fieldnames or "child_light" in reader.fieldnames
+
+        # Determine format:
+        # - Paired: has both heavy and light columns
+        # - Light-only: has only light columns
+        # - Heavy-only: has only heavy columns (or neither)
+        is_paired = has_heavy and has_light
+        is_light_only = has_light and not has_heavy
 
         for row in reader:
             sample_id = row["sample_id"]
@@ -129,11 +178,29 @@ def parse_pcp_csv(csv_path):
                 sample_count = int(row["sample_count"])
 
             # Extract rich immunological fields
-            parent_sequence = row.get("parent_heavy", "")
-            child_sequence = row.get("child_heavy", "")
-            v_gene = row.get("v_gene_heavy", "")
-            d_gene = row.get("d_gene_heavy", "")
-            j_gene = row.get("j_gene_heavy", "")
+            # Check per-row which sequences are present (not just column existence)
+            # This handles mixed datasets with heavy-only, light-only, and paired families
+            parent_heavy_seq = row.get("parent_heavy", "")
+            parent_light_seq = row.get("parent_light", "")
+            child_heavy_seq = row.get("child_heavy", "")
+            child_light_seq = row.get("child_light", "")
+
+            # Determine which chain to use as primary sequence for this row
+            # Prefer heavy if available, otherwise use light
+            if parent_heavy_seq or child_heavy_seq:
+                # This row has heavy chain data
+                parent_sequence = parent_heavy_seq
+                child_sequence = child_heavy_seq
+                v_gene = row.get("v_gene_heavy", "")
+                d_gene = row.get("d_gene_heavy", "")
+                j_gene = row.get("j_gene_heavy", "")
+            else:
+                # This row only has light chain data
+                parent_sequence = parent_light_seq
+                child_sequence = child_light_seq
+                v_gene = row.get("v_gene_light", "")
+                d_gene = row.get("d_gene_light", "")
+                j_gene = row.get("j_gene_light", "")
             parent_is_naive = row.get("parent_is_naive", "").lower() == "true"
             child_is_leaf = row.get("child_is_leaf", "").lower() == "true"
 
@@ -144,72 +211,88 @@ def parse_pcp_csv(csv_path):
             )
 
             # Extract CDR position data
-            cdr1_start = (
-                int(row.get("cdr1_codon_start_heavy", 0))
-                if row.get("cdr1_codon_start_heavy")
-                else 0
-            )
-            cdr1_end = (
-                int(row.get("cdr1_codon_end_heavy", 0))
-                if row.get("cdr1_codon_end_heavy")
-                else 0
-            )
-            cdr2_start = (
-                int(row.get("cdr2_codon_start_heavy", 0))
-                if row.get("cdr2_codon_start_heavy")
-                else 0
-            )
-            cdr2_end = (
-                int(row.get("cdr2_codon_end_heavy", 0))
-                if row.get("cdr2_codon_end_heavy")
-                else 0
-            )
-            cdr3_start = (
-                int(row.get("cdr3_codon_start_heavy", 0))
-                if row.get("cdr3_codon_start_heavy")
-                else 0
-            )
-            cdr3_end = (
-                int(row.get("cdr3_codon_end_heavy", 0))
-                if row.get("cdr3_codon_end_heavy")
-                else 0
-            )
+            # Use same chain as primary sequence (determined above)
+            if parent_heavy_seq or child_heavy_seq:
+                # Heavy chain CDRs
+                cdr1_start = get_optional_int(row, "cdr1_codon_start_heavy")
+                cdr1_end = get_optional_int(row, "cdr1_codon_end_heavy")
+                cdr2_start = get_optional_int(row, "cdr2_codon_start_heavy")
+                cdr2_end = get_optional_int(row, "cdr2_codon_end_heavy")
+                cdr3_start = get_optional_int(row, "cdr3_codon_start_heavy")
+                cdr3_end = get_optional_int(row, "cdr3_codon_end_heavy")
+            else:
+                # Light chain CDRs
+                cdr1_start = get_optional_int(row, "cdr1_codon_start_light")
+                cdr1_end = get_optional_int(row, "cdr1_codon_end_light")
+                cdr2_start = get_optional_int(row, "cdr2_codon_start_light")
+                cdr2_end = get_optional_int(row, "cdr2_codon_end_light")
+                cdr3_start = get_optional_int(row, "cdr3_codon_start_light")
+                cdr3_end = get_optional_int(row, "cdr3_codon_end_light")
 
             # Extract gene position data (V, D, J gene start/end positions)
-            v_gene_start = (
-                int(row.get("v_gene_start_heavy", 0))
-                if row.get("v_gene_start_heavy")
-                else None
-            )
-            v_gene_end = (
-                int(row.get("v_gene_end_heavy", 0))
-                if row.get("v_gene_end_heavy")
-                else None
-            )
-            d_gene_start = (
-                int(row.get("d_gene_start_heavy", 0))
-                if row.get("d_gene_start_heavy")
-                else None
-            )
-            d_gene_end = (
-                int(row.get("d_gene_end_heavy", 0))
-                if row.get("d_gene_end_heavy")
-                else None
-            )
-            j_gene_start = (
-                int(row.get("j_gene_start_heavy", 0))
-                if row.get("j_gene_start_heavy")
-                else None
-            )
-            j_gene_end = (
-                int(row.get("j_gene_end_heavy", 0))
-                if row.get("j_gene_end_heavy")
-                else None
-            )
+            # Use same chain as primary sequence (determined above)
+            if parent_heavy_seq or child_heavy_seq:
+                # Heavy chain gene positions
+                v_gene_start = get_optional_int(row, "v_gene_start_heavy", default=None)
+                v_gene_end = get_optional_int(row, "v_gene_end_heavy", default=None)
+                d_gene_start = get_optional_int(row, "d_gene_start_heavy", default=None)
+                d_gene_end = get_optional_int(row, "d_gene_end_heavy", default=None)
+                j_gene_start = get_optional_int(row, "j_gene_start_heavy", default=None)
+                j_gene_end = get_optional_int(row, "j_gene_end_heavy", default=None)
+            else:
+                # Light chain gene positions
+                v_gene_start = get_optional_int(row, "v_gene_start_light", default=None)
+                v_gene_end = get_optional_int(row, "v_gene_end_light", default=None)
+                d_gene_start = get_optional_int(row, "d_gene_start_light", default=None)
+                d_gene_end = get_optional_int(row, "d_gene_end_light", default=None)
+                j_gene_start = get_optional_int(row, "j_gene_start_light", default=None)
+                j_gene_end = get_optional_int(row, "j_gene_end_light", default=None)
+
+            # Extract light chain data (for paired format)
+            # Only extract if this row has BOTH heavy AND light sequences
+            row_is_paired = (parent_heavy_seq or child_heavy_seq) and (parent_light_seq or child_light_seq)
+            parent_sequence_light = parent_light_seq if row_is_paired else ""
+            child_sequence_light = child_light_seq if row_is_paired else ""
+            v_gene_light = row.get("v_gene_light", "") if row_is_paired else ""
+            j_gene_light = row.get("j_gene_light", "") if row_is_paired else ""
+            light_chain_type = row.get("light_chain_type", "") if row_is_paired else ""
+
+            # Extract light chain CDR positions (for paired format)
+            cdr1_start_light = (
+                int(row.get("cdr1_codon_start_light", 0))
+                if row.get("cdr1_codon_start_light")
+                else 0
+            ) if row_is_paired else 0
+            cdr1_end_light = (
+                int(row.get("cdr1_codon_end_light", 0))
+                if row.get("cdr1_codon_end_light")
+                else 0
+            ) if row_is_paired else 0
+            cdr2_start_light = (
+                int(row.get("cdr2_codon_start_light", 0))
+                if row.get("cdr2_codon_start_light")
+                else 0
+            ) if row_is_paired else 0
+            cdr2_end_light = (
+                int(row.get("cdr2_codon_end_light", 0))
+                if row.get("cdr2_codon_end_light")
+                else 0
+            ) if row_is_paired else 0
+            cdr3_start_light = (
+                int(row.get("cdr3_codon_start_light", 0))
+                if row.get("cdr3_codon_start_light")
+                else 0
+            ) if row_is_paired else 0
+            cdr3_end_light = (
+                int(row.get("cdr3_codon_end_light", 0))
+                if row.get("cdr3_codon_end_light")
+                else 0
+            ) if row_is_paired else 0
 
             # Store family-level data and sample_id for each family (will be same for all rows of same family)
             families[family_id]["family_data"] = {
                 "sample_id": sample_id,  # Store original sample_id for reference
+                # Heavy chain data
                 "v_gene": v_gene,
                 "d_gene": d_gene,
                 "j_gene": j_gene,
@@ -225,11 +308,23 @@ def parse_pcp_csv(csv_path):
                 "cdr2_end": cdr2_end,
                 "cdr3_start": cdr3_start,
                 "cdr3_end": cdr3_end,
+                # Light chain data (for paired format)
+                "v_gene_light": v_gene_light,
+                "j_gene_light": j_gene_light,
+                "cdr1_start_light": cdr1_start_light,
+                "cdr1_end_light": cdr1_end_light,
+                "cdr2_start_light": cdr2_start_light,
+                "cdr2_end_light": cdr2_end_light,
+                "cdr3_start_light": cdr3_start_light,
+                "cdr3_end_light": cdr3_end_light,
+                "light_chain_type": light_chain_type,
             }
+            # Store paired format flag at family level
+            families[family_id]["is_paired"] = is_paired
 
             # Add parent node if not already present
             if parent not in families[family_id]["nodes"]:
-                families[family_id]["nodes"][parent] = {
+                parent_node_data = {
                     "sequence_id": parent,
                     "multiplicity": 0,
                     "timepoint_multiplicities": [],
@@ -244,10 +339,14 @@ def parse_pcp_csv(csv_path):
                     if parent_is_naive
                     else None,  # Will be set when node appears as child
                 }
+                # Add light chain sequence for paired format
+                if is_paired:
+                    parent_node_data["sequence_alignment_light"] = parent_sequence_light
+                families[family_id]["nodes"][parent] = parent_node_data
 
             # Add child node if not already present
             if child not in families[family_id]["nodes"]:
-                families[family_id]["nodes"][child] = {
+                child_node_data = {
                     "sequence_id": child,
                     "multiplicity": sample_count,
                     "timepoint_multiplicities": [],
@@ -258,6 +357,10 @@ def parse_pcp_csv(csv_path):
                     "distance": distance,  # Distance from root
                     "length": branch_length,  # Branch length to this node
                 }
+                # Add light chain sequence for paired format
+                if is_paired:
+                    child_node_data["sequence_alignment_light"] = child_sequence_light
+                families[family_id]["nodes"][child] = child_node_data
             else:
                 # Update multiplicity if node appears multiple times
                 families[family_id]["nodes"][child]["multiplicity"] += sample_count
@@ -285,6 +388,20 @@ def parse_pcp_csv(csv_path):
     # Post-process to ensure all nodes have correct distance/length values
     for family_id, family_data in families.items():
         _fix_node_distances_and_lengths(family_data)
+
+    # Post-process to correctly determine is_paired per-family
+    # The global is_paired flag is based on CSV columns, but we need to check actual data
+    for family_id, family_data in families.items():
+        # Check if ANY node in this family has non-empty light chain sequence
+        has_light_data = False
+        for node_data in family_data["nodes"].values():
+            light_seq = node_data.get("sequence_alignment_light", "")
+            if light_seq:  # Non-empty light chain sequence
+                has_light_data = True
+                break
+
+        # Update is_paired based on actual data presence
+        family_data["is_paired"] = has_light_data
 
     return dict(families)
 
@@ -623,24 +740,34 @@ def merge_tree_topology_with_pcp(pcp_family_data, newick_string, warn_disagreeme
             if node_distances.get(node_id, 0.0) > 0:
                 merged_nodes[node_id]["distances"] = [node_distances[node_id]]
 
-    # Return updated family data
+    # Return updated family data, preserving is_paired flag
     return {
         "family_data": pcp_family_data["family_data"],
         "nodes": merged_nodes,
         "edges": merged_edges,
+        "is_paired": pcp_family_data.get("is_paired", False),
     }
 
 
-def parse_newick_csv(csv_path):
+def parse_newick_csv(csv_path: str) -> Dict[str, Any]:
     """
     Parse CSV file containing Newick trees.
 
     Expected CSV format:
     family_name,sample_id,newick_tree (or family_name,newick_tree for backwards compatibility)
 
+    Optional columns for paired format:
+    - rate_scale_heavy: Rate scaling factor for heavy chain
+    - rate_scale_light: Rate scaling factor for light chain
+    - newick (alternative column name for newick_tree)
+    - family (alternative column name for family_name)
+
     Returns:
-        dict: {(family_name, sample_id): newick_string} if sample_id present,
-              {family_name: newick_string} otherwise
+        dict: {(family_name, sample_id): tree_data} if sample_id present,
+              {family_name: tree_data} otherwise
+              where tree_data is either:
+              - str: newick_string (for backwards compatibility)
+              - dict: {"newick": newick_string, "rate_scale_heavy": float, "rate_scale_light": float}
     """
     newick_trees = {}
 
@@ -653,26 +780,56 @@ def parse_newick_csv(csv_path):
     with file_handle:
         reader = csv.DictReader(file_handle)
 
-        # Validate required columns
-        required_cols = {"family_name", "newick_tree"}
-        if not required_cols.issubset(reader.fieldnames):
-            missing = required_cols - set(reader.fieldnames)
-            raise ValueError(f"Missing required columns: {missing}")
+        # Support alternative column names for backwards compatibility
+        # Check for newick column (paired format uses "newick", regular uses "newick_tree")
+        newick_col = None
+        if "newick" in reader.fieldnames:
+            newick_col = "newick"
+        elif "newick_tree" in reader.fieldnames:
+            newick_col = "newick_tree"
+
+        # Check for family column (paired format uses "family", regular uses "family_name")
+        family_col = None
+        if "family" in reader.fieldnames:
+            family_col = "family"
+        elif "family_name" in reader.fieldnames:
+            family_col = "family_name"
+
+        # Validate we have required columns
+        if newick_col is None:
+            raise ValueError("Missing required column: 'newick_tree' or 'newick'")
+        if family_col is None:
+            raise ValueError("Missing required column: 'family_name' or 'family'")
 
         # Check if sample_id column exists
         has_sample_id = "sample_id" in reader.fieldnames
 
+        # Check for rate scaling columns (paired format)
+        has_rate_scale = "rate_scale_heavy" in reader.fieldnames or "rate_scale_light" in reader.fieldnames
+
         for row in reader:
-            family_name = row["family_name"]
-            newick_tree = row["newick_tree"]
+            family_name = row[family_col]
+            newick_tree = row[newick_col]
+
+            # Build tree data
+            if has_rate_scale:
+                # Return dict with rate scaling for paired format
+                tree_data = {
+                    "newick": newick_tree,
+                    "rate_scale_heavy": float(row.get("rate_scale_heavy", 1.0)) if row.get("rate_scale_heavy") else 1.0,
+                    "rate_scale_light": float(row.get("rate_scale_light", 1.0)) if row.get("rate_scale_light") else 1.0,
+                }
+            else:
+                # Return just string for backwards compatibility
+                tree_data = newick_tree
 
             if has_sample_id:
                 sample_id = row["sample_id"]
                 # Use composite key (family_name, sample_id) to handle multiple samples with same family ID
-                newick_trees[(family_name, sample_id)] = newick_tree
+                newick_trees[(family_name, sample_id)] = tree_data
             else:
                 # Backwards compatibility: use just family_name
-                newick_trees[family_name] = newick_tree
+                newick_trees[family_name] = tree_data
 
     return newick_trees
 
@@ -940,6 +1097,186 @@ def compute_cluster_multiplicity_for_tree(nodes_dict, edges, root_id):
     return cluster_mult
 
 
+def align_and_calculate_mutations(
+    germline: str,
+    leaf: str,
+    alignment_method: str = "truncate"
+) -> tuple[int, int, str, str]:
+    """
+    Align sequences and count mutations between germline and leaf.
+
+    This function consolidates the shared logic between truncate and pad alignment methods,
+    eliminating ~90% code duplication.
+
+    Args:
+        germline: Germline sequence string
+        leaf: Leaf sequence string
+        alignment_method: Either "truncate" or "pad"
+            - "truncate": Use min length, truncate longer sequence
+            - "pad": Use max length, pad shorter sequence with "."
+
+    Returns:
+        tuple: (mutation_count, alignment_length, germline_aligned, leaf_aligned)
+            - mutation_count: Number of mismatches (excluding gaps)
+            - alignment_length: Length of aligned sequences
+            - germline_aligned: Aligned germline sequence
+            - leaf_aligned: Aligned leaf sequence
+
+    Examples:
+        >>> align_and_calculate_mutations("ATGC", "ATGT", "truncate")
+        (1, 4, 'ATGC', 'ATGT')
+        >>> align_and_calculate_mutations("ATG", "ATGCC", "truncate")
+        (0, 3, 'ATG', 'ATG')
+        >>> align_and_calculate_mutations("ATG", "ATGCC", "pad")
+        (0, 5, 'ATG..', 'ATGCC')
+    """
+    if alignment_method == "truncate":
+        # Truncate to shorter sequence length
+        length = min(len(germline), len(leaf))
+        g_aligned = germline[:length]
+        l_aligned = leaf[:length]
+    else:  # pad
+        # Pad to longer sequence length
+        length = max(len(germline), len(leaf))
+        g_aligned = germline.ljust(length, ".")
+        l_aligned = leaf.ljust(length, ".")
+
+    # Count mutations (mismatches, excluding empty strings and gaps)
+    mutations = sum(
+        1 for g, l in zip(g_aligned, l_aligned)
+        if g != l and g not in ('', '.') and l not in ('', '.')
+    )
+
+    return mutations, length, g_aligned, l_aligned
+
+
+def log_mutation_frequency_debug(
+    family_id: str,
+    germline_alignment: str,
+    debug_info: list,
+    skipped_nodes: list,
+    total_mut_freq: float,
+    total_sequences: int,
+    mean_mut_freq: float,
+    chain_label: str,
+    vprint: 'VerbosePrinter'
+):
+    """
+    Log detailed mutation frequency calculation information for debugging.
+
+    This function extracts the 85+ lines of debug logging from the mutation
+    frequency calculation, improving code readability and maintainability.
+
+    Args:
+        family_id: Family identifier
+        germline_alignment: Germline DNA sequence
+        debug_info: List of dicts with per-node debug information
+        skipped_nodes: List of dicts with skipped node information
+        total_mut_freq: Total weighted mutation frequency
+        total_sequences: Total number of sequences (weighted by multiplicity)
+        mean_mut_freq: Calculated mean mutation frequency
+        chain_label: Label for the chain type (e.g., "HEAVY CHAIN", "LIGHT CHAIN")
+        vprint: VerbosePrinter instance for output
+
+    Note:
+        This function only produces output at debug verbosity level (3).
+    """
+    # Early return if not in debug mode
+    if vprint.level < 3:
+        return
+
+    vprint.debug(f"\n=== DEBUG: mean_mut_freq calculation for family {family_id} ({chain_label}) ===")
+    vprint.debug(f"Germline length: {len(germline_alignment)} nt")
+
+    # Translate germline to amino acids
+    germline_aa = translate_dna_to_aa(germline_alignment)
+    vprint.debug(f"Germline AA length: {len(germline_aa)} aa")
+
+    vprint.debug(f"\nLEAF sequences only ({len(debug_info)} total):")
+    for info in debug_info:
+        # Check alignment method used
+        alignment_marker = ""
+        if info.get('was_aligned', False):
+            alignment_marker = f" [{info.get('alignment_method', 'ALIGNED').upper()}]"
+
+        # Show original lengths to verify they match the actual sequence data
+        orig_leaf = info.get('original_leaf_len', 0)
+        orig_germ = info.get('original_germline_len', 0)
+        aligned_len = info['seq_length']
+
+        length_info = f"leaf_len={orig_leaf}, germ_len={orig_germ}, aligned_len={aligned_len}"
+
+        vprint.debug(f"\n  Node {info['node']} (type={info['type']}){alignment_marker}: "
+                  f"distance={info['distance']:.6f}, "
+                  f"mutations={info['num_mutations']:.1f} nt, "
+                  f"{length_info}, "
+                  f"mut_freq={info['mut_freq']:.6f}, "
+                  f"multiplicity={info['multiplicity']}, "
+                  f"weighted={info['weighted_contribution']:.6f}")
+
+        # Translate leaf sequence to amino acids (remove padding before translation)
+        leaf_seq_original = info['leaf_seq'].rstrip('.')
+        germline_seq_original = info['germline_seq'].rstrip('.')
+
+        leaf_aa = translate_dna_to_aa(leaf_seq_original)
+        germline_aa_for_this_leaf = translate_dna_to_aa(germline_seq_original)
+
+        # Pad the amino acid sequences with "."
+        max_aa_length = max(len(germline_aa_for_this_leaf), len(leaf_aa))
+        germline_aa_padded = germline_aa_for_this_leaf.ljust(max_aa_length, ".")
+        leaf_aa_padded = leaf_aa.ljust(max_aa_length, ".")
+
+        # Create alignment display (show full sequence)
+        naive_line = ""
+        node_line = ""
+
+        for i in range(max_aa_length):
+            naive_aa = germline_aa_padded[i]
+            leaf_aa_char = leaf_aa_padded[i]
+
+            naive_line += naive_aa
+            # Show "-" where sequences match, show actual AA where they differ
+            if naive_aa == leaf_aa_char:
+                node_line += "-"
+            else:
+                node_line += leaf_aa_char
+
+        vprint.debug(f"    Naive: {naive_line}")
+        vprint.debug(f"    Node:  {node_line}")
+
+        # Count AA mutations
+        aa_mutations = sum(1 for i in range(min(len(germline_aa), len(leaf_aa)))
+                          if germline_aa[i] != leaf_aa[i])
+        vprint.debug(f"    AA mutations: {aa_mutations}")
+
+    vprint.debug(f"\nTotal mutation frequency (weighted): {total_mut_freq:.6f}")
+    vprint.debug(f"Total leaf sequences: {total_sequences}")
+    vprint.debug(f"Mean mutation frequency ({chain_label.lower()}): {mean_mut_freq:.6f}")
+    vprint.debug(f"  (This means {mean_mut_freq*100:.2f}% of positions have mutations on average)")
+
+    # Show skipped nodes summary
+    if skipped_nodes:
+        vprint.debug(f"\nSkipped {len(skipped_nodes)} nodes:")
+        # Group by reason
+        by_reason = {}
+        for node in skipped_nodes:
+            reason = node['reason']
+            if reason not in by_reason:
+                by_reason[reason] = []
+            by_reason[reason].append(node)
+
+        for reason, nodes in by_reason.items():
+            vprint.debug(f"  {reason}: {len(nodes)} nodes")
+            # Show first few examples
+            for node in nodes[:3]:
+                seq_info = f"seq_len={node['seq_len']}" if node.get('has_sequence') else "no_seq"
+                vprint.debug(f"    - {node['node']} (type={node['type']}, mult={node['multiplicity']}, {seq_info})")
+            if len(nodes) > 3:
+                vprint.debug(f"    ... and {len(nodes) - 3} more")
+
+    vprint.debug(f"===================================================\n")
+
+
 def compute_scaled_affinity(affinity_values):
     """
     Compute scaled affinity using min-max normalization.
@@ -981,6 +1318,27 @@ def compute_scaled_affinity(affinity_values):
     return scaled
 
 
+def _get_descendants(node, children_map):
+    """
+    Get all descendants of a node in a tree.
+
+    Args:
+        node: Node ID to get descendants for
+        children_map: Dict mapping parent -> list of children
+
+    Returns:
+        set: All descendant node IDs
+    """
+    descendants = set()
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        for child in children_map.get(current, []):
+            descendants.add(child)
+            stack.append(child)
+    return descendants
+
+
 def build_newick_from_edges(nodes, edges):
     """
     Build a Newick string from parent-child edges.
@@ -1005,8 +1363,21 @@ def build_newick_from_edges(nodes, edges):
     all_parents = {parent for parent, _, _ in edges}
     roots = all_parents - all_children
 
-    if len(roots) != 1:
-        raise ValueError(f"Expected exactly one root, found {len(roots)}: {roots}")
+    if len(roots) == 0:
+        # No edges or cyclic graph - use first node as root
+        if nodes:
+            roots = {list(nodes.keys())[0]}
+        else:
+            return ";"
+
+    if len(roots) > 1:
+        # Multiple potential roots - prefer "naive" if present, otherwise pick first
+        if "naive" in roots:
+            root = "naive"
+        else:
+            # Use the root with the most descendants (largest subtree)
+            root = max(roots, key=lambda r: len(_get_descendants(r, children)))
+        roots = {root}
 
     root = roots.pop()
 
@@ -1039,7 +1410,18 @@ def build_newick_from_edges(nodes, edges):
     return f"({','.join(subtrees)}){root}:0.0;"
 
 
-def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None, warn_disagreements=False, compute_metrics=False, lbi_tau=0.0125, standardize_names=False, alignment_method="truncate", name=None, verbosity=1):
+def process_pcp_to_olmsted(
+    pcp_families: Dict[str, Any],
+    newick_trees: Optional[Dict[str, Any]] = None,
+    uuid_generator: Optional[Callable[[str], str]] = None,
+    warn_disagreements: bool = False,
+    compute_metrics: bool = False,
+    lbi_tau: float = 0.0125,
+    standardize_names: bool = False,
+    alignment_method: str = "truncate",
+    name: Optional[str] = None,
+    verbosity: int = 1,
+) -> Tuple[List[OlmstedDataset], Dict[str, List[OlmstedClone]], List[OlmstedTree]]:
     """
     Convert PCP format data to Olmsted format.
 
@@ -1056,7 +1438,7 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
         verbosity: Verbosity level (0=quiet, 1=normal, 2=verbose, 3=debug)
 
     Returns:
-        tuple: (datasets, clones_dict, trees)
+        Tuple of (datasets, clones_dict, trees) with proper Olmsted types
     """
     # Create verbosity printer
     vprint = VerbosePrinter(verbosity)
@@ -1068,7 +1450,7 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
     dataset_ident = uuid_generator("dataset-")
 
     datasets = []
-    clones_dict = {dataset_id: []}
+    clones_dict = {dataset_id: []}  # Clones array indexed by dataset_id
     trees = []
 
     # Create dataset
@@ -1106,11 +1488,15 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
                 s["sample_id"] == original_sample_id for s in dataset["samples"]
             )
             if not sample_exists:
+                # Infer locus from V gene call
+                v_gene = family_meta.get("v_gene", "")
+                locus = infer_locus_from_v_gene(v_gene)
+
                 dataset["samples"].append(
                     {
                         "ident": uuid_generator("sample-"),
                         "sample_id": original_sample_id,
-                        "locus": "igh",  # Default locus
+                        "locus": locus,
                         "timepoint_id": "merged",
                     }
                 )
@@ -1118,14 +1504,28 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
             # Merge tree topology with PCP data if Newick tree is available
             # Try composite key first (family_id, sample_id), then fall back to just family_id
             newick = None
+            newick_tree_data = None
+            rate_scale_heavy = 1.0
+            rate_scale_light = 1.0
+
             if newick_trees:
                 # Try composite key (family_id, sample_id)
                 composite_key = (family_id, original_sample_id)
                 if composite_key in newick_trees:
-                    newick = newick_trees[composite_key]
+                    newick_tree_data = newick_trees[composite_key]
                 # Fall back to just family_id for backwards compatibility
                 elif family_id in newick_trees:
-                    newick = newick_trees[family_id]
+                    newick_tree_data = newick_trees[family_id]
+
+                # Handle both string and dict return types from parse_newick_csv
+                if newick_tree_data is not None:
+                    if isinstance(newick_tree_data, dict):
+                        newick = newick_tree_data.get("newick", "")
+                        rate_scale_heavy = newick_tree_data.get("rate_scale_heavy", 1.0)
+                        rate_scale_light = newick_tree_data.get("rate_scale_light", 1.0)
+                    else:
+                        # String format (backwards compatibility)
+                        newick = newick_tree_data
 
             if newick:
                 # Use complete tree topology from Newick
@@ -1134,13 +1534,19 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
                 # Fallback to building tree from PCP edges only
                 newick = build_newick_from_edges(family_data["nodes"], family_data["edges"])
 
-            # Process nodes - add required fields with rich PCP data
-            processed_nodes = {}
-            for node_id, node_data in family_data["nodes"].items():
-                # Get sequence alignment from PCP data
-                sequence_alignment = node_data.get("sequence_alignment", "")
-                sequence_alignment_aa = translate_dna_to_aa(sequence_alignment)
+            # Store rate scaling in family data for later use
+            family_data["family_data"]["rate_scale_heavy"] = rate_scale_heavy
+            family_data["family_data"]["rate_scale_light"] = rate_scale_light
 
+            # Check if this family has paired data
+            is_paired = family_data.get("is_paired", False)
+
+            # Process nodes - add required fields with rich PCP data
+            # For paired data, we'll create TWO sets of nodes (heavy and light)
+            processed_nodes_heavy = {}
+            processed_nodes_light = {} if is_paired else None
+
+            for node_id, node_data in family_data["nodes"].items():
                 # Determine node type based on PCP metadata
                 if node_data.get("is_naive", False):
                     node_type = "root"
@@ -1150,10 +1556,14 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
                     # This is an internal/ancestral node (Node1, Node2, etc.)
                     node_type = "internal"
 
-                processed_node = {
+                # Create heavy chain node
+                sequence_alignment_heavy = node_data.get("sequence_alignment", "")
+                sequence_alignment_heavy_aa = translate_dna_to_aa(sequence_alignment_heavy)
+
+                processed_node_heavy = {
                     "sequence_id": node_id,
-                    "sequence_alignment": sequence_alignment,
-                    "sequence_alignment_aa": sequence_alignment_aa,
+                    "sequence_alignment": sequence_alignment_heavy,
+                    "sequence_alignment_aa": sequence_alignment_heavy_aa,
                     "multiplicity": node_data.get("multiplicity", 0),
                     "cluster_multiplicity": None,  # Will be computed below
                     "timepoint_multiplicities": node_data.get(
@@ -1168,9 +1578,37 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
                     "affinity": None,
                     "scaled_affinity": None,
                 }
-                processed_nodes[node_id] = processed_node
+                processed_nodes_heavy[node_id] = processed_node_heavy
 
-            # Set parent field based on edges
+                # Create light chain node (if paired data)
+                if is_paired:
+                    sequence_alignment_light = node_data.get("sequence_alignment_light", "")
+                    sequence_alignment_light_aa = translate_dna_to_aa(sequence_alignment_light)
+
+                    processed_node_light = {
+                        "sequence_id": node_id,
+                        "sequence_alignment": sequence_alignment_light,  # Use light chain as main sequence
+                        "sequence_alignment_aa": sequence_alignment_light_aa,
+                        "multiplicity": node_data.get("multiplicity", 0),
+                        "cluster_multiplicity": None,
+                        "timepoint_multiplicities": node_data.get(
+                            "timepoint_multiplicities", []
+                        ),
+                        "type": node_type,
+                        "parent": None,  # Will be set from edges below
+                        "distance": node_data.get("distance", 0.0),
+                        "length": node_data.get("length", 0.0),
+                        "lbi": None,
+                        "lbr": None,
+                        "affinity": None,
+                        "scaled_affinity": None,
+                    }
+                    processed_nodes_light[node_id] = processed_node_light
+
+            # For backward compatibility, keep processed_nodes pointing to heavy chain
+            processed_nodes = processed_nodes_heavy
+
+            # Set parent field based on edges (same topology for heavy and light)
             # First, find the true root (node that doesn't appear as a child in any edge)
             all_children = {child for _, child, _ in family_data["edges"]}
             all_parents = {parent for parent, _, _ in family_data["edges"]}
@@ -1181,56 +1619,88 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
                 tree_root = potential_roots.pop()
             else:
                 # If no clear root, use "naive" if present, otherwise use first node
-                tree_root = "naive" if "naive" in processed_nodes else list(processed_nodes.keys())[0]
+                tree_root = "naive" if "naive" in processed_nodes_heavy else list(processed_nodes_heavy.keys())[0]
 
-            # Set parent relationships, but ensure root has no parent
+            # Set parent relationships for heavy chain nodes
             for parent_id, child_id, edge_length in family_data["edges"]:
-                if child_id in processed_nodes and child_id != tree_root:
-                    processed_nodes[child_id]["parent"] = parent_id
+                if child_id in processed_nodes_heavy and child_id != tree_root:
+                    processed_nodes_heavy[child_id]["parent"] = parent_id
 
             # Ensure the root node has no parent
-            if tree_root in processed_nodes:
-                processed_nodes[tree_root]["parent"] = None
+            if tree_root in processed_nodes_heavy:
+                processed_nodes_heavy[tree_root]["parent"] = None
 
-            # Calculate cluster multiplicity (always computed)
+            # Set parent relationships for light chain nodes (if paired)
+            if is_paired:
+                for parent_id, child_id, edge_length in family_data["edges"]:
+                    if child_id in processed_nodes_light and child_id != tree_root:
+                        processed_nodes_light[child_id]["parent"] = parent_id
+
+                if tree_root in processed_nodes_light:
+                    processed_nodes_light[tree_root]["parent"] = None
+
+            # Calculate cluster multiplicity for heavy chain (always computed)
             vprint.verbose(f"  Computing cluster multiplicity for family {family_id}")
-            cluster_mult_values = compute_cluster_multiplicity_for_tree(processed_nodes, family_data["edges"], tree_root)
-            for node_id in processed_nodes:
-                processed_nodes[node_id]["cluster_multiplicity"] = cluster_mult_values.get(node_id, 0)
+            cluster_mult_values = compute_cluster_multiplicity_for_tree(processed_nodes_heavy, family_data["edges"], tree_root)
+            for node_id in processed_nodes_heavy:
+                processed_nodes_heavy[node_id]["cluster_multiplicity"] = cluster_mult_values.get(node_id, 0)
 
-            # Calculate phylogenetic metrics if requested
+            # Calculate cluster multiplicity for light chain (if paired)
+            if is_paired:
+                cluster_mult_values_light = compute_cluster_multiplicity_for_tree(processed_nodes_light, family_data["edges"], tree_root)
+                for node_id in processed_nodes_light:
+                    processed_nodes_light[node_id]["cluster_multiplicity"] = cluster_mult_values_light.get(node_id, 0)
+
+            # Calculate phylogenetic metrics if requested (computed for both heavy and light)
             if compute_metrics:
-                # Compute LBI
+                # Compute LBI for heavy chain
                 vprint.verbose(f"  Computing LBI for family {family_id} with tau={lbi_tau}")
-                lbi_values = compute_lbi_for_tree(processed_nodes, family_data["edges"], tree_root, tau=lbi_tau)
-                for node_id in processed_nodes:
+                lbi_values = compute_lbi_for_tree(processed_nodes_heavy, family_data["edges"], tree_root, tau=lbi_tau)
+                for node_id in processed_nodes_heavy:
                     lbi = lbi_values.get(node_id)
-                    processed_nodes[node_id]["lbi"] = lbi
+                    processed_nodes_heavy[node_id]["lbi"] = lbi
                     # Set affinity = LBI
-                    processed_nodes[node_id]["affinity"] = lbi
+                    processed_nodes_heavy[node_id]["affinity"] = lbi
 
-                # Compute scaled_affinity (min-max normalization)
+                # Compute scaled_affinity for heavy chain (min-max normalization)
                 vprint.verbose(f"  Computing scaled affinity for family {family_id}")
-                affinity_values = {node_id: processed_nodes[node_id]["affinity"] for node_id in processed_nodes}
+                affinity_values = {node_id: processed_nodes_heavy[node_id]["affinity"] for node_id in processed_nodes_heavy}
                 scaled_affinity_values = compute_scaled_affinity(affinity_values)
-                for node_id in processed_nodes:
-                    processed_nodes[node_id]["scaled_affinity"] = scaled_affinity_values.get(node_id)
+                for node_id in processed_nodes_heavy:
+                    processed_nodes_heavy[node_id]["scaled_affinity"] = scaled_affinity_values.get(node_id)
 
-                # Compute LBR
+                # Compute LBR for heavy chain
                 vprint.verbose(f"  Computing LBR for family {family_id}")
-                lbr_values = compute_lbr_for_tree(processed_nodes, family_data["edges"], tree_root)
-                for node_id in processed_nodes:
-                    processed_nodes[node_id]["lbr"] = lbr_values.get(node_id)
+                lbr_values = compute_lbr_for_tree(processed_nodes_heavy, family_data["edges"], tree_root)
+                for node_id in processed_nodes_heavy:
+                    processed_nodes_heavy[node_id]["lbr"] = lbr_values.get(node_id)
 
-            # Standardize node names if requested
+                # Compute metrics for light chain (if paired)
+                if is_paired:
+                    lbi_values_light = compute_lbi_for_tree(processed_nodes_light, family_data["edges"], tree_root, tau=lbi_tau)
+                    for node_id in processed_nodes_light:
+                        lbi = lbi_values_light.get(node_id)
+                        processed_nodes_light[node_id]["lbi"] = lbi
+                        processed_nodes_light[node_id]["affinity"] = lbi
+
+                    affinity_values_light = {node_id: processed_nodes_light[node_id]["affinity"] for node_id in processed_nodes_light}
+                    scaled_affinity_values_light = compute_scaled_affinity(affinity_values_light)
+                    for node_id in processed_nodes_light:
+                        processed_nodes_light[node_id]["scaled_affinity"] = scaled_affinity_values_light.get(node_id)
+
+                    lbr_values_light = compute_lbr_for_tree(processed_nodes_light, family_data["edges"], tree_root)
+                    for node_id in processed_nodes_light:
+                        processed_nodes_light[node_id]["lbr"] = lbr_values_light.get(node_id)
+
+            # Standardize node names if requested (apply same mapping to heavy and light)
             if standardize_names:
-                # Create name mapping: old_name -> new_name
+                # Create name mapping: old_name -> new_name (same for heavy and light chains)
                 name_mapping = {}
                 internal_counter = 1
                 leaf_counter = 1
 
-                # First pass: create mapping
-                for node_id, node_data in processed_nodes.items():
+                # First pass: create mapping (based on heavy chain node structure)
+                for node_id, node_data in processed_nodes_heavy.items():
                     node_type = node_data.get("type")
                     if node_type == "root":
                         name_mapping[node_id] = "naive"
@@ -1241,9 +1711,9 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
                         name_mapping[node_id] = f"Node{internal_counter}"
                         internal_counter += 1
 
-                # Second pass: rename nodes and update parent references
-                renamed_nodes = {}
-                for old_name, node_data in processed_nodes.items():
+                # Second pass: rename heavy chain nodes and update parent references
+                renamed_nodes_heavy = {}
+                for old_name, node_data in processed_nodes_heavy.items():
                     new_name = name_mapping[old_name]
                     # Update parent reference to use new name
                     if node_data["parent"] and node_data["parent"] in name_mapping:
@@ -1251,10 +1721,25 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
                     # Update sequence_id to new name
                     node_data["sequence_id"] = new_name
                     # Store under new name
-                    renamed_nodes[new_name] = node_data
+                    renamed_nodes_heavy[new_name] = node_data
 
-                processed_nodes = renamed_nodes
+                processed_nodes_heavy = renamed_nodes_heavy
+
+                # Rename light chain nodes using same mapping (if paired)
+                if is_paired:
+                    renamed_nodes_light = {}
+                    for old_name, node_data in processed_nodes_light.items():
+                        new_name = name_mapping[old_name]
+                        if node_data["parent"] and node_data["parent"] in name_mapping:
+                            node_data["parent"] = name_mapping[node_data["parent"]]
+                        node_data["sequence_id"] = new_name
+                        renamed_nodes_light[new_name] = node_data
+
+                    processed_nodes_light = renamed_nodes_light
+
+                # Update tree root and processed_nodes pointer
                 tree_root = name_mapping.get(tree_root, tree_root)
+                processed_nodes = processed_nodes_heavy
 
             # Extract family-level immunological data (already extracted above)
             v_call = family_meta.get("v_gene", "")
@@ -1273,52 +1758,136 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
             # V gene alignment positions
             v_alignment_start = family_meta.get("v_gene_start")
             if v_alignment_start is None:
+                vprint.print(
+                    f"WARNING: Family {family_id} missing v_gene_start position, defaulting to 0. "
+                    "Gene region visualization may be incorrect.",
+                    min_level=2
+                )
                 v_alignment_start = 0
 
             v_alignment_end = family_meta.get("v_gene_end")
             if v_alignment_end is None:
+                vprint.print(
+                    f"WARNING: Family {family_id} missing v_gene_end position, defaulting to 0. "
+                    "Gene region visualization may be incorrect.",
+                    min_level=2
+                )
                 v_alignment_end = 0
 
             # D gene alignment positions
             d_alignment_start = family_meta.get("d_gene_start")
             if d_alignment_start is None:
+                vprint.print(
+                    f"WARNING: Family {family_id} missing d_gene_start position, defaulting to 0. "
+                    "Gene region visualization may be incorrect.",
+                    min_level=2
+                )
                 d_alignment_start = 0
 
             d_alignment_end = family_meta.get("d_gene_end")
             if d_alignment_end is None:
+                vprint.print(
+                    f"WARNING: Family {family_id} missing d_gene_end position, defaulting to 0. "
+                    "Gene region visualization may be incorrect.",
+                    min_level=2
+                )
                 d_alignment_end = 0
 
             # J gene alignment positions
             j_alignment_start = family_meta.get("j_gene_start")
             if j_alignment_start is None:
+                vprint.print(
+                    f"WARNING: Family {family_id} missing j_gene_start position, defaulting to 0. "
+                    "Gene region visualization may be incorrect.",
+                    min_level=2
+                )
                 j_alignment_start = 0
 
             j_alignment_end = family_meta.get("j_gene_end")
             if j_alignment_end is None:
+                vprint.print(
+                    f"WARNING: Family {family_id} missing j_gene_end position, defaulting to 0. "
+                    "Gene region visualization may be incorrect.",
+                    min_level=2
+                )
                 j_alignment_end = 0
 
             junction_start = cdr3_start
             junction_length = (cdr3_end - cdr3_start) if (cdr3_end > cdr3_start) else 0
 
-            # Get germline sequence from naive node first (needed for mean_mut_freq calculation)
-            germline_alignment = ""
-            for node_id, node_data in processed_nodes.items():
-                if node_data.get("type") == "root":
-                    germline_alignment = node_data.get("sequence_alignment", "")
-                    break
+            # Extract light chain data for paired format
+            v_call_light = family_meta.get("v_gene_light", "") if is_paired else ""
+            j_call_light = family_meta.get("j_gene_light", "") if is_paired else ""
+            light_chain_type = family_meta.get("light_chain_type", "") if is_paired else ""
 
-            # Calculate mean mutation frequency from observed leaf sequences only
+            # Light chain CDR positions
+            cdr1_start_light = family_meta.get("cdr1_start_light", 0) if is_paired else 0
+            cdr1_end_light = family_meta.get("cdr1_end_light", 0) if is_paired else 0
+            cdr2_start_light = family_meta.get("cdr2_start_light", 0) if is_paired else 0
+            cdr2_end_light = family_meta.get("cdr2_end_light", 0) if is_paired else 0
+            cdr3_start_light = family_meta.get("cdr3_start_light", 0) if is_paired else 0
+            cdr3_end_light = family_meta.get("cdr3_end_light", 0) if is_paired else 0
+
+            junction_start_light = cdr3_start_light
+            junction_length_light = (cdr3_end_light - cdr3_start_light) if (cdr3_end_light > cdr3_start_light) else 0
+
+            # Rate scaling factors (from trees.csv)
+            rate_scale_heavy = family_meta.get("rate_scale_heavy", 1.0)
+            rate_scale_light = family_meta.get("rate_scale_light", 1.0) if is_paired else 1.0
+
+            # Get germline sequence from naive node (needed for mean_mut_freq calculation)
+            # Validate that exactly one root node exists with a valid sequence
+            root_nodes_heavy = [n for n in processed_nodes_heavy.values() if n.get("type") == "root"]
+            if len(root_nodes_heavy) != 1:
+                vprint.print(
+                    f"WARNING: Family {family_id} has {len(root_nodes_heavy)} root nodes (expected 1). "
+                    "This may indicate malformed data. Skipping this family.",
+                    min_level=1
+                )
+                continue  # Skip this family
+
+            germline_alignment = root_nodes_heavy[0].get("sequence_alignment", "")
+            if not germline_alignment:
+                vprint.print(
+                    f"WARNING: Family {family_id} root node missing sequence_alignment. "
+                    "Cannot calculate mutation frequency. Skipping this family.",
+                    min_level=1
+                )
+                continue  # Skip this family
+
+            # Get light chain germline (if paired)
+            germline_alignment_light = ""
+            if is_paired:
+                root_nodes_light = [n for n in processed_nodes_light.values() if n.get("type") == "root"]
+                if len(root_nodes_light) != 1:
+                    vprint.print(
+                        f"WARNING: Family {family_id} light chain has {len(root_nodes_light)} root nodes (expected 1). "
+                        "This may indicate malformed paired data. Skipping this family.",
+                        min_level=1
+                    )
+                    continue  # Skip this family
+
+                germline_alignment_light = root_nodes_light[0].get("sequence_alignment", "")
+                if not germline_alignment_light:
+                    vprint.print(
+                        f"WARNING: Family {family_id} light chain root node missing sequence_alignment. "
+                        "Cannot calculate mutation frequency for paired data. Skipping this family.",
+                        min_level=1
+                    )
+                    continue  # Skip this family
+
+            # Calculate mean mutation frequency for HEAVY CHAIN from observed leaf sequences only
             # mean_mut_freq = average(mutations_per_site) across all leaf nodes, weighted by multiplicity
             # Count actual mutations by comparing leaf sequence to germline sequence
-            total_mut_freq = 0.0
-            total_sequences = 0
+            total_mut_freq_heavy = 0.0
+            total_sequences_heavy = 0
             germline_length = len(germline_alignment) if germline_alignment else 0
 
             # DEBUG: Print calculation details for all sequences
-            debug_info = []
-            skipped_nodes = []
+            debug_info_heavy = []
+            skipped_nodes_heavy = []
 
-            for node_id, node_data in processed_nodes.items():
+            for node_id, node_data in processed_nodes_heavy.items():
                 node_type = node_data.get("type")
                 multiplicity = node_data.get("multiplicity", 0)
                 # Only count LEAF nodes with observed sequences (type="leaf" and multiplicity > 0)
@@ -1328,92 +1897,45 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
 
                     # Count mutations by comparing to germline
                     if germline_alignment and leaf_sequence:
-                        if alignment_method == "truncate":
-                            # Truncate to shorter sequence length (default behavior)
-                            min_len = min(len(germline_alignment), len(leaf_sequence))
-                            germline_compared = germline_alignment[:min_len]
-                            leaf_compared = leaf_sequence[:min_len]
+                        # Use helper function to align and calculate mutations
+                        num_mutations, seq_length, germline_aligned, leaf_aligned = align_and_calculate_mutations(
+                            germline_alignment, leaf_sequence, alignment_method
+                        )
 
-                            # Count mutations in overlapping region
-                            num_mutations = sum(1 for g, l in zip(germline_compared, leaf_compared)
-                                              if g != l and g != '' and l != '')
-                            # Calculate frequency based on truncated length
-                            mut_freq = num_mutations / min_len if min_len > 0 else 0.0
+                        # Calculate mutation frequency
+                        mut_freq = num_mutations / seq_length if seq_length > 0 else 0.0
 
-                            total_mut_freq += mut_freq * multiplicity
-                            total_sequences += multiplicity
+                        total_mut_freq_heavy += mut_freq * multiplicity
+                        total_sequences_heavy += multiplicity
 
-                            # Collect mutation positions for display
-                            mutation_positions = []
-                            for pos, (g, l) in enumerate(zip(germline_compared, leaf_compared)):
-                                if g != l and g != '' and l != '':
-                                    mutation_positions.append({
-                                        'pos': pos,
-                                        'germline': g,
-                                        'leaf': l
-                                    })
+                        # Collect mutation positions for display
+                        mutation_positions = []
+                        for pos, (g, l) in enumerate(zip(germline_aligned, leaf_aligned)):
+                            if g != l and g not in ('', '.') and l not in ('', '.'):
+                                mutation_positions.append({
+                                    'pos': pos,
+                                    'germline': g,
+                                    'leaf': l
+                                })
 
-                            # Collect debug info
-                            debug_info.append({
-                                'node': node_id,
-                                'type': node_type,
-                                'distance': node_data.get("distance", 0.0),
-                                'num_mutations': num_mutations,
-                                'seq_length': min_len,  # Truncated length
-                                'original_leaf_len': len(leaf_sequence),
-                                'original_germline_len': len(germline_alignment),
-                                'mut_freq': mut_freq,
-                                'multiplicity': multiplicity,
-                                'weighted_contribution': mut_freq * multiplicity,
-                                'germline_seq': germline_compared,
-                                'leaf_seq': leaf_compared,
-                                'mutations': mutation_positions,
-                                'was_truncated': len(germline_alignment) != len(leaf_sequence)
-                            })
-
-                        elif alignment_method == "pad":
-                            # Pad the shorter sequence with "." (optional behavior)
-                            max_len = max(len(germline_alignment), len(leaf_sequence))
-                            germline_padded = germline_alignment.ljust(max_len, ".")
-                            leaf_padded = leaf_sequence.ljust(max_len, ".")
-
-                            # Use the padded sequences for comparison
-                            # Count mutations, treating "." as a gap (not a mutation)
-                            num_mutations = sum(1 for g, l in zip(germline_padded, leaf_padded)
-                                              if g != l and g != '' and l != '' and g != '.' and l != '.')
-                            # Calculate frequency based on the padded alignment length
-                            mut_freq = num_mutations / max_len if max_len > 0 else 0.0
-
-                            total_mut_freq += mut_freq * multiplicity
-                            total_sequences += multiplicity
-
-                            # Collect mutation positions for display (using padded sequences)
-                            mutation_positions = []
-                            for pos, (g, l) in enumerate(zip(germline_padded, leaf_padded)):
-                                if g != l and g != '' and l != '' and g != '.' and l != '.':
-                                    mutation_positions.append({
-                                        'pos': pos,
-                                        'germline': g,
-                                        'leaf': l
-                                    })
-
-                            # Collect debug info for sequences we can calculate
-                            debug_info.append({
-                                'node': node_id,
-                                'type': node_type,
-                                'distance': node_data.get("distance", 0.0),
-                                'num_mutations': num_mutations,
-                                'seq_length': max_len,  # Padded/aligned length
-                                'original_leaf_len': len(leaf_sequence),  # Original leaf sequence length
-                                'original_germline_len': len(germline_alignment),  # Original germline length
-                                'mut_freq': mut_freq,
-                                'multiplicity': multiplicity,
-                                'weighted_contribution': mut_freq * multiplicity,
-                                'germline_seq': germline_padded,  # Use padded sequence
-                                'leaf_seq': leaf_padded,  # Use padded sequence
-                                'mutations': mutation_positions,
-                                'was_padded': len(germline_alignment) != len(leaf_sequence)
-                            })
+                        # Collect debug info
+                        debug_info_heavy.append({
+                            'node': node_id,
+                            'type': node_type,
+                            'distance': node_data.get("distance", 0.0),
+                            'num_mutations': num_mutations,
+                            'seq_length': seq_length,
+                            'original_leaf_len': len(leaf_sequence),
+                            'original_germline_len': len(germline_alignment),
+                            'mut_freq': mut_freq,
+                            'multiplicity': multiplicity,
+                            'weighted_contribution': mut_freq * multiplicity,
+                            'germline_seq': germline_aligned,
+                            'leaf_seq': leaf_aligned,
+                            'mutations': mutation_positions,
+                            'was_aligned': len(germline_alignment) != len(leaf_sequence),
+                            'alignment_method': alignment_method
+                        })
                     else:
                         # Track why we skipped this sequence - be specific
                         if not leaf_sequence:
@@ -1425,7 +1947,7 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
                         else:
                             reason = 'unknown'
 
-                        skipped_nodes.append({
+                        skipped_nodes_heavy.append({
                             'node': node_id,
                             'type': node_type,
                             'multiplicity': multiplicity,
@@ -1444,116 +1966,89 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
                     else:
                         reason = 'unknown'
 
-                    skipped_nodes.append({
+                    skipped_nodes_heavy.append({
                         'node': node_id,
                         'type': node_type,
                         'multiplicity': multiplicity,
                         'reason': reason
                     })
 
-            mean_mut_freq = total_mut_freq / total_sequences if total_sequences > 0 else 0.0
+            mean_mut_freq = total_mut_freq_heavy / total_sequences_heavy if total_sequences_heavy > 0 else 0.0
 
-            # DEBUG: Print for all families (only at debug verbosity level)
-            vprint.debug(f"\n=== DEBUG: mean_mut_freq calculation for family {family_id} ===")
-            vprint.debug(f"Germline length: {germline_length} nt")
+            # Log debug information (only at debug verbosity level)
+            log_mutation_frequency_debug(
+                family_id=family_id,
+                germline_alignment=germline_alignment,
+                debug_info=debug_info_heavy,
+                skipped_nodes=skipped_nodes_heavy,
+                total_mut_freq=total_mut_freq_heavy,
+                total_sequences=total_sequences_heavy,
+                mean_mut_freq=mean_mut_freq,
+                chain_label="HEAVY CHAIN",
+                vprint=vprint
+            )
 
-            # Translate germline to amino acids
-            germline_aa = translate_dna_to_aa(germline_alignment)
-            vprint.debug(f"Germline AA length: {len(germline_aa)} aa")
+            # Calculate mean mutation frequency for LIGHT CHAIN (if paired)
+            mean_mut_freq_light = 0.0
+            if is_paired:
+                total_mut_freq_light = 0.0
+                total_sequences_light = 0
+                germline_length_light = len(germline_alignment_light) if germline_alignment_light else 0
 
-            vprint.debug(f"\nLEAF sequences only ({len(debug_info)} total):")
-            for info in debug_info:
-                padded_marker = " [PADDED]" if info.get('was_padded', False) else ""
-                # Show original lengths to verify they match the actual sequence data
-                orig_leaf = info.get('original_leaf_len', 0)
-                orig_germ = info.get('original_germline_len', 0)
-                aligned_len = info['seq_length']
+                for node_id, node_data in processed_nodes_light.items():
+                    node_type = node_data.get("type")
+                    multiplicity = node_data.get("multiplicity", 0)
 
-                length_info = f"leaf_len={orig_leaf}, germ_len={orig_germ}, aligned_len={aligned_len}"
+                    if node_type == "leaf" and multiplicity > 0:
+                        leaf_sequence = node_data.get("sequence_alignment", "")
 
-                vprint.debug(f"\n  Node {info['node']} (type={info['type']}){padded_marker}: "
-                          f"distance={info['distance']:.6f}, "
-                          f"mutations={info['num_mutations']:.1f} nt, "
-                          f"{length_info}, "
-                          f"mut_freq={info['mut_freq']:.6f}, "
-                          f"multiplicity={info['multiplicity']}, "
-                          f"weighted={info['weighted_contribution']:.6f}")
+                        if germline_alignment_light and leaf_sequence:
+                            # Use same alignment method as heavy chain
+                            if alignment_method == "truncate":
+                                min_len = min(len(germline_alignment_light), len(leaf_sequence))
+                                germline_compared = germline_alignment_light[:min_len]
+                                leaf_compared = leaf_sequence[:min_len]
+                                num_mutations = sum(1 for g, l in zip(germline_compared, leaf_compared)
+                                                  if g != l and g != '' and l != '')
+                                mut_freq = num_mutations / min_len if min_len > 0 else 0.0
+                            elif alignment_method == "pad":
+                                max_len = max(len(germline_alignment_light), len(leaf_sequence))
+                                germline_padded = germline_alignment_light.ljust(max_len, ".")
+                                leaf_padded = leaf_sequence.ljust(max_len, ".")
+                                num_mutations = sum(1 for g, l in zip(germline_padded, leaf_padded)
+                                                  if g != l and g != '' and l != '' and g != '.' and l != '.')
+                                mut_freq = num_mutations / max_len if max_len > 0 else 0.0
 
-                # Translate leaf sequence to amino acids (before padding - translate original sequences)
-                # Remove padding before translation
-                leaf_seq_original = info['leaf_seq'].rstrip('.')
-                germline_seq_original = info['germline_seq'].rstrip('.')
+                            total_mut_freq_light += mut_freq * multiplicity
+                            total_sequences_light += multiplicity
 
-                leaf_aa = translate_dna_to_aa(leaf_seq_original)
-                germline_aa_for_this_leaf = translate_dna_to_aa(germline_seq_original)
+                mean_mut_freq_light = total_mut_freq_light / total_sequences_light if total_sequences_light > 0 else 0.0
+                vprint.debug(f"\n=== Light chain mean_mut_freq for family {family_id} ===")
+                vprint.debug(f"Total mutation frequency (weighted): {total_mut_freq_light:.6f}")
+                vprint.debug(f"Total leaf sequences: {total_sequences_light}")
+                vprint.debug(f"Mean mutation frequency (light): {mean_mut_freq_light:.6f}")
+                vprint.debug(f"  (This means {mean_mut_freq_light*100:.2f}% of positions have mutations on average)")
+                vprint.debug(f"===================================================\n")
 
-                # Now pad the amino acid sequences with "."
-                max_aa_length = max(len(germline_aa_for_this_leaf), len(leaf_aa))
-                germline_aa_padded = germline_aa_for_this_leaf.ljust(max_aa_length, ".")
-                leaf_aa_padded = leaf_aa.ljust(max_aa_length, ".")
+            # Generate pair_id for paired data (links heavy and light clone entries)
+            pair_id = None
+            if is_paired:
+                # Use family_id as base for pair_id to ensure consistency
+                pair_id = f"pair-{family_id}"
 
-                # Create alignment display (show full sequence)
-                naive_line = ""
-                node_line = ""
-
-                for i in range(max_aa_length):
-                    naive_aa = germline_aa_padded[i]
-                    leaf_aa_char = leaf_aa_padded[i]
-
-                    naive_line += naive_aa
-                    # Show "-" where sequences match, show actual AA where they differ
-                    if naive_aa == leaf_aa_char:
-                        node_line += "-"
-                    else:
-                        node_line += leaf_aa_char
-
-                vprint.debug(f"    Naive: {naive_line}")
-                vprint.debug(f"    Node:  {node_line}")
-
-                # Count AA mutations
-                aa_mutations = sum(1 for i in range(min(len(germline_aa), len(leaf_aa)))
-                                  if germline_aa[i] != leaf_aa[i])
-                vprint.debug(f"    AA mutations: {aa_mutations}")
-
-            vprint.debug(f"\nTotal mutation frequency (weighted): {total_mut_freq:.6f}")
-            vprint.debug(f"Total leaf sequences: {total_sequences}")
-            vprint.debug(f"Mean mutation frequency: {mean_mut_freq:.6f}")
-            vprint.debug(f"  (This means {mean_mut_freq*100:.2f}% of positions have mutations on average)")
-
-            # Show skipped nodes summary
-            if skipped_nodes:
-                vprint.debug(f"\nSkipped {len(skipped_nodes)} nodes:")
-                # Group by reason
-                by_reason = {}
-                for node in skipped_nodes:
-                    reason = node['reason']
-                    if reason not in by_reason:
-                        by_reason[reason] = []
-                    by_reason[reason].append(node)
-
-                for reason, nodes in by_reason.items():
-                    vprint.debug(f"  {reason}: {len(nodes)} nodes")
-                    # Show first few examples
-                    for node in nodes[:3]:
-                        seq_info = f"seq_len={node['seq_len']}" if node.get('has_sequence') else "no_seq"
-                        vprint.debug(f"    - {node['node']} (type={node['type']}, mult={node['multiplicity']}, {seq_info})")
-                    if len(nodes) > 3:
-                        vprint.debug(f"    ... and {len(nodes) - 3} more")
-
-            vprint.debug(f"===================================================\n")
-
-            # Create clone with rich PCP data
-            clone = {
-                "clone_id": family_id,  # Use actual family name from PCP data
-                "ident": clone_ident,
+            # Create heavy chain clone
+            clone_heavy = {
+                "clone_id": family_id if not is_paired else f"{family_id}-heavy",
+                "ident": clone_ident if not is_paired else f"{clone_ident}-heavy",
                 "dataset_id": dataset_id,
                 "sample_id": original_sample_id,
                 "subject_id": "pcp-subject",
-                "unique_seqs_count": len(processed_nodes),
+                "unique_seqs_count": len(processed_nodes_heavy),
                 "total_read_count": sum(
-                    n.get("multiplicity", 0) for n in processed_nodes.values()
+                    n.get("multiplicity", 0) for n in processed_nodes_heavy.values()
                 ),
                 "mean_mut_freq": mean_mut_freq,
+                # Heavy chain alignment positions
                 "v_alignment_start": v_alignment_start,
                 "v_alignment_end": v_alignment_end,
                 "j_alignment_start": j_alignment_start,
@@ -1564,6 +2059,7 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
                 "cdr2_alignment_end": cdr2_end,
                 "junction_start": junction_start,
                 "junction_length": junction_length,
+                # Heavy chain gene calls
                 "v_call": v_call,
                 "d_call": d_call,
                 "j_call": j_call,
@@ -1573,39 +2069,126 @@ def process_pcp_to_olmsted(pcp_families, newick_trees=None, uuid_generator=None,
                 "has_seed": False,
                 "trees": [
                     {
-                        "ident": tree_ident,
-                        "clone_id": family_id,  # Use actual family name
-                        "tree_id": f"pcp-tree-{family_id}",  # Use family name in tree ID
+                        "ident": tree_ident if not is_paired else f"{tree_ident}-heavy",
+                        "clone_id": family_id if not is_paired else f"{family_id}-heavy",
+                        "tree_id": f"pcp-tree-{family_id}" if not is_paired else f"pcp-tree-{family_id}-heavy",
                         "newick": newick,
-                        "type": "pcp.reconstruction",  # PCP-specific type
+                        "type": "pcp.reconstruction",
                     }
                 ],
                 # Add nested sample and dataset objects for webapp compatibility
                 "sample": {
-                    "ident": clone_ident,
-                    "locus": "igh",
+                    "ident": clone_ident if not is_paired else f"{clone_ident}-heavy",
+                    "locus": infer_locus_from_v_gene(v_call),
                     "sample_id": original_sample_id,
                     "timepoint_id": "merged",
                 },
                 "dataset": {"ident": dataset_ident, "dataset_id": dataset_id},
             }
-            clones_dict[dataset_id].append(clone)
 
-            # Convert nodes to array format (required by webapp)
-            nodes_array = []
-            for node_id, node_data in processed_nodes.items():
-                nodes_array.append(node_data)
+            # Add paired data fields
+            if is_paired:
+                clone_heavy["is_paired"] = True
+                clone_heavy["pair_id"] = pair_id
 
-            # Create tree with nodes as array
-            tree = {
-                "ident": tree_ident,
-                "tree_id": f"pcp-tree-{family_id}",  # Use family name in tree ID
-                "clone_id": family_id,  # Use actual family name
+            # Add clone to dataset's clones array
+            clones_dict[dataset_id].append(clone_heavy)
+
+            # Create light chain clone (if paired data)
+            if is_paired:
+                # Determine light chain locus from light_chain_type
+                if light_chain_type.lower() == "kappa":
+                    light_locus = "igk"
+                elif light_chain_type.lower() == "lambda":
+                    light_locus = "igl"
+                else:
+                    # Default to igk if not specified
+                    light_locus = "igk"
+
+                clone_light = {
+                    "clone_id": f"{family_id}-light",
+                    "ident": f"{clone_ident}-light",
+                    "dataset_id": dataset_id,
+                    "sample_id": original_sample_id,
+                    "subject_id": "pcp-subject",
+                    "unique_seqs_count": len(processed_nodes_light),
+                    "total_read_count": sum(
+                        n.get("multiplicity", 0) for n in processed_nodes_light.values()
+                    ),
+                    "mean_mut_freq": mean_mut_freq_light,  # Calculated separately for light chain
+                    # Light chain alignment positions
+                    "v_alignment_start": 0,  # Not typically provided for light chain
+                    "v_alignment_end": 0,
+                    "j_alignment_start": 0,
+                    "j_alignment_end": 0,
+                    "cdr1_alignment_start": cdr1_start_light,
+                    "cdr1_alignment_end": cdr1_end_light,
+                    "cdr2_alignment_start": cdr2_start_light,
+                    "cdr2_alignment_end": cdr2_end_light,
+                    "junction_start": junction_start_light,
+                    "junction_length": junction_length_light,
+                    # Light chain gene calls (no D gene)
+                    "v_call": v_call_light,
+                    "d_call": "",  # Light chains don't have D gene
+                    "j_call": j_call_light,
+                    "d_alignment_start": 0,
+                    "d_alignment_end": 0,
+                    "germline_alignment": germline_alignment_light,
+                    "has_seed": False,
+                    "trees": [
+                        {
+                            "ident": f"{tree_ident}-light",
+                            "clone_id": f"{family_id}-light",
+                            "tree_id": f"pcp-tree-{family_id}-light",
+                            "newick": newick,  # Same topology, different sequences
+                            "type": "pcp.reconstruction",
+                        }
+                    ],
+                    "sample": {
+                        "ident": f"{clone_ident}-light",
+                        "locus": light_locus,  # "igk" or "igl" based on light_chain_type
+                        "sample_id": original_sample_id,
+                        "timepoint_id": "merged",
+                    },
+                    "dataset": {"ident": dataset_ident, "dataset_id": dataset_id},
+                    "is_paired": True,
+                    "pair_id": pair_id,
+                }
+
+                # Add clone to dataset's clones array
+                clones_dict[dataset_id].append(clone_light)
+
+            # Convert heavy chain nodes to array format (required by webapp)
+            nodes_array_heavy = []
+            for node_id, node_data in processed_nodes_heavy.items():
+                nodes_array_heavy.append(node_data)
+
+            # Create heavy chain tree
+            tree_heavy = {
+                "ident": tree_ident if not is_paired else f"{tree_ident}-heavy",
+                "tree_id": f"pcp-tree-{family_id}" if not is_paired else f"pcp-tree-{family_id}-heavy",
+                "clone_id": family_id if not is_paired else f"{family_id}-heavy",
                 "newick": newick,
-                "nodes": nodes_array,
-                "type": "pcp.reconstruction",  # PCP-specific reconstruction type
+                "nodes": nodes_array_heavy,
+                "type": "pcp.reconstruction",
             }
-            trees.append(tree)
+            trees.append(tree_heavy)
+
+            # Create light chain tree (if paired)
+            if is_paired:
+                nodes_array_light = []
+                for node_id, node_data in processed_nodes_light.items():
+                    nodes_array_light.append(node_data)
+
+                tree_light = {
+                    "ident": f"{tree_ident}-light",
+                    "tree_id": f"pcp-tree-{family_id}-light",
+                    "clone_id": f"{family_id}-light",
+                    "newick": newick,  # Same topology, different sequences in nodes
+                    "nodes": nodes_array_light,
+                    "type": "pcp.reconstruction",
+                }
+                trees.append(tree_light)
 
     datasets.append(dataset)
     return datasets, clones_dict, trees

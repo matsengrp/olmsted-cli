@@ -168,6 +168,10 @@ node_spec = {
             "type": ["array", "null"],
             "items": timepoint_multiplicity_spec,
         },
+        "scaled_affinity": {
+            "description": "Scaled binding affinity (min-max normalized)",
+            "type": ["number", "null"],
+        },
     },
     "additionalProperties": True,
 }
@@ -463,6 +467,15 @@ clone_spec = {
                 "required": ["gene", "ident", "prob"],
                 "additionalProperties": False,
             },
+        },
+        # Paired data fields
+        "is_paired": {
+            "description": "Whether this clone is part of a paired heavy/light chain dataset",
+            "type": ["boolean", "null"],
+        },
+        "pair_id": {
+            "description": "Identifier linking paired heavy and light chain clones",
+            "type": ["string", "null"],
         },
     },
     "additionalProperties": True,
