@@ -1,0 +1,218 @@
+{
+  "dataset_id": "test-fields-airr",
+  "ident": "dataset-test-fields-airr",
+  "type": "airr.dataset",
+  "schema_version": "2.0.0",
+  "build": {"commit": "test", "time": "2026-03-29"},
+  "subjects": [
+    {"subject_id": "subject-1", "ident": "subject-ident-1"}
+  ],
+  "samples": [
+    {
+      "sample_id": "sample-1",
+      "ident": "sample-ident-1",
+      "locus": "igh",
+      "timepoint_id": "day30",
+      "partitions": []
+    }
+  ],
+  "seeds": [],
+  "clones": [
+    {
+      "clone_id": "clone-A",
+      "sample_id": "sample-1",
+      "subject_id": "subject-1",
+      "dataset_id": "test-fields-airr",
+      "v_call": "IGHV3-48*01",
+      "d_call": "IGHD3-10*01",
+      "j_call": "IGHJ4*02",
+      "germline_alignment": "ATCGATCGATCG",
+      "unique_seqs_count": 10,
+      "mean_mut_freq": 0.05,
+      "v_alignment_start": 1,
+      "v_alignment_end": 294,
+      "d_alignment_start": 295,
+      "d_alignment_end": 300,
+      "j_alignment_start": 301,
+      "j_alignment_end": 350,
+      "junction_start": 288,
+      "junction_length": 51,
+      "foobar_score": 42.5,
+      "foobar_category": "group-alpha",
+      "foobar_note": "This clone has interesting properties",
+      "trees": [
+        {
+          "tree_id": "parsimony",
+          "ident": "tree-A",
+          "newick": "((leaf1:0.02,leaf2:0.03)node1:0.01)naive:0.0;",
+          "nodes": {
+            "naive": {
+              "sequence_id": "naive",
+              "parent": null,
+              "type": "root",
+              "sequence_alignment": "ATCGATCGATCG",
+              "sequence_alignment_aa": "IDID",
+              "distance": 0.0,
+              "length": 0.0,
+              "multiplicity": 1,
+              "lbi": 0.5,
+              "lbr": 0.0,
+              "foobar_weight": 1.0,
+              "foobar_class": "internal",
+              "foobar_description": "Root node"
+            },
+            "node1": {
+              "sequence_id": "node1",
+              "parent": "naive",
+              "type": "internal",
+              "sequence_alignment": "ATCGATCGTTCG",
+              "sequence_alignment_aa": "IDIF",
+              "distance": 0.01,
+              "length": 0.01,
+              "multiplicity": 0,
+              "lbi": 0.8,
+              "lbr": 1.6,
+              "foobar_weight": 2.5,
+              "foobar_class": "internal",
+              "foobar_description": "Internal node"
+            },
+            "leaf1": {
+              "sequence_id": "leaf1",
+              "parent": "node1",
+              "type": "leaf",
+              "sequence_alignment": "ATCGATCGTTGG",
+              "sequence_alignment_aa": "IDIW",
+              "distance": 0.03,
+              "length": 0.02,
+              "multiplicity": 3,
+              "timepoint_id": "day30",
+              "lbi": 0.9,
+              "lbr": 1.125,
+              "foobar_weight": 5.0,
+              "foobar_class": "high-confidence",
+              "foobar_description": "Abundant leaf",
+              "surprise_mutations": [
+                {
+                  "site": 9,
+                  "parent_aa": "I",
+                  "child_aa": "W",
+                  "surprise_mutsel": 6.2,
+                  "surprise_neutral": 4.1,
+                  "selection_contribution": 2.1,
+                  "region": "CDR3",
+                  "foobar_impact": 0.95,
+                  "foobar_tier": "high"
+                }
+              ]
+            },
+            "leaf2": {
+              "sequence_id": "leaf2",
+              "parent": "node1",
+              "type": "leaf",
+              "sequence_alignment": "ATCGATCGTTAG",
+              "sequence_alignment_aa": "IDI*",
+              "distance": 0.04,
+              "length": 0.03,
+              "multiplicity": 1,
+              "timepoint_id": "day30",
+              "lbi": 0.3,
+              "lbr": 0.375,
+              "foobar_weight": 1.2,
+              "foobar_class": "low-confidence",
+              "foobar_description": "Rare leaf",
+              "surprise_mutations": [
+                {
+                  "site": 10,
+                  "parent_aa": "F",
+                  "child_aa": "*",
+                  "surprise_mutsel": 12.5,
+                  "surprise_neutral": 10.8,
+                  "selection_contribution": 1.7,
+                  "region": "CDR3",
+                  "foobar_impact": 0.1,
+                  "foobar_tier": "low"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "clone_id": "clone-B",
+      "sample_id": "sample-1",
+      "subject_id": "subject-1",
+      "dataset_id": "test-fields-airr",
+      "v_call": "IGHV1-18*01",
+      "d_call": "IGHD2-2*01",
+      "j_call": "IGHJ6*02",
+      "germline_alignment": "GCTAGCTAGCTA",
+      "unique_seqs_count": 7,
+      "mean_mut_freq": 0.12,
+      "v_alignment_start": 1,
+      "v_alignment_end": 290,
+      "d_alignment_start": 291,
+      "d_alignment_end": 310,
+      "j_alignment_start": 311,
+      "j_alignment_end": 360,
+      "junction_start": 285,
+      "junction_length": 45,
+      "foobar_score": 88.1,
+      "foobar_category": "group-beta",
+      "foobar_note": "Another clone with custom metrics",
+      "trees": [
+        {
+          "tree_id": "parsimony",
+          "ident": "tree-B",
+          "newick": "(leaf3:0.05)naive:0.0;",
+          "nodes": {
+            "naive": {
+              "sequence_id": "naive",
+              "parent": null,
+              "type": "root",
+              "sequence_alignment": "GCTAGCTAGCTA",
+              "sequence_alignment_aa": "ASAS",
+              "distance": 0.0,
+              "length": 0.0,
+              "multiplicity": 1,
+              "lbi": 0.4,
+              "lbr": 0.0,
+              "foobar_weight": 1.0,
+              "foobar_class": "internal",
+              "foobar_description": "Root of clone B"
+            },
+            "leaf3": {
+              "sequence_id": "leaf3",
+              "parent": "naive",
+              "type": "leaf",
+              "sequence_alignment": "GCTAACTAGCTA",
+              "sequence_alignment_aa": "ANAS",
+              "distance": 0.05,
+              "length": 0.05,
+              "multiplicity": 5,
+              "timepoint_id": "day30",
+              "lbi": 0.7,
+              "lbr": 1.75,
+              "foobar_weight": 3.3,
+              "foobar_class": "high-confidence",
+              "foobar_description": "Only leaf in clone B",
+              "surprise_mutations": [
+                {
+                  "site": 4,
+                  "parent_aa": "S",
+                  "child_aa": "N",
+                  "surprise_mutsel": 3.8,
+                  "surprise_neutral": 3.2,
+                  "selection_contribution": 0.6,
+                  "region": "FWR1",
+                  "foobar_impact": 0.72,
+                  "foobar_tier": "medium"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
