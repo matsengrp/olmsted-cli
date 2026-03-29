@@ -1,3 +1,3 @@
-family_name,sample_id,newick_tree
-fam-1,sample-1,"((leaf1:0.02,leaf2:0.03)node1:0.01)naive:0.0;"
-fam-2,sample-1,"(leaf3:0.05)naive:0.0;"
+family_name,sample_id,newick_tree,foobar_score,foobar_category
+fam-1,sample-1,"((leaf1:0.02,leaf2:0.03)node1:0.01)naive:0.0;",42.5,group-alpha
+fam-2,sample-1,"(leaf3:0.05)naive:0.0;",88.1,group-beta

@@ -69,6 +69,65 @@ from .process_utils import (
 )
 
 
+# Known PCP CSV columns handled by the parser (extras are captured separately)
+KNOWN_PCP_COLUMNS = {
+    "sample_id", "family", "parent_name", "child_name",
+    "parent_heavy", "child_heavy", "parent_light", "child_light",
+    "branch_length", "edge_length", "depth", "distance", "sample_count",
+    "v_gene_heavy", "d_gene_heavy", "j_gene_heavy",
+    "v_gene_light", "d_gene_light", "j_gene_light",
+    "v_gene_start_heavy", "v_gene_end_heavy",
+    "d_gene_start_heavy", "d_gene_end_heavy",
+    "j_gene_start_heavy", "j_gene_end_heavy",
+    "v_gene_start_light", "v_gene_end_light",
+    "d_gene_start_light", "d_gene_end_light",
+    "j_gene_start_light", "j_gene_end_light",
+    "cdr1_codon_start_heavy", "cdr1_codon_end_heavy",
+    "cdr2_codon_start_heavy", "cdr2_codon_end_heavy",
+    "cdr3_codon_start_heavy", "cdr3_codon_end_heavy",
+    "cdr1_codon_start_light", "cdr1_codon_end_light",
+    "cdr2_codon_start_light", "cdr2_codon_end_light",
+    "cdr3_codon_start_light", "cdr3_codon_end_light",
+    "parent_is_naive", "child_is_leaf",
+    "light_chain_type",
+}
+
+# Known tree CSV columns handled by the parser
+KNOWN_TREE_COLUMNS = {
+    "family_name", "family", "sample_id",
+    "newick_tree", "newick",
+    "rate_scale_heavy", "rate_scale_light",
+}
+
+
+def _coerce_csv_value(val: str):
+    """
+    Coerce a CSV string value to the most appropriate Python type.
+
+    Attempts: int → float → JSON (list/dict) → string.
+    """
+    # Try int
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        pass
+    # Try float
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        pass
+    # Try JSON (for lists, dicts — mutation-level structured data)
+    if val.startswith(("[", "{")):
+        try:
+            return json.loads(val)
+        except (json.JSONDecodeError, ValueError):
+            pass
+    # Boolean
+    if val.lower() in ("true", "false"):
+        return val.lower() == "true"
+    return val
+
+
 def infer_locus_from_v_gene(v_gene: str) -> str:
     """
     Infer locus from V gene call.
@@ -145,6 +204,12 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
         if not required_cols.issubset(reader.fieldnames):
             missing = required_cols - set(reader.fieldnames)
             raise ValueError(f"Missing required columns: {missing}")
+
+        # Identify extra columns not handled by the standard parser
+        # Filter out empty/None column names (e.g., unnamed index columns)
+        extra_columns = {
+            c for c in reader.fieldnames if c and c not in KNOWN_PCP_COLUMNS
+        }
 
         # Detect format type based on column presence
         has_heavy = "parent_heavy" in reader.fieldnames or "child_heavy" in reader.fieldnames
@@ -360,6 +425,11 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
                 # Add light chain sequence for paired format
                 if is_paired:
                     child_node_data["sequence_alignment_light"] = child_sequence_light
+                # Capture extra columns as custom node-level fields
+                for col in extra_columns:
+                    val = row.get(col, "")
+                    if val != "":
+                        child_node_data[col] = _coerce_csv_value(val)
                 families[family_id]["nodes"][child] = child_node_data
             else:
                 # Update multiplicity if node appears multiple times
@@ -807,18 +877,31 @@ def parse_newick_csv(csv_path: str) -> Dict[str, Any]:
         # Check for rate scaling columns (paired format)
         has_rate_scale = "rate_scale_heavy" in reader.fieldnames or "rate_scale_light" in reader.fieldnames
 
+        # Identify extra columns for clone-level data
+        # Filter out empty/None column names (e.g., unnamed index columns)
+        extra_columns = {
+            c for c in reader.fieldnames if c and c not in KNOWN_TREE_COLUMNS
+        }
+        has_extras = len(extra_columns) > 0
+
         for row in reader:
             family_name = row[family_col]
             newick_tree = row[newick_col]
 
             # Build tree data
-            if has_rate_scale:
-                # Return dict with rate scaling for paired format
+            if has_rate_scale or has_extras:
+                # Return dict with all metadata
                 tree_data = {
                     "newick": newick_tree,
-                    "rate_scale_heavy": float(row.get("rate_scale_heavy", 1.0)) if row.get("rate_scale_heavy") else 1.0,
-                    "rate_scale_light": float(row.get("rate_scale_light", 1.0)) if row.get("rate_scale_light") else 1.0,
                 }
+                if has_rate_scale:
+                    tree_data["rate_scale_heavy"] = float(row.get("rate_scale_heavy", 1.0)) if row.get("rate_scale_heavy") else 1.0
+                    tree_data["rate_scale_light"] = float(row.get("rate_scale_light", 1.0)) if row.get("rate_scale_light") else 1.0
+                # Capture extra columns as clone-level fields
+                for col in extra_columns:
+                    val = row.get(col, "")
+                    if val != "":
+                        tree_data[col] = _coerce_csv_value(val)
             else:
                 # Return just string for backwards compatibility
                 tree_data = newick_tree
@@ -1508,6 +1591,7 @@ def process_pcp_to_olmsted(
             newick_tree_data = None
             rate_scale_heavy = 1.0
             rate_scale_light = 1.0
+            extra_tree_fields = {}
 
             if newick_trees:
                 # Try composite key (family_id, sample_id)
@@ -1524,6 +1608,11 @@ def process_pcp_to_olmsted(
                         newick = newick_tree_data.get("newick", "")
                         rate_scale_heavy = newick_tree_data.get("rate_scale_heavy", 1.0)
                         rate_scale_light = newick_tree_data.get("rate_scale_light", 1.0)
+                        # Capture extra tree columns as clone-level fields
+                        extra_tree_fields = {
+                            k: v for k, v in newick_tree_data.items()
+                            if k not in ("newick", "rate_scale_heavy", "rate_scale_light")
+                        }
                     else:
                         # String format (backwards compatibility)
                         newick = newick_tree_data
@@ -1538,6 +1627,9 @@ def process_pcp_to_olmsted(
             # Store rate scaling in family data for later use
             family_data["family_data"]["rate_scale_heavy"] = rate_scale_heavy
             family_data["family_data"]["rate_scale_light"] = rate_scale_light
+            # Store extra tree columns as clone-level custom fields
+            if extra_tree_fields:
+                family_data["family_data"]["_extra_clone_fields"] = extra_tree_fields
 
             # Check if this family has paired data
             is_paired = family_data.get("is_paired", False)
@@ -1579,6 +1671,18 @@ def process_pcp_to_olmsted(
                     "affinity": None,
                     "scaled_affinity": None,
                 }
+                # Carry through extra PCP columns as custom node-level fields
+                _known_node_keys = {
+                    "sequence_id", "sequence_alignment", "sequence_alignment_aa",
+                    "sequence_alignment_light", "multiplicity", "cluster_multiplicity",
+                    "timepoint_multiplicities", "type", "parent", "distance", "length",
+                    "lbi", "lbr", "affinity", "scaled_affinity",
+                    "is_naive", "is_leaf", "distances",
+                }
+                for k, v in node_data.items():
+                    if k not in _known_node_keys and k not in processed_node_heavy:
+                        processed_node_heavy[k] = v
+
                 processed_nodes_heavy[node_id] = processed_node_heavy
 
                 # Create light chain node (if paired data)
@@ -2092,6 +2196,11 @@ def process_pcp_to_olmsted(
                 clone_heavy["is_paired"] = True
                 clone_heavy["pair_id"] = pair_id
 
+            # Add extra clone-level fields from tree CSV
+            extra_clone = family_meta.get("_extra_clone_fields", {})
+            for k, v in extra_clone.items():
+                clone_heavy[k] = v
+
             # Add clone to dataset's clones array
             clones_dict[dataset_id].append(clone_heavy)
 
@@ -2155,6 +2264,10 @@ def process_pcp_to_olmsted(
                     "is_paired": True,
                     "pair_id": pair_id,
                 }
+
+                # Add extra clone-level fields from tree CSV
+                for k, v in extra_clone.items():
+                    clone_light[k] = v
 
                 # Add clone to dataset's clones array
                 clones_dict[dataset_id].append(clone_light)

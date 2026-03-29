@@ -600,6 +600,11 @@ Examples:
         action="store_true",
         help="Rename nodes to standardized names: naive (root), Node1, Node2, ... (internal), Leaf1, Leaf2, ... (leaves) (PCP only)",
     )
+    parser.add_argument(
+        "--capture-all",
+        action="store_true",
+        help="Capture all data fields from input (extra CSV columns, unknown JSON fields). Without this, only standard fields are processed. Use dump-fields to preview what will be captured.",
+    )
 
     return parser
 
@@ -624,6 +629,7 @@ _CONFIG_KEY_MAP = {
     "compute_metrics": "compute_metrics",
     "lbi_tau": "lbi_tau",
     "standardize_names": "standardize_names",
+    "capture_all": "capture_all",
 }
 
 # Valid config keys (including custom_fields which is handled separately)
