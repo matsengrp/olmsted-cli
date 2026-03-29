@@ -56,6 +56,74 @@
         "clone_count": 8,
         "subjects_count": 1,
         "timepoints_count": 1,
-        "name": "pcp-example"
+        "name": "pcp-example",
+        "field_metadata": {
+            "clone": {
+                "d_call": {
+                    "type": "categorical",
+                    "label": "D Gene"
+                },
+                "has_seed": {
+                    "type": "categorical",
+                    "label": "Has Seed"
+                },
+                "j_call": {
+                    "type": "categorical",
+                    "label": "J Gene"
+                },
+                "junction_length": {
+                    "type": "continuous",
+                    "label": "Junction Length"
+                },
+                "locus": {
+                    "type": "categorical",
+                    "label": "Locus"
+                },
+                "mean_mut_freq": {
+                    "type": "continuous",
+                    "label": "Mean Mutation Frequency"
+                },
+                "sample_id": {
+                    "type": "categorical",
+                    "label": "Sample"
+                },
+                "subject_id": {
+                    "type": "categorical",
+                    "label": "Subject"
+                },
+                "total_read_count": {
+                    "type": "continuous",
+                    "label": "Total Read Count"
+                },
+                "unique_seqs_count": {
+                    "type": "continuous",
+                    "label": "Unique Sequences Count"
+                },
+                "v_call": {
+                    "type": "categorical",
+                    "label": "V Gene"
+                }
+            },
+            "node": {
+                "cluster_multiplicity": {
+                    "type": "continuous",
+                    "label": "Cluster Multiplicity"
+                },
+                "distance": {
+                    "type": "continuous",
+                    "label": "Distance from Root"
+                },
+                "multiplicity": {
+                    "type": "continuous",
+                    "label": "Multiplicity"
+                }
+            },
+            "branch": {
+                "length": {
+                    "type": "continuous",
+                    "label": "Branch Length"
+                }
+            }
+        }
     }
 ]

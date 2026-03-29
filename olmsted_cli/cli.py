@@ -4,7 +4,7 @@
 import argparse
 import sys
 
-from olmsted_cli import process_data, validate, summary, split
+from olmsted_cli import dump_fields, enrich, process_data, split, summary, validate
 
 
 def main():
@@ -47,6 +47,16 @@ Examples:
     subparsers.add_parser(
         "split", help="Split consolidated data files into smaller files"
     )
+
+    # Enrich command
+    subparsers.add_parser(
+        "enrich", help="Add field_metadata to existing Olmsted JSON files"
+    )
+
+    # Dump-fields command
+    subparsers.add_parser(
+        "dump-fields", help="Extract all fields from data into a YAML config for editing"
+    )
     # Don't define arguments here - let the underlying script handle them
 
     # Parse only the command, not the full arguments
@@ -69,6 +79,13 @@ Examples:
             # Remove the script name and command from sys.argv
             sys.argv = [sys.argv[0]] + sys.argv[2:]
             split_data_command()
+        elif command == "enrich":
+            # Remove the script name and command from sys.argv
+            sys.argv = [sys.argv[0]] + sys.argv[2:]
+            enrich_data_command()
+        elif command == "dump-fields":
+            sys.argv = [sys.argv[0]] + sys.argv[2:]
+            dump_fields_command()
         else:
             parser.parse_args()  # This will show help or error
     else:
@@ -94,6 +111,16 @@ def summary_data_command():
 def split_data_command():
     """Run the split command."""
     split.main()
+
+
+def enrich_data_command():
+    """Run the enrich command."""
+    enrich.main()
+
+
+def dump_fields_command():
+    """Run the dump-fields command."""
+    dump_fields.main()
 
 
 if __name__ == "__main__":

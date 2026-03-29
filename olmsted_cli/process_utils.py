@@ -514,6 +514,7 @@ def create_consolidated_data(
                     total_leaf_count += 1
 
     metadata = {
+        "format": "olmsted",
         "format_version": CONSOLIDATED_JSON_VERSION,
         "schema_version": SCHEMA_VERSION,
         "created_at": datetime.now(timezone.utc).isoformat(),
