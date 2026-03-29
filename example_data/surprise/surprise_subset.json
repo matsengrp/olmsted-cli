@@ -51,21 +51,41 @@
           }
         },
         "mutation": {
+          "child_aa": {
+            "type": "aa",
+            "label": "Child Amino Acid"
+          },
+          "parent_aa": {
+            "type": "aa",
+            "label": "Parent Amino Acid"
+          },
           "region": {
             "type": "categorical",
             "label": "Gene Region"
           },
           "selection_contribution": {
             "type": "continuous",
-            "label": "Selection Contribution"
+            "label": "Selection Contribution",
+            "range": [
+              -1.2639827852342562,
+              4.31660655226451
+            ]
           },
           "surprise_mutsel": {
             "type": "continuous",
-            "label": "Surprise Score (MutSel)"
+            "label": "Surprise Score (MutSel)",
+            "range": [
+              1.0796225326983708,
+              10.249228698117571
+            ]
           },
           "surprise_neutral": {
             "type": "continuous",
-            "label": "Surprise Score (Neutral)"
+            "label": "Surprise Score (Neutral)",
+            "range": [
+              1.492852812911735,
+              10.738948988639992
+            ]
           }
         }
       }

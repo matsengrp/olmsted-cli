@@ -664,9 +664,21 @@ dataset_spec = {
                         "properties": {
                             "type": {
                                 "type": "string",
-                                "enum": ["continuous", "categorical", "tooltip"],
+                                "enum": [
+                                    "continuous",
+                                    "categorical",
+                                    "tooltip",
+                                    "aa",
+                                    "dna",
+                                ],
                             },
                             "label": {"type": "string"},
+                            "range": {
+                                "type": "array",
+                                "items": {"type": "number"},
+                                "minItems": 2,
+                                "maxItems": 2,
+                            },
                         },
                         "required": ["type", "label"],
                     },
@@ -679,9 +691,21 @@ dataset_spec = {
                         "properties": {
                             "type": {
                                 "type": "string",
-                                "enum": ["continuous", "categorical", "tooltip"],
+                                "enum": [
+                                    "continuous",
+                                    "categorical",
+                                    "tooltip",
+                                    "aa",
+                                    "dna",
+                                ],
                             },
                             "label": {"type": "string"},
+                            "range": {
+                                "type": "array",
+                                "items": {"type": "number"},
+                                "minItems": 2,
+                                "maxItems": 2,
+                            },
                         },
                         "required": ["type", "label"],
                     },
@@ -694,9 +718,21 @@ dataset_spec = {
                         "properties": {
                             "type": {
                                 "type": "string",
-                                "enum": ["continuous", "categorical", "tooltip"],
+                                "enum": [
+                                    "continuous",
+                                    "categorical",
+                                    "tooltip",
+                                    "aa",
+                                    "dna",
+                                ],
                             },
                             "label": {"type": "string"},
+                            "range": {
+                                "type": "array",
+                                "items": {"type": "number"},
+                                "minItems": 2,
+                                "maxItems": 2,
+                            },
                         },
                         "required": ["type", "label"],
                     },
@@ -709,9 +745,21 @@ dataset_spec = {
                         "properties": {
                             "type": {
                                 "type": "string",
-                                "enum": ["continuous", "categorical", "tooltip"],
+                                "enum": [
+                                    "continuous",
+                                    "categorical",
+                                    "tooltip",
+                                    "aa",
+                                    "dna",
+                                ],
                             },
                             "label": {"type": "string"},
+                            "range": {
+                                "type": "array",
+                                "items": {"type": "number"},
+                                "minItems": 2,
+                                "maxItems": 2,
+                            },
                         },
                         "required": ["type", "label"],
                     },

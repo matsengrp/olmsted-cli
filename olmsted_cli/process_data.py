@@ -703,7 +703,7 @@ def load_config(config_path):
                         file=sys.stderr,
                     )
                     continue
-                if entry["type"] not in ("continuous", "categorical", "tooltip"):
+                if entry["type"] not in ("continuous", "categorical", "tooltip", "aa", "dna"):
                     print(
                         f"Warning: custom_fields[{i}] has invalid type '{entry['type']}' (ignored)",
                         file=sys.stderr,

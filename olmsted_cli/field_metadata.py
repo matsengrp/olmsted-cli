@@ -77,6 +77,10 @@ KNOWN_MUTATION_FIELDS = {
         "label": "Selection Contribution",
     },
     "region": {"type": "categorical", "label": "Region"},
+    "parent_aa": {"type": "aa", "label": "Parent Amino Acid"},
+    "child_aa": {"type": "aa", "label": "Child Amino Acid"},
+    "parent_nt": {"type": "dna", "label": "Parent Nucleotide"},
+    "child_nt": {"type": "dna", "label": "Child Nucleotide"},
 }
 
 # Mapping from level name to its known fields registry
@@ -191,8 +195,6 @@ EXCLUDED_BRANCH_FIELDS = {
 
 EXCLUDED_MUTATION_FIELDS = {
     "site",
-    "parent_aa",
-    "child_aa",
 }
 
 EXCLUDED_FIELDS_BY_LEVEL = {
@@ -234,6 +236,10 @@ ABBREVIATION_MAP = {
 # =============================================================================
 
 
+_AA_CHARS = set("ACDEFGHIKLMNPQRSTVWY*-X")
+_DNA_CHARS = set("ACGTURYSWKMBDHVN-.")
+
+
 def infer_field_type(values: List[Any]) -> str:
     """
     Infer field type from sample values.
@@ -243,6 +249,8 @@ def infer_field_type(values: List[Any]) -> str:
 
     Returns:
         "continuous" if all values are numeric,
+        "aa" if all values are single amino acid characters,
+        "dna" if all values are single nucleotide characters,
         "categorical" if all values are strings,
         "tooltip" if mixed types or unclassifiable.
     """
@@ -251,6 +259,7 @@ def infer_field_type(values: List[Any]) -> str:
 
     numeric_count = 0
     string_count = 0
+    string_values = []
     for v in values:
         if isinstance(v, bool):
             string_count += 1
@@ -258,6 +267,7 @@ def infer_field_type(values: List[Any]) -> str:
             numeric_count += 1
         elif isinstance(v, str):
             string_count += 1
+            string_values.append(v)
         else:
             # Complex types (lists, dicts) are tooltip-only
             return "tooltip"
@@ -265,8 +275,37 @@ def infer_field_type(values: List[Any]) -> str:
     if numeric_count > 0 and string_count == 0:
         return "continuous"
     if string_count > 0 and numeric_count == 0:
+        # Check for single-character DNA or AA
+        # DNA checked first: if values contain AA-only chars (e.g., D, E, F),
+        # they can't be DNA. Pure ACGTU ambiguity is resolved by the known
+        # fields registry (parent_aa/child_aa vs parent_nt/child_nt).
+        if string_values and all(len(s) == 1 for s in string_values):
+            upper_vals = {s.upper() for s in string_values}
+            # If any char is AA-only (not in DNA alphabet), it's AA
+            if upper_vals <= _AA_CHARS and not upper_vals <= _DNA_CHARS:
+                return "aa"
+            if upper_vals <= _DNA_CHARS:
+                return "dna"
+            if upper_vals <= _AA_CHARS:
+                return "aa"
         return "categorical"
     return "tooltip"
+
+
+def compute_range(dicts: List[Dict], field: str) -> Optional[List[float]]:
+    """
+    Compute [min, max] range for a numeric field across a list of dicts.
+
+    Returns None if no numeric values are found.
+    """
+    values = []
+    for d in dicts:
+        v = d.get(field)
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            values.append(v)
+    if not values:
+        return None
+    return [min(values), max(values)]
 
 
 def humanize_label(field_name: str) -> str:
@@ -499,13 +538,14 @@ def generate_mutation_metadata(
     Generate field metadata for mutation-level fields.
 
     Mutation fields come from surprise_mutations arrays on nodes.
+    Continuous fields include a "range" key with [min, max] for color scale domains.
 
     Args:
         trees: List of tree dictionaries with "nodes" key.
         custom_fields: Optional custom field declarations (level=="mutation" only).
 
     Returns:
-        Dict mapping field_name -> {"type": ..., "label": ...}
+        Dict mapping field_name -> {"type": ..., "label": ..., "range"?: [...]}
     """
     all_mutations = _collect_mutations(trees)
     if not all_mutations:
@@ -514,11 +554,14 @@ def generate_mutation_metadata(
         if custom_fields:
             for cf in custom_fields:
                 if cf.get("level") == "mutation":
-                    metadata[cf["name"]] = {
-                        "type": cf["type"],
-                        "label": cf["label"],
-                    }
+                    entry = {"type": cf["type"], "label": cf["label"]}
+                    if "range" in cf:
+                        entry["range"] = cf["range"]
+                    metadata[cf["name"]] = entry
         return metadata
+
+    # Collect ALL mutations (not sampled) for accurate range computation
+    all_mutations_full = _collect_mutations(trees, max_mutations=100000)
 
     metadata = {}
     all_keys = _collect_keys(all_mutations) - EXCLUDED_MUTATION_FIELDS
@@ -527,23 +570,36 @@ def generate_mutation_metadata(
         if key in KNOWN_MUTATION_FIELDS:
             values = _sample_values(all_mutations, key)
             if values:
-                metadata[key] = dict(KNOWN_MUTATION_FIELDS[key])
+                entry = dict(KNOWN_MUTATION_FIELDS[key])
+                if entry["type"] == "continuous":
+                    field_range = compute_range(all_mutations_full, key)
+                    if field_range:
+                        entry["range"] = field_range
+                metadata[key] = entry
         else:
             values = _sample_values(all_mutations, key)
             if values:
                 field_type = infer_field_type(values)
-                metadata[key] = {
+                entry = {
                     "type": field_type,
                     "label": humanize_label(key),
                 }
+                if field_type == "continuous":
+                    field_range = compute_range(all_mutations_full, key)
+                    if field_range:
+                        entry["range"] = field_range
+                metadata[key] = entry
 
     if custom_fields:
         for cf in custom_fields:
             if cf.get("level") == "mutation":
-                metadata[cf["name"]] = {
-                    "type": cf["type"],
-                    "label": cf["label"],
-                }
+                entry = {"type": cf["type"], "label": cf["label"]}
+                if "range" in cf:
+                    entry["range"] = cf["range"]
+                elif cf["name"] in metadata and "range" in metadata[cf["name"]]:
+                    # Preserve auto-detected range when custom doesn't specify one
+                    entry["range"] = metadata[cf["name"]]["range"]
+                metadata[cf["name"]] = entry
 
     return metadata
 

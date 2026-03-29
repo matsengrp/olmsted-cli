@@ -162,7 +162,19 @@ class TestInferFieldType:
         assert infer_field_type([1, 2.5, 3]) == "continuous"
 
     def test_string_values(self):
-        assert infer_field_type(["a", "b", "c"]) == "categorical"
+        assert infer_field_type(["hello", "world"]) == "categorical"
+        assert infer_field_type(["CDR1", "FWR2", "CDR3"]) == "categorical"
+
+    def test_aa_values(self):
+        # Values with AA-only chars (not in DNA alphabet) → aa
+        assert infer_field_type(["A", "V", "L", "M"]) == "aa"
+        assert infer_field_type(["S", "R", "K", "D", "E"]) == "aa"
+        assert infer_field_type(["*", "-"]) == "aa"
+
+    def test_dna_values(self):
+        # Pure ACGT/U → dna (ambiguous with AA, but DNA is preferred)
+        assert infer_field_type(["A", "C", "G", "T"]) == "dna"
+        assert infer_field_type(["A", "T", "G", "N"]) == "dna"
 
     def test_boolean_values(self):
         assert infer_field_type([True, False, True]) == "categorical"
@@ -327,11 +339,24 @@ class TestGenerateMutationMetadata:
         assert "region" in meta
         assert meta["region"]["type"] == "categorical"
 
+    def test_aa_fields(self, trees_with_surprise):
+        meta = generate_mutation_metadata(trees_with_surprise)
+        assert "parent_aa" in meta
+        assert meta["parent_aa"]["type"] == "aa"
+        assert meta["child_aa"]["type"] == "aa"
+
+    def test_ranges_on_continuous_fields(self, trees_with_surprise):
+        meta = generate_mutation_metadata(trees_with_surprise)
+        assert "range" in meta["surprise_mutsel"]
+        r = meta["surprise_mutsel"]["range"]
+        assert len(r) == 2
+        assert r[0] <= r[1]
+        # region is categorical, no range
+        assert "range" not in meta["region"]
+
     def test_excluded_mutation_fields(self, trees_with_surprise):
         meta = generate_mutation_metadata(trees_with_surprise)
         assert "site" not in meta
-        assert "parent_aa" not in meta
-        assert "child_aa" not in meta
 
     def test_no_surprise_data(self, trees_with_nodes):
         meta = generate_mutation_metadata(trees_with_nodes)

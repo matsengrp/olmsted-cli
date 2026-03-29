@@ -328,11 +328,12 @@ class ContributorInfo(TypedDict, total=False):
     affiliation_ror_id: str
 
 
-class FieldMetadataEntry(TypedDict):
+class FieldMetadataEntry(TypedDict, total=False):
     """Metadata for a single data field."""
 
-    type: str  # "continuous", "categorical", or "tooltip"
+    type: str  # "continuous", "categorical", "tooltip", "aa", or "dna"
     label: str  # Human-readable display label
+    range: Optional[List[float]]  # [min, max] for continuous fields
 
 
 class CustomFieldDeclaration(TypedDict, total=False):
