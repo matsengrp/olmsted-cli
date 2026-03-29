@@ -56,7 +56,7 @@
             "label": "Child Amino Acid"
           },
           "parent_aa": {
-            "type": "aa",
+            "type": "tooltip",
             "label": "Parent Amino Acid"
           },
           "region": {

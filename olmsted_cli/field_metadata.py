@@ -77,9 +77,9 @@ KNOWN_MUTATION_FIELDS = {
         "label": "Selection Contribution",
     },
     "region": {"type": "categorical", "label": "Region"},
-    "parent_aa": {"type": "aa", "label": "Parent Amino Acid"},
+    "parent_aa": {"type": "tooltip", "label": "Parent Amino Acid"},
     "child_aa": {"type": "aa", "label": "Child Amino Acid"},
-    "parent_nt": {"type": "dna", "label": "Parent Nucleotide"},
+    "parent_nt": {"type": "tooltip", "label": "Parent Nucleotide"},
     "child_nt": {"type": "dna", "label": "Child Nucleotide"},
 }
 

@@ -340,9 +340,9 @@ class TestGenerateMutationMetadata:
         assert meta["region"]["type"] == "categorical"
 
     def test_aa_fields(self, trees_with_surprise):
+        """parent_aa is tooltip (context), child_aa is aa (the mutation identity)."""
         meta = generate_mutation_metadata(trees_with_surprise)
-        assert "parent_aa" in meta
-        assert meta["parent_aa"]["type"] == "aa"
+        assert meta["parent_aa"]["type"] == "tooltip"
         assert meta["child_aa"]["type"] == "aa"
 
     def test_ranges_on_continuous_fields(self, trees_with_surprise):

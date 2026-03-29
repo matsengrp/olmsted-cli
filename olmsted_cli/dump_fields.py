@@ -26,6 +26,7 @@ from .field_metadata import (
     KNOWN_CLONE_FIELDS,
     KNOWN_MUTATION_FIELDS,
     KNOWN_NODE_FIELDS,
+    compute_range,
     humanize_label,
     infer_field_type,
     _collect_mutations,
@@ -197,13 +198,16 @@ def _field_summary(dicts, field, known_registry):
     return entry
 
 
-def _format_field_block(name, level, entry, sample_values=None):
+def _format_field_block(name, level, entry, sample_values=None, field_range=None):
     """Format a single custom_fields YAML entry as a string."""
     lines = []
     lines.append(f"  - name: {name}")
     lines.append(f"    level: {level}")
     lines.append(f"    type: {entry['type']}")
     lines.append(f"    label: \"{entry['label']}\"")
+    if field_range:
+        lines.append(f"    # range in data: [{field_range[0]}, {field_range[1]}]")
+        lines.append(f"    # range: [{field_range[0]}, {field_range[1]}]  # uncomment to set color scale domain")
     if sample_values:
         preview = ", ".join(str(v) for v in sample_values[:5])
         if len(sample_values) > 5:
@@ -283,13 +287,18 @@ def _build_yaml(input_name, detected_format, all_clones, all_trees):
 
     # --- Mutation level ---
     mutation_keys = _collect_keys(all_mutations) - EXCLUDED_MUTATION_FIELDS
+    # Collect all mutations for accurate range computation
+    all_mutations_full = _collect_mutations(all_trees, max_mutations=100000)
     if mutation_keys:
         lines.append("")
         lines.append("  # --- Mutation level (alignment coloring) ---")
         for field in sorted(mutation_keys):
             entry = _field_summary(all_mutations, field, KNOWN_MUTATION_FIELDS)
             samples = _sample_values(all_mutations, field, max_samples=6)
-            lines.append(_format_field_block(field, "mutation", entry, samples))
+            field_range = None
+            if entry["type"] == "continuous":
+                field_range = compute_range(all_mutations_full, field)
+            lines.append(_format_field_block(field, "mutation", entry, samples, field_range))
 
     lines.append("")
     return "\n".join(lines)
