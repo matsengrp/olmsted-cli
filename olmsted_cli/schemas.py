@@ -652,6 +652,73 @@ dataset_spec = {
                 },
             },
         },
+        "field_metadata": {
+            "description": "Metadata describing available data fields at each level",
+            "type": ["object", "null"],
+            "properties": {
+                "clone": {
+                    "description": "Clone-level field metadata",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": ["continuous", "categorical", "tooltip"],
+                            },
+                            "label": {"type": "string"},
+                        },
+                        "required": ["type", "label"],
+                    },
+                },
+                "node": {
+                    "description": "Node-level field metadata",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": ["continuous", "categorical", "tooltip"],
+                            },
+                            "label": {"type": "string"},
+                        },
+                        "required": ["type", "label"],
+                    },
+                },
+                "branch": {
+                    "description": "Branch-level field metadata",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": ["continuous", "categorical", "tooltip"],
+                            },
+                            "label": {"type": "string"},
+                        },
+                        "required": ["type", "label"],
+                    },
+                },
+                "mutation": {
+                    "description": "Mutation-level field metadata",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": ["continuous", "categorical", "tooltip"],
+                            },
+                            "label": {"type": "string"},
+                        },
+                        "required": ["type", "label"],
+                    },
+                },
+            },
+            "additionalProperties": False,
+        },
         "clones": {
             "description": "Clonal families in the dataset",
             "type": ["array", "null"],

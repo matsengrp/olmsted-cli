@@ -218,6 +218,16 @@ def process_dataset(
             dict_subset(tree, set(tree.keys()) - {"nodes"}) for tree in processed_trees
         ]
     clones_dict[dataset["dataset_id"]] = clones
+
+    # Generate field_metadata from actual clone and tree data
+    from .field_metadata import generate_field_metadata
+
+    dataset["field_metadata"] = generate_field_metadata(
+        clones,
+        trees,
+        custom_fields=getattr(args, "custom_fields", None),
+    )
+
     del dataset["clones"]
     dataset["schema_version"] = SCHEMA_VERSION
     return ensure_ident(dataset, prefix="dataset-")

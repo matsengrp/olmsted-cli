@@ -23,7 +23,7 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Dict, List, Literal, Optional, TypedDict
+from typing import Any, Dict, List, Literal, Optional, TypedDict
 
 
 # =============================================================================
@@ -328,6 +328,23 @@ class ContributorInfo(TypedDict, total=False):
     affiliation_ror_id: str
 
 
+class FieldMetadataEntry(TypedDict):
+    """Metadata for a single data field."""
+
+    type: str  # "continuous", "categorical", or "tooltip"
+    label: str  # Human-readable display label
+
+
+class CustomFieldDeclaration(TypedDict, total=False):
+    """Declaration of a custom data field from YAML config."""
+
+    name: str  # Field name
+    level: str  # "clone", "node", "branch", or "mutation"
+    type: str  # "continuous", "categorical", or "tooltip"
+    label: str  # Human-readable display label
+    path: Optional[str]  # Dot-path for JSON sources
+
+
 class BuildInfo(TypedDict, total=False):
     """Build/processing information."""
 
@@ -387,6 +404,9 @@ class OlmstedDataset(TypedDict, total=False):
     # Embedded data (for single-file format)
     clones: Optional[List[OlmstedClone]]
     trees: Optional[List[OlmstedTree]]
+
+    # Field metadata (describes available fields at each level)
+    field_metadata: Optional[Dict[str, Dict[str, FieldMetadataEntry]]]
 
     # Dataset name (user-provided)
     name: Optional[str]

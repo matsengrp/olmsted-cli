@@ -1421,6 +1421,7 @@ def process_pcp_to_olmsted(
     alignment_method: str = "truncate",
     name: Optional[str] = None,
     verbosity: int = 1,
+    custom_fields: Optional[List[Dict[str, Any]]] = None,
 ) -> Tuple[List[OlmstedDataset], Dict[str, List[OlmstedClone]], List[OlmstedTree]]:
     """
     Convert PCP format data to Olmsted format.
@@ -2189,6 +2190,16 @@ def process_pcp_to_olmsted(
                     "type": "pcp.reconstruction",
                 }
                 trees.append(tree_light)
+
+    # Generate field_metadata from actual clone and tree data
+    from .field_metadata import generate_field_metadata
+
+    dataset_clones = clones_dict.get(dataset_id, [])
+    dataset["field_metadata"] = generate_field_metadata(
+        dataset_clones,
+        trees,
+        custom_fields=custom_fields,
+    )
 
     datasets.append(dataset)
     return datasets, clones_dict, trees

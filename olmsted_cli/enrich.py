@@ -1,0 +1,182 @@
+"""
+Enrich command for adding field_metadata to existing Olmsted JSON files.
+
+This command introspects an existing Olmsted JSON file, discovers available
+fields at each level (clone, node, branch, mutation), and adds a
+field_metadata object to each dataset.
+
+Usage:
+    olmsted enrich -i data.json -o enriched.json
+    olmsted enrich -i data.json -o enriched.json -c config.yaml
+    olmsted enrich -i data.json --in-place
+"""
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+import yaml
+
+from .field_metadata import generate_field_metadata
+from .process_data import load_config
+
+
+def get_args():
+    """Parse command line arguments for the enrich command."""
+    parser = argparse.ArgumentParser(
+        description="Add field_metadata to an existing Olmsted JSON file",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+    # Basic enrichment (introspect and add field_metadata)
+    olmsted enrich -i data.json -o enriched.json
+
+    # With custom field declarations from config
+    olmsted enrich -i data.json -o enriched.json -c config.yaml
+
+    # In-place modification
+    olmsted enrich -i data.json --in-place
+
+    # In-place with config
+    olmsted enrich -i data.json --in-place -c config.yaml
+        """,
+    )
+
+    parser.add_argument(
+        "-i",
+        "--input",
+        required=True,
+        help="Input Olmsted JSON file to enrich",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        help="Output file path (required unless --in-place is used)",
+    )
+    parser.add_argument(
+        "--in-place",
+        action="store_true",
+        help="Modify the input file in place",
+    )
+    parser.add_argument(
+        "-c",
+        "--config",
+        help="YAML configuration file with custom field declarations",
+    )
+    parser.add_argument(
+        "--json-format",
+        choices=["pretty", "compact"],
+        default="pretty",
+        help="JSON output format (default: pretty)",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Show detailed output",
+    )
+
+    args = parser.parse_args()
+
+    if not args.output and not args.in_place:
+        parser.error("Either -o/--output or --in-place must be specified")
+
+    if args.output and args.in_place:
+        parser.error("Cannot specify both -o/--output and --in-place")
+
+    return args
+
+
+def main():
+    """Main entry point for the enrich command."""
+    args = get_args()
+
+    # Load input file
+    input_path = Path(args.input)
+    if not input_path.exists():
+        print(f"Error: Input file not found: {input_path}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        with open(input_path) as f:
+            data = json.load(f)
+    except json.JSONDecodeError as e:
+        print(f"Error: Invalid JSON in input file: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Validate it looks like Olmsted JSON
+    if "datasets" not in data or "clones" not in data:
+        print(
+            "Error: Input does not appear to be Olmsted JSON "
+            "(missing 'datasets' or 'clones' key)",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # Load custom fields from config if provided
+    custom_fields = None
+    if args.config:
+        _, custom_fields = load_config(args.config)
+
+    # Ensure metadata has the format tag
+    if "metadata" not in data:
+        data["metadata"] = {}
+    if isinstance(data["metadata"], dict) and "format" not in data["metadata"]:
+        data["metadata"]["format"] = "olmsted"
+
+    # Collect all trees indexed by clone_id for efficient lookup
+    all_trees = data.get("trees", [])
+    trees_by_clone_id = {}
+    for tree in all_trees:
+        clone_id = tree.get("clone_id")
+        if clone_id:
+            trees_by_clone_id.setdefault(clone_id, []).append(tree)
+
+    # Enrich each dataset
+    datasets = data.get("datasets", [])
+    clones_dict = data.get("clones", {})
+
+    for dataset in datasets:
+        dataset_id = dataset.get("dataset_id")
+        if not dataset_id:
+            continue
+
+        # Get clones for this dataset
+        dataset_clones = clones_dict.get(dataset_id, [])
+
+        # Get trees for this dataset's clones
+        dataset_trees = []
+        clone_ids = {c.get("clone_id") for c in dataset_clones if c.get("clone_id")}
+        for clone_id in clone_ids:
+            dataset_trees.extend(trees_by_clone_id.get(clone_id, []))
+
+        # Generate field_metadata
+        field_metadata = generate_field_metadata(
+            dataset_clones, dataset_trees, custom_fields=custom_fields
+        )
+
+        dataset["field_metadata"] = field_metadata
+
+        if args.verbose:
+            levels = list(field_metadata.keys())
+            total_fields = sum(len(v) for v in field_metadata.values())
+            print(
+                f"Dataset '{dataset_id}': {total_fields} fields across levels: {levels}"
+            )
+
+    # Write output
+    output_path = input_path if args.in_place else Path(args.output)
+
+    indent = 2 if args.json_format == "pretty" else None
+    separators = None if args.json_format == "pretty" else (",", ":")
+
+    with open(output_path, "w") as f:
+        json.dump(data, f, indent=indent, separators=separators)
+
+    if args.verbose or not args.in_place:
+        print(f"Enriched data written to: {output_path}")
+
+
+if __name__ == "__main__":
+    main()

@@ -51,6 +51,110 @@
         "clone_count": 8,
         "subjects_count": 1,
         "timepoints_count": 1,
+        "field_metadata": {
+            "clone": {
+                "d_call": {
+                    "type": "categorical",
+                    "label": "D Gene"
+                },
+                "has_seed": {
+                    "type": "categorical",
+                    "label": "Has Seed"
+                },
+                "j_call": {
+                    "type": "categorical",
+                    "label": "J Gene"
+                },
+                "junction_length": {
+                    "type": "continuous",
+                    "label": "Junction Length"
+                },
+                "locus": {
+                    "type": "categorical",
+                    "label": "Locus"
+                },
+                "mean_mut_freq": {
+                    "type": "continuous",
+                    "label": "Mean Mutation Frequency"
+                },
+                "partition": {
+                    "type": "tooltip",
+                    "label": "Partition"
+                },
+                "path": {
+                    "type": "tooltip",
+                    "label": "Path"
+                },
+                "rearrangement_count": {
+                    "type": "continuous",
+                    "label": "Rearrangement Count"
+                },
+                "sample_id": {
+                    "type": "categorical",
+                    "label": "Sample"
+                },
+                "sampled_seqs_count": {
+                    "type": "continuous",
+                    "label": "Sampled Sequences Count"
+                },
+                "size": {
+                    "type": "continuous",
+                    "label": "Size"
+                },
+                "sorted_index": {
+                    "type": "continuous",
+                    "label": "Sorted Index"
+                },
+                "subject_id": {
+                    "type": "categorical",
+                    "label": "Subject"
+                },
+                "total_read_count": {
+                    "type": "continuous",
+                    "label": "Total Read Count"
+                },
+                "unique_seqs_count": {
+                    "type": "continuous",
+                    "label": "Unique Sequences Count"
+                },
+                "v_call": {
+                    "type": "categorical",
+                    "label": "V Gene"
+                }
+            },
+            "node": {
+                "cluster_multiplicity": {
+                    "type": "continuous",
+                    "label": "Cluster Multiplicity"
+                },
+                "distance": {
+                    "type": "continuous",
+                    "label": "Distance from Root"
+                },
+                "lbi": {
+                    "type": "continuous",
+                    "label": "LBI"
+                },
+                "lbr": {
+                    "type": "continuous",
+                    "label": "LBR"
+                },
+                "multiplicity": {
+                    "type": "continuous",
+                    "label": "Multiplicity"
+                },
+                "timepoint_id": {
+                    "type": "categorical",
+                    "label": "Timepoint"
+                }
+            },
+            "branch": {
+                "length": {
+                    "type": "continuous",
+                    "label": "Branch Length"
+                }
+            }
+        },
         "schema_version": "2.0.0"
     }
 ]

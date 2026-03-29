@@ -24,6 +24,8 @@ import traceback
 import uuid
 from pathlib import Path
 
+import yaml
+
 import jsonschema
 from tqdm import tqdm
 
@@ -54,49 +56,60 @@ def detect_file_format(file_path):
         file_path: Path to the input file
 
     Returns:
-        str: Detected format ('airr', 'pcp', or 'unknown')
+        str: Detected format ('airr', 'pcp', 'olmsted', or 'unknown')
     """
     file_path = Path(file_path)
 
-    # Check file extension first
-    if file_path.suffix.lower() in [".json"]:
-        return "airr"
-    elif file_path.suffix.lower() in [".csv"]:
+    # CSV files are always PCP
+    if file_path.suffix.lower() == ".csv":
         return "pcp"
-    elif file_path.suffix.lower() in [".gz"]:
-        # Check the extension before .gz
-        if file_path.stem.endswith(".json"):
-            return "airr"
-        elif file_path.stem.endswith(".csv"):
-            return "pcp"
+    if file_path.suffix.lower() == ".gz" and file_path.stem.endswith(".csv"):
+        return "pcp"
 
-    # If extension doesn't help, try to peek at content
+    # JSON files need content inspection to distinguish AIRR from Olmsted
+    if file_path.suffix.lower() == ".json" or (
+        file_path.suffix.lower() == ".gz" and file_path.stem.endswith(".json")
+    ):
+        try:
+            if str(file_path).endswith(".gz"):
+                file_handle = gzip.open(file_path, "rt")
+            else:
+                file_handle = open(file_path, "r")
+
+            with file_handle:
+                data = json.load(file_handle)
+
+            if isinstance(data, dict):
+                # Explicit format tag in metadata
+                metadata = data.get("metadata", {})
+                if isinstance(metadata, dict) and metadata.get("format") == "olmsted":
+                    return "olmsted"
+                # Heuristic fallback: Olmsted JSON has "datasets" and "metadata"
+                if "datasets" in data and "metadata" in data:
+                    return "olmsted"
+                # AIRR JSON has "clones" with "dataset_id" or standard AIRR keys
+                if "dataset_id" in data or "clones" in data or "ident" in data:
+                    return "airr"
+            elif isinstance(data, list):
+                # Multi-dataset AIRR
+                return "airr"
+        except (json.JSONDecodeError, OSError, ValueError):
+            pass
+
+    # If extension doesn't help, try to peek at content for CSV
     try:
-        # Determine if file is gzipped
         if str(file_path).endswith(".gz"):
             file_handle = gzip.open(file_path, "rt")
         else:
             file_handle = open(file_path, "r")
 
         with file_handle:
-            # Read first few lines to detect format
             first_lines = []
             for i, line in enumerate(file_handle):
                 first_lines.append(line.strip())
-                if i >= 2:  # Read first 3 lines
+                if i >= 2:
                     break
 
-            # Check if it looks like JSON
-            first_content = "".join(first_lines)
-            if first_content.startswith("{") or first_content.startswith("["):
-                try:
-                    # Try to parse as JSON
-                    json.loads(first_content)
-                    return "airr"
-                except (json.JSONDecodeError, ValueError):
-                    pass
-
-            # Check if it looks like CSV with PCP headers
             if first_lines:
                 first_line = first_lines[0].lower()
                 pcp_indicators = [
@@ -396,7 +409,8 @@ def process_pcp_format(args):
             lbi_tau=getattr(args, 'lbi_tau', 0.0125),
             standardize_names=getattr(args, 'standardize_names', False),
             name=getattr(args, 'name', None),
-            verbosity=args.verbose
+            verbosity=args.verbose,
+            custom_fields=getattr(args, 'custom_fields', None),
         )
 
         # Validate data if requested
@@ -440,31 +454,35 @@ def process_pcp_format(args):
         sys.exit(1)
 
 
-def get_args():
-    """Parse command line arguments for the unified processor."""
+def build_parser():
+    """Build the argument parser for the unified processor."""
     parser = argparse.ArgumentParser(
         description="Unified data processor for Olmsted visualization (AIRR JSON and PCP CSV formats)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
     # Auto-detect format and output to single consolidated file (default)
-    python process_data.py -i data.json -o output/olmsted_data.json
-    python process_data.py -i data.csv -o output/olmsted_data.json
+    olmsted process -i data.json -o output/olmsted_data.json
 
-    # Output to multiple files (datasets.json, clones.*.json, tree.*.json)
-    python process_data.py -i data.json --split-files output_dir/
-    python process_data.py -i data.csv --split-files output_dir/
+    # With YAML config file
+    olmsted process -c config.yaml
 
-    # Force specific format
-    python process_data.py -i data.json -o output/data.json -f airr
-    python process_data.py -i data.csv -o output/data.json -f pcp
+    # Config with CLI overrides
+    olmsted process -c config.yaml -i other_data.csv -o override_output.json
 
     # PCP with separate trees file
-    python process_data.py -i data.csv --tree trees.csv -o output/data.json -f pcp
+    olmsted process -i data.csv --tree trees.csv -o output/data.json -f pcp
 
     # With validation
-    python process_data.py -i data.json -o output/data.json --validate --strict-validation
+    olmsted process -i data.json -o output/data.json --validate --strict-validation
         """,
+    )
+
+    # Config file
+    parser.add_argument(
+        "-c",
+        "--config",
+        help="YAML configuration file (CLI arguments override config values)",
     )
 
     # Input/Output arguments
@@ -472,7 +490,6 @@ Examples:
         "-i",
         "--inputs",
         nargs="+",
-        required=True,
         help="Input file(s). For AIRR: one or more JSON files. For PCP: CSV file (use --tree for trees file)",
     )
     parser.add_argument(
@@ -584,7 +601,171 @@ Examples:
         help="Rename nodes to standardized names: naive (root), Node1, Node2, ... (internal), Leaf1, Leaf2, ... (leaves) (PCP only)",
     )
 
-    return parser.parse_args()
+    return parser
+
+
+# Mapping from YAML config keys to argparse dest names
+_CONFIG_KEY_MAP = {
+    "inputs": "inputs",
+    "output": "output",
+    "format": "format",
+    "split_files": "split_files",
+    "json_format": "json_format",
+    "name": "name",
+    "verbose": "verbose",
+    "quiet": "quiet",
+    "validate": "validate",
+    "strict_validation": "strict_validation",
+    "seed": "seed",
+    "warnings": "warnings",
+    "tree": "tree",
+    "naive_name": "naive_name",
+    "root_trees": "root_trees",
+    "compute_metrics": "compute_metrics",
+    "lbi_tau": "lbi_tau",
+    "standardize_names": "standardize_names",
+}
+
+# Valid config keys (including custom_fields which is handled separately)
+_VALID_CONFIG_KEYS = set(_CONFIG_KEY_MAP.keys()) | {"custom_fields"}
+
+
+def load_config(config_path):
+    """
+    Load and validate a YAML configuration file.
+
+    Args:
+        config_path: Path to the YAML config file.
+
+    Returns:
+        Tuple of (config_dict, custom_fields_list).
+        config_dict maps argparse dest names to values.
+        custom_fields_list is a list of custom field declaration dicts.
+
+    Raises:
+        SystemExit: If config file cannot be loaded.
+    """
+    config_path = Path(config_path)
+    if not config_path.exists():
+        print(f"Error: Config file not found: {config_path}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        with open(config_path) as f:
+            raw_config = yaml.safe_load(f)
+    except yaml.YAMLError as e:
+        print(f"Error: Invalid YAML in config file: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if not raw_config or not isinstance(raw_config, dict):
+        return {}, []
+
+    config_dir = config_path.parent
+
+    # Warn about unrecognized keys
+    for key in raw_config:
+        if key not in _VALID_CONFIG_KEYS:
+            print(f"Warning: Unrecognized config key '{key}' (ignored)", file=sys.stderr)
+
+    # Map config keys to argparse dest names
+    config_dict = {}
+    for config_key, arg_dest in _CONFIG_KEY_MAP.items():
+        if config_key in raw_config:
+            value = raw_config[config_key]
+            # Resolve file paths relative to config file directory
+            if config_key in ("inputs", "tree", "output", "split_files"):
+                value = _resolve_paths(value, config_dir)
+            config_dict[arg_dest] = value
+
+    # Parse custom_fields
+    custom_fields = []
+    if "custom_fields" in raw_config:
+        raw_fields = raw_config["custom_fields"]
+        if isinstance(raw_fields, list):
+            for i, entry in enumerate(raw_fields):
+                if not isinstance(entry, dict):
+                    print(
+                        f"Warning: custom_fields[{i}] is not a dict (ignored)",
+                        file=sys.stderr,
+                    )
+                    continue
+                # Validate required keys
+                missing = {"name", "level", "type", "label"} - set(entry.keys())
+                if missing:
+                    print(
+                        f"Warning: custom_fields[{i}] missing required keys: {missing} (ignored)",
+                        file=sys.stderr,
+                    )
+                    continue
+                if entry["level"] not in ("clone", "node", "branch", "mutation"):
+                    print(
+                        f"Warning: custom_fields[{i}] has invalid level '{entry['level']}' (ignored)",
+                        file=sys.stderr,
+                    )
+                    continue
+                if entry["type"] not in ("continuous", "categorical", "tooltip"):
+                    print(
+                        f"Warning: custom_fields[{i}] has invalid type '{entry['type']}' (ignored)",
+                        file=sys.stderr,
+                    )
+                    continue
+                custom_fields.append(entry)
+
+    return config_dict, custom_fields
+
+
+def _resolve_paths(value, config_dir):
+    """Resolve file paths relative to config file directory."""
+    if isinstance(value, list):
+        return [_resolve_paths(v, config_dir) for v in value]
+    if isinstance(value, str):
+        p = Path(value)
+        if not p.is_absolute():
+            resolved = config_dir / p
+            return str(resolved)
+    return value
+
+
+def get_args():
+    """
+    Parse command line arguments with optional YAML config file support.
+
+    Precedence: argparse defaults < YAML config < explicit CLI args.
+    """
+    parser = build_parser()
+
+    # First pass: parse with defaults suppressed to find explicit CLI args
+    # We need to know which args the user explicitly provided on the command line
+    # vs which are just argparse defaults, so config values fill in the gaps.
+    explicit_parser = build_parser()
+    explicit_parser.set_defaults(**{dest: None for dest in _CONFIG_KEY_MAP.values()})
+    explicit_parser.set_defaults(config=None, quiet=None)
+    explicit_args, _ = explicit_parser.parse_known_args()
+
+    # Second pass: normal parse with defaults
+    args = parser.parse_args()
+
+    # Load config if specified (from either CLI or first-pass)
+    config_path = explicit_args.config or args.config
+    custom_fields = None
+
+    if config_path:
+        config_dict, custom_fields = load_config(config_path)
+
+        # Apply config values where CLI didn't explicitly set them
+        for dest, config_value in config_dict.items():
+            explicit_value = getattr(explicit_args, dest, None)
+            if explicit_value is None:
+                setattr(args, dest, config_value)
+
+    # Attach custom_fields to args for downstream use
+    args.custom_fields = custom_fields
+
+    # Inputs is required (either from CLI or config)
+    if not args.inputs:
+        parser.error("the following arguments are required: -i/--inputs (or provide in config)")
+
+    return args
 
 
 def main():
@@ -647,6 +828,12 @@ def main():
             process_airr_format(args)
         elif format_to_use == "pcp":
             process_pcp_format(args)
+        elif format_to_use == "olmsted":
+            vprint.error(
+                "Error: Input is already in Olmsted JSON format. "
+                "Use 'olmsted enrich' to add field_metadata to existing Olmsted files."
+            )
+            sys.exit(1)
         else:
             vprint.error(f"Error: Unsupported format: {format_to_use}")
             sys.exit(1)

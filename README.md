@@ -70,6 +70,8 @@ olmsted process -i sequences.csv --tree trees.csv -o output/data.json --compute-
 | Command | Purpose |
 |---------|---------|
 | **`process`** | This is the primary tool: Converts input AIRR or PCP format data into Olmsted-readable JSON format |
+| **`enrich`** | Add field metadata to existing Olmsted JSON files (e.g., pre-built surprise analysis data) |
+| **`dump-fields`** | Extract all fields from data into an editable YAML config |
 | **`validate`** | Verify data files conform to Olmsted schema |
 | **`summary`** | Generate statistics and metadata report for processed data |
 | **`split`** | Divide large consolidated files into smaller chunks for performance |
@@ -101,6 +103,7 @@ olmsted process -i input.csv -f pcp -o output.json
 | `--unbundle DIR` | Unbundle output into separate component files (datasets.json, clones.*.json, tree.*.json) for backwards compatibility with Olmsted web app |
 | `-f, --format {airr,pcp,auto}` | Input format (default: auto-detect) |
 | `-t, --tree FILE` | Trees file for PCP format (optional, can be gzipped) |
+| `-c, --config FILE` | YAML configuration file (CLI arguments override config values) |
 
 #### Processing Options
 
@@ -176,6 +179,157 @@ Expected columns in the trees file:
 | `family_name` | Clonal family identifier (must match `family` in PCP CSV) |
 | `sample_id` | Sample identifier (must match `sample_id` in PCP CSV) |
 | `newick_tree` | Newick format tree string for the family |
+
+---
+
+### `enrich` - Add Field Metadata to Existing Files
+
+Add `field_metadata` to pre-built Olmsted JSON files. This is useful for data produced outside the standard `process` pipeline (e.g., surprise analysis data from DASM2).
+
+#### Basic Usage
+
+```bash
+# Introspect fields and add metadata
+olmsted enrich -i data.json -o enriched.json
+
+# With custom field declarations
+olmsted enrich -i data.json -o enriched.json -c surprise.yaml
+
+# Modify file in place
+olmsted enrich -i data.json --in-place -c surprise.yaml
+```
+
+#### Options
+
+| Option | Description |
+|--------|-------------|
+| `-i, --input FILE` | Input Olmsted JSON file |
+| `-o, --output FILE` | Output file path (required unless `--in-place`) |
+| `--in-place` | Modify the input file in place |
+| `-c, --config FILE` | YAML config with custom field declarations |
+| `--json-format {pretty,compact}` | JSON output format (default: pretty) |
+| `-v, --verbose` | Show detailed output |
+
+---
+
+### `dump-fields` - Extract Fields into Config
+
+Introspect an Olmsted JSON file and generate a YAML config listing every discoverable field with its inferred type, label, and sample values. This gives you a starting point to customize before using with `enrich` or `process`.
+
+#### Typical Workflow
+
+```bash
+# 1. Dump all fields from your data
+olmsted dump-fields -i data.json -o config.yaml
+
+# 2. Edit config.yaml — remove fields you don't need, fix labels, adjust types
+
+# 3. Use the config to enrich your data
+olmsted enrich -i data.json -o enriched.json -c config.yaml
+```
+
+#### Options
+
+| Option | Description |
+|--------|-------------|
+| `-i, --input FILE` | Input Olmsted JSON file to introspect |
+| `-o, --output FILE` | Output YAML file (default: print to stdout) |
+
+#### Example Output
+
+```yaml
+custom_fields:
+  # --- Clone level (scatterplot axes, color, facet) ---
+  - name: mean_mut_freq
+    level: clone
+    type: continuous
+    label: "Mean Mutation Frequency"
+    # sample values: 0.115, 0.056, 0.036, ...
+
+  - name: mean_surprise_mutsel
+    level: clone
+    type: continuous
+    label: "Mean Surprise MutSel"
+    # sample values: 3.503, 4.588, 4.729, ...
+
+  # --- Mutation level (alignment coloring) ---
+  - name: surprise_mutsel
+    level: mutation
+    type: continuous
+    label: "Surprise (MutSel)"
+    # sample values: 4.66, 3.49, 3.52, ...
+```
+
+---
+
+### Configuration Files
+
+Instead of passing all options on the command line, you can use a YAML configuration file. CLI arguments always override config values.
+
+```bash
+# Use a config file
+olmsted process -c config.yaml
+
+# Config with CLI overrides (CLI wins)
+olmsted process -c config.yaml -i other_data.csv -o override.json
+```
+
+#### Default Configs
+
+Default configuration files are included with the package as starting points. Copy one and customize it for your dataset:
+
+| Config | Format | Purpose |
+|--------|--------|---------|
+| `pcp.yaml` | PCP | Standard PCP processing with all options documented |
+| `airr.yaml` | AIRR | Standard AIRR processing with all options documented |
+| `surprise.yaml` | Enrich | Custom field declarations for DASM2 surprise analysis data |
+
+To copy a default config:
+
+```bash
+# Find the configs directory
+python -c "import olmsted_cli.configs; print(olmsted_cli.configs.__path__[0])"
+
+# Copy and customize
+cp $(python -c "import olmsted_cli.configs; print(olmsted_cli.configs.__path__[0])")/pcp.yaml my_config.yaml
+```
+
+#### Config File Structure
+
+```yaml
+# Standard CLI options (use underscores, not hyphens)
+inputs: [data.csv]
+output: output/result.json
+tree: trees.csv
+format: pcp
+name: "My Dataset"
+seed: 42
+compute_metrics: true
+lbi_tau: 0.0125
+verbose: 1
+validate: true
+
+# Custom field declarations
+custom_fields:
+  - name: my_metric          # Field name in the data
+    level: clone              # clone, node, branch, or mutation
+    type: continuous          # continuous, categorical, or tooltip
+    label: "My Metric"       # Display label in web app
+```
+
+#### Custom Fields
+
+The `custom_fields` section lets you declare additional data fields that should appear in the web app's visualization controls. Each entry requires:
+
+| Key | Description |
+|-----|-------------|
+| `name` | Field name as it appears in the data |
+| `level` | Data level: `clone` (scatterplot), `node` (tree nodes), `branch` (tree branches), `mutation` (alignment) |
+| `type` | `continuous` (numeric — axes, size), `categorical` (string — color, shape, facet), or `tooltip` (display only) |
+| `label` | Human-readable label for dropdowns and tooltips |
+| `path` | *(optional)* Dot-path to field location in JSON for non-standard structures |
+
+Standard fields (e.g., `unique_seqs_count`, `v_call`, `lbi`) are auto-detected and don't need to be declared. See the default config files for the full list of built-in fields.
 
 ---
 
