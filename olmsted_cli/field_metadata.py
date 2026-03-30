@@ -171,8 +171,8 @@ def _apply_custom_fields(metadata, custom_fields, level, existing_metadata=None)
         if cf.get("level") != level:
             continue
 
-        # "skip" type: remove this field from metadata entirely
-        if cf.get("type") == "skip":
+        # skip keyword: remove this field from metadata entirely
+        if cf.get("skip", False):
             metadata.pop(cf["name"], None)
             output_key = cf.get("output_name")
             if output_key:

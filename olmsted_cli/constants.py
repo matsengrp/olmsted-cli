@@ -16,7 +16,7 @@ It has NO dependencies on other project modules.
 #: - aa: amino acid identity (uses full genetic alphabet)
 #: - dna: nucleotide identity (uses full genetic alphabet)
 #: - skip: exclude from output metadata (keeps entry in config for docs)
-FIELD_TYPES = {"continuous", "categorical", "tooltip", "aa", "dna", "skip"}
+FIELD_TYPES = {"continuous", "categorical", "tooltip", "aa", "dna"}
 
 #: Valid data levels for field_metadata.
 #: - clone: clonal family level (scatterplot axes, color, facet)
@@ -238,59 +238,31 @@ FIELD_ALIASES = {
     "mut_from": "parent_aa",
 }
 
-#: Suggested type overrides for fields that auto-detection may not classify
-#: correctly. Used by build-config to pre-fill the type field. These are
-#: suggestions only — the user can change them in their config.
-#:
-#: Fields mapped to "skip" are non-visualization metadata that would
-#: pollute the web app dropdowns if included.
-SUGGESTED_FIELD_TYPES = {
-    # --- Identifiers (useful for debugging, not for viz encoding) ---
-    "ident": "skip",
-    "clone_id": "skip",
-    "dataset_id": "skip",
-    "repertoire_id": "skip",
-    "pair_id": "skip",
-    "seed_id": "skip",
-    "schema_version": "skip",
-    "type": "skip",
-    "build": "skip",
-    "trees_meta": "skip",
-    # --- Non-visualization metadata ---
-    "partition": "skip",
-    "path": "skip",
-    "sorted_index": "skip",
-    # --- Alignment positions (may be useful as tooltips) ---
-    "v_alignment_start": "skip",
-    "v_alignment_end": "skip",
-    "v_sequence_start": "skip",
-    "v_sequence_end": "skip",
-    "v_germline_start": "skip",
-    "v_germline_end": "skip",
-    "d_alignment_start": "skip",
-    "d_alignment_end": "skip",
-    "d_sequence_start": "skip",
-    "d_sequence_end": "skip",
-    "d_germline_start": "skip",
-    "d_germline_end": "skip",
-    "j_alignment_start": "skip",
-    "j_alignment_end": "skip",
-    "j_sequence_start": "skip",
-    "j_sequence_end": "skip",
-    "j_germline_start": "skip",
-    "j_germline_end": "skip",
-    "cdr1_alignment_start": "skip",
-    "cdr1_alignment_end": "skip",
-    "cdr2_alignment_start": "skip",
-    "cdr2_alignment_end": "skip",
-    "cdr1_alignment_start_light": "skip",
-    "cdr1_alignment_end_light": "skip",
-    "cdr2_alignment_start_light": "skip",
-    "cdr2_alignment_end_light": "skip",
-    "junction_start": "skip",
-    "junction_end": "skip",
-    "junction_start_light": "skip",
-    "junction_length_light": "skip",
+#: Fields suggested as skip in build-config output. These are non-visualization
+#: metadata that would pollute web app dropdowns if included. Shown in a
+#: separate section at the bottom of the config for user review.
+SUGGESTED_SKIP_FIELDS = {
+    # Identifiers (useful for debugging, not for viz encoding)
+    "ident", "clone_id", "dataset_id", "repertoire_id", "pair_id",
+    "seed_id", "schema_version", "type", "build", "trees_meta",
+    # Non-visualization metadata
+    "partition", "path", "sorted_index",
+    # Alignment positions (may be useful as tooltips)
+    "v_alignment_start", "v_alignment_end",
+    "v_sequence_start", "v_sequence_end",
+    "v_germline_start", "v_germline_end",
+    "d_alignment_start", "d_alignment_end",
+    "d_sequence_start", "d_sequence_end",
+    "d_germline_start", "d_germline_end",
+    "j_alignment_start", "j_alignment_end",
+    "j_sequence_start", "j_sequence_end",
+    "j_germline_start", "j_germline_end",
+    "cdr1_alignment_start", "cdr1_alignment_end",
+    "cdr2_alignment_start", "cdr2_alignment_end",
+    "cdr1_alignment_start_light", "cdr1_alignment_end_light",
+    "cdr2_alignment_start_light", "cdr2_alignment_end_light",
+    "junction_start", "junction_end",
+    "junction_start_light", "junction_length_light",
 }
 
 

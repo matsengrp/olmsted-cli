@@ -622,6 +622,7 @@ _CONFIG_KEY_MAP = {
     "split_files": "split_files",
     "json_format": "json_format",
     "name": "name",
+    "description": "description",
     "verbose": "verbose",
     "quiet": "quiet",
     "validate": "validate",
@@ -700,21 +701,26 @@ def load_config(config_path):
                         file=sys.stderr,
                     )
                     continue
-                # Validate required keys
-                missing = {"name", "level", "type", "label"} - set(entry.keys())
+                # Skip entries only need name and level
+                is_skip = entry.get("skip", False)
+                if is_skip:
+                    required_keys = {"name", "level"}
+                else:
+                    required_keys = {"name", "level", "type", "label"}
+                missing = required_keys - set(entry.keys())
                 if missing:
                     print(
                         f"Warning: custom_fields[{i}] missing required keys: {missing} (ignored)",
                         file=sys.stderr,
                     )
                     continue
-                if entry["level"] not in FIELD_LEVELS:
+                if entry.get("level") not in FIELD_LEVELS:
                     print(
                         f"Warning: custom_fields[{i}] has invalid level '{entry['level']}' (ignored)",
                         file=sys.stderr,
                     )
                     continue
-                if entry["type"] not in FIELD_TYPES:
+                if not is_skip and entry.get("type") not in FIELD_TYPES:
                     print(
                         f"Warning: custom_fields[{i}] has invalid type '{entry['type']}' (ignored)",
                         file=sys.stderr,

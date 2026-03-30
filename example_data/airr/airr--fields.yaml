@@ -16,11 +16,12 @@
 # Processing Options (uncomment and edit as needed)
 # =============================================================================
 
-# inputs: [airr.json]
-# output: output.json
-# format: airr
+inputs: [airr.json]
+output: output.json
+format: airr
 
 # name: "My Dataset"
+# description: ""
 # seed: 42             # for reproducible UUIDs
 
 # --- Metric Computation ---
@@ -45,6 +46,7 @@
 #   level:       clone, node, branch, or mutation (required)
 #   type:        continuous, categorical, tooltip, aa, or dna (required)
 #   label:       Display label in web app (required)
+#   skip:        true to exclude from output metadata (optional)
 #   range:       [min, max] for continuous fields (optional)
 #
 # Types:
@@ -53,7 +55,6 @@
 #   tooltip     — display-only (shown in tooltips, not for encoding)
 #   aa          — amino acid identity (uses full genetic alphabet)
 #   dna         — nucleotide identity (uses full genetic alphabet)
-#   skip        — exclude this field from metadata (keeps entry for docs)
 #
 # Cross-format aliases (suggested output_name, remove if not needed):
 #   v_gene, v_gene_heavy  ->  v_call
@@ -197,90 +198,107 @@ custom_fields:
 
   # =================================================================
   # Skipped fields (not included in output metadata)
-  # Change type from 'skip' to include (e.g., 'tooltip', 'continuous')
+  # Remove 'skip: true' to include a field, or delete the entry
   # =================================================================
   - name: clone_id
     level: clone
-    type: skip
+    skip: true
+    type: categorical
     label: "Clone ID"
     # sample values: clust-3, seed-cluster, clust-1, clust-4, clust-6, ...
   - name: d_alignment_end
     level: clone
-    type: skip
+    skip: true
+    type: continuous
     label: "D Alignment End"
     # sample values: 314, 327, 306, 328, 318, ...
   - name: d_alignment_start
     level: clone
-    type: skip
+    skip: true
+    type: continuous
     label: "D Alignment Start"
     # sample values: 301, 299, 301, 326, 296, ...
   - name: dataset_id
     level: clone
-    type: skip
+    skip: true
+    type: categorical
     label: "Dataset ID"
     # sample values: test-input-2020.01.30, test-input-2020.01.30, test-input-2020.01.30, test-input-2020.01.30, test-input-2020.01.30, ...
   - name: ident
     level: clone
-    type: skip
+    skip: true
+    type: categorical
     label: "Ident"
     # sample values: 08da722a-704b-3e9d-9743-7759549f7257, 5eb2526f-7e92-33a0-953d-8382e9d24955, a11ac61f-6de7-3e03-adc0-e7dec3c1fa3c, 7c385455-287d-3e67-a0a4-93b3889bbb46, 483d588f-b377-313d-9f3e-e94ccea7d0fa, ...
   - name: j_alignment_end
     level: clone
-    type: skip
+    skip: true
+    type: continuous
     label: "J Alignment End"
     # sample values: 367, 379, 364, 376, 397, ...
   - name: j_alignment_start
     level: clone
-    type: skip
+    skip: true
+    type: continuous
     label: "J Alignment Start"
     # sample values: 324, 329, 316, 329, 362, ...
   - name: junction_start
     level: clone
-    type: skip
+    skip: true
+    type: continuous
     label: "Junction Start"
     # sample values: 285, 285, 285, 285, 285, ...
   - name: partition
     level: clone
-    type: skip
+    skip: true
+    type: tooltip
     label: "Partition"
     # sample values: {'id': 'unseeded-part-5'}, {'id': 'seed-part-3'}, {'id': 'unseeded-part-5'}, {'id': 'unseeded-part-5'}, {'id': 'unseeded-part-5'}, ...
   - name: path
     level: clone
-    type: skip
+    skip: true
+    type: tooltip
     label: "Path"
     # sample values: ['output/test-input/None/simulation-test/unseeded-part-5/clust-3'], ['output/test-input/None/simulation-test/-1118600317502690934/seed-part-3/seed-cluster'], ['output/test-input/None/simulation-test/unseeded-part-5/clust-1'], ['output/test-input/None/simulation-test/unseeded-part-5/clust-4'], ['output/test-input/None/simulation-test/unseeded-part-5/clust-6'], ...
   - name: repertoire_id
     level: clone
-    type: skip
+    skip: true
+    type: categorical
     label: "Repertoire ID"
     # sample values: simulation-test, simulation-test, simulation-test, simulation-test, simulation-test, ...
   - name: seed_id
     level: clone
-    type: skip
+    skip: true
+    type: categorical
     label: "Seed ID"
     # sample values: -1118600317502690934
   - name: sorted_index
     level: clone
-    type: skip
+    skip: true
+    type: continuous
     label: "Sorted Index"
     # sample values: 3, 1, 4, 6, 0, ...
   - name: type
     level: clone
-    type: skip
+    skip: true
+    type: categorical
     label: "Type"
     # sample values: cft.cluster, cft.cluster, cft.cluster, cft.cluster, cft.cluster, ...
   - name: v_alignment_end
     level: clone
-    type: skip
+    skip: true
+    type: continuous
     label: "V Alignment End"
     # sample values: 296, 296, 292, 295, 290, ...
   - name: v_alignment_start
     level: clone
-    type: skip
+    skip: true
+    type: continuous
     label: "V Alignment Start"
     # sample values: 0, 0, 0, 0, 0, ...
   - name: type
     level: node
-    type: skip
+    skip: true
+    type: categorical
     label: "Type"
     # sample values: leaf, leaf, node, leaf, leaf, ...

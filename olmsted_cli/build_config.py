@@ -26,7 +26,7 @@ from .constants import (
     KNOWN_CLONE_FIELDS,
     KNOWN_MUTATION_FIELDS,
     KNOWN_NODE_FIELDS,
-    SUGGESTED_FIELD_TYPES,
+    SUGGESTED_SKIP_FIELDS,
 )
 from .field_metadata import (
     compute_range,
@@ -198,13 +198,10 @@ def _field_summary(dicts, field, known_registry):
             "type": infer_field_type(values),
             "label": humanize_label(field),
         }
-    # Apply suggested type override if available
-    if field in SUGGESTED_FIELD_TYPES:
-        entry["type"] = SUGGESTED_FIELD_TYPES[field]
     return entry
 
 
-def _format_field_block(name, level, entry, sample_values=None, field_range=None):
+def _format_field_block(name, level, entry, sample_values=None, field_range=None, skip=False):
     """Format a single custom_fields YAML entry as a string."""
     lines = []
     lines.append(f"  - name: {name}")
@@ -215,6 +212,8 @@ def _format_field_block(name, level, entry, sample_values=None, field_range=None
         lines.append(f"    output_name: {alias}")
 
     lines.append(f"    level: {level}")
+    if skip:
+        lines.append(f"    skip: true")
     lines.append(f"    type: {entry['type']}")
     lines.append(f"    label: \"{entry['label']}\"")
     if field_range:
@@ -262,22 +261,22 @@ def _build_yaml(
     lines.append("")
 
     if detected_format == "olmsted":
-        # Olmsted JSON uses enrich, not process
         input_str = str(input_path) if input_path else input_name
         lines.append(f"# input: {input_str}")
         lines.append("# output: enriched_output.json")
         lines.append("# mode: add            # add (merge with existing) or overwrite")
     elif detected_format == "pcp":
         input_str = str(input_path) if input_path else input_name
-        lines.append(f"# inputs: [{input_str}]")
+        lines.append(f"inputs: [{input_str}]")
         if tree_path:
-            lines.append(f"# tree: {tree_path}")
+            lines.append(f"tree: {tree_path}")
         else:
-            lines.append("# tree: trees.csv")
-        lines.append("# output: output.json")
-        lines.append("# format: pcp")
+            lines.append("tree: trees.csv")
+        lines.append("output: output.json")
+        lines.append("format: pcp")
         lines.append("")
         lines.append("# name: \"My Dataset\"")
+        lines.append("# description: \"\"")
         lines.append("# seed: 42             # for reproducible UUIDs")
         lines.append("")
         lines.append("# --- Metric Computation ---")
@@ -291,11 +290,12 @@ def _build_yaml(
         lines.append("# verbose: 1")
     elif detected_format == "airr":
         input_str = str(input_path) if input_path else input_name
-        lines.append(f"# inputs: [{input_str}]")
-        lines.append("# output: output.json")
-        lines.append("# format: airr")
+        lines.append(f"inputs: [{input_str}]")
+        lines.append("output: output.json")
+        lines.append("format: airr")
         lines.append("")
         lines.append("# name: \"My Dataset\"")
+        lines.append("# description: \"\"")
         lines.append("# seed: 42             # for reproducible UUIDs")
         lines.append("")
         lines.append("# --- Metric Computation ---")
@@ -321,6 +321,7 @@ def _build_yaml(
     lines.append("#   level:       clone, node, branch, or mutation (required)")
     lines.append("#   type:        continuous, categorical, tooltip, aa, or dna (required)")
     lines.append("#   label:       Display label in web app (required)")
+    lines.append("#   skip:        true to exclude from output metadata (optional)")
     lines.append("#   range:       [min, max] for continuous fields (optional)")
     lines.append("#")
     lines.append("# Types:")
@@ -329,7 +330,6 @@ def _build_yaml(
     lines.append("#   tooltip     — display-only (shown in tooltips, not for encoding)")
     lines.append("#   aa          — amino acid identity (uses full genetic alphabet)")
     lines.append("#   dna         — nucleotide identity (uses full genetic alphabet)")
-    lines.append("#   skip        — exclude this field from metadata (keeps entry for docs)")
     lines.append("#")
     lines.append("# Cross-format aliases (suggested output_name, remove if not needed):")
     lines.append("#   v_gene, v_gene_heavy  ->  v_call")
@@ -343,12 +343,8 @@ def _build_yaml(
     # Collect skip entries separately for the bottom section
     skip_entries = []
 
-    def _emit_or_defer(field, level, entry, samples=None, field_range=None):
-        """Add field to main section or defer to skip section."""
-        if entry.get("type") == "skip":
-            skip_entries.append((field, level, entry, samples, field_range))
-        else:
-            lines.append(_format_field_block(field, level, entry, samples, field_range))
+    def _is_skip(field):
+        return field in SUGGESTED_SKIP_FIELDS
 
     # --- Clone level ---
     clone_keys = _collect_keys(all_clones) - EXCLUDED_CLONE_FIELDS
@@ -359,15 +355,13 @@ def _build_yaml(
     if has_locus:
         clone_keys.add("locus")
 
-    active_clone_keys = [f for f in sorted(clone_keys)
-                         if _field_summary(all_clones, f, KNOWN_CLONE_FIELDS).get("type") != "skip"]
-    skip_clone_keys = [f for f in sorted(clone_keys)
-                       if _field_summary(all_clones, f, KNOWN_CLONE_FIELDS).get("type") == "skip"]
+    active_clone = [f for f in sorted(clone_keys) if not _is_skip(f)]
+    skip_clone = [f for f in sorted(clone_keys) if _is_skip(f)]
 
-    if active_clone_keys:
+    if active_clone:
         lines.append("")
         lines.append("  # --- Clone level (scatterplot axes, color, facet) ---")
-        for field in active_clone_keys:
+        for field in active_clone:
             entry = _field_summary(all_clones, field, KNOWN_CLONE_FIELDS)
             if field == "locus":
                 samples = list({
@@ -379,7 +373,7 @@ def _build_yaml(
                 samples = _sample_values(all_clones, field, max_samples=6)
             lines.append(_format_field_block(field, "clone", entry, samples))
 
-    for field in skip_clone_keys:
+    for field in skip_clone:
         entry = _field_summary(all_clones, field, KNOWN_CLONE_FIELDS)
         samples = _sample_values(all_clones, field, max_samples=6)
         skip_entries.append((field, "clone", entry, samples, None))
@@ -388,20 +382,18 @@ def _build_yaml(
     node_keys = _collect_keys(all_nodes) - EXCLUDED_NODE_FIELDS
     node_keys -= set(KNOWN_BRANCH_FIELDS.keys())
 
-    active_node_keys = [f for f in sorted(node_keys)
-                        if _field_summary(all_nodes, f, KNOWN_NODE_FIELDS).get("type") != "skip"]
-    skip_node_keys = [f for f in sorted(node_keys)
-                      if _field_summary(all_nodes, f, KNOWN_NODE_FIELDS).get("type") == "skip"]
+    active_node = [f for f in sorted(node_keys) if not _is_skip(f)]
+    skip_node = [f for f in sorted(node_keys) if _is_skip(f)]
 
-    if active_node_keys:
+    if active_node:
         lines.append("")
         lines.append("  # --- Node level (tree node properties, tooltips) ---")
-        for field in active_node_keys:
+        for field in active_node:
             entry = _field_summary(all_nodes, field, KNOWN_NODE_FIELDS)
             samples = _sample_values(all_nodes, field, max_samples=6)
             lines.append(_format_field_block(field, "node", entry, samples))
 
-    for field in skip_node_keys:
+    for field in skip_node:
         entry = _field_summary(all_nodes, field, KNOWN_NODE_FIELDS)
         samples = _sample_values(all_nodes, field, max_samples=6)
         skip_entries.append((field, "node", entry, samples, None))
@@ -425,12 +417,10 @@ def _build_yaml(
     )
     has_derived_aa = has_aa_sequences and "child_aa" not in mutation_keys
 
-    active_mutation_keys = [f for f in sorted(mutation_keys)
-                           if _field_summary(all_mutations, f, KNOWN_MUTATION_FIELDS).get("type") != "skip"]
-    skip_mutation_keys = [f for f in sorted(mutation_keys)
-                          if _field_summary(all_mutations, f, KNOWN_MUTATION_FIELDS).get("type") == "skip"]
+    active_mutation = [f for f in sorted(mutation_keys) if not _is_skip(f)]
+    skip_mutation = [f for f in sorted(mutation_keys) if _is_skip(f)]
 
-    if active_mutation_keys or has_derived_aa:
+    if active_mutation or has_derived_aa:
         lines.append("")
         lines.append("  # --- Mutation level (alignment coloring) ---")
 
@@ -446,7 +436,7 @@ def _build_yaml(
                 {"type": "tooltip", "label": "Parent Amino Acid"},
             ))
 
-        for field in active_mutation_keys:
+        for field in active_mutation:
             entry = _field_summary(all_mutations, field, KNOWN_MUTATION_FIELDS)
             samples = _sample_values(all_mutations, field, max_samples=6)
             field_range = None
@@ -454,7 +444,7 @@ def _build_yaml(
                 field_range = compute_range(all_mutations_full, field)
             lines.append(_format_field_block(field, "mutation", entry, samples, field_range))
 
-    for field in skip_mutation_keys:
+    for field in skip_mutation:
         entry = _field_summary(all_mutations, field, KNOWN_MUTATION_FIELDS)
         samples = _sample_values(all_mutations, field, max_samples=6)
         skip_entries.append((field, "mutation", entry, samples, None))
@@ -465,10 +455,10 @@ def _build_yaml(
         lines.append("")
         lines.append("  # =================================================================")
         lines.append("  # Skipped fields (not included in output metadata)")
-        lines.append("  # Change type from 'skip' to include (e.g., 'tooltip', 'continuous')")
+        lines.append("  # Remove 'skip: true' to include a field, or delete the entry")
         lines.append("  # =================================================================")
         for field, level, entry, samples, field_range in skip_entries:
-            lines.append(_format_field_block(field, level, entry, samples, field_range))
+            lines.append(_format_field_block(field, level, entry, samples, field_range, skip=True))
 
     lines.append("")
     return "\n".join(lines)
