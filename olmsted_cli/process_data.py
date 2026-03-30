@@ -29,7 +29,7 @@ import yaml
 import jsonschema
 from tqdm import tqdm
 
-from .constants import FIELD_LEVELS, FIELD_TYPES
+from .constants import FIELD_LEVELS, FIELD_TYPES, normalize_level
 
 from .process_airr_data import (
     clone_spec,
@@ -720,6 +720,8 @@ def load_config(config_path):
                         file=sys.stderr,
                     )
                     continue
+                # Normalize level alias (family → clone)
+                entry["level"] = normalize_level(entry["level"])
                 if not is_skip and entry.get("type") not in FIELD_TYPES:
                     print(
                         f"Warning: custom_fields[{i}] has invalid type '{entry['type']}' (ignored)",

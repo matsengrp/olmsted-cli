@@ -113,7 +113,7 @@ class TestBuildConfigPcp:
         assert result.returncode == 0
         output = result.stdout
         assert "custom_fields:" in output
-        assert "Clone level" in output
+        assert "Family level" in output
         assert "unique_seqs_count" in output
 
     def test_pcp_extra_columns(self):

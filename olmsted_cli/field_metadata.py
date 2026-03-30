@@ -32,6 +32,7 @@ from .constants import (
     KNOWN_BRANCH_FIELDS,
     KNOWN_CLONE_FIELDS,
     KNOWN_MUTATION_FIELDS,
+    normalize_level,
     KNOWN_NODE_FIELDS,
 )
 
@@ -168,7 +169,7 @@ def _apply_custom_fields(metadata, custom_fields, level, existing_metadata=None)
     if not custom_fields:
         return
     for cf in custom_fields:
-        if cf.get("level") != level:
+        if normalize_level(cf.get("level", "")) != level:
             continue
 
         # skip keyword: remove this field from metadata entirely

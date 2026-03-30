@@ -19,11 +19,23 @@ It has NO dependencies on other project modules.
 FIELD_TYPES = {"continuous", "categorical", "tooltip", "aa", "dna"}
 
 #: Valid data levels for field_metadata.
-#: - clone: clonal family level (scatterplot axes, color, facet)
+#: - family/clone: clonal family level (scatterplot axes, color, facet)
 #: - node: tree node level (node properties, tooltips)
 #: - branch: tree branch level (branch coloring, width)
 #: - mutation: per-mutation level (alignment coloring)
-FIELD_LEVELS = {"clone", "node", "branch", "mutation"}
+#: "family" is the preferred user-facing name; "clone" is the internal name.
+FIELD_LEVELS = {"clone", "family", "node", "branch", "mutation"}
+
+#: Maps user-facing level aliases to canonical internal names.
+#: "family" → "clone" in the output JSON (backward compatible).
+LEVEL_ALIASES = {
+    "family": "clone",
+}
+
+#: Canonical internal level name for each alias.
+def normalize_level(level: str) -> str:
+    """Normalize a level name to its canonical internal form."""
+    return LEVEL_ALIASES.get(level, level)
 
 
 # =============================================================================

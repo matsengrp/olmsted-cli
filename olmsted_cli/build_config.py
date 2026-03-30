@@ -322,7 +322,7 @@ def _build_yaml(
     lines.append("# Each field entry supports:")
     lines.append("#   name:        Field name in the input data (required)")
     lines.append("#   output_name: Renamed field in output (optional, for cross-format alignment)")
-    lines.append("#   level:       clone, node, branch, or mutation (required)")
+    lines.append("#   level:       family, node, branch, or mutation (required)")
     lines.append("#   type:        continuous, categorical, tooltip, aa, or dna (required)")
     lines.append("#   label:       Display label in web app (required)")
     lines.append("#   skip:        true to exclude from output metadata (optional)")
@@ -364,7 +364,7 @@ def _build_yaml(
 
     if active_clone:
         lines.append("")
-        lines.append("  # --- Clone level (scatterplot axes, color, facet) ---")
+        lines.append("  # --- Family level (clonal family — scatterplot axes, color, facet) ---")
         for field in active_clone:
             entry = _field_summary(all_clones, field, KNOWN_CLONE_FIELDS)
             if field == "locus":
@@ -375,12 +375,12 @@ def _build_yaml(
                 })
             else:
                 samples = _sample_values(all_clones, field, max_samples=6)
-            lines.append(_format_field_block(field, "clone", entry, samples))
+            lines.append(_format_field_block(field, "family", entry, samples))
 
     for field in skip_clone:
         entry = _field_summary(all_clones, field, KNOWN_CLONE_FIELDS)
         samples = _sample_values(all_clones, field, max_samples=6)
-        skip_entries.append((field, "clone", entry, samples, None))
+        skip_entries.append((field, "family", entry, samples, None))
 
     # --- Node level ---
     node_keys = _collect_keys(all_nodes) - EXCLUDED_NODE_FIELDS
