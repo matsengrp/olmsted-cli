@@ -1,0 +1,210 @@
+# =============================================================================
+# Field configuration generated from: airr.json
+# Detected format: airr
+# =============================================================================
+#
+# This file lists all fields discovered in your data. Edit it to:
+#   - Remove fields you don't want in the web app dropdowns
+#   - Change type (continuous, categorical, tooltip, aa, dna)
+#   - Customize display labels
+#   - Uncomment processing options below as needed
+#
+# Then use with:  olmsted process -c this_file.yaml
+
+
+# =============================================================================
+# Processing Options (uncomment and edit as needed)
+# =============================================================================
+
+# inputs: [airr.json]
+# output: output.json
+# format: airr
+
+# name: "My Dataset"
+# seed: 42             # for reproducible UUIDs
+
+# --- Metric Computation ---
+# Computes LBI, LBR, affinity, and scaled_affinity for all tree nodes.
+# Requires tree branch lengths (works with any format that has them).
+# compute_metrics: true
+# lbi_tau: 0.0125      # time scale parameter for LBI
+
+# naive_name: naive     # name of root/naive node
+# root_trees: false     # re-root trees at naive node
+# validate: false
+# verbose: 1
+
+
+# =============================================================================
+# Field Declarations
+# =============================================================================
+#
+# Each field entry supports:
+#   name:        Field name in the input data (required)
+#   output_name: Renamed field in output (optional, for cross-format alignment)
+#   level:       clone, node, branch, or mutation (required)
+#   type:        continuous, categorical, tooltip, aa, or dna (required)
+#   label:       Display label in web app (required)
+#   range:       [min, max] for continuous fields (optional)
+#
+# Types:
+#   continuous  — numeric (axes, size, color scales)
+#   categorical — string/enum (color, shape, facet)
+#   tooltip     — display-only (shown in tooltips, not for encoding)
+#   aa          — amino acid identity (uses full genetic alphabet)
+#   dna         — nucleotide identity (uses full genetic alphabet)
+#   skip        — exclude this field from metadata (keeps entry for docs)
+#
+# Cross-format aliases (suggested output_name, remove if not needed):
+#   v_gene, v_gene_heavy  ->  v_call
+#   d_gene, d_gene_heavy  ->  d_call
+#   j_gene, j_gene_heavy  ->  j_call
+#   rearrangement_count   ->  unique_seqs_count
+#   size                  ->  total_read_count
+
+custom_fields:
+
+  # --- Clone level (scatterplot axes, color, facet) ---
+  - name: d_call
+    level: clone
+    type: categorical
+    label: "D Gene"
+    # sample values: IGHD1-26*01, IGHD2-2*02, IGHD6-13*01, IGHD2-2*02, IGHD2-15*01, ...
+  - name: has_seed
+    level: clone
+    type: categorical
+    label: "Has Seed"
+    # sample values: False, True, False, False, False, ...
+  - name: j_call
+    level: clone
+    type: categorical
+    label: "J Gene"
+    # sample values: IGHJ4*02, IGHJ3*02, IGHJ4*02, IGHJ1*01, IGHJ5*02, ...
+  - name: junction_length
+    level: clone
+    type: continuous
+    label: "Junction Length"
+    # sample values: 51, 63, 48, 60, 81, ...
+  - name: locus
+    level: clone
+    type: categorical
+    label: "Locus"
+    # sample values: igh
+  - name: mean_mut_freq
+    level: clone
+    type: continuous
+    label: "Mean Mutation Frequency"
+    # sample values: 0.020477252084881513, 0.019552127731547256, 0.022644022644022644, 0.12482269503546099, 0.02605064298024658, ...
+  - name: partition
+    level: clone
+    type: tooltip
+    label: "Partition"
+    # sample values: {'id': 'unseeded-part-5'}, {'id': 'seed-part-3'}, {'id': 'unseeded-part-5'}, {'id': 'unseeded-part-5'}, {'id': 'unseeded-part-5'}, ...
+  - name: path
+    level: clone
+    type: tooltip
+    label: "Path"
+    # sample values: ['output/test-input/None/simulation-test/unseeded-part-5/clust-3'], ['output/test-input/None/simulation-test/-1118600317502690934/seed-part-3/seed-cluster'], ['output/test-input/None/simulation-test/unseeded-part-5/clust-1'], ['output/test-input/None/simulation-test/unseeded-part-5/clust-4'], ['output/test-input/None/simulation-test/unseeded-part-5/clust-6'], ...
+  - name: rearrangement_count
+    output_name: unique_seqs_count
+    level: clone
+    type: continuous
+    label: "Rearrangement Count"
+    # sample values: 33, 39, 33, 15, 38, ...
+  - name: sample_id
+    level: clone
+    type: categorical
+    label: "Sample"
+    # sample values: simulation-test, simulation-test, simulation-test, simulation-test, simulation-test, ...
+  - name: sampled_seqs_count
+    output_name: unique_seqs_count
+    level: clone
+    type: continuous
+    label: "Sampled Sequences Count"
+    # sample values: 33, 39, 33, 15, 38, ...
+  - name: size
+    output_name: total_read_count
+    level: clone
+    type: continuous
+    label: "Size"
+    # sample values: 46, 39, 48, 46, 45, ...
+  - name: sorted_index
+    level: clone
+    type: continuous
+    label: "Sorted Index"
+    # sample values: 3, 1, 4, 6, 0, ...
+  - name: subject_id
+    level: clone
+    type: categorical
+    label: "Subject"
+    # sample values: None, None, None, None, None, ...
+  - name: total_read_count
+    level: clone
+    type: continuous
+    label: "Total Read Count"
+    # sample values: 37, 40, 35, 15, 43, ...
+  - name: unique_seqs_count
+    level: clone
+    type: continuous
+    label: "Unique Sequences Count"
+    # sample values: 33, 39, 33, 15, 38, ...
+  - name: v_call
+    level: clone
+    type: categorical
+    label: "V Gene"
+    # sample values: IGHV1-18*01, IGHV3-64*04, IGHV3-23*01, IGHV1-2*02, IGHV1-2*02, ...
+
+  # --- Node level (tree node properties, tooltips) ---
+  - name: affinity
+    level: node
+    type: continuous
+    label: "Affinity"
+  - name: cluster_multiplicity
+    level: node
+    type: continuous
+    label: "Cluster Multiplicity"
+    # sample values: 1, 1, 1, 1, 1, ...
+  - name: distance
+    level: node
+    type: continuous
+    label: "Distance from Root"
+    # sample values: 0.01638, 0.016321000000000002, 0.008089999999999998, 0.027694999999999997, 0.038137, ...
+  - name: lbi
+    level: node
+    type: continuous
+    label: "LBI"
+    # sample values: 0.008065821247190111, 0.008263772145157134, 0.38176616743175124, 0.0016274896738440574, 0.012257284181679581, ...
+  - name: lbr
+    level: node
+    type: continuous
+    label: "LBR"
+    # sample values: 0.0, 0.0, 0.056411670854125504, 0.0, 0.0, ...
+  - name: multiplicity
+    level: node
+    type: continuous
+    label: "Multiplicity"
+    # sample values: 1, 1, 1, 1, 1, ...
+  - name: timepoint_id
+    level: node
+    type: categorical
+    label: "Timepoint"
+    # sample values: no-timepoint, no-timepoint, no-timepoint, no-timepoint, no-timepoint, ...
+
+  # --- Branch level (tree branch coloring, width) ---
+  - name: length
+    level: branch
+    type: continuous
+    label: "Branch Length"
+    # sample values: 0.00829, 0.008231, 0.005378, 0.011597, 0.005465, ...
+
+  # --- Mutation level (alignment coloring) ---
+  # The following fields are derived by the web app from
+  # parent/child sequence alignments during rendering:
+  - name: child_aa
+    level: mutation
+    type: aa
+    label: "Child Amino Acid"
+  - name: parent_aa
+    level: mutation
+    type: tooltip
+    label: "Parent Amino Acid"

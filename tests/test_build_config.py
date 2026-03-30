@@ -72,15 +72,33 @@ class TestBuildConfigOlmsted:
         assert "output_name" in result.stdout
         assert "v_call" in result.stdout
 
-    def test_includes_output_name_example(self):
-        """Output includes output_name usage example."""
+    def test_includes_output_name_docs(self):
+        """Output includes output_name documentation and alias reference."""
         result = subprocess.run(
             ["olmsted", "build-config", "-i",
              "example_data/surprise/surprise_subset.json"],
             capture_output=True, text=True,
         )
-        assert "rearrangement_count" in result.stdout
-        assert "output_name: unique_seqs_count" in result.stdout
+        assert "output_name" in result.stdout
+        assert "rearrangement_count" in result.stdout  # in alias reference
+        assert "unique_seqs_count" in result.stdout  # in alias reference
+
+    def test_alias_suggestions_on_airr(self):
+        """AIRR fields with aliases get output_name suggestions."""
+        result = subprocess.run(
+            ["olmsted", "build-config", "-i",
+             "example_data/airr/airr.json"],
+            capture_output=True, text=True,
+        )
+        # rearrangement_count should have output_name: unique_seqs_count
+        lines = result.stdout.split("\n")
+        for i, line in enumerate(lines):
+            if "name: rearrangement_count" in line:
+                # Next line should be output_name
+                assert "output_name: unique_seqs_count" in lines[i + 1]
+                break
+        else:
+            pytest.fail("rearrangement_count not found in build-config output")
 
 
 class TestBuildConfigPcp:

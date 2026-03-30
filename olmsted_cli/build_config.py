@@ -17,6 +17,26 @@ import sys
 from pathlib import Path
 
 from .process_data import detect_file_format
+# Cross-format field aliases: suggested output_name renames for common fields.
+# These are NOT auto-applied during processing — they are pre-filled as
+# suggestions in the generated config for the user to approve or remove.
+FIELD_ALIASES = {
+    "v_gene": "v_call",
+    "v_gene_heavy": "v_call",
+    "d_gene": "d_call",
+    "d_gene_heavy": "d_call",
+    "j_gene": "j_call",
+    "j_gene_heavy": "j_call",
+    "v_gene_light": "v_call_light",
+    "j_gene_light": "j_call_light",
+    "rearrangement_count": "unique_seqs_count",
+    "sampled_seqs_count": "unique_seqs_count",
+    "size": "total_read_count",
+    "branch_length": "length",
+    "mut_to": "child_aa",
+    "mut_from": "parent_aa",
+}
+
 from .field_metadata import (
     EXCLUDED_CLONE_FIELDS,
     EXCLUDED_MUTATION_FIELDS,
@@ -201,6 +221,12 @@ def _format_field_block(name, level, entry, sample_values=None, field_range=None
     """Format a single custom_fields YAML entry as a string."""
     lines = []
     lines.append(f"  - name: {name}")
+
+    # Suggest output_name from alias table if applicable
+    alias = FIELD_ALIASES.get(name)
+    if alias and alias != name:
+        lines.append(f"    output_name: {alias}")
+
     lines.append(f"    level: {level}")
     lines.append(f"    type: {entry['type']}")
     lines.append(f"    label: \"{entry['label']}\"")
@@ -310,19 +336,20 @@ def _build_yaml(
     lines.append("#   label:       Display label in web app (required)")
     lines.append("#   range:       [min, max] for continuous fields (optional)")
     lines.append("#")
-    lines.append("# Common cross-format aliases (auto-recognized):")
+    lines.append("# Types:")
+    lines.append("#   continuous  — numeric (axes, size, color scales)")
+    lines.append("#   categorical — string/enum (color, shape, facet)")
+    lines.append("#   tooltip     — display-only (shown in tooltips, not for encoding)")
+    lines.append("#   aa          — amino acid identity (uses full genetic alphabet)")
+    lines.append("#   dna         — nucleotide identity (uses full genetic alphabet)")
+    lines.append("#   skip        — exclude this field from metadata (keeps entry for docs)")
+    lines.append("#")
+    lines.append("# Cross-format aliases (suggested output_name, remove if not needed):")
     lines.append("#   v_gene, v_gene_heavy  ->  v_call")
     lines.append("#   d_gene, d_gene_heavy  ->  d_call")
     lines.append("#   j_gene, j_gene_heavy  ->  j_call")
     lines.append("#   rearrangement_count   ->  unique_seqs_count")
     lines.append("#   size                  ->  total_read_count")
-    lines.append("#")
-    lines.append("# Example with output_name (renames field in output):")
-    lines.append("#   - name: rearrangement_count")
-    lines.append("#     output_name: unique_seqs_count")
-    lines.append("#     level: clone")
-    lines.append("#     type: continuous")
-    lines.append("#     label: \"Unique Sequences Count\"")
     lines.append("")
     lines.append("custom_fields:")
 

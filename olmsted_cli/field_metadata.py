@@ -369,6 +369,15 @@ def _apply_custom_fields(metadata, custom_fields, level, existing_metadata=None)
     for cf in custom_fields:
         if cf.get("level") != level:
             continue
+
+        # "skip" type: remove this field from metadata entirely
+        if cf.get("type") == "skip":
+            metadata.pop(cf["name"], None)
+            output_key = cf.get("output_name")
+            if output_key:
+                metadata.pop(output_key, None)
+            continue
+
         output_key = cf.get("output_name", cf["name"])
         entry = {"type": cf["type"], "label": cf["label"]}
         # Preserve range from auto-detection or existing
