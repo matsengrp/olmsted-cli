@@ -163,6 +163,30 @@ KNOWN_TREE_COLUMNS = {
 }
 
 
+def _partition_chain_fields(fields):
+    """
+    Partition a dict of extra fields into shared, heavy-only, and light-only.
+
+    Fields ending with '_heavy' go to heavy-only (with suffix stripped).
+    Fields ending with '_light' go to light-only (with suffix stripped).
+    Fields without a chain suffix are shared between both chains.
+
+    Returns:
+        Tuple of (shared, heavy_only, light_only) dicts.
+    """
+    shared = {}
+    heavy_only = {}
+    light_only = {}
+    for key, val in fields.items():
+        if key.endswith("_heavy"):
+            heavy_only[key[:-6]] = val  # strip _heavy suffix
+        elif key.endswith("_light"):
+            light_only[key[:-6]] = val  # strip _light suffix
+        else:
+            shared[key] = val
+    return shared, heavy_only, light_only
+
+
 def _coerce_csv_value(val: str):
     """
     Coerce a CSV string value to the most appropriate Python type.
@@ -1745,6 +1769,7 @@ def process_pcp_to_olmsted(
                     "scaled_affinity": None,
                 }
                 # Carry through extra PCP columns as custom node-level fields
+                # Partition by chain suffix for paired data
                 _known_node_keys = {
                     "sequence_id", "sequence_alignment", "sequence_alignment_aa",
                     "sequence_alignment_light", "multiplicity", "cluster_multiplicity",
@@ -1752,9 +1777,15 @@ def process_pcp_to_olmsted(
                     "lbi", "lbr", "affinity", "scaled_affinity",
                     "is_naive", "is_leaf", "distances",
                 }
-                for k, v in node_data.items():
-                    if k not in _known_node_keys and k not in processed_node_heavy:
-                        processed_node_heavy[k] = v
+                extra_node_raw = {
+                    k: v for k, v in node_data.items()
+                    if k not in _known_node_keys and k not in processed_node_heavy
+                }
+                node_shared, node_heavy, node_light = _partition_chain_fields(extra_node_raw)
+                for k, v in node_shared.items():
+                    processed_node_heavy[k] = v
+                for k, v in node_heavy.items():
+                    processed_node_heavy[k] = v
 
                 processed_nodes_heavy[node_id] = processed_node_heavy
 
@@ -1781,6 +1812,12 @@ def process_pcp_to_olmsted(
                         "affinity": None,
                         "scaled_affinity": None,
                     }
+                    # Add extra node fields: shared + light-only
+                    for k, v in node_shared.items():
+                        processed_node_light[k] = v
+                    for k, v in node_light.items():
+                        processed_node_light[k] = v
+
                     processed_nodes_light[node_id] = processed_node_light
 
             # For backward compatibility, keep processed_nodes pointing to heavy chain
@@ -2270,8 +2307,12 @@ def process_pcp_to_olmsted(
                 clone_heavy["pair_id"] = pair_id
 
             # Add extra clone-level fields from tree CSV
-            extra_clone = family_meta.get("_extra_clone_fields", {})
-            for k, v in extra_clone.items():
+            # Partition by chain suffix: _heavy → heavy only, _light → light only, neither → shared
+            extra_clone_raw = family_meta.get("_extra_clone_fields", {})
+            extra_shared, extra_heavy, extra_light = _partition_chain_fields(extra_clone_raw)
+            for k, v in extra_shared.items():
+                clone_heavy[k] = v
+            for k, v in extra_heavy.items():
                 clone_heavy[k] = v
 
             # Add clone to dataset's clones array
@@ -2338,8 +2379,10 @@ def process_pcp_to_olmsted(
                     "pair_id": pair_id,
                 }
 
-                # Add extra clone-level fields from tree CSV
-                for k, v in extra_clone.items():
+                # Add extra clone-level fields from tree CSV (shared + light-only)
+                for k, v in extra_shared.items():
+                    clone_light[k] = v
+                for k, v in extra_light.items():
                     clone_light[k] = v
 
                 # Add clone to dataset's clones array
