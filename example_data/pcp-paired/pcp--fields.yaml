@@ -1,0 +1,115 @@
+# =============================================================================
+# Field configuration generated from: pcp.csv
+# Detected format: pcp
+# =============================================================================
+#
+# This file lists all fields discovered in your data. Edit it to:
+#   - Remove fields you don't want in the web app dropdowns
+#   - Change type (continuous, categorical, tooltip)
+#   - Customize display labels
+#
+# Then use with:  olmsted process -c this_file.yaml
+
+custom_fields:
+
+  # --- Clone level (scatterplot axes, color, facet) ---
+  - name: d_call
+    level: clone
+    type: categorical
+    label: "D Gene"
+    # sample values: , , , , , ...
+  - name: has_seed
+    level: clone
+    type: categorical
+    label: "Has Seed"
+    # sample values: False, False, False, False, False, ...
+  - name: is_paired
+    level: clone
+    type: categorical
+    label: "Is Paired"
+    # sample values: True, True, True, True, True, ...
+  - name: j_call
+    level: clone
+    type: categorical
+    label: "J Gene"
+    # sample values: IGHJ4*02, IGLJ2*01, IGHJ4*02, IGKJ2*01, IGHJ3*02, ...
+  - name: junction_length
+    level: clone
+    type: continuous
+    label: "Junction Length"
+    # sample values: 30, 24, 39, 27, 60, ...
+  - name: locus
+    level: clone
+    type: categorical
+    label: "Locus"
+    # sample values: igk, igh, igl
+  - name: mean_mut_freq
+    level: clone
+    type: continuous
+    label: "Mean Mutation Frequency"
+    # sample values: 0.044444444444444446, 0.04892966360856269, 0.030303030303030304, 0.04892966360856269, 0.09114583333333333, ...
+  - name: sample_id
+    level: clone
+    type: categorical
+    label: "Sample"
+    # sample values: d2, d2, d4, d4, d1, ...
+  - name: subject_id
+    level: clone
+    type: categorical
+    label: "Subject"
+    # sample values: pcp-subject, pcp-subject, pcp-subject, pcp-subject, pcp-subject, ...
+  - name: total_read_count
+    level: clone
+    type: continuous
+    label: "Total Read Count"
+    # sample values: 3, 3, 3, 3, 3, ...
+  - name: unique_seqs_count
+    level: clone
+    type: continuous
+    label: "Unique Sequences Count"
+    # sample values: 4, 4, 4, 4, 4, ...
+  - name: v_call
+    level: clone
+    type: categorical
+    label: "V Gene"
+    # sample values: IGHV3-15*01, IGLV2-14*05, IGHV3-33*08, IGKV3-20*01, IGHV3-23*04, ...
+
+  # --- Node level (tree node properties, tooltips) ---
+  - name: affinity
+    level: node
+    type: continuous
+    label: "Affinity"
+  - name: cluster_multiplicity
+    level: node
+    type: continuous
+    label: "Cluster Multiplicity"
+    # sample values: 2, 2, 1, 1, 2, ...
+  - name: distance
+    level: node
+    type: continuous
+    label: "Distance from Root"
+    # sample values: 0.0, 0.0371190701, 0.0406274752, 0.0730059698, 0.0, ...
+  - name: lbi
+    level: node
+    type: continuous
+    label: "LBI"
+  - name: lbr
+    level: node
+    type: continuous
+    label: "LBR"
+  - name: multiplicity
+    level: node
+    type: continuous
+    label: "Multiplicity"
+    # sample values: 0, 1, 1, 1, 0, ...
+  - name: scaled_affinity
+    level: node
+    type: continuous
+    label: "Scaled Affinity"
+
+  # --- Branch level (tree branch coloring, width) ---
+  - name: length
+    level: branch
+    type: continuous
+    label: "Branch Length"
+    # sample values: 0.0, 0.0371190701, 0.0035084051, 0.0358868997, 0.0, ...

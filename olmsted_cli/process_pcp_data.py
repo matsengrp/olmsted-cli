@@ -21,6 +21,7 @@ import argparse
 import csv
 import gzip
 import hashlib
+import json
 import html
 import os
 import sys
