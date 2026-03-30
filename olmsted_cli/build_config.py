@@ -26,6 +26,7 @@ from .constants import (
     KNOWN_CLONE_FIELDS,
     KNOWN_MUTATION_FIELDS,
     KNOWN_NODE_FIELDS,
+    SUGGESTED_FIELD_TYPES,
 )
 from .field_metadata import (
     compute_range,
@@ -197,6 +198,9 @@ def _field_summary(dicts, field, known_registry):
             "type": infer_field_type(values),
             "label": humanize_label(field),
         }
+    # Apply suggested type override if available
+    if field in SUGGESTED_FIELD_TYPES:
+        entry["type"] = SUGGESTED_FIELD_TYPES[field]
     return entry
 
 

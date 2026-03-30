@@ -254,6 +254,29 @@ FIELD_ALIASES = {
     "mut_from": "parent_aa",
 }
 
+#: Suggested type overrides for fields that auto-detection may not classify
+#: correctly. Used by build-config to pre-fill the type field. These are
+#: suggestions only — the user can change them in their config.
+#:
+#: Fields mapped to "skip" are non-visualization metadata that would
+#: pollute the web app dropdowns if included.
+SUGGESTED_FIELD_TYPES = {
+    # Non-visualization metadata → skip
+    "partition": "skip",
+    "path": "skip",
+    "sorted_index": "skip",
+    "repertoire_id": "skip",
+    "seed_id": "skip",
+    "ident": "skip",
+    "clone_id": "skip",
+    "dataset_id": "skip",
+    "schema_version": "skip",
+    "type": "skip",
+    "build": "skip",
+    "trees_meta": "skip",
+}
+
+
 #: Abbreviation map for humanize_label(): maps lowercase tokens to
 #: their preferred display form.
 ABBREVIATION_MAP = {
