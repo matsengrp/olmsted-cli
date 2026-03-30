@@ -239,25 +239,34 @@ olmsted enrich -i data.json -o enriched.json -c config.yaml
 
 ```yaml
 custom_fields:
-  # --- Clone level (scatterplot axes, color, facet) ---
+  # --- Family level (clonal family — scatterplot axes, color, facet) ---
   - name: mean_mut_freq
-    level: clone
+    level: family
     type: continuous
     label: "Mean Mutation Frequency"
     # sample values: 0.115, 0.056, 0.036, ...
 
-  - name: mean_surprise_mutsel
-    level: clone
+  - name: rearrangement_count
+    output_name: unique_seqs_count    # suggested cross-format alias
+    level: family
     type: continuous
-    label: "Mean Surprise MutSel"
-    # sample values: 3.503, 4.588, 4.729, ...
+    label: "Rearrangement Count"
 
   # --- Mutation level (alignment coloring) ---
   - name: surprise_mutsel
     level: mutation
     type: continuous
     label: "Surprise (MutSel)"
-    # sample values: 4.66, 3.49, 3.52, ...
+    # range in data: [0.68, 13.03]
+
+  # =================================================================
+  # Skipped fields (not included in output metadata)
+  # =================================================================
+  - name: partition
+    level: family
+    skip: true
+    type: tooltip
+    label: "Partition"
 ```
 
 ---
@@ -303,6 +312,7 @@ output: output/result.json
 tree: trees.csv
 format: pcp
 name: "My Dataset"
+description: "Heavy chain BCR data from experiment X"
 seed: 42
 compute_metrics: true
 lbi_tau: 0.0125
@@ -311,25 +321,37 @@ validate: true
 
 # Custom field declarations
 custom_fields:
-  - name: my_metric          # Field name in the data
-    level: clone              # clone, node, branch, or mutation
-    type: continuous          # continuous, categorical, or tooltip
+  - name: my_metric
+    level: family             # family, node, branch, or mutation
+    type: continuous          # continuous, categorical, tooltip, aa, or dna
     label: "My Metric"       # Display label in web app
+
+  - name: internal_id
+    level: family
+    skip: true                # exclude from output metadata
+    type: categorical
+    label: "Internal ID"
 ```
 
 #### Custom Fields
 
-The `custom_fields` section lets you declare additional data fields that should appear in the web app's visualization controls. Each entry requires:
+The `custom_fields` section lets you declare additional data fields that should appear in the web app's visualization controls. Each entry supports:
 
 | Key | Description |
 |-----|-------------|
-| `name` | Field name as it appears in the data |
-| `level` | Data level: `clone` (scatterplot), `node` (tree nodes), `branch` (tree branches), `mutation` (alignment) |
-| `type` | `continuous` (numeric — axes, size), `categorical` (string — color, shape, facet), or `tooltip` (display only) |
+| `name` | Field name as it appears in the input data |
+| `output_name` | *(optional)* Renamed field in output (for cross-format alignment) |
+| `level` | `family` (scatterplot), `node` (tree nodes), `branch` (branches), `mutation` (alignment) |
+| `type` | `continuous`, `categorical`, `tooltip`, `aa` (amino acid), or `dna` (nucleotide) |
 | `label` | Human-readable label for dropdowns and tooltips |
-| `path` | *(optional)* Dot-path to field location in JSON for non-standard structures |
+| `skip` | *(optional)* `true` to exclude from output metadata |
+| `range` | *(optional)* `[min, max]` for continuous fields (color scale domain) |
 
-Standard fields (e.g., `unique_seqs_count`, `v_call`, `lbi`) are auto-detected and don't need to be declared. See the default config files for the full list of built-in fields.
+**Levels**: `family` is the preferred name for the clonal family level (also accepts `clone` as an alias). The output JSON uses `clone` internally for backward compatibility.
+
+**Types**: `aa` and `dna` tell the web app to use the full genetic alphabet for color palettes, rather than just the values present in the data.
+
+Standard fields (e.g., `unique_seqs_count`, `v_call`, `lbi`) are auto-detected and don't need to be declared. Use `build-config` to generate a starting config with all discoverable fields.
 
 ---
 
