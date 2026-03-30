@@ -15,6 +15,9 @@ from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from urllib.parse import parse_qs, parse_qsl
 
+from .field_metadata import generate_field_metadata
+from .metrics import compute_tree_metrics
+
 if TYPE_CHECKING:
     from argparse import Namespace
 
@@ -244,8 +247,6 @@ def process_dataset(
 
         # Compute metrics on trees if requested (LBI, LBR, scaled_affinity)
         if getattr(args, "compute_metrics", False):
-            from .metrics import compute_tree_metrics
-
             lbi_tau = getattr(args, "lbi_tau", 0.0125)
             for tree in processed_trees:
                 nodes = tree.get("nodes", {})
@@ -284,8 +285,6 @@ def process_dataset(
     clones_dict[dataset["dataset_id"]] = clones
 
     # Generate field_metadata from actual clone and tree data
-    from .field_metadata import generate_field_metadata
-
     dataset["field_metadata"] = generate_field_metadata(
         clones,
         trees,

@@ -186,8 +186,8 @@ def main():
             dataset["field_metadata"] = merged
 
         if args.verbose:
-            levels = list(field_metadata.keys())
-            total_fields = sum(len(v) for v in field_metadata.values())
+            levels = list(dataset["field_metadata"].keys())
+            total_fields = sum(len(v) for v in dataset["field_metadata"].values())
             print(
                 f"Dataset '{dataset_id}': {total_fields} fields across levels: {levels}"
             )

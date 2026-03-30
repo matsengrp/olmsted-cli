@@ -152,7 +152,7 @@ def _collect_keys(dicts: List[Dict]) -> set:
     return keys
 
 
-def _apply_custom_fields(metadata, custom_fields, level, existing_metadata=None):
+def _apply_custom_fields(metadata, custom_fields, level):
     """
     Apply custom field declarations to a metadata dict for a given level.
 
@@ -164,7 +164,6 @@ def _apply_custom_fields(metadata, custom_fields, level, existing_metadata=None)
         metadata: The field metadata dict to update (modified in place).
         custom_fields: List of custom field declarations.
         level: The level to filter on ("clone", "node", etc.).
-        existing_metadata: Optional existing metadata for range preservation.
     """
     if not custom_fields:
         return

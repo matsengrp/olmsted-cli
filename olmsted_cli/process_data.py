@@ -857,7 +857,7 @@ def main():
             vprint.error(f"Error: Unsupported format: {format_to_use}")
             sys.exit(1)
 
-        vprint.status(f"\n✓ Successfully processed {format_to_use.upper()} format data")
+        vprint.status(f"\nSuccessfully processed {format_to_use.upper()} format data")
 
     except KeyboardInterrupt:
         vprint.error("\nProcessing interrupted by user")

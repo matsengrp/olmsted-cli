@@ -71,6 +71,8 @@ from .process_utils import (
 
 
 from .constants import CHAIN_COLUMN_ALIASES, KNOWN_PCP_COLUMNS, KNOWN_TREE_COLUMNS
+from .field_metadata import generate_field_metadata
+from .metrics import compute_tree_metrics
 
 
 def _normalize_column_names(fieldnames):
@@ -454,6 +456,11 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
                 # Add light chain sequence for paired format
                 if is_paired:
                     parent_node_data["sequence_alignment_light"] = parent_sequence_light
+                # Capture extra columns as custom node-level fields
+                for col in extra_columns:
+                    val = row.get(col, "")
+                    if val != "":
+                        parent_node_data[col] = _coerce_csv_value(val)
                 families[family_id]["nodes"][parent] = parent_node_data
 
             # Add child node if not already present
@@ -1818,8 +1825,6 @@ def process_pcp_to_olmsted(
 
             # Calculate phylogenetic metrics if requested (computed for both heavy and light)
             if compute_metrics:
-                from .metrics import compute_tree_metrics
-
                 vprint.verbose(f"  Computing metrics for family {family_id} (tau={lbi_tau})")
                 compute_tree_metrics(
                     processed_nodes_heavy, family_data["edges"], tree_root, tau=lbi_tau
@@ -2343,8 +2348,6 @@ def process_pcp_to_olmsted(
                 trees.append(tree_light)
 
     # Generate field_metadata from actual clone and tree data
-    from .field_metadata import generate_field_metadata
-
     dataset_clones = clones_dict.get(dataset_id, [])
     dataset["field_metadata"] = generate_field_metadata(
         dataset_clones,
