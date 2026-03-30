@@ -153,6 +153,16 @@
                     "type": "continuous",
                     "label": "Branch Length"
                 }
+            },
+            "mutation": {
+                "child_aa": {
+                    "type": "aa",
+                    "label": "Child Amino Acid"
+                },
+                "parent_aa": {
+                    "type": "tooltip",
+                    "label": "Parent Amino Acid"
+                }
             }
         },
         "schema_version": "2.0.0"

@@ -358,8 +358,21 @@ class TestGenerateMutationMetadata:
         meta = generate_mutation_metadata(trees_with_surprise)
         assert "site" not in meta
 
-    def test_no_surprise_data(self, trees_with_nodes):
+    def test_no_surprise_data_but_has_sequences(self, trees_with_nodes):
+        """When nodes have AA sequences but no surprise_mutations,
+        derived child_aa/parent_aa are still declared."""
         meta = generate_mutation_metadata(trees_with_nodes)
+        assert "child_aa" in meta
+        assert meta["child_aa"]["type"] == "aa"
+        assert "parent_aa" in meta
+        assert meta["parent_aa"]["type"] == "tooltip"
+        # But no surprise fields
+        assert "surprise_mutsel" not in meta
+
+    def test_no_sequences_no_mutations(self):
+        """Trees with no AA sequences and no surprise_mutations → empty."""
+        trees = [{"nodes": [{"sequence_id": "a", "type": "leaf"}]}]
+        meta = generate_mutation_metadata(trees)
         assert meta == {}
 
     def test_custom_mutation_fields_without_data(self):

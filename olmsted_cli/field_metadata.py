@@ -548,9 +548,21 @@ def generate_mutation_metadata(
         Dict mapping field_name -> {"type": ..., "label": ..., "range"?: [...]}
     """
     all_mutations = _collect_mutations(trees)
+
+    # Check if nodes have AA sequence data — if so, the web app will derive
+    # per-mutation child_aa/parent_aa fields during alignment rendering,
+    # even if no surprise_mutations arrays exist in the data.
+    all_nodes = _collect_nodes(trees, max_nodes=20)
+    has_aa_sequences = any(
+        n.get("sequence_alignment_aa") for n in all_nodes if isinstance(n, dict)
+    )
+
     if not all_mutations:
-        # No mutation data found; still allow custom declarations
+        # No pre-computed mutation data; declare derived fields if sequences exist
         metadata = {}
+        if has_aa_sequences:
+            metadata["child_aa"] = {"type": "aa", "label": "Child Amino Acid"}
+            metadata["parent_aa"] = {"type": "tooltip", "label": "Parent Amino Acid"}
         if custom_fields:
             for cf in custom_fields:
                 if cf.get("level") == "mutation":

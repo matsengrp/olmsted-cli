@@ -289,9 +289,32 @@ def _build_yaml(input_name, detected_format, all_clones, all_trees):
     mutation_keys = _collect_keys(all_mutations) - EXCLUDED_MUTATION_FIELDS
     # Collect all mutations for accurate range computation
     all_mutations_full = _collect_mutations(all_trees, max_mutations=100000)
-    if mutation_keys:
+
+    # Check for AA sequence data on nodes — if present, the web app will
+    # derive per-mutation child_aa/parent_aa during alignment rendering
+    has_aa_sequences = any(
+        n.get("sequence_alignment_aa") for n in all_nodes if isinstance(n, dict)
+    )
+    has_derived_aa = has_aa_sequences and "child_aa" not in mutation_keys
+
+    if mutation_keys or has_derived_aa:
         lines.append("")
         lines.append("  # --- Mutation level (alignment coloring) ---")
+
+        # Derived AA fields (from sequence alignment, computed by web app)
+        if has_derived_aa:
+            lines.append("  # The following fields are derived by the web app from")
+            lines.append("  # parent/child sequence alignments during rendering:")
+            lines.append(_format_field_block(
+                "child_aa", "mutation",
+                {"type": "aa", "label": "Child Amino Acid"},
+            ))
+            lines.append(_format_field_block(
+                "parent_aa", "mutation",
+                {"type": "tooltip", "label": "Parent Amino Acid"},
+            ))
+
+        # Pre-computed mutation fields (e.g., surprise scores)
         for field in sorted(mutation_keys):
             entry = _field_summary(all_mutations, field, KNOWN_MUTATION_FIELDS)
             samples = _sample_values(all_mutations, field, max_samples=6)

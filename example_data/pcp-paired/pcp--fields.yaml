@@ -42,7 +42,7 @@ custom_fields:
     level: clone
     type: categorical
     label: "Locus"
-    # sample values: igk, igh, igl
+    # sample values: igh, igk, igl
   - name: mean_mut_freq
     level: clone
     type: continuous
