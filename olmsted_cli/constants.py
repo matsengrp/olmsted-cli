@@ -265,6 +265,18 @@ SUGGESTED_SKIP_FIELDS = {
     "junction_start_light", "junction_length_light",
 }
 
+#: Suggested type overrides for fields where auto-inference would give
+#: the wrong result. Used by build-config to pre-fill the type field.
+#: These are suggestions — the user can change them in their config.
+#: Format: {field_name: suggested_type}
+SUGGESTED_FIELD_TYPES = {
+    # parent_aa is context for the mutation, not for color encoding
+    "parent_aa": "tooltip",
+    "parent_nt": "tooltip",
+    # mut_from is an alias for parent_aa in some formats
+    "mut_from": "tooltip",
+}
+
 
 #: Abbreviation map for humanize_label(): maps lowercase tokens to
 #: their preferred display form.
