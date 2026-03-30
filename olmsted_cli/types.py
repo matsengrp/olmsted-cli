@@ -339,9 +339,10 @@ class FieldMetadataEntry(TypedDict, total=False):
 class CustomFieldDeclaration(TypedDict, total=False):
     """Declaration of a custom data field from YAML config."""
 
-    name: str  # Field name
+    name: str  # Field name in the input data
+    output_name: Optional[str]  # Renamed field name in output (default: same as name)
     level: str  # "clone", "node", "branch", or "mutation"
-    type: str  # "continuous", "categorical", or "tooltip"
+    type: str  # "continuous", "categorical", "tooltip", "aa", or "dna"
     label: str  # Human-readable display label
     path: Optional[str]  # Dot-path for JSON sources
 

@@ -93,6 +93,39 @@ KNOWN_FIELDS_BY_LEVEL = {
 
 
 # =============================================================================
+# Cross-format field aliases
+# =============================================================================
+#
+# Maps alternative field names (from different formats/conventions) to their
+# canonical Olmsted output name. Used during field_metadata generation and
+# data renaming when output_name is not explicitly specified.
+#
+# Format: {input_name: canonical_output_name}
+
+FIELD_ALIASES = {
+    # Gene call naming: AIRR uses v_call, PCP uses v_gene_heavy
+    "v_gene": "v_call",
+    "v_gene_heavy": "v_call",
+    "d_gene": "d_call",
+    "d_gene_heavy": "d_call",
+    "j_gene": "j_call",
+    "j_gene_heavy": "j_call",
+    "v_gene_light": "v_call_light",
+    "j_gene_light": "j_call_light",
+    # Sequence count naming
+    "rearrangement_count": "unique_seqs_count",
+    "sampled_seqs_count": "unique_seqs_count",
+    # Size/count
+    "size": "total_read_count",
+    # Tree metrics
+    "branch_length": "length",
+    # Mutation fields
+    "mut_to": "child_aa",
+    "mut_from": "parent_aa",
+}
+
+
+# =============================================================================
 # Exclusion lists — structural/internal fields not useful for visualization
 # =============================================================================
 
@@ -350,6 +383,40 @@ def _collect_keys(dicts: List[Dict]) -> set:
     return keys
 
 
+def _apply_custom_fields(metadata, custom_fields, level, existing_metadata=None):
+    """
+    Apply custom field declarations to a metadata dict for a given level.
+
+    Handles output_name renaming: if a custom field specifies output_name,
+    the field is registered under that name in field_metadata (and the
+    input name is noted for data renaming during processing).
+
+    Args:
+        metadata: The field metadata dict to update (modified in place).
+        custom_fields: List of custom field declarations.
+        level: The level to filter on ("clone", "node", etc.).
+        existing_metadata: Optional existing metadata for range preservation.
+    """
+    if not custom_fields:
+        return
+    for cf in custom_fields:
+        if cf.get("level") != level:
+            continue
+        output_key = cf.get("output_name", cf["name"])
+        entry = {"type": cf["type"], "label": cf["label"]}
+        # Preserve range from auto-detection or existing
+        if "range" in cf:
+            entry["range"] = cf["range"]
+        elif output_key in metadata and "range" in metadata[output_key]:
+            entry["range"] = metadata[output_key]["range"]
+        elif cf["name"] in metadata and "range" in metadata[cf["name"]]:
+            entry["range"] = metadata[cf["name"]]["range"]
+        # If renaming, remove the original name from metadata
+        if output_key != cf["name"] and cf["name"] in metadata:
+            del metadata[cf["name"]]
+        metadata[output_key] = entry
+
+
 def _get_nested_value(d: Dict, path: str) -> Any:
     """
     Resolve a simple dot-path against a dict.
@@ -427,14 +494,7 @@ def generate_clone_metadata(
                     "label": humanize_label(key),
                 }
 
-    # Apply custom field overrides/additions
-    if custom_fields:
-        for cf in custom_fields:
-            if cf.get("level") == "clone":
-                metadata[cf["name"]] = {
-                    "type": cf["type"],
-                    "label": cf["label"],
-                }
+    _apply_custom_fields(metadata, custom_fields, "clone")
 
     return metadata
 
@@ -479,13 +539,7 @@ def generate_node_metadata(
                     "label": humanize_label(key),
                 }
 
-    if custom_fields:
-        for cf in custom_fields:
-            if cf.get("level") == "node":
-                metadata[cf["name"]] = {
-                    "type": cf["type"],
-                    "label": cf["label"],
-                }
+    _apply_custom_fields(metadata, custom_fields, "node")
 
     return metadata
 
@@ -519,13 +573,7 @@ def generate_branch_metadata(
             if values:
                 metadata[key] = dict(KNOWN_BRANCH_FIELDS[key])
 
-    if custom_fields:
-        for cf in custom_fields:
-            if cf.get("level") == "branch":
-                metadata[cf["name"]] = {
-                    "type": cf["type"],
-                    "label": cf["label"],
-                }
+    _apply_custom_fields(metadata, custom_fields, "branch")
 
     return metadata
 
@@ -563,13 +611,7 @@ def generate_mutation_metadata(
         if has_aa_sequences:
             metadata["child_aa"] = {"type": "aa", "label": "Child Amino Acid"}
             metadata["parent_aa"] = {"type": "tooltip", "label": "Parent Amino Acid"}
-        if custom_fields:
-            for cf in custom_fields:
-                if cf.get("level") == "mutation":
-                    entry = {"type": cf["type"], "label": cf["label"]}
-                    if "range" in cf:
-                        entry["range"] = cf["range"]
-                    metadata[cf["name"]] = entry
+        _apply_custom_fields(metadata, custom_fields, "mutation")
         return metadata
 
     # Collect ALL mutations (not sampled) for accurate range computation
@@ -602,16 +644,7 @@ def generate_mutation_metadata(
                         entry["range"] = field_range
                 metadata[key] = entry
 
-    if custom_fields:
-        for cf in custom_fields:
-            if cf.get("level") == "mutation":
-                entry = {"type": cf["type"], "label": cf["label"]}
-                if "range" in cf:
-                    entry["range"] = cf["range"]
-                elif cf["name"] in metadata and "range" in metadata[cf["name"]]:
-                    # Preserve auto-detected range when custom doesn't specify one
-                    entry["range"] = metadata[cf["name"]]["range"]
-                metadata[cf["name"]] = entry
+    _apply_custom_fields(metadata, custom_fields, "mutation")
 
     return metadata
 
