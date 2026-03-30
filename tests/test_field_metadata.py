@@ -236,14 +236,19 @@ class TestGenerateCloneMetadata:
         assert meta["locus"]["label"] == "Locus"
 
     def test_excluded_fields_not_present(self, pcp_clones):
+        """Truly excluded fields (nested objects, long sequences) are not in metadata."""
         meta = generate_clone_metadata(pcp_clones)
-        excluded = [
-            "clone_id", "ident", "dataset_id", "dataset", "sample", "trees",
-            "germline_alignment", "v_alignment_start", "v_alignment_end",
-            "j_alignment_start", "j_alignment_end",
-        ]
+        # These are structurally unpresentable — nested objects or long strings
+        excluded = ["dataset", "sample", "trees", "germline_alignment"]
         for field in excluded:
             assert field not in meta, f"Excluded field '{field}' should not be in metadata"
+
+    def test_identifier_fields_present_but_inferable(self, pcp_clones):
+        """Identifiers and positions are no longer excluded — they appear in metadata."""
+        meta = generate_clone_metadata(pcp_clones)
+        # These moved from excluded to suggested-skip, so they appear in metadata
+        assert "clone_id" not in meta or meta["clone_id"]["type"] is not None
+        assert "v_alignment_start" not in meta or meta["v_alignment_start"]["type"] is not None
 
     def test_custom_fields_override(self, pcp_clones):
         custom = [
@@ -299,8 +304,9 @@ class TestGenerateNodeMetadata:
         assert "distance" in meta
 
     def test_excluded_node_fields(self, trees_with_nodes):
+        """Truly excluded node fields (sequences, structural) are not in metadata."""
         meta = generate_node_metadata(trees_with_nodes)
-        excluded = ["sequence_id", "parent", "type", "sequence_alignment", "sequence_alignment_aa"]
+        excluded = ["sequence_id", "parent", "sequence_alignment", "sequence_alignment_aa"]
         for field in excluded:
             assert field not in meta
 

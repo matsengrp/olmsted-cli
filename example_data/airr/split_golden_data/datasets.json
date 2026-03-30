@@ -53,13 +53,41 @@
         "timepoints_count": 1,
         "field_metadata": {
             "clone": {
+                "clone_id": {
+                    "type": "categorical",
+                    "label": "Clone ID"
+                },
+                "d_alignment_end": {
+                    "type": "continuous",
+                    "label": "D Alignment End"
+                },
+                "d_alignment_start": {
+                    "type": "continuous",
+                    "label": "D Alignment Start"
+                },
                 "d_call": {
                     "type": "categorical",
                     "label": "D Gene"
                 },
+                "dataset_id": {
+                    "type": "categorical",
+                    "label": "Dataset ID"
+                },
                 "has_seed": {
                     "type": "categorical",
                     "label": "Has Seed"
+                },
+                "ident": {
+                    "type": "categorical",
+                    "label": "Ident"
+                },
+                "j_alignment_end": {
+                    "type": "continuous",
+                    "label": "J Alignment End"
+                },
+                "j_alignment_start": {
+                    "type": "continuous",
+                    "label": "J Alignment Start"
                 },
                 "j_call": {
                     "type": "categorical",
@@ -68,6 +96,10 @@
                 "junction_length": {
                     "type": "continuous",
                     "label": "Junction Length"
+                },
+                "junction_start": {
+                    "type": "continuous",
+                    "label": "Junction Start"
                 },
                 "locus": {
                     "type": "categorical",
@@ -89,6 +121,10 @@
                     "type": "continuous",
                     "label": "Rearrangement Count"
                 },
+                "repertoire_id": {
+                    "type": "categorical",
+                    "label": "Repertoire ID"
+                },
                 "sample_id": {
                     "type": "categorical",
                     "label": "Sample"
@@ -96,6 +132,10 @@
                 "sampled_seqs_count": {
                     "type": "continuous",
                     "label": "Sampled Sequences Count"
+                },
+                "seed_id": {
+                    "type": "categorical",
+                    "label": "Seed ID"
                 },
                 "size": {
                     "type": "continuous",
@@ -113,9 +153,21 @@
                     "type": "continuous",
                     "label": "Total Read Count"
                 },
+                "type": {
+                    "type": "categorical",
+                    "label": "Type"
+                },
                 "unique_seqs_count": {
                     "type": "continuous",
                     "label": "Unique Sequences Count"
+                },
+                "v_alignment_end": {
+                    "type": "continuous",
+                    "label": "V Alignment End"
+                },
+                "v_alignment_start": {
+                    "type": "continuous",
+                    "label": "V Alignment Start"
                 },
                 "v_call": {
                     "type": "categorical",
@@ -146,6 +198,10 @@
                 "timepoint_id": {
                     "type": "categorical",
                     "label": "Timepoint"
+                },
+                "type": {
+                    "type": "categorical",
+                    "label": "Type"
                 }
             },
             "branch": {

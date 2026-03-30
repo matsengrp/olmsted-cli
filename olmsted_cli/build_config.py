@@ -340,6 +340,16 @@ def _build_yaml(
     lines.append("")
     lines.append("custom_fields:")
 
+    # Collect skip entries separately for the bottom section
+    skip_entries = []
+
+    def _emit_or_defer(field, level, entry, samples=None, field_range=None):
+        """Add field to main section or defer to skip section."""
+        if entry.get("type") == "skip":
+            skip_entries.append((field, level, entry, samples, field_range))
+        else:
+            lines.append(_format_field_block(field, level, entry, samples, field_range))
+
     # --- Clone level ---
     clone_keys = _collect_keys(all_clones) - EXCLUDED_CLONE_FIELDS
     has_locus = any(
@@ -349,10 +359,15 @@ def _build_yaml(
     if has_locus:
         clone_keys.add("locus")
 
-    if clone_keys:
+    active_clone_keys = [f for f in sorted(clone_keys)
+                         if _field_summary(all_clones, f, KNOWN_CLONE_FIELDS).get("type") != "skip"]
+    skip_clone_keys = [f for f in sorted(clone_keys)
+                       if _field_summary(all_clones, f, KNOWN_CLONE_FIELDS).get("type") == "skip"]
+
+    if active_clone_keys:
         lines.append("")
         lines.append("  # --- Clone level (scatterplot axes, color, facet) ---")
-        for field in sorted(clone_keys):
+        for field in active_clone_keys:
             entry = _field_summary(all_clones, field, KNOWN_CLONE_FIELDS)
             if field == "locus":
                 samples = list({
@@ -364,17 +379,32 @@ def _build_yaml(
                 samples = _sample_values(all_clones, field, max_samples=6)
             lines.append(_format_field_block(field, "clone", entry, samples))
 
+    for field in skip_clone_keys:
+        entry = _field_summary(all_clones, field, KNOWN_CLONE_FIELDS)
+        samples = _sample_values(all_clones, field, max_samples=6)
+        skip_entries.append((field, "clone", entry, samples, None))
+
     # --- Node level ---
     node_keys = _collect_keys(all_nodes) - EXCLUDED_NODE_FIELDS
     node_keys -= set(KNOWN_BRANCH_FIELDS.keys())
 
-    if node_keys:
+    active_node_keys = [f for f in sorted(node_keys)
+                        if _field_summary(all_nodes, f, KNOWN_NODE_FIELDS).get("type") != "skip"]
+    skip_node_keys = [f for f in sorted(node_keys)
+                      if _field_summary(all_nodes, f, KNOWN_NODE_FIELDS).get("type") == "skip"]
+
+    if active_node_keys:
         lines.append("")
         lines.append("  # --- Node level (tree node properties, tooltips) ---")
-        for field in sorted(node_keys):
+        for field in active_node_keys:
             entry = _field_summary(all_nodes, field, KNOWN_NODE_FIELDS)
             samples = _sample_values(all_nodes, field, max_samples=6)
             lines.append(_format_field_block(field, "node", entry, samples))
+
+    for field in skip_node_keys:
+        entry = _field_summary(all_nodes, field, KNOWN_NODE_FIELDS)
+        samples = _sample_values(all_nodes, field, max_samples=6)
+        skip_entries.append((field, "node", entry, samples, None))
 
     # --- Branch level ---
     branch_keys = _collect_keys(all_nodes) & set(KNOWN_BRANCH_FIELDS.keys())
@@ -388,21 +418,22 @@ def _build_yaml(
 
     # --- Mutation level ---
     mutation_keys = _collect_keys(all_mutations) - EXCLUDED_MUTATION_FIELDS
-    # Collect all mutations for accurate range computation
     all_mutations_full = _collect_mutations(all_trees, max_mutations=100000)
 
-    # Check for AA sequence data on nodes — if present, the web app will
-    # derive per-mutation child_aa/parent_aa during alignment rendering
     has_aa_sequences = any(
         n.get("sequence_alignment_aa") for n in all_nodes if isinstance(n, dict)
     )
     has_derived_aa = has_aa_sequences and "child_aa" not in mutation_keys
 
-    if mutation_keys or has_derived_aa:
+    active_mutation_keys = [f for f in sorted(mutation_keys)
+                           if _field_summary(all_mutations, f, KNOWN_MUTATION_FIELDS).get("type") != "skip"]
+    skip_mutation_keys = [f for f in sorted(mutation_keys)
+                          if _field_summary(all_mutations, f, KNOWN_MUTATION_FIELDS).get("type") == "skip"]
+
+    if active_mutation_keys or has_derived_aa:
         lines.append("")
         lines.append("  # --- Mutation level (alignment coloring) ---")
 
-        # Derived AA fields (from sequence alignment, computed by web app)
         if has_derived_aa:
             lines.append("  # The following fields are derived by the web app from")
             lines.append("  # parent/child sequence alignments during rendering:")
@@ -415,14 +446,29 @@ def _build_yaml(
                 {"type": "tooltip", "label": "Parent Amino Acid"},
             ))
 
-        # Pre-computed mutation fields (e.g., surprise scores)
-        for field in sorted(mutation_keys):
+        for field in active_mutation_keys:
             entry = _field_summary(all_mutations, field, KNOWN_MUTATION_FIELDS)
             samples = _sample_values(all_mutations, field, max_samples=6)
             field_range = None
             if entry["type"] == "continuous":
                 field_range = compute_range(all_mutations_full, field)
             lines.append(_format_field_block(field, "mutation", entry, samples, field_range))
+
+    for field in skip_mutation_keys:
+        entry = _field_summary(all_mutations, field, KNOWN_MUTATION_FIELDS)
+        samples = _sample_values(all_mutations, field, max_samples=6)
+        skip_entries.append((field, "mutation", entry, samples, None))
+
+    # --- Skipped fields section (at the bottom) ---
+    if skip_entries:
+        lines.append("")
+        lines.append("")
+        lines.append("  # =================================================================")
+        lines.append("  # Skipped fields (not included in output metadata)")
+        lines.append("  # Change type from 'skip' to include (e.g., 'tooltip', 'continuous')")
+        lines.append("  # =================================================================")
+        for field, level, entry, samples, field_range in skip_entries:
+            lines.append(_format_field_block(field, level, entry, samples, field_range))
 
     lines.append("")
     return "\n".join(lines)

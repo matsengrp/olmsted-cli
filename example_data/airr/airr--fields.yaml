@@ -95,16 +95,6 @@ custom_fields:
     type: continuous
     label: "Mean Mutation Frequency"
     # sample values: 0.020477252084881513, 0.019552127731547256, 0.022644022644022644, 0.12482269503546099, 0.02605064298024658, ...
-  - name: partition
-    level: clone
-    type: tooltip
-    label: "Partition"
-    # sample values: {'id': 'unseeded-part-5'}, {'id': 'seed-part-3'}, {'id': 'unseeded-part-5'}, {'id': 'unseeded-part-5'}, {'id': 'unseeded-part-5'}, ...
-  - name: path
-    level: clone
-    type: tooltip
-    label: "Path"
-    # sample values: ['output/test-input/None/simulation-test/unseeded-part-5/clust-3'], ['output/test-input/None/simulation-test/-1118600317502690934/seed-part-3/seed-cluster'], ['output/test-input/None/simulation-test/unseeded-part-5/clust-1'], ['output/test-input/None/simulation-test/unseeded-part-5/clust-4'], ['output/test-input/None/simulation-test/unseeded-part-5/clust-6'], ...
   - name: rearrangement_count
     output_name: unique_seqs_count
     level: clone
@@ -128,11 +118,6 @@ custom_fields:
     type: continuous
     label: "Size"
     # sample values: 46, 39, 48, 46, 45, ...
-  - name: sorted_index
-    level: clone
-    type: continuous
-    label: "Sorted Index"
-    # sample values: 3, 1, 4, 6, 0, ...
   - name: subject_id
     level: clone
     type: categorical
@@ -208,3 +193,94 @@ custom_fields:
     level: mutation
     type: tooltip
     label: "Parent Amino Acid"
+
+
+  # =================================================================
+  # Skipped fields (not included in output metadata)
+  # Change type from 'skip' to include (e.g., 'tooltip', 'continuous')
+  # =================================================================
+  - name: clone_id
+    level: clone
+    type: skip
+    label: "Clone ID"
+    # sample values: clust-3, seed-cluster, clust-1, clust-4, clust-6, ...
+  - name: d_alignment_end
+    level: clone
+    type: skip
+    label: "D Alignment End"
+    # sample values: 314, 327, 306, 328, 318, ...
+  - name: d_alignment_start
+    level: clone
+    type: skip
+    label: "D Alignment Start"
+    # sample values: 301, 299, 301, 326, 296, ...
+  - name: dataset_id
+    level: clone
+    type: skip
+    label: "Dataset ID"
+    # sample values: test-input-2020.01.30, test-input-2020.01.30, test-input-2020.01.30, test-input-2020.01.30, test-input-2020.01.30, ...
+  - name: ident
+    level: clone
+    type: skip
+    label: "Ident"
+    # sample values: 08da722a-704b-3e9d-9743-7759549f7257, 5eb2526f-7e92-33a0-953d-8382e9d24955, a11ac61f-6de7-3e03-adc0-e7dec3c1fa3c, 7c385455-287d-3e67-a0a4-93b3889bbb46, 483d588f-b377-313d-9f3e-e94ccea7d0fa, ...
+  - name: j_alignment_end
+    level: clone
+    type: skip
+    label: "J Alignment End"
+    # sample values: 367, 379, 364, 376, 397, ...
+  - name: j_alignment_start
+    level: clone
+    type: skip
+    label: "J Alignment Start"
+    # sample values: 324, 329, 316, 329, 362, ...
+  - name: junction_start
+    level: clone
+    type: skip
+    label: "Junction Start"
+    # sample values: 285, 285, 285, 285, 285, ...
+  - name: partition
+    level: clone
+    type: skip
+    label: "Partition"
+    # sample values: {'id': 'unseeded-part-5'}, {'id': 'seed-part-3'}, {'id': 'unseeded-part-5'}, {'id': 'unseeded-part-5'}, {'id': 'unseeded-part-5'}, ...
+  - name: path
+    level: clone
+    type: skip
+    label: "Path"
+    # sample values: ['output/test-input/None/simulation-test/unseeded-part-5/clust-3'], ['output/test-input/None/simulation-test/-1118600317502690934/seed-part-3/seed-cluster'], ['output/test-input/None/simulation-test/unseeded-part-5/clust-1'], ['output/test-input/None/simulation-test/unseeded-part-5/clust-4'], ['output/test-input/None/simulation-test/unseeded-part-5/clust-6'], ...
+  - name: repertoire_id
+    level: clone
+    type: skip
+    label: "Repertoire ID"
+    # sample values: simulation-test, simulation-test, simulation-test, simulation-test, simulation-test, ...
+  - name: seed_id
+    level: clone
+    type: skip
+    label: "Seed ID"
+    # sample values: -1118600317502690934
+  - name: sorted_index
+    level: clone
+    type: skip
+    label: "Sorted Index"
+    # sample values: 3, 1, 4, 6, 0, ...
+  - name: type
+    level: clone
+    type: skip
+    label: "Type"
+    # sample values: cft.cluster, cft.cluster, cft.cluster, cft.cluster, cft.cluster, ...
+  - name: v_alignment_end
+    level: clone
+    type: skip
+    label: "V Alignment End"
+    # sample values: 296, 296, 292, 295, 290, ...
+  - name: v_alignment_start
+    level: clone
+    type: skip
+    label: "V Alignment Start"
+    # sample values: 0, 0, 0, 0, 0, ...
+  - name: type
+    level: node
+    type: skip
+    label: "Type"
+    # sample values: leaf, leaf, node, leaf, leaf, ...

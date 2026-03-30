@@ -3,7 +3,7 @@
         "format": "olmsted",
         "format_version": "1.0",
         "schema_version": "2.0.0",
-        "created_at": "2026-03-30T00:56:29.903411+00:00",
+        "created_at": "2026-03-30T02:28:10.152916+00:00",
         "source_format": "pcp",
         "source_files": [
             "pcp.csv"
@@ -86,13 +86,57 @@
             "name": "pcp-example",
             "field_metadata": {
                 "clone": {
+                    "cdr1_alignment_end": {
+                        "type": "continuous",
+                        "label": "CDR1 Alignment End"
+                    },
+                    "cdr1_alignment_start": {
+                        "type": "continuous",
+                        "label": "CDR1 Alignment Start"
+                    },
+                    "cdr2_alignment_end": {
+                        "type": "continuous",
+                        "label": "CDR2 Alignment End"
+                    },
+                    "cdr2_alignment_start": {
+                        "type": "continuous",
+                        "label": "CDR2 Alignment Start"
+                    },
+                    "clone_id": {
+                        "type": "categorical",
+                        "label": "Clone ID"
+                    },
+                    "d_alignment_end": {
+                        "type": "continuous",
+                        "label": "D Alignment End"
+                    },
+                    "d_alignment_start": {
+                        "type": "continuous",
+                        "label": "D Alignment Start"
+                    },
                     "d_call": {
                         "type": "categorical",
                         "label": "D Gene"
                     },
+                    "dataset_id": {
+                        "type": "categorical",
+                        "label": "Dataset ID"
+                    },
                     "has_seed": {
                         "type": "categorical",
                         "label": "Has Seed"
+                    },
+                    "ident": {
+                        "type": "categorical",
+                        "label": "Ident"
+                    },
+                    "j_alignment_end": {
+                        "type": "continuous",
+                        "label": "J Alignment End"
+                    },
+                    "j_alignment_start": {
+                        "type": "continuous",
+                        "label": "J Alignment Start"
                     },
                     "j_call": {
                         "type": "categorical",
@@ -101,6 +145,10 @@
                     "junction_length": {
                         "type": "continuous",
                         "label": "Junction Length"
+                    },
+                    "junction_start": {
+                        "type": "continuous",
+                        "label": "Junction Start"
                     },
                     "locus": {
                         "type": "categorical",
@@ -126,6 +174,14 @@
                         "type": "continuous",
                         "label": "Unique Sequences Count"
                     },
+                    "v_alignment_end": {
+                        "type": "continuous",
+                        "label": "V Alignment End"
+                    },
+                    "v_alignment_start": {
+                        "type": "continuous",
+                        "label": "V Alignment Start"
+                    },
                     "v_call": {
                         "type": "categorical",
                         "label": "V Gene"
@@ -143,6 +199,10 @@
                     "multiplicity": {
                         "type": "continuous",
                         "label": "Multiplicity"
+                    },
+                    "type": {
+                        "type": "categorical",
+                        "label": "Type"
                     }
                 },
                 "branch": {
