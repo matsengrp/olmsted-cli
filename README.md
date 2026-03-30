@@ -512,6 +512,10 @@ pytest
 ruff check .
 ```
 
+For more details, see:
+- **[DEVELOPMENT.md](./DEVELOPMENT.md)**: Full development guide, testing, contributing
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)**: System architecture, data flow, design decisions
+
 ---
 
 ## Links
