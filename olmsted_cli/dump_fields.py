@@ -216,7 +216,10 @@ def _format_field_block(name, level, entry, sample_values=None, field_range=None
     return "\n".join(lines)
 
 
-def _build_yaml(input_name, detected_format, all_clones, all_trees):
+def _build_yaml(
+    input_name, detected_format, all_clones, all_trees,
+    input_path=None, tree_path=None,
+):
     """Build the YAML config string from clones and trees."""
     all_nodes = _collect_nodes(all_trees, max_nodes=500)
     all_mutations = _collect_mutations(all_trees, max_mutations=500)
@@ -229,13 +232,76 @@ def _build_yaml(input_name, detected_format, all_clones, all_trees):
     lines.append("#")
     lines.append("# This file lists all fields discovered in your data. Edit it to:")
     lines.append("#   - Remove fields you don't want in the web app dropdowns")
-    lines.append("#   - Change type (continuous, categorical, tooltip)")
+    lines.append("#   - Change type (continuous, categorical, tooltip, aa, dna)")
     lines.append("#   - Customize display labels")
+    lines.append("#   - Uncomment processing options below as needed")
     lines.append("#")
     if detected_format == "olmsted":
         lines.append("# Then use with:  olmsted enrich -i data.json -o enriched.json -c this_file.yaml")
     else:
         lines.append("# Then use with:  olmsted process -c this_file.yaml")
+    lines.append("")
+
+    # --- Processing options template ---
+    lines.append("")
+    lines.append("# =============================================================================")
+    lines.append("# Processing Options (uncomment and edit as needed)")
+    lines.append("# =============================================================================")
+    lines.append("")
+
+    if detected_format == "olmsted":
+        # Olmsted JSON uses enrich, not process
+        input_str = str(input_path) if input_path else input_name
+        lines.append(f"# input: {input_str}")
+        lines.append("# output: enriched_output.json")
+        lines.append("# mode: add            # add (merge with existing) or overwrite")
+    elif detected_format == "pcp":
+        input_str = str(input_path) if input_path else input_name
+        lines.append(f"# inputs: [{input_str}]")
+        if tree_path:
+            lines.append(f"# tree: {tree_path}")
+        else:
+            lines.append("# tree: trees.csv")
+        lines.append("# output: output.json")
+        lines.append("# format: pcp")
+        lines.append("")
+        lines.append("# name: \"My Dataset\"")
+        lines.append("# seed: 42             # for reproducible UUIDs")
+        lines.append("")
+        lines.append("# --- Metric Computation ---")
+        lines.append("# Computes LBI, LBR, affinity, and scaled_affinity for all tree nodes.")
+        lines.append("# Requires tree branch lengths (works with any format that has them).")
+        lines.append("# compute_metrics: true")
+        lines.append("# lbi_tau: 0.0125      # time scale parameter for LBI")
+        lines.append("")
+        lines.append("# standardize_names: false  # rename nodes to naive, Node1, Leaf1, ...")
+        lines.append("# validate: false")
+        lines.append("# verbose: 1")
+    elif detected_format == "airr":
+        input_str = str(input_path) if input_path else input_name
+        lines.append(f"# inputs: [{input_str}]")
+        lines.append("# output: output.json")
+        lines.append("# format: airr")
+        lines.append("")
+        lines.append("# name: \"My Dataset\"")
+        lines.append("# seed: 42             # for reproducible UUIDs")
+        lines.append("")
+        lines.append("# --- Metric Computation ---")
+        lines.append("# Computes LBI, LBR, affinity, and scaled_affinity for all tree nodes.")
+        lines.append("# Requires tree branch lengths (works with any format that has them).")
+        lines.append("# compute_metrics: true")
+        lines.append("# lbi_tau: 0.0125      # time scale parameter for LBI")
+        lines.append("")
+        lines.append("# naive_name: naive     # name of root/naive node")
+        lines.append("# root_trees: false     # re-root trees at naive node")
+        lines.append("# validate: false")
+        lines.append("# verbose: 1")
+
+    lines.append("")
+    lines.append("")
+    lines.append("# =============================================================================")
+    lines.append("# Field Declarations")
+    lines.append("# =============================================================================")
     lines.append("")
     lines.append("custom_fields:")
 
@@ -373,8 +439,10 @@ def main():
     )
 
     # Build YAML
+    trees_path = Path(args.tree) if args.tree else None
     output_text = _build_yaml(
-        input_path.name, detected_format, all_clones, all_trees
+        input_path.name, detected_format, all_clones, all_trees,
+        input_path=input_path, tree_path=trees_path,
     )
 
     # Write output

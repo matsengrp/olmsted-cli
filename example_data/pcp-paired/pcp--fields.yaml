@@ -5,10 +5,39 @@
 #
 # This file lists all fields discovered in your data. Edit it to:
 #   - Remove fields you don't want in the web app dropdowns
-#   - Change type (continuous, categorical, tooltip)
+#   - Change type (continuous, categorical, tooltip, aa, dna)
 #   - Customize display labels
+#   - Uncomment processing options below as needed
 #
 # Then use with:  olmsted process -c this_file.yaml
+
+
+# =============================================================================
+# Processing Options (uncomment and edit as needed)
+# =============================================================================
+
+# inputs: [pcp.csv]
+# tree: trees.csv
+# output: output.json
+# format: pcp
+
+# name: "My Dataset"
+# seed: 42             # for reproducible UUIDs
+
+# --- Metric Computation ---
+# Computes LBI, LBR, affinity, and scaled_affinity for all tree nodes.
+# Requires tree branch lengths (works with any format that has them).
+# compute_metrics: true
+# lbi_tau: 0.0125      # time scale parameter for LBI
+
+# standardize_names: false  # rename nodes to naive, Node1, Leaf1, ...
+# validate: false
+# verbose: 1
+
+
+# =============================================================================
+# Field Declarations
+# =============================================================================
 
 custom_fields:
 
@@ -42,7 +71,7 @@ custom_fields:
     level: clone
     type: categorical
     label: "Locus"
-    # sample values: igh, igk, igl
+    # sample values: igk, igh, igl
   - name: mean_mut_freq
     level: clone
     type: continuous
@@ -113,3 +142,15 @@ custom_fields:
     type: continuous
     label: "Branch Length"
     # sample values: 0.0, 0.0371190701, 0.0035084051, 0.0358868997, 0.0, ...
+
+  # --- Mutation level (alignment coloring) ---
+  # The following fields are derived by the web app from
+  # parent/child sequence alignments during rendering:
+  - name: child_aa
+    level: mutation
+    type: aa
+    label: "Child Amino Acid"
+  - name: parent_aa
+    level: mutation
+    type: tooltip
+    label: "Parent Amino Acid"
