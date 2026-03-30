@@ -150,25 +150,55 @@ def process_tree(args, clone_id, tree):
 
 
 def process_clone(args, dataset, clone):
-    # -=1 *_start positions since AIRR schema uses 1-based closed interval but we need python slice conventions (0-based, open interval) for source code (vega visualization). See bin/process_data.py
+    # -=1 *_start positions since AIRR schema uses 1-based closed interval
+    # but we need python slice conventions (0-based, open interval) for
+    # source code (vega visualization). Gracefully skip missing positions.
+    _missing_fields = []
     for start_pos_key in [
         "v_alignment_start",
         "d_alignment_start",
         "j_alignment_start",
         "junction_start",
     ]:
-        clone[start_pos_key] -= 1
-    # need to cretae a copy of the dataset without clonal families that we can nest under clonal family for viz convenience
+        if start_pos_key in clone and clone[start_pos_key] is not None:
+            clone[start_pos_key] -= 1
+        else:
+            _missing_fields.append(start_pos_key)
+
+    if _missing_fields and getattr(args, "verbose", 0) >= 2:
+        clone_id = clone.get("clone_id", "unknown")
+        print(
+            f"  Note: clone '{clone_id}' missing position fields: {_missing_fields}",
+            file=sys.stderr,
+        )
+
+    # need to create a copy of the dataset without clonal families that we
+    # can nest under clonal family for viz convenience
     _dataset = dataset.copy()
     del _dataset["clones"]
     clone["dataset"] = _dataset
-    clone["sample"] = list(
-        filter(
-            lambda sample: sample["sample_id"] == clone["sample_id"],
-            clone["dataset"]["samples"],
-        )
-    )[0]
-    del clone["dataset"]["samples"]
+
+    # Match sample by sample_id; gracefully handle missing match
+    matching_samples = [
+        s for s in clone["dataset"].get("samples", [])
+        if s.get("sample_id") == clone.get("sample_id")
+    ]
+    if matching_samples:
+        clone["sample"] = matching_samples[0]
+    else:
+        clone["sample"] = {
+            "sample_id": clone.get("sample_id", "unknown"),
+            "locus": "igh",
+        }
+        if getattr(args, "verbose", 0) >= 1:
+            print(
+                f"  Note: clone '{clone.get('clone_id', '?')}' sample_id "
+                f"'{clone.get('sample_id')}' not found in dataset samples",
+                file=sys.stderr,
+            )
+
+    if "samples" in clone.get("dataset", {}):
+        del clone["dataset"]["samples"]
     return ensure_ident(clone, prefix="clone-")
 
 
@@ -191,9 +221,11 @@ def process_dataset(
         Processed dataset in Olmsted format, or None if processing fails
     """
     dataset["clone_count"] = len(dataset["clones"])
-    dataset["subjects_count"] = len(set(cf["subject_id"] for cf in dataset["clones"]))
+    dataset["subjects_count"] = len(
+        set(cf.get("subject_id", "unknown") for cf in dataset["clones"])
+    )
     dataset["timepoints_count"] = len(
-        set(sample["timepoint_id"] for sample in dataset["samples"])
+        set(sample.get("timepoint_id", "unknown") for sample in dataset.get("samples", []))
     )
     clones = list(
         map(functools.partial(process_clone, args, dataset), dataset["clones"])

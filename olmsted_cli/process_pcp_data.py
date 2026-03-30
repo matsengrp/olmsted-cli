@@ -92,6 +92,69 @@ KNOWN_PCP_COLUMNS = {
     "light_chain_type",
 }
 
+# Chain-specific column name aliases: maps alternative naming conventions
+# to the canonical names the parser expects. Checked in order.
+_CHAIN_COLUMN_ALIASES = {
+    # Users might use these without _heavy suffix for heavy-only data
+    "parent_seq": "parent_heavy",
+    "child_seq": "child_heavy",
+    "parent_sequence": "parent_heavy",
+    "child_sequence": "child_heavy",
+    "v_gene": "v_gene_heavy",
+    "d_gene": "d_gene_heavy",
+    "j_gene": "j_gene_heavy",
+    "v_call": "v_gene_heavy",
+    "d_call": "d_gene_heavy",
+    "j_call": "j_gene_heavy",
+    "cdr1_start": "cdr1_codon_start_heavy",
+    "cdr1_end": "cdr1_codon_end_heavy",
+    "cdr2_start": "cdr2_codon_start_heavy",
+    "cdr2_end": "cdr2_codon_end_heavy",
+    "cdr3_start": "cdr3_codon_start_heavy",
+    "cdr3_end": "cdr3_codon_end_heavy",
+}
+
+
+def _normalize_column_names(fieldnames):
+    """
+    Normalize PCP CSV column names by mapping common aliases to canonical names.
+
+    Recognizes chain-agnostic names (e.g., 'v_gene') and maps them to
+    the chain-specific canonical form (e.g., 'v_gene_heavy') when no
+    chain-specific version is already present.
+
+    Returns:
+        Tuple of (column_map, notifications):
+        - column_map: dict mapping original column name -> canonical name
+        - notifications: list of notification strings about remapped columns
+    """
+    column_map = {}
+    notifications = []
+    canonical_set = set(fieldnames)
+
+    for orig_name in fieldnames:
+        if not orig_name:
+            continue
+        lower = orig_name.lower().strip()
+
+        # Check alias map
+        if lower in _CHAIN_COLUMN_ALIASES:
+            canonical = _CHAIN_COLUMN_ALIASES[lower]
+            # Only remap if the canonical name isn't already present
+            if canonical not in canonical_set:
+                column_map[orig_name] = canonical
+                notifications.append(
+                    f"Column '{orig_name}' mapped to '{canonical}'"
+                )
+            else:
+                # Both alias and canonical present — treat alias as extra
+                column_map[orig_name] = orig_name
+        else:
+            column_map[orig_name] = orig_name
+
+    return column_map, notifications
+
+
 # Known tree CSV columns handled by the parser
 KNOWN_TREE_COLUMNS = {
     "family_name", "family", "sample_id",
@@ -199,21 +262,29 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
     with file_handle:
         reader = csv.DictReader(file_handle)
 
+        # Normalize column names (map aliases like v_gene -> v_gene_heavy)
+        column_map, column_notifications = _normalize_column_names(reader.fieldnames)
+        normalized_fieldnames = {column_map.get(c, c) for c in reader.fieldnames if c}
+
+        # Report column remapping
+        for note in column_notifications:
+            print(f"  Note: {note}", file=sys.stderr)
+
         # Validate required columns (flexible format support)
         required_cols = {"sample_id", "parent_name", "child_name"}
-        if not required_cols.issubset(reader.fieldnames):
-            missing = required_cols - set(reader.fieldnames)
+        if not required_cols.issubset(normalized_fieldnames):
+            missing = required_cols - normalized_fieldnames
             raise ValueError(f"Missing required columns: {missing}")
 
         # Identify extra columns not handled by the standard parser
         # Filter out empty/None column names (e.g., unnamed index columns)
         extra_columns = {
-            c for c in reader.fieldnames if c and c not in KNOWN_PCP_COLUMNS
+            c for c in normalized_fieldnames if c not in KNOWN_PCP_COLUMNS
         }
 
-        # Detect format type based on column presence
-        has_heavy = "parent_heavy" in reader.fieldnames or "child_heavy" in reader.fieldnames
-        has_light = "parent_light" in reader.fieldnames or "child_light" in reader.fieldnames
+        # Detect format type based on normalized column presence
+        has_heavy = "parent_heavy" in normalized_fieldnames or "child_heavy" in normalized_fieldnames
+        has_light = "parent_light" in normalized_fieldnames or "child_light" in normalized_fieldnames
 
         # Determine format:
         # - Paired: has both heavy and light columns
@@ -222,7 +293,9 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
         is_paired = has_heavy and has_light
         is_light_only = has_light and not has_heavy
 
-        for row in reader:
+        for raw_row in reader:
+            # Apply column name normalization
+            row = {column_map.get(k, k): v for k, v in raw_row.items() if k}
             sample_id = row["sample_id"]
             family_id = row.get(
                 "family", sample_id

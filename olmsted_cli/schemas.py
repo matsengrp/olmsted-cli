@@ -249,10 +249,6 @@ clone_spec = {
     "required": [
         "unique_seqs_count",
         "mean_mut_freq",
-        "v_alignment_start",
-        "v_alignment_end",
-        "j_alignment_start",
-        "j_alignment_end",
     ],
     "properties": {
         "ident": {
