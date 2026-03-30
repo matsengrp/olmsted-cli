@@ -17,34 +17,17 @@ import sys
 from pathlib import Path
 
 from .process_data import detect_file_format
-# Cross-format field aliases: suggested output_name renames for common fields.
-# These are NOT auto-applied during processing — they are pre-filled as
-# suggestions in the generated config for the user to approve or remove.
-FIELD_ALIASES = {
-    "v_gene": "v_call",
-    "v_gene_heavy": "v_call",
-    "d_gene": "d_call",
-    "d_gene_heavy": "d_call",
-    "j_gene": "j_call",
-    "j_gene_heavy": "j_call",
-    "v_gene_light": "v_call_light",
-    "j_gene_light": "j_call_light",
-    "rearrangement_count": "unique_seqs_count",
-    "sampled_seqs_count": "unique_seqs_count",
-    "size": "total_read_count",
-    "branch_length": "length",
-    "mut_to": "child_aa",
-    "mut_from": "parent_aa",
-}
-
-from .field_metadata import (
+from .constants import (
     EXCLUDED_CLONE_FIELDS,
     EXCLUDED_MUTATION_FIELDS,
     EXCLUDED_NODE_FIELDS,
+    FIELD_ALIASES,
     KNOWN_BRANCH_FIELDS,
     KNOWN_CLONE_FIELDS,
     KNOWN_MUTATION_FIELDS,
     KNOWN_NODE_FIELDS,
+)
+from .field_metadata import (
     compute_range,
     humanize_label,
     infer_field_type,

@@ -13,9 +13,33 @@ airr-standards/specs/airr-schema.yaml. The SCHEMA_VERSION constant corresponds
 to the 'version' field in the Info section of that schema.
 """
 
+from .constants import FIELD_LEVELS, FIELD_TYPES
+
 # Version Constants
 # SCHEMA_VERSION corresponds to Info.version in airr-standards/specs/airr-schema.yaml
 SCHEMA_VERSION = "2.0.0"
+
+# Output field types (skip is config-only, not valid in output metadata)
+_OUTPUT_FIELD_TYPES = sorted(FIELD_TYPES - {"skip"})
+
+# Schema fragment for a single field_metadata entry
+_FIELD_ENTRY_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "type": {
+            "type": "string",
+            "enum": _OUTPUT_FIELD_TYPES,
+        },
+        "label": {"type": "string"},
+        "range": {
+            "type": "array",
+            "items": {"type": "number"},
+            "minItems": 2,
+            "maxItems": 2,
+        },
+    },
+    "required": ["type", "label"],
+}
 
 # Timepoint multiplicity schema - for individual timepoint/multiplicity pairs
 timepoint_multiplicity_spec = {
@@ -652,114 +676,12 @@ dataset_spec = {
             "description": "Metadata describing available data fields at each level",
             "type": ["object", "null"],
             "properties": {
-                "clone": {
-                    "description": "Clone-level field metadata",
+                level: {
+                    "description": f"{level.title()}-level field metadata",
                     "type": "object",
-                    "additionalProperties": {
-                        "type": "object",
-                        "properties": {
-                            "type": {
-                                "type": "string",
-                                "enum": [
-                                    "continuous",
-                                    "categorical",
-                                    "tooltip",
-                                    "aa",
-                                    "dna",
-                                ],
-                            },
-                            "label": {"type": "string"},
-                            "range": {
-                                "type": "array",
-                                "items": {"type": "number"},
-                                "minItems": 2,
-                                "maxItems": 2,
-                            },
-                        },
-                        "required": ["type", "label"],
-                    },
-                },
-                "node": {
-                    "description": "Node-level field metadata",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "object",
-                        "properties": {
-                            "type": {
-                                "type": "string",
-                                "enum": [
-                                    "continuous",
-                                    "categorical",
-                                    "tooltip",
-                                    "aa",
-                                    "dna",
-                                ],
-                            },
-                            "label": {"type": "string"},
-                            "range": {
-                                "type": "array",
-                                "items": {"type": "number"},
-                                "minItems": 2,
-                                "maxItems": 2,
-                            },
-                        },
-                        "required": ["type", "label"],
-                    },
-                },
-                "branch": {
-                    "description": "Branch-level field metadata",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "object",
-                        "properties": {
-                            "type": {
-                                "type": "string",
-                                "enum": [
-                                    "continuous",
-                                    "categorical",
-                                    "tooltip",
-                                    "aa",
-                                    "dna",
-                                ],
-                            },
-                            "label": {"type": "string"},
-                            "range": {
-                                "type": "array",
-                                "items": {"type": "number"},
-                                "minItems": 2,
-                                "maxItems": 2,
-                            },
-                        },
-                        "required": ["type", "label"],
-                    },
-                },
-                "mutation": {
-                    "description": "Mutation-level field metadata",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "object",
-                        "properties": {
-                            "type": {
-                                "type": "string",
-                                "enum": [
-                                    "continuous",
-                                    "categorical",
-                                    "tooltip",
-                                    "aa",
-                                    "dna",
-                                ],
-                            },
-                            "label": {"type": "string"},
-                            "range": {
-                                "type": "array",
-                                "items": {"type": "number"},
-                                "minItems": 2,
-                                "maxItems": 2,
-                            },
-                        },
-                        "required": ["type", "label"],
-                    },
-                },
+                    "additionalProperties": _FIELD_ENTRY_SCHEMA,
+                }
+                for level in sorted(FIELD_LEVELS)
             },
             "additionalProperties": False,
         },

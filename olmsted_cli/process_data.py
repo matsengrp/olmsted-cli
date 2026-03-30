@@ -29,6 +29,8 @@ import yaml
 import jsonschema
 from tqdm import tqdm
 
+from .constants import FIELD_LEVELS, FIELD_TYPES
+
 from .process_airr_data import (
     clone_spec,
     process_dataset,
@@ -706,13 +708,13 @@ def load_config(config_path):
                         file=sys.stderr,
                     )
                     continue
-                if entry["level"] not in ("clone", "node", "branch", "mutation"):
+                if entry["level"] not in FIELD_LEVELS:
                     print(
                         f"Warning: custom_fields[{i}] has invalid level '{entry['level']}' (ignored)",
                         file=sys.stderr,
                     )
                     continue
-                if entry["type"] not in ("continuous", "categorical", "tooltip", "aa", "dna", "skip"):
+                if entry["type"] not in FIELD_TYPES:
                     print(
                         f"Warning: custom_fields[{i}] has invalid type '{entry['type']}' (ignored)",
                         file=sys.stderr,

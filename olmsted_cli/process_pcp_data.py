@@ -70,50 +70,7 @@ from .process_utils import (
 )
 
 
-# Known PCP CSV columns handled by the parser (extras are captured separately)
-KNOWN_PCP_COLUMNS = {
-    "sample_id", "family", "parent_name", "child_name",
-    "parent_heavy", "child_heavy", "parent_light", "child_light",
-    "branch_length", "edge_length", "depth", "distance", "sample_count",
-    "v_gene_heavy", "d_gene_heavy", "j_gene_heavy",
-    "v_gene_light", "d_gene_light", "j_gene_light",
-    "v_gene_start_heavy", "v_gene_end_heavy",
-    "d_gene_start_heavy", "d_gene_end_heavy",
-    "j_gene_start_heavy", "j_gene_end_heavy",
-    "v_gene_start_light", "v_gene_end_light",
-    "d_gene_start_light", "d_gene_end_light",
-    "j_gene_start_light", "j_gene_end_light",
-    "cdr1_codon_start_heavy", "cdr1_codon_end_heavy",
-    "cdr2_codon_start_heavy", "cdr2_codon_end_heavy",
-    "cdr3_codon_start_heavy", "cdr3_codon_end_heavy",
-    "cdr1_codon_start_light", "cdr1_codon_end_light",
-    "cdr2_codon_start_light", "cdr2_codon_end_light",
-    "cdr3_codon_start_light", "cdr3_codon_end_light",
-    "parent_is_naive", "child_is_leaf",
-    "light_chain_type",
-}
-
-# Chain-specific column name aliases: maps alternative naming conventions
-# to the canonical names the parser expects. Checked in order.
-_CHAIN_COLUMN_ALIASES = {
-    # Users might use these without _heavy suffix for heavy-only data
-    "parent_seq": "parent_heavy",
-    "child_seq": "child_heavy",
-    "parent_sequence": "parent_heavy",
-    "child_sequence": "child_heavy",
-    "v_gene": "v_gene_heavy",
-    "d_gene": "d_gene_heavy",
-    "j_gene": "j_gene_heavy",
-    "v_call": "v_gene_heavy",
-    "d_call": "d_gene_heavy",
-    "j_call": "j_gene_heavy",
-    "cdr1_start": "cdr1_codon_start_heavy",
-    "cdr1_end": "cdr1_codon_end_heavy",
-    "cdr2_start": "cdr2_codon_start_heavy",
-    "cdr2_end": "cdr2_codon_end_heavy",
-    "cdr3_start": "cdr3_codon_start_heavy",
-    "cdr3_end": "cdr3_codon_end_heavy",
-}
+from .constants import CHAIN_COLUMN_ALIASES, KNOWN_PCP_COLUMNS, KNOWN_TREE_COLUMNS
 
 
 def _normalize_column_names(fieldnames):
@@ -139,8 +96,8 @@ def _normalize_column_names(fieldnames):
         lower = orig_name.lower().strip()
 
         # Check alias map
-        if lower in _CHAIN_COLUMN_ALIASES:
-            canonical = _CHAIN_COLUMN_ALIASES[lower]
+        if lower in CHAIN_COLUMN_ALIASES:
+            canonical = CHAIN_COLUMN_ALIASES[lower]
             # Only remap if the canonical name isn't already present
             if canonical not in canonical_set:
                 column_map[orig_name] = canonical
@@ -154,14 +111,6 @@ def _normalize_column_names(fieldnames):
             column_map[orig_name] = orig_name
 
     return column_map, notifications
-
-
-# Known tree CSV columns handled by the parser
-KNOWN_TREE_COLUMNS = {
-    "family_name", "family", "sample_id",
-    "newick_tree", "newick",
-    "rate_scale_heavy", "rate_scale_light",
-}
 
 
 def _partition_chain_fields(fields):
