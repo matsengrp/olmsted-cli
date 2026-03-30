@@ -403,38 +403,38 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
                 else 0
             ) if row_is_paired else 0
 
-            # Store family-level data and sample_id for each family (will be same for all rows of same family)
-            families[family_id]["family_data"] = {
-                "sample_id": sample_id,  # Store original sample_id for reference
-                # Heavy chain data
-                "v_gene": v_gene,
-                "d_gene": d_gene,
-                "j_gene": j_gene,
-                "v_gene_start": v_gene_start,
-                "v_gene_end": v_gene_end,
-                "d_gene_start": d_gene_start,
-                "d_gene_end": d_gene_end,
-                "j_gene_start": j_gene_start,
-                "j_gene_end": j_gene_end,
-                "cdr1_start": cdr1_start,
-                "cdr1_end": cdr1_end,
-                "cdr2_start": cdr2_start,
-                "cdr2_end": cdr2_end,
-                "cdr3_start": cdr3_start,
-                "cdr3_end": cdr3_end,
-                # Light chain data (for paired format)
-                "v_gene_light": v_gene_light,
-                "j_gene_light": j_gene_light,
-                "cdr1_start_light": cdr1_start_light,
-                "cdr1_end_light": cdr1_end_light,
-                "cdr2_start_light": cdr2_start_light,
-                "cdr2_end_light": cdr2_end_light,
-                "cdr3_start_light": cdr3_start_light,
-                "cdr3_end_light": cdr3_end_light,
-                "light_chain_type": light_chain_type,
-            }
-            # Store paired format flag at family level
-            families[family_id]["is_paired"] = is_paired
+            # Store family-level data from the first row seen for each family.
+            # Guard: only populate once to avoid silent overwrites from later
+            # rows that may have incomplete or inconsistent gene call data.
+            if not families[family_id]["family_data"]:
+                families[family_id]["family_data"] = {
+                    "sample_id": sample_id,
+                    "v_gene": v_gene,
+                    "d_gene": d_gene,
+                    "j_gene": j_gene,
+                    "v_gene_start": v_gene_start,
+                    "v_gene_end": v_gene_end,
+                    "d_gene_start": d_gene_start,
+                    "d_gene_end": d_gene_end,
+                    "j_gene_start": j_gene_start,
+                    "j_gene_end": j_gene_end,
+                    "cdr1_start": cdr1_start,
+                    "cdr1_end": cdr1_end,
+                    "cdr2_start": cdr2_start,
+                    "cdr2_end": cdr2_end,
+                    "cdr3_start": cdr3_start,
+                    "cdr3_end": cdr3_end,
+                    "v_gene_light": v_gene_light,
+                    "j_gene_light": j_gene_light,
+                    "cdr1_start_light": cdr1_start_light,
+                    "cdr1_end_light": cdr1_end_light,
+                    "cdr2_start_light": cdr2_start_light,
+                    "cdr2_end_light": cdr2_end_light,
+                    "cdr3_start_light": cdr3_start_light,
+                    "cdr3_end_light": cdr3_end_light,
+                    "light_chain_type": light_chain_type,
+                }
+                families[family_id]["is_paired"] = is_paired
 
             # Add parent node if not already present
             if parent not in families[family_id]["nodes"]:
