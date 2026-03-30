@@ -226,6 +226,9 @@ def process_airr_format(args):
     airr_args.display_schema = False
     airr_args.write_schema_yaml = False
     airr_args.root_trees = getattr(args, "root_trees", False)
+    airr_args.compute_metrics = getattr(args, "compute_metrics", False)
+    airr_args.lbi_tau = getattr(args, "lbi_tau", 0.0125)
+    airr_args.custom_fields = getattr(args, "custom_fields", None)
 
     # Process using AIRR logic (adapted from process_airr_data.py)
     datasets, clones_dict, trees = [], {}, []
@@ -587,7 +590,7 @@ Examples:
     parser.add_argument(
         "--compute-metrics",
         action="store_true",
-        help="Compute phylogenetic metrics (LBI, LBR, affinity, scaled_affinity, mean_mut_freq) for all nodes (PCP only)",
+        help="Compute phylogenetic metrics (LBI, LBR, affinity, scaled_affinity) for all nodes. Works with any format that has tree branch lengths.",
     )
     parser.add_argument(
         "--lbi-tau",

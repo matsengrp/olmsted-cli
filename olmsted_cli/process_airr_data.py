@@ -242,6 +242,38 @@ def process_dataset(
             processed_tree = process_tree(args, cf["clone_id"], tree)
             processed_trees.append(processed_tree)
 
+        # Compute metrics on trees if requested (LBI, LBR, scaled_affinity)
+        if getattr(args, "compute_metrics", False):
+            from .metrics import compute_tree_metrics
+
+            lbi_tau = getattr(args, "lbi_tau", 0.0125)
+            for tree in processed_trees:
+                nodes = tree.get("nodes", {})
+                if not nodes:
+                    continue
+                # Build nodes_dict and edges from the tree's node data
+                if isinstance(nodes, list):
+                    nodes_dict = {n["sequence_id"]: n for n in nodes}
+                else:
+                    nodes_dict = nodes
+                edges = []
+                root_id = None
+                for nid, ndata in nodes_dict.items():
+                    parent = ndata.get("parent")
+                    if parent is None:
+                        root_id = nid
+                    else:
+                        length = ndata.get("length", 0.0) or 0.0
+                        edges.append((parent, nid, length))
+                if root_id is None:
+                    continue
+
+                compute_tree_metrics(nodes_dict, edges, root_id, tau=lbi_tau)
+
+                # Write back if nodes was a list
+                if isinstance(tree["nodes"], list):
+                    tree["nodes"] = list(nodes_dict.values())
+
         # Add processed trees to the main trees list
         trees.extend(processed_trees)
 

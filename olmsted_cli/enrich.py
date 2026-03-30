@@ -65,6 +65,12 @@ Examples:
         help="YAML configuration file with custom field declarations",
     )
     parser.add_argument(
+        "--mode",
+        choices=["add", "overwrite"],
+        default="add",
+        help="Merge mode: 'add' preserves existing field_metadata entries and adds new ones (default), 'overwrite' replaces field_metadata entirely",
+    )
+    parser.add_argument(
         "--json-format",
         choices=["pretty", "compact"],
         default="pretty",
@@ -152,11 +158,32 @@ def main():
             dataset_trees.extend(trees_by_clone_id.get(clone_id, []))
 
         # Generate field_metadata
-        field_metadata = generate_field_metadata(
+        new_field_metadata = generate_field_metadata(
             dataset_clones, dataset_trees, custom_fields=custom_fields
         )
 
-        dataset["field_metadata"] = field_metadata
+        if args.mode == "overwrite":
+            dataset["field_metadata"] = new_field_metadata
+        else:
+            # Add mode: merge with existing. New auto-detected fields are added.
+            # For fields that exist in both, new values overwrite existing
+            # (auto-detection picks up current data state; config overrides apply).
+            existing_metadata = dataset.get("field_metadata", {})
+            merged = {}
+            all_levels = set(
+                list(existing_metadata.keys()) + list(new_field_metadata.keys())
+            )
+            for level in all_levels:
+                existing_level = existing_metadata.get(level, {})
+                new_level = new_field_metadata.get(level, {})
+                # Start with existing, then update with new
+                # (new overwrites existing for same field name — no dupes)
+                merged_level = dict(existing_level)
+                merged_level.update(new_level)
+                if merged_level:
+                    merged[level] = merged_level
+
+            dataset["field_metadata"] = merged
 
         if args.verbose:
             levels = list(field_metadata.keys())

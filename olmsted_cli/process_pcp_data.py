@@ -1869,44 +1869,16 @@ def process_pcp_to_olmsted(
 
             # Calculate phylogenetic metrics if requested (computed for both heavy and light)
             if compute_metrics:
-                # Compute LBI for heavy chain
-                vprint.verbose(f"  Computing LBI for family {family_id} with tau={lbi_tau}")
-                lbi_values = compute_lbi_for_tree(processed_nodes_heavy, family_data["edges"], tree_root, tau=lbi_tau)
-                for node_id in processed_nodes_heavy:
-                    lbi = lbi_values.get(node_id)
-                    processed_nodes_heavy[node_id]["lbi"] = lbi
-                    # Set affinity = LBI
-                    processed_nodes_heavy[node_id]["affinity"] = lbi
+                from .metrics import compute_tree_metrics
 
-                # Compute scaled_affinity for heavy chain (min-max normalization)
-                vprint.verbose(f"  Computing scaled affinity for family {family_id}")
-                affinity_values = {node_id: processed_nodes_heavy[node_id]["affinity"] for node_id in processed_nodes_heavy}
-                scaled_affinity_values = compute_scaled_affinity(affinity_values)
-                for node_id in processed_nodes_heavy:
-                    processed_nodes_heavy[node_id]["scaled_affinity"] = scaled_affinity_values.get(node_id)
-
-                # Compute LBR for heavy chain
-                vprint.verbose(f"  Computing LBR for family {family_id}")
-                lbr_values = compute_lbr_for_tree(processed_nodes_heavy, family_data["edges"], tree_root)
-                for node_id in processed_nodes_heavy:
-                    processed_nodes_heavy[node_id]["lbr"] = lbr_values.get(node_id)
-
-                # Compute metrics for light chain (if paired)
+                vprint.verbose(f"  Computing metrics for family {family_id} (tau={lbi_tau})")
+                compute_tree_metrics(
+                    processed_nodes_heavy, family_data["edges"], tree_root, tau=lbi_tau
+                )
                 if is_paired:
-                    lbi_values_light = compute_lbi_for_tree(processed_nodes_light, family_data["edges"], tree_root, tau=lbi_tau)
-                    for node_id in processed_nodes_light:
-                        lbi = lbi_values_light.get(node_id)
-                        processed_nodes_light[node_id]["lbi"] = lbi
-                        processed_nodes_light[node_id]["affinity"] = lbi
-
-                    affinity_values_light = {node_id: processed_nodes_light[node_id]["affinity"] for node_id in processed_nodes_light}
-                    scaled_affinity_values_light = compute_scaled_affinity(affinity_values_light)
-                    for node_id in processed_nodes_light:
-                        processed_nodes_light[node_id]["scaled_affinity"] = scaled_affinity_values_light.get(node_id)
-
-                    lbr_values_light = compute_lbr_for_tree(processed_nodes_light, family_data["edges"], tree_root)
-                    for node_id in processed_nodes_light:
-                        processed_nodes_light[node_id]["lbr"] = lbr_values_light.get(node_id)
+                    compute_tree_metrics(
+                        processed_nodes_light, family_data["edges"], tree_root, tau=lbi_tau
+                    )
 
             # Standardize node names if requested (apply same mapping to heavy and light)
             if standardize_names:
