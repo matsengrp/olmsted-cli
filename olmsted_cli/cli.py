@@ -4,7 +4,7 @@
 import argparse
 import sys
 
-from olmsted_cli import dump_fields, enrich, process_data, split, summary, validate
+from olmsted_cli import build_config, enrich, process_data, split, summary, validate
 
 
 def main():
@@ -18,11 +18,11 @@ Examples:
   # Auto-detect format and process
   olmsted process -i data.json -o output/
 
-  # Process AIRR format data explicitly
-  olmsted process -f airr -i data.json -o output/
+  # Build a config from your data, then edit and use it
+  olmsted build-config -i data.csv -t trees.csv -o config.yaml
 
-  # Process PCP format data explicitly
-  olmsted process -f pcp -i data.csv -o output/
+  # Process with a config file
+  olmsted process -c config.yaml
         """,
     )
 
@@ -37,12 +37,12 @@ Examples:
     subparsers.add_parser(
         "validate", help="Validate data files against AIRR/Olmsted schemas"
     )
-    
+
     # Summary command
     subparsers.add_parser(
         "summary", help="Generate summary statistics for consolidated data files"
     )
-    
+
     # Split command
     subparsers.add_parser(
         "split", help="Split consolidated data files into smaller files"
@@ -53,9 +53,9 @@ Examples:
         "enrich", help="Add field_metadata to existing Olmsted JSON files"
     )
 
-    # Dump-fields command
+    # Build-config command
     subparsers.add_parser(
-        "dump-fields", help="Extract all fields from data into a YAML config for editing"
+        "build-config", help="Generate a YAML config from your data for editing"
     )
     # Don't define arguments here - let the underlying script handle them
 
@@ -83,9 +83,9 @@ Examples:
             # Remove the script name and command from sys.argv
             sys.argv = [sys.argv[0]] + sys.argv[2:]
             enrich_data_command()
-        elif command == "dump-fields":
+        elif command == "build-config":
             sys.argv = [sys.argv[0]] + sys.argv[2:]
-            dump_fields_command()
+            build_config_command()
         else:
             parser.parse_args()  # This will show help or error
     else:
@@ -118,9 +118,9 @@ def enrich_data_command():
     enrich.main()
 
 
-def dump_fields_command():
-    """Run the dump-fields command."""
-    dump_fields.main()
+def build_config_command():
+    """Run the build-config command."""
+    build_config.main()
 
 
 if __name__ == "__main__":

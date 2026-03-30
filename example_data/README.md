@@ -32,14 +32,14 @@ The `surprise/` directory contains a subset of DASM2 mutation-selection surprise
 
 ```bash
 # 1. See what fields are in the data
-olmsted dump-fields -i example_data/surprise/surprise_subset.json
+olmsted build-config -i example_data/surprise/surprise_subset.json
 
 # 2. Enrich with field_metadata using the provided config
 olmsted enrich -i example_data/surprise/surprise_subset.json \
   -o enriched.json -c example_data/surprise/surprise_config.yaml
 
 # 3. Or generate your own config, edit it, then enrich
-olmsted dump-fields -i example_data/surprise/surprise_subset.json -o my_config.yaml
+olmsted build-config -i example_data/surprise/surprise_subset.json -o my_config.yaml
 # ... edit my_config.yaml ...
 olmsted enrich -i example_data/surprise/surprise_subset.json \
   -o enriched.json -c my_config.yaml

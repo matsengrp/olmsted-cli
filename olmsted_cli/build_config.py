@@ -1,15 +1,14 @@
 """
-Dump-fields command: extract all available fields from data into a YAML
-configuration that the user can edit.
+Build-config command: generate a YAML configuration from data for editing.
 
-Accepts Olmsted JSON, AIRR JSON, or PCP CSV input. For PCP and AIRR, the
-data is processed through the standard pipeline first (in memory) so that
-the dumped fields reflect what would actually appear in the output.
+Introspects the input data (Olmsted JSON, AIRR JSON, or PCP CSV), discovers
+all available fields, and generates a ready-to-edit YAML config with
+processing options, field declarations, and cross-format alias suggestions.
 
 Usage:
-    olmsted dump-fields -i data.json -o config.yaml
-    olmsted dump-fields -i pcp.csv -t trees.csv -o config.yaml
-    olmsted dump-fields -i data.json                   # prints to stdout
+    olmsted build-config -i data.json -o config.yaml
+    olmsted build-config -i pcp.csv -t trees.csv -o config.yaml
+    olmsted build-config -i data.json                   # prints to stdout
 """
 
 import argparse
@@ -39,25 +38,25 @@ from .field_metadata import (
 def get_args():
     """Parse command line arguments for the dump-fields command."""
     parser = argparse.ArgumentParser(
-        description="Extract all available fields from data into a YAML config",
+        description="Generate a YAML config from your data for editing",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    # From Olmsted JSON
-    olmsted dump-fields -i data.json -o config.yaml
-
     # From PCP CSV (with optional trees)
-    olmsted dump-fields -i pcp.csv -t trees.csv -o config.yaml
+    olmsted build-config -i pcp.csv -t trees.csv -o config.yaml
 
     # From AIRR JSON
-    olmsted dump-fields -i airr_data.json -o config.yaml
+    olmsted build-config -i airr_data.json -o config.yaml
+
+    # From existing Olmsted JSON
+    olmsted build-config -i data.json -o config.yaml
 
     # Print to stdout for inspection
-    olmsted dump-fields -i data.json
+    olmsted build-config -i data.json
 
     # Then edit the config and use it
+    olmsted process -c config.yaml
     olmsted enrich -i data.json -o enriched.json -c config.yaml
-    olmsted process -i pcp.csv -t trees.csv -o output.json -c config.yaml
         """,
     )
 

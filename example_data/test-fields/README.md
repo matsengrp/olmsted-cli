@@ -39,9 +39,9 @@ olmsted process -i airr-test-fields.json -o output.json -c test-fields-config.ya
 olmsted process -i pcp-test-fields.csv -t trees-test-fields.csv -o output.json -c test-fields-config.yaml
 
 # Dump fields from any format
-olmsted dump-fields -i olmsted-test-fields.json
-olmsted dump-fields -i airr-test-fields.json
-olmsted dump-fields -i pcp-test-fields.csv -t trees-test-fields.csv
+olmsted build-config -i olmsted-test-fields.json
+olmsted build-config -i airr-test-fields.json
+olmsted build-config -i pcp-test-fields.csv -t trees-test-fields.csv
 ```
 
 ## Notes on PCP and Mutation-Level Data

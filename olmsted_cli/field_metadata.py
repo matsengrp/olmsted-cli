@@ -93,39 +93,6 @@ KNOWN_FIELDS_BY_LEVEL = {
 
 
 # =============================================================================
-# Cross-format field aliases
-# =============================================================================
-#
-# Maps alternative field names (from different formats/conventions) to their
-# canonical Olmsted output name. Used during field_metadata generation and
-# data renaming when output_name is not explicitly specified.
-#
-# Format: {input_name: canonical_output_name}
-
-FIELD_ALIASES = {
-    # Gene call naming: AIRR uses v_call, PCP uses v_gene_heavy
-    "v_gene": "v_call",
-    "v_gene_heavy": "v_call",
-    "d_gene": "d_call",
-    "d_gene_heavy": "d_call",
-    "j_gene": "j_call",
-    "j_gene_heavy": "j_call",
-    "v_gene_light": "v_call_light",
-    "j_gene_light": "j_call_light",
-    # Sequence count naming
-    "rearrangement_count": "unique_seqs_count",
-    "sampled_seqs_count": "unique_seqs_count",
-    # Size/count
-    "size": "total_read_count",
-    # Tree metrics
-    "branch_length": "length",
-    # Mutation fields
-    "mut_to": "child_aa",
-    "mut_from": "parent_aa",
-}
-
-
-# =============================================================================
 # Exclusion lists — structural/internal fields not useful for visualization
 # =============================================================================
 

@@ -71,7 +71,7 @@ olmsted process -i sequences.csv --tree trees.csv -o output/data.json --compute-
 |---------|---------|
 | **`process`** | This is the primary tool: Converts input AIRR or PCP format data into Olmsted-readable JSON format |
 | **`enrich`** | Add field metadata to existing Olmsted JSON files (e.g., pre-built surprise analysis data) |
-| **`dump-fields`** | Extract all fields from data into an editable YAML config |
+| **`build-config`** | Generate a YAML config from your data for editing |
 | **`validate`** | Verify data files conform to Olmsted schema |
 | **`summary`** | Generate statistics and metadata report for processed data |
 | **`split`** | Divide large consolidated files into smaller chunks for performance |
@@ -212,15 +212,15 @@ olmsted enrich -i data.json --in-place -c surprise.yaml
 
 ---
 
-### `dump-fields` - Extract Fields into Config
+### `build-config` - Generate Config from Data
 
-Introspect an Olmsted JSON file and generate a YAML config listing every discoverable field with its inferred type, label, and sample values. This gives you a starting point to customize before using with `enrich` or `process`.
+Introspect your data and generate a YAML config listing processing options, every discoverable field with its inferred type/label/sample values, and cross-format alias suggestions. Edit the config, then use it with `process` or `enrich`.
 
 #### Typical Workflow
 
 ```bash
-# 1. Dump all fields from your data
-olmsted dump-fields -i data.json -o config.yaml
+# 1. Generate a config from your data
+olmsted build-config -i data.json -o config.yaml
 
 # 2. Edit config.yaml — remove fields you don't need, fix labels, adjust types
 
