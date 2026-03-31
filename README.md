@@ -2,6 +2,12 @@
 
 Command-line interface and data processing utilities for the [Olmsted webapp](https://github.com/matsengrp/olmsted).  The Olmsted web application can be launched locally through the git repository, or is also available at https://www.olmstedviz.org.
 
+See also:
+- **[FORMATS.md](./FORMATS.md)**: Input/output format specifications, field mapping, validation
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)**: System architecture, data flow, design decisions
+- **[DEVELOPMENT.md](./DEVELOPMENT.md)**: Development guide, testing, contributing
+- **[CLAUDE.md](./CLAUDE.md)**: AI assistant guidance, code quality rules
+
 ## Overview
 
 `olmsted-cli` is a Python package that processes immunological data from AIRR and PCP formats into the Olmsted JSON format for visualization in the Olmsted web application. It handles sequencing data, reconstructs phylogenetic trees, and calculates various metrics for clonal family analysis.
@@ -512,11 +518,6 @@ pytest
 ruff check .
 ```
 
-For more details, see:
-- **[DEVELOPMENT.md](./DEVELOPMENT.md)**: Full development guide, testing, contributing
-- **[ARCHITECTURE.md](./ARCHITECTURE.md)**: System architecture, data flow, design decisions
-- **[FORMATS.md](./FORMATS.md)**: Input/output format specifications, field mapping, validation
-
 ---
 
 ## Links
@@ -525,3 +526,5 @@ For more details, see:
 - **Live Web App**: https://olmstedviz.org
 
 ---
+
+_Last updated: 2026-03-31_

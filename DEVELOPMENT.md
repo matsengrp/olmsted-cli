@@ -3,9 +3,22 @@
 This guide covers development setup, testing, and contributing to olmsted-cli.
 
 See also:
+- **[README.md](./README.md)**: User documentation and examples
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)**: Data flow, processing pipelines, field_metadata system
 - **[FORMATS.md](./FORMATS.md)**: Input/output format specs, field mapping, validation rules
 - **[CLAUDE.md](./CLAUDE.md)**: Code quality rules, terminology, quick reference
+
+## Table of Contents
+
+- [Quick Start](#quick-start)
+- [Prerequisites](#prerequisites)
+- [Running Tests](#running-tests)
+- [Project Structure](#project-structure)
+- [Common Tasks](#common-tasks)
+- [Linting](#linting)
+- [Release](#release)
+
+---
 
 ## Quick Start
 

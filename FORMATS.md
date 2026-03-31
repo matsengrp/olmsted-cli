@@ -5,6 +5,8 @@ This document describes the input and output formats for olmsted-cli: what data 
 See also:
 - **[README.md](./README.md)**: Command usage and examples
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)**: Processing pipeline and data flow
+- **[DEVELOPMENT.md](./DEVELOPMENT.md)**: Setup guide, testing, how-to guides
+- **[CLAUDE.md](./CLAUDE.md)**: Code quality rules, terminology
 
 ---
 

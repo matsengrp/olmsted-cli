@@ -1,5 +1,11 @@
 # Olmsted CLI Architecture
 
+See also:
+- **[FORMATS.md](./FORMATS.md)**: Input/output format specs, field mapping, validation rules
+- **[DEVELOPMENT.md](./DEVELOPMENT.md)**: Setup guide, testing, how-to guides
+- **[CLAUDE.md](./CLAUDE.md)**: Code quality rules, terminology, quick reference
+- **[README.md](./README.md)**: User documentation and examples
+
 ## Table of Contents
 
 - [Overview](#overview)
