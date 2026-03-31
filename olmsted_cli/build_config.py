@@ -22,6 +22,11 @@ from .constants import (
     EXCLUDED_MUTATION_FIELDS,
     EXCLUDED_NODE_FIELDS,
     FIELD_ALIASES,
+    FORMAT_AIRR,
+    FORMAT_AUTO,
+    FORMAT_OLMSTED,
+    FORMAT_PCP,
+    FORMAT_UNKNOWN,
     KNOWN_BRANCH_FIELDS,
     KNOWN_CLONE_FIELDS,
     KNOWN_MUTATION_FIELDS,
@@ -80,8 +85,8 @@ Examples:
     parser.add_argument(
         "-f",
         "--format",
-        choices=["airr", "pcp", "olmsted", "auto"],
-        default="auto",
+        choices=[FORMAT_AIRR, FORMAT_PCP, FORMAT_OLMSTED, FORMAT_AUTO],
+        default=FORMAT_AUTO,
         help="Input format (default: auto-detect)",
     )
     parser.add_argument(
@@ -282,7 +287,7 @@ def _build_yaml(
     lines.append("#   - Customize display labels")
     lines.append("#   - Uncomment processing options below as needed")
     lines.append("#")
-    if detected_format == "olmsted":
+    if detected_format == FORMAT_OLMSTED:
         lines.append("# Then use with:  olmsted enrich -i data.json -o enriched.json -c this_file.yaml")
     else:
         lines.append("# Then use with:  olmsted process -c this_file.yaml")
@@ -295,12 +300,12 @@ def _build_yaml(
     lines.append("# =============================================================================")
     lines.append("")
 
-    if detected_format == "olmsted":
+    if detected_format == FORMAT_OLMSTED:
         input_str = str(input_path) if input_path else input_name
         lines.append(f"# input: {input_str}")
         lines.append("# output: enriched_output.json")
         lines.append("# mode: add            # add (merge with existing) or overwrite")
-    elif detected_format == "pcp":
+    elif detected_format == FORMAT_PCP:
         input_str = str(input_path) if input_path else input_name
         lines.append(f"inputs: [{input_str}]")
         if tree_path:
@@ -323,7 +328,7 @@ def _build_yaml(
         lines.append("# standardize_names: false  # rename nodes to naive, Node1, Leaf1, ...")
         lines.append("# validate: false")
         lines.append("# verbose: 1")
-    elif detected_format == "airr":
+    elif detected_format == FORMAT_AIRR:
         input_str = str(input_path) if input_path else input_name
         lines.append(f"inputs: [{input_str}]")
         lines.append("output: output.json")
@@ -518,11 +523,11 @@ def main():
         sys.exit(1)
 
     # Detect format
-    if args.format != "auto":
+    if args.format != FORMAT_AUTO:
         detected_format = args.format
     else:
         detected_format = detect_file_format(input_path)
-    if detected_format == "unknown":
+    if detected_format == FORMAT_UNKNOWN:
         print(
             f"Error: Could not detect format for {input_path}. "
             "Use -f to specify: airr, pcp, or olmsted",
@@ -533,14 +538,14 @@ def main():
     # Load data based on format
     print(f"Reading {detected_format.upper()} data from: {input_path.name}", file=sys.stderr)
 
-    if detected_format == "olmsted":
+    if detected_format == FORMAT_OLMSTED:
         all_clones, all_trees = _load_olmsted(input_path)
-    elif detected_format == "pcp":
+    elif detected_format == FORMAT_PCP:
         trees_path = Path(args.tree) if args.tree else None
         all_clones, all_trees = _load_pcp(
             input_path, trees_path, args.seed, args.compute_metrics
         )
-    elif detected_format == "airr":
+    elif detected_format == FORMAT_AIRR:
         all_clones, all_trees = _load_airr(input_path)
     else:
         print(f"Error: Unsupported format: {detected_format}", file=sys.stderr)

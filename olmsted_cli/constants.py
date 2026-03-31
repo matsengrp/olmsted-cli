@@ -24,6 +24,37 @@ VERBOSITY_HELP = (
 # Enumerated Types
 # =============================================================================
 
+# --- File Formats ---
+
+#: Input/output file formats recognized by olmsted-cli.
+FORMAT_PCP = "pcp"
+FORMAT_AIRR = "airr"
+FORMAT_OLMSTED = "olmsted"
+FORMAT_AUTO = "auto"
+FORMAT_UNKNOWN = "unknown"
+
+#: All input formats (for argparse choices)
+INPUT_FORMATS = {FORMAT_PCP, FORMAT_AIRR, FORMAT_AUTO}
+
+#: All detectable formats
+ALL_FORMATS = {FORMAT_PCP, FORMAT_AIRR, FORMAT_OLMSTED}
+
+# --- Validation File Types ---
+
+#: File types for the validate command.
+#: JSON types (from split-file output):
+VALIDATE_DATASET = "split-dataset"
+VALIDATE_CLONE = "split-clone"
+VALIDATE_CLONES = "split-clones"
+VALIDATE_TREE = "split-tree"
+VALIDATE_TREES = "split-trees"
+#: CSV types:
+VALIDATE_PCP = "pcp"
+VALIDATE_TREE_CSV = "tree-csv"
+
+
+# --- Field Types ---
+
 #: Valid field data types for field_metadata entries.
 #: - continuous: numeric values (axes, size, color scales)
 #: - categorical: string/enum values (color, shape, facet)

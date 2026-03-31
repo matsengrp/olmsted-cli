@@ -29,7 +29,17 @@ import yaml
 import jsonschema
 from tqdm import tqdm
 
-from .constants import DISPLAY_MODES, FIELD_LEVELS, FIELD_TYPES, normalize_level
+from .constants import (
+    DISPLAY_MODES,
+    FIELD_LEVELS,
+    FIELD_TYPES,
+    FORMAT_AIRR,
+    FORMAT_AUTO,
+    FORMAT_OLMSTED,
+    FORMAT_PCP,
+    FORMAT_UNKNOWN,
+    normalize_level,
+)
 
 from .process_airr_data import (
     clone_spec,
@@ -60,15 +70,15 @@ def detect_file_format(file_path):
         file_path: Path to the input file
 
     Returns:
-        str: Detected format ('airr', 'pcp', 'olmsted', or 'unknown')
+        str: Detected format (FORMAT_AIRR, FORMAT_PCP, FORMAT_OLMSTED, or FORMAT_UNKNOWN)
     """
     file_path = Path(file_path)
 
     # CSV files are always PCP
     if file_path.suffix.lower() == ".csv":
-        return "pcp"
+        return FORMAT_PCP
     if file_path.suffix.lower() == ".gz" and file_path.stem.endswith(".csv"):
-        return "pcp"
+        return FORMAT_PCP
 
     # JSON files need content inspection to distinguish AIRR from Olmsted
     if file_path.suffix.lower() == ".json" or (
@@ -86,17 +96,17 @@ def detect_file_format(file_path):
             if isinstance(data, dict):
                 # Explicit format tag in metadata
                 metadata = data.get("metadata", {})
-                if isinstance(metadata, dict) and metadata.get("format") == "olmsted":
-                    return "olmsted"
+                if isinstance(metadata, dict) and metadata.get("format") == FORMAT_OLMSTED:
+                    return FORMAT_OLMSTED
                 # Heuristic fallback: Olmsted JSON has "datasets" and "metadata"
                 if "datasets" in data and "metadata" in data:
-                    return "olmsted"
+                    return FORMAT_OLMSTED
                 # AIRR JSON has "clones" with "dataset_id" or standard AIRR keys
                 if "dataset_id" in data or "clones" in data or "ident" in data:
-                    return "airr"
+                    return FORMAT_AIRR
             elif isinstance(data, list):
                 # Multi-dataset AIRR
-                return "airr"
+                return FORMAT_AIRR
         except (json.JSONDecodeError, OSError, ValueError):
             pass
 
@@ -124,12 +134,12 @@ def detect_file_format(file_path):
                     "newick",
                 ]
                 if any(indicator in first_line for indicator in pcp_indicators):
-                    return "pcp"
+                    return FORMAT_PCP
 
     except Exception as e:
         print(f"Warning: Could not detect format for {file_path}: {e}")
 
-    return "unknown"
+    return FORMAT_UNKNOWN
 
 
 def validate_airr_file(file_path):
@@ -323,7 +333,7 @@ def process_airr_format(args):
     else:
         # Single consolidated file output (default)
         consolidated_data = create_consolidated_data(
-            datasets, clones_dict, trees, args.inputs, "airr", args
+            datasets, clones_dict, trees, args.inputs, FORMAT_AIRR, args
         )
         # Ensure output directory exists
         output_dir = os.path.dirname(args.output) or "."
@@ -443,7 +453,7 @@ def process_pcp_format(args):
         else:
             # Single consolidated file output (default)
             consolidated_data = create_consolidated_data(
-                datasets, clones_dict, trees, args.inputs, "pcp", args
+                datasets, clones_dict, trees, args.inputs, FORMAT_PCP, args
             )
             # Ensure output directory exists
             output_dir = os.path.dirname(args.output) or "."
@@ -509,8 +519,8 @@ Examples:
     parser.add_argument(
         "-f",
         "--format",
-        choices=["airr", "pcp", "auto"],
-        default="auto",
+        choices=[FORMAT_AIRR, FORMAT_PCP, FORMAT_AUTO],
+        default=FORMAT_AUTO,
         help="Input format (default: auto-detect)",
     )
 
@@ -815,10 +825,9 @@ def main():
             sys.exit(1)
 
     # Determine format
-    if args.format == "auto":
-        # Auto-detect using first input file
+    if args.format == FORMAT_AUTO:
         detected_format = detect_file_format(args.inputs[0])
-        if detected_format == "unknown":
+        if detected_format == FORMAT_UNKNOWN:
             vprint.error(f"Error: Could not auto-detect format for {args.inputs[0]}")
             vprint.error("Please specify format with -f/--format option")
             sys.exit(1)
@@ -829,21 +838,21 @@ def main():
         vprint.status(f"Using specified format: {format_to_use}")
 
     # Validate format matches file content
-    if format_to_use == "airr":
+    if format_to_use == FORMAT_AIRR:
         for input_file in args.inputs:
             if not validate_airr_file(input_file):
                 vprint.status(f"Warning: {input_file} may not be valid AIRR format")
-    elif format_to_use == "pcp":
+    elif format_to_use == FORMAT_PCP:
         if not validate_pcp_file(args.inputs[0]):
             vprint.status(f"Warning: {args.inputs[0]} may not be valid PCP format")
 
     # Process based on format
     try:
-        if format_to_use == "airr":
+        if format_to_use == FORMAT_AIRR:
             process_airr_format(args)
-        elif format_to_use == "pcp":
+        elif format_to_use == FORMAT_PCP:
             process_pcp_format(args)
-        elif format_to_use == "olmsted":
+        elif format_to_use == FORMAT_OLMSTED:
             vprint.error(
                 "Error: Input is already in Olmsted JSON format. "
                 "Use 'olmsted enrich' to add field_metadata to existing Olmsted files."
