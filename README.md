@@ -515,6 +515,7 @@ ruff check .
 For more details, see:
 - **[DEVELOPMENT.md](./DEVELOPMENT.md)**: Full development guide, testing, contributing
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)**: System architecture, data flow, design decisions
+- **[FORMATS.md](./FORMATS.md)**: Input/output format specifications, field mapping, validation
 
 ---
 

@@ -14,7 +14,8 @@ olmsted-cli is a Python CLI tool that processes immunological data (AIRR JSON an
 
 ## Design Documents
 
-- **[ARCHITECTURE.md](./ARCHITECTURE.md)**: Data flow, processing pipelines, field_metadata system, config flow, output format
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)**: Data flow, processing pipelines, field_metadata system, config flow
+- **[FORMATS.md](./FORMATS.md)**: Input/output format specs, field mapping, validation rules
 - **[DEVELOPMENT.md](./DEVELOPMENT.md)**: Setup guide, testing, project structure, how-to guides
 
 ## Common Commands

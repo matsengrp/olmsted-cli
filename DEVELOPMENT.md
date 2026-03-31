@@ -4,6 +4,7 @@ This guide covers development setup, testing, and contributing to olmsted-cli.
 
 See also:
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)**: Data flow, processing pipelines, field_metadata system
+- **[FORMATS.md](./FORMATS.md)**: Input/output format specs, field mapping, validation rules
 - **[CLAUDE.md](./CLAUDE.md)**: Code quality rules, terminology, quick reference
 
 ## Quick Start
