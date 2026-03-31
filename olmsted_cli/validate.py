@@ -10,8 +10,6 @@ import json
 import sys
 from pathlib import Path
 
-from tqdm import tqdm
-
 from .process_utils import (
     VerbosePrinter,
     add_verbosity_args,
@@ -41,7 +39,7 @@ def _validate_dataset_with_children(data, validation_errors, check_time_tree=Fal
 
     iterator = clones
     if len(clones) > 1:
-        iterator = tqdm(clones, desc="Validating clones", unit="clone", leave=False)
+        iterator = vprint.progress(clones, desc="Validating clones", unit="clone", leave=False)
 
     for i, clone in enumerate(iterator):
         clone_id = clone.get("clone_id", f"clone-{i}") if isinstance(clone, dict) else f"clone-{i}"
@@ -72,7 +70,7 @@ def _validate_items(items, item_type, validate_fn, validation_errors, check_time
 
     iterator = items
     if len(items) > 1:
-        iterator = tqdm(items, desc=f"Validating {item_type}s", unit=item_type, leave=False)
+        iterator = vprint.progress(items, desc=f"Validating {item_type}s", unit=item_type, leave=False)
 
     for i, item in enumerate(iterator):
         if isinstance(item, dict):
@@ -384,47 +382,45 @@ def main():
     all_valid = True
     total_errors = 0
 
-    with tqdm(
-        files_to_validate, desc="Validating files", unit="file",
-        disable=len(files_to_validate) == 1 or args.verbose == 0
-    ) as pbar:
-        for filepath, file_type in pbar:
+    pbar = vprint.progress(files_to_validate, desc="Validating files", unit="file")
+    for filepath, file_type in pbar:
+        if hasattr(pbar, "set_description"):
             pbar.set_description(f"Validating {Path(filepath).name}")
 
-            vprint.verbose(f"\n{'=' * 60}")
-            vprint.verbose(f"Validating: {filepath}")
-            if file_type:
-                vprint.verbose(f"Type: {file_type} (explicitly specified)")
-            else:
-                vprint.verbose(f"Type: auto-detect")
-            vprint.verbose(f"{'=' * 60}")
+        vprint.verbose(f"\n{'=' * 60}")
+        vprint.verbose(f"Validating: {filepath}")
+        if file_type:
+            vprint.verbose(f"Type: {file_type} (explicitly specified)")
+        else:
+            vprint.verbose(f"Type: auto-detect")
+        vprint.verbose(f"{'=' * 60}")
 
-            if not Path(filepath).exists():
-                vprint.error(f"ERROR: File not found: {filepath}")
-                all_valid = False
-                total_errors += 1
-                if args.strict:
-                    sys.exit(1)
-                continue
+        if not Path(filepath).exists():
+            vprint.error(f"ERROR: File not found: {filepath}")
+            all_valid = False
+            total_errors += 1
+            if args.strict:
+                sys.exit(1)
+            continue
 
-            is_valid, errors = validate_file(filepath, file_type, args.strict, args.time_tree)
+        is_valid, errors = validate_file(filepath, file_type, args.verbose, args.strict, args.time_tree)
 
-            if is_valid:
-                vprint.status(f"VALID: {filepath}")
-            else:
-                vprint.status(f"INVALID: {filepath}")
-                total_errors += len(errors)
+        if is_valid:
+            vprint.status(f"VALID: {filepath}")
+        else:
+            vprint.status(f"INVALID: {filepath}")
+            total_errors += len(errors)
 
-                vprint.verbose("\nErrors found:")
-                for error in errors:
-                    vprint.verbose(f"  - {error}")
+            vprint.verbose("\nErrors found:")
+            for error in errors:
+                vprint.verbose(f"  - {error}")
 
-                if vprint.level < 2:
-                    vprint.status(f"  {len(errors)} error(s) found (use -v 2 for details)")
+            if vprint.level < 2:
+                vprint.status(f"  {len(errors)} error(s) found (use -v 2 for details)")
 
-                all_valid = False
-                if args.strict:
-                    sys.exit(1)
+            all_valid = False
+            if args.strict:
+                sys.exit(1)
 
     # Summary
     vprint.status(f"\n{'=' * 60}")

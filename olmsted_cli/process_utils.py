@@ -111,6 +111,25 @@ class VerbosePrinter:
         """
         self.print(*args, min_level=3, **kwargs)
 
+    def progress(self, iterable, min_level=1, **tqdm_kwargs):
+        """
+        Wrap an iterable with tqdm, respecting verbosity level.
+
+        At levels below min_level, returns the bare iterable (no progress bar).
+        At min_level and above, returns a tqdm-wrapped iterable.
+
+        Args:
+            iterable: The iterable to wrap.
+            min_level: Minimum verbosity level to show progress bar (default: 1).
+            **tqdm_kwargs: Keyword arguments passed to tqdm.
+
+        Returns:
+            The iterable, optionally wrapped with tqdm.
+        """
+        if self.level >= min_level:
+            return tqdm(iterable, **tqdm_kwargs)
+        return iterable
+
 
 def add_verbosity_args(parser):
     """Add standard -v/--verbose and -q/--quiet arguments to an argparser.
