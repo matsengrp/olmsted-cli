@@ -5,6 +5,7 @@ import argparse
 import sys
 
 from olmsted_cli import build_config, enrich, process_data, split, summary, validate
+from olmsted_cli.version import version_string
 
 # Dispatch table: command name -> (help text, handler module)
 COMMANDS = {
@@ -20,6 +21,7 @@ COMMANDS = {
 def main():
     """Main entry point for the olmsted CLI."""
     parser = argparse.ArgumentParser(
+        prog="olmsted",
         description="Olmsted CLI - Process AIRR and PCP format data",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
@@ -33,6 +35,9 @@ Examples:
   # Process with a config file
   olmsted process -c config.yaml
         """,
+    )
+    parser.add_argument(
+        "--version", action="version", version=f"olmsted-cli {version_string()}"
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")

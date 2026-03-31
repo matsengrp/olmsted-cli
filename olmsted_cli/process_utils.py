@@ -18,6 +18,7 @@ import yaml
 from tqdm import tqdm
 
 from .schemas import SCHEMA_VERSION, clone_spec, dataset_spec, tree_spec
+from .version import __version__, get_git_hash
 
 # Constants for infinity handling
 inf = float("inf")
@@ -528,7 +529,8 @@ def create_consolidated_data(
         },
         "generated_by": {
             "tool": "olmsted-cli",
-            "version": SCHEMA_VERSION,
+            "version": __version__,
+            "git_hash": get_git_hash(),
         },
     }
 
