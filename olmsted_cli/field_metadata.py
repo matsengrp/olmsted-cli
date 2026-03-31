@@ -144,6 +144,18 @@ def _sample_values(dicts: List[Dict], field: str, max_samples: int = 50) -> List
     return values
 
 
+def _sample_values_by_path(dicts: List[Dict], path: str, max_samples: int = 50) -> List[Any]:
+    """Sample non-null values using a dot-path across a list of dicts."""
+    values = []
+    for d in dicts:
+        val = _get_nested_value(d, path)
+        if val is not None:
+            values.append(val)
+            if len(values) >= max_samples:
+                break
+    return values
+
+
 def _collect_keys(dicts: List[Dict]) -> set:
     """Collect the union of all keys across a list of dicts."""
     keys = set()
@@ -152,18 +164,18 @@ def _collect_keys(dicts: List[Dict]) -> set:
     return keys
 
 
-def _apply_custom_fields(metadata, custom_fields, level):
+def _apply_custom_fields(metadata, custom_fields, level, data_dicts=None):
     """
     Apply custom field declarations to a metadata dict for a given level.
 
-    Handles output_name renaming: if a custom field specifies output_name,
-    the field is registered under that name in field_metadata (and the
-    input name is noted for data renaming during processing).
+    Handles output_name renaming and path resolution. If a custom field
+    specifies a path, values are resolved via dot-path into the data dicts.
 
     Args:
         metadata: The field metadata dict to update (modified in place).
         custom_fields: List of custom field declarations.
         level: The level to filter on ("clone", "node", etc.).
+        data_dicts: Optional list of data dicts for path resolution.
     """
     if not custom_fields:
         return
@@ -181,6 +193,19 @@ def _apply_custom_fields(metadata, custom_fields, level):
 
         output_key = cf.get("output_name", cf["name"])
         entry = {"type": cf["type"], "label": cf["label"]}
+
+        # If path is specified and we have data, verify the field exists
+        # via path resolution. If it doesn't exist, still register it
+        # (user may be declaring a field they intend to add later).
+        path = cf.get("path")
+        if path and data_dicts:
+            values = _sample_values_by_path(data_dicts, path, max_samples=10)
+            # If values found and type is continuous, compute range
+            if values and entry["type"] == "continuous" and "range" not in cf:
+                numeric_vals = [v for v in values if isinstance(v, (int, float)) and not isinstance(v, bool)]
+                if numeric_vals:
+                    entry["range"] = [min(numeric_vals), max(numeric_vals)]
+
         # Preserve range from auto-detection or existing
         if "range" in cf:
             entry["range"] = cf["range"]
@@ -239,29 +264,29 @@ def generate_clone_metadata(
     metadata = {}
     all_keys = _collect_keys(clones)
 
-    # Check for locus in nested sample object
-    has_locus = any(
-        _get_nested_value(c, "sample.locus") is not None for c in clones[:10]
-    )
-    if has_locus:
-        all_keys.add("locus")
+    # Check for known fields that use dot-paths (e.g., locus → sample.locus)
+    for field_name, field_info in KNOWN_CLONE_FIELDS.items():
+        if "path" in field_info and field_name not in all_keys:
+            values = _sample_values_by_path(clones, field_info["path"], max_samples=10)
+            if values:
+                all_keys.add(field_name)
 
     # Filter out excluded fields
     candidate_keys = all_keys - EXCLUDED_CLONE_FIELDS
 
     for key in sorted(candidate_keys):
         if key in KNOWN_CLONE_FIELDS:
-            # Verify the field actually has data
-            if key == "locus":
-                values = [
-                    _get_nested_value(c, "sample.locus")
-                    for c in clones[:50]
-                    if _get_nested_value(c, "sample.locus") is not None
-                ]
+            known = KNOWN_CLONE_FIELDS[key]
+            # Use path if specified, otherwise top-level lookup
+            if "path" in known:
+                values = _sample_values_by_path(clones, known["path"])
             else:
                 values = _sample_values(clones, key)
             if values:
-                metadata[key] = dict(KNOWN_CLONE_FIELDS[key])
+                # Copy type/label but not path into output metadata
+                metadata[key] = {
+                    k: v for k, v in known.items() if k != "path"
+                }
         else:
             values = _sample_values(clones, key)
             if values:
@@ -271,7 +296,8 @@ def generate_clone_metadata(
                     "label": humanize_label(key),
                 }
 
-    _apply_custom_fields(metadata, custom_fields, "clone")
+    # Apply custom fields (which may also have paths)
+    _apply_custom_fields(metadata, custom_fields, "clone", clones)
 
     return metadata
 
@@ -316,7 +342,7 @@ def generate_node_metadata(
                     "label": humanize_label(key),
                 }
 
-    _apply_custom_fields(metadata, custom_fields, "node")
+    _apply_custom_fields(metadata, custom_fields, "node", all_nodes)
 
     return metadata
 
@@ -350,7 +376,7 @@ def generate_branch_metadata(
             if values:
                 metadata[key] = dict(KNOWN_BRANCH_FIELDS[key])
 
-    _apply_custom_fields(metadata, custom_fields, "branch")
+    _apply_custom_fields(metadata, custom_fields, "branch", all_nodes)
 
     return metadata
 
@@ -388,7 +414,7 @@ def generate_mutation_metadata(
         if has_aa_sequences:
             metadata["child_aa"] = {"type": "aa", "label": "Child Amino Acid"}
             metadata["parent_aa"] = {"type": "tooltip", "label": "Parent Amino Acid"}
-        _apply_custom_fields(metadata, custom_fields, "mutation")
+        _apply_custom_fields(metadata, custom_fields, "mutation", all_nodes)
         return metadata
 
     # Collect ALL mutations (not sampled) for accurate range computation
@@ -421,7 +447,7 @@ def generate_mutation_metadata(
                         entry["range"] = field_range
                 metadata[key] = entry
 
-    _apply_custom_fields(metadata, custom_fields, "mutation")
+    _apply_custom_fields(metadata, custom_fields, "mutation", all_mutations)
 
     return metadata
 

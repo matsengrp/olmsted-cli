@@ -55,7 +55,7 @@ KNOWN_CLONE_FIELDS = {
     "v_call": {"type": "categorical", "label": "V Gene"},
     "d_call": {"type": "categorical", "label": "D Gene"},
     "j_call": {"type": "categorical", "label": "J Gene"},
-    "locus": {"type": "categorical", "label": "Locus"},
+    "locus": {"type": "categorical", "label": "Locus", "path": "sample.locus"},
     "subject_id": {"type": "categorical", "label": "Subject"},
     "sample_id": {"type": "categorical", "label": "Sample"},
     "has_seed": {"type": "categorical", "label": "Has Seed"},
