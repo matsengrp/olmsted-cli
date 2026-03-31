@@ -26,7 +26,7 @@ from .constants import (
     KNOWN_CLONE_FIELDS,
     KNOWN_MUTATION_FIELDS,
     KNOWN_NODE_FIELDS,
-    SUGGESTED_FIELD_TYPES,
+    SUGGESTED_DISPLAY_MODES,
     SUGGESTED_SKIP_FIELDS,
 )
 from .field_metadata import (
@@ -190,18 +190,24 @@ def _load_airr(input_path):
 
 
 def _field_summary(dicts, field, known_registry):
-    """Build a summary dict for a single field: type, label, sample values."""
+    """Build a summary dict for a single field: type, display, label."""
     if field in known_registry:
-        entry = dict(known_registry[field])
+        known = known_registry[field]
+        entry = {
+            "type": known["type"],
+            "display": known.get("display", "dropdown"),
+            "label": known["label"],
+        }
     else:
         values = _sample_values(dicts, field, max_samples=50)
         entry = {
             "type": infer_field_type(values),
+            "display": "dropdown",
             "label": humanize_label(field),
         }
-    # Apply suggested type override (e.g., parent_aa → tooltip)
-    if field in SUGGESTED_FIELD_TYPES:
-        entry["type"] = SUGGESTED_FIELD_TYPES[field]
+    # Apply suggested display mode override
+    if field in SUGGESTED_DISPLAY_MODES:
+        entry["display"] = SUGGESTED_DISPLAY_MODES[field]
     return entry
 
 
@@ -219,6 +225,9 @@ def _format_field_block(name, level, entry, sample_values=None, field_range=None
     if skip:
         lines.append(f"    skip: true")
     lines.append(f"    type: {entry['type']}")
+    display = entry.get("display", "dropdown")
+    if display != "dropdown":
+        lines.append(f"    display: {display}")
     lines.append(f"    label: \"{entry['label']}\"")
     if field_range:
         lines.append(f"    # range in data: [{field_range[0]}, {field_range[1]}]")
@@ -321,19 +330,24 @@ def _build_yaml(
     lines.append("#")
     lines.append("# Each field entry supports:")
     lines.append("#   name:        Field name in the input data (required)")
-    lines.append("#   output_name: Renamed field in output (optional, for cross-format alignment)")
+    lines.append("#   output_name: Renamed field in output (optional)")
     lines.append("#   level:       family, node, branch, or mutation (required)")
-    lines.append("#   type:        continuous, categorical, tooltip, aa, or dna (required)")
+    lines.append("#   type:        continuous, categorical, aa, or dna (required)")
+    lines.append("#   display:     dropdown (default), tooltip, or skip (optional)")
     lines.append("#   label:       Display label in web app (required)")
-    lines.append("#   skip:        true to exclude from output metadata (optional)")
+    lines.append("#   skip:        true to exclude from metadata (shorthand for display: skip)")
     lines.append("#   range:       [min, max] for continuous fields (optional)")
     lines.append("#")
-    lines.append("# Types:")
+    lines.append("# Types (what the data IS):")
     lines.append("#   continuous  — numeric (axes, size, color scales)")
     lines.append("#   categorical — string/enum (color, shape, facet)")
-    lines.append("#   tooltip     — display-only (shown in tooltips, not for encoding)")
-    lines.append("#   aa          — amino acid identity (uses full genetic alphabet)")
-    lines.append("#   dna         — nucleotide identity (uses full genetic alphabet)")
+    lines.append("#   aa          — amino acid identity (full genetic alphabet)")
+    lines.append("#   dna         — nucleotide identity (full genetic alphabet)")
+    lines.append("#")
+    lines.append("# Display modes (how to show it):")
+    lines.append("#   dropdown    — in visualization controls (default, omit if not needed)")
+    lines.append("#   tooltip     — shown on hover only, not in controls")
+    lines.append("#   skip        — excluded from output metadata entirely")
     lines.append("#")
     lines.append("# Cross-format aliases (suggested output_name, remove if not needed):")
     lines.append("#   v_gene, v_gene_heavy  ->  v_call")

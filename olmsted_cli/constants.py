@@ -9,14 +9,18 @@ It has NO dependencies on other project modules.
 # Enumerated Types
 # =============================================================================
 
-#: Valid field types for field_metadata entries.
+#: Valid field data types for field_metadata entries.
 #: - continuous: numeric values (axes, size, color scales)
 #: - categorical: string/enum values (color, shape, facet)
-#: - tooltip: display-only (shown in tooltips, not for encoding)
 #: - aa: amino acid identity (uses full genetic alphabet)
 #: - dna: nucleotide identity (uses full genetic alphabet)
-#: - skip: exclude from output metadata (keeps entry in config for docs)
-FIELD_TYPES = {"continuous", "categorical", "tooltip", "aa", "dna"}
+FIELD_TYPES = {"continuous", "categorical", "aa", "dna"}
+
+#: Valid display modes for field_metadata entries.
+#: - dropdown: shown in visualization controls (default)
+#: - tooltip: shown on hover only, not in controls
+#: - skip: excluded from output metadata entirely
+DISPLAY_MODES = {"dropdown", "tooltip", "skip"}
 
 #: Valid data levels for field_metadata.
 #: - family/clone: clonal family level (scatterplot axes, color, facet)
@@ -96,9 +100,9 @@ KNOWN_MUTATION_FIELDS = {
         "label": "Selection Contribution",
     },
     "region": {"type": "categorical", "label": "Region"},
-    "parent_aa": {"type": "tooltip", "label": "Parent Amino Acid"},
+    "parent_aa": {"type": "aa", "display": "tooltip", "label": "Parent Amino Acid"},
     "child_aa": {"type": "aa", "label": "Child Amino Acid"},
-    "parent_nt": {"type": "tooltip", "label": "Parent Nucleotide"},
+    "parent_nt": {"type": "dna", "display": "tooltip", "label": "Parent Nucleotide"},
     "child_nt": {"type": "dna", "label": "Child Nucleotide"},
 }
 
@@ -277,15 +281,13 @@ SUGGESTED_SKIP_FIELDS = {
     "junction_start_light", "junction_length_light",
 }
 
-#: Suggested type overrides for fields where auto-inference would give
-#: the wrong result. Used by build-config to pre-fill the type field.
-#: These are suggestions — the user can change them in their config.
-#: Format: {field_name: suggested_type}
-SUGGESTED_FIELD_TYPES = {
-    # parent_aa is context for the mutation, not for color encoding
+#: Suggested display mode overrides for build-config output.
+#: Fields mapped here get a display mode suggestion instead of the default "dropdown".
+#: Format: {field_name: suggested_display_mode}
+SUGGESTED_DISPLAY_MODES = {
+    # parent_aa/nt is context for the mutation, not for color encoding
     "parent_aa": "tooltip",
     "parent_nt": "tooltip",
-    # mut_from is an alias for parent_aa in some formats
     "mut_from": "tooltip",
 }
 

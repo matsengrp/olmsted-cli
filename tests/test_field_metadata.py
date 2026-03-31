@@ -180,14 +180,14 @@ class TestInferFieldType:
         assert infer_field_type([True, False, True]) == "categorical"
 
     def test_mixed_values(self):
-        assert infer_field_type([1, "a", 2]) == "tooltip"
+        assert infer_field_type([1, "a", 2]) == "categorical"
 
     def test_empty_values(self):
-        assert infer_field_type([]) == "tooltip"
+        assert infer_field_type([]) == "categorical"
 
     def test_complex_values(self):
-        assert infer_field_type([{"a": 1}, {"b": 2}]) == "tooltip"
-        assert infer_field_type([[1, 2], [3, 4]]) == "tooltip"
+        assert infer_field_type([{"a": 1}, {"b": 2}]) == "categorical"
+        assert infer_field_type([[1, 2], [3, 4]]) == "categorical"
 
 
 # =============================================================================
@@ -252,10 +252,12 @@ class TestGenerateCloneMetadata:
 
     def test_custom_fields_override(self, pcp_clones):
         custom = [
-            {"name": "unique_seqs_count", "level": "clone", "type": "tooltip", "label": "Custom Label"},
+            {"name": "unique_seqs_count", "level": "clone", "type": "continuous",
+             "display": "tooltip", "label": "Custom Label"},
         ]
         meta = generate_clone_metadata(pcp_clones, custom_fields=custom)
-        assert meta["unique_seqs_count"]["type"] == "tooltip"
+        assert meta["unique_seqs_count"]["type"] == "continuous"
+        assert meta["unique_seqs_count"]["display"] == "tooltip"
         assert meta["unique_seqs_count"]["label"] == "Custom Label"
 
     def test_custom_fields_add_new(self, pcp_clones):
@@ -346,10 +348,12 @@ class TestGenerateMutationMetadata:
         assert meta["region"]["type"] == "categorical"
 
     def test_aa_fields(self, trees_with_surprise):
-        """parent_aa is tooltip (context), child_aa is aa (the mutation identity)."""
+        """parent_aa is aa type with tooltip display, child_aa is aa with dropdown display."""
         meta = generate_mutation_metadata(trees_with_surprise)
-        assert meta["parent_aa"]["type"] == "tooltip"
+        assert meta["parent_aa"]["type"] == "aa"
+        assert meta["parent_aa"]["display"] == "tooltip"
         assert meta["child_aa"]["type"] == "aa"
+        assert meta["child_aa"]["display"] == "dropdown"
 
     def test_ranges_on_continuous_fields(self, trees_with_surprise):
         meta = generate_mutation_metadata(trees_with_surprise)
@@ -370,8 +374,10 @@ class TestGenerateMutationMetadata:
         meta = generate_mutation_metadata(trees_with_nodes)
         assert "child_aa" in meta
         assert meta["child_aa"]["type"] == "aa"
+        assert meta["child_aa"]["display"] == "dropdown"
         assert "parent_aa" in meta
-        assert meta["parent_aa"]["type"] == "tooltip"
+        assert meta["parent_aa"]["type"] == "aa"
+        assert meta["parent_aa"]["display"] == "tooltip"
         # But no surprise fields
         assert "surprise_mutsel" not in meta
 

@@ -29,7 +29,7 @@ import yaml
 import jsonschema
 from tqdm import tqdm
 
-from .constants import FIELD_LEVELS, FIELD_TYPES, normalize_level
+from .constants import DISPLAY_MODES, FIELD_LEVELS, FIELD_TYPES, normalize_level
 
 from .process_airr_data import (
     clone_spec,
@@ -725,6 +725,14 @@ def load_config(config_path):
                 if not is_skip and entry.get("type") not in FIELD_TYPES:
                     print(
                         f"Warning: custom_fields[{i}] has invalid type '{entry['type']}' (ignored)",
+                        file=sys.stderr,
+                    )
+                    continue
+                # Validate display mode if specified
+                display = entry.get("display")
+                if display and display not in DISPLAY_MODES:
+                    print(
+                        f"Warning: custom_fields[{i}] has invalid display '{display}' (ignored)",
                         file=sys.stderr,
                     )
                     continue

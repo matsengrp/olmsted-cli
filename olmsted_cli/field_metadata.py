@@ -5,10 +5,15 @@ Generates field_metadata describing available data fields at each level
 (clone, node, branch, mutation) with their types and human-readable labels.
 This metadata drives dynamic dropdown construction in the Olmsted web app.
 
-Field types:
+Field types (what the data IS):
     - "continuous": Numeric values suitable for axes, size, color scales
     - "categorical": String/enum values suitable for color, shape, facet
-    - "tooltip": Display-only values shown in tooltips, not for encoding
+    - "aa": Amino acid single-character identity
+    - "dna": Nucleotide single-character identity
+
+Display modes (how to show it):
+    - "dropdown": In visualization controls (default)
+    - "tooltip": Show on hover only, not in controls
 
 Levels:
     - "clone": Clone/clonal family level (scatterplot axes, color, facet)
@@ -44,7 +49,7 @@ from .constants import (
 
 def infer_field_type(values: List[Any]) -> str:
     """
-    Infer field type from sample values.
+    Infer field data type from sample values.
 
     Args:
         values: Non-null sample values from the field.
@@ -53,11 +58,10 @@ def infer_field_type(values: List[Any]) -> str:
         "continuous" if all values are numeric,
         "aa" if all values are single amino acid characters,
         "dna" if all values are single nucleotide characters,
-        "categorical" if all values are strings,
-        "tooltip" if mixed types or unclassifiable.
+        "categorical" for strings, booleans, mixed types, or complex values.
     """
     if not values:
-        return "tooltip"
+        return "categorical"
 
     numeric_count = 0
     string_count = 0
@@ -71,8 +75,8 @@ def infer_field_type(values: List[Any]) -> str:
             string_count += 1
             string_values.append(v)
         else:
-            # Complex types (lists, dicts) are tooltip-only
-            return "tooltip"
+            # Complex types (lists, dicts) — categorical for type, display: tooltip suggested
+            return "categorical"
 
     if numeric_count > 0 and string_count == 0:
         return "continuous"
@@ -91,7 +95,7 @@ def infer_field_type(values: List[Any]) -> str:
             if upper_vals <= AA_CHARS:
                 return "aa"
         return "categorical"
-    return "tooltip"
+    return "categorical"  # mixed types
 
 
 def compute_range(dicts: List[Dict], field: str) -> Optional[List[float]]:
@@ -183,8 +187,8 @@ def _apply_custom_fields(metadata, custom_fields, level, data_dicts=None):
         if normalize_level(cf.get("level", "")) != level:
             continue
 
-        # skip keyword: remove this field from metadata entirely
-        if cf.get("skip", False):
+        # Resolve display mode: skip flag takes precedence, then explicit display
+        if cf.get("skip", False) or cf.get("display") == "skip":
             metadata.pop(cf["name"], None)
             output_key = cf.get("output_name")
             if output_key:
@@ -192,7 +196,8 @@ def _apply_custom_fields(metadata, custom_fields, level, data_dicts=None):
             continue
 
         output_key = cf.get("output_name", cf["name"])
-        entry = {"type": cf["type"], "label": cf["label"]}
+        display = cf.get("display", "dropdown")
+        entry = {"type": cf["type"], "display": display, "label": cf["label"]}
 
         # If path is specified and we have data, verify the field exists
         # via path resolution. If it doesn't exist, still register it
@@ -234,6 +239,28 @@ def _get_nested_value(d: Dict, path: str) -> Any:
         else:
             return None
     return current
+
+
+def _make_entry(type_str: str, label: str, display: str = "dropdown", **extra) -> Dict:
+    """Build a field_metadata entry dict with type, display, label, and optional extras."""
+    entry = {"type": type_str, "display": display, "label": label}
+    for k, v in extra.items():
+        if v is not None:
+            entry[k] = v
+    return entry
+
+
+def _entry_from_known(known: Dict) -> Dict:
+    """Build a field_metadata entry from a known fields registry entry.
+
+    Copies type, display, and label. Omits path (internal routing only).
+    Defaults display to 'dropdown' if not specified.
+    """
+    return {
+        "type": known["type"],
+        "display": known.get("display", "dropdown"),
+        "label": known["label"],
+    }
 
 
 # =============================================================================
@@ -283,20 +310,13 @@ def generate_clone_metadata(
             else:
                 values = _sample_values(clones, key)
             if values:
-                # Copy type/label but not path into output metadata
-                metadata[key] = {
-                    k: v for k, v in known.items() if k != "path"
-                }
+                metadata[key] = _entry_from_known(known)
         else:
             values = _sample_values(clones, key)
             if values:
                 field_type = infer_field_type(values)
-                metadata[key] = {
-                    "type": field_type,
-                    "label": humanize_label(key),
-                }
+                metadata[key] = _make_entry(field_type, humanize_label(key))
 
-    # Apply custom fields (which may also have paths)
     _apply_custom_fields(metadata, custom_fields, "clone", clones)
 
     return metadata
@@ -329,18 +349,14 @@ def generate_node_metadata(
         if key in KNOWN_NODE_FIELDS:
             values = _sample_values(all_nodes, key)
             if values:
-                metadata[key] = dict(KNOWN_NODE_FIELDS[key])
+                metadata[key] = _entry_from_known(KNOWN_NODE_FIELDS[key])
         elif key in KNOWN_BRANCH_FIELDS:
-            # Branch fields on nodes are handled at branch level
             continue
         else:
             values = _sample_values(all_nodes, key)
             if values:
                 field_type = infer_field_type(values)
-                metadata[key] = {
-                    "type": field_type,
-                    "label": humanize_label(key),
-                }
+                metadata[key] = _make_entry(field_type, humanize_label(key))
 
     _apply_custom_fields(metadata, custom_fields, "node", all_nodes)
 
@@ -374,7 +390,7 @@ def generate_branch_metadata(
         if key in KNOWN_BRANCH_FIELDS:
             values = _sample_values(all_nodes, key)
             if values:
-                metadata[key] = dict(KNOWN_BRANCH_FIELDS[key])
+                metadata[key] = _entry_from_known(KNOWN_BRANCH_FIELDS[key])
 
     _apply_custom_fields(metadata, custom_fields, "branch", all_nodes)
 
@@ -412,8 +428,8 @@ def generate_mutation_metadata(
         # No pre-computed mutation data; declare derived fields if sequences exist
         metadata = {}
         if has_aa_sequences:
-            metadata["child_aa"] = {"type": "aa", "label": "Child Amino Acid"}
-            metadata["parent_aa"] = {"type": "tooltip", "label": "Parent Amino Acid"}
+            metadata["child_aa"] = _make_entry("aa", "Child Amino Acid")
+            metadata["parent_aa"] = _make_entry("aa", "Parent Amino Acid", display="tooltip")
         _apply_custom_fields(metadata, custom_fields, "mutation", all_nodes)
         return metadata
 
@@ -427,7 +443,7 @@ def generate_mutation_metadata(
         if key in KNOWN_MUTATION_FIELDS:
             values = _sample_values(all_mutations, key)
             if values:
-                entry = dict(KNOWN_MUTATION_FIELDS[key])
+                entry = _entry_from_known(KNOWN_MUTATION_FIELDS[key])
                 if entry["type"] == "continuous":
                     field_range = compute_range(all_mutations_full, key)
                     if field_range:
@@ -437,10 +453,7 @@ def generate_mutation_metadata(
             values = _sample_values(all_mutations, key)
             if values:
                 field_type = infer_field_type(values)
-                entry = {
-                    "type": field_type,
-                    "label": humanize_label(key),
-                }
+                entry = _make_entry(field_type, humanize_label(key))
                 if field_type == "continuous":
                     field_range = compute_range(all_mutations_full, key)
                     if field_range:

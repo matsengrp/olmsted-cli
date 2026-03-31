@@ -13,14 +13,14 @@ airr-standards/specs/airr-schema.yaml. The SCHEMA_VERSION constant corresponds
 to the 'version' field in the Info section of that schema.
 """
 
-from .constants import FIELD_LEVELS, FIELD_TYPES
+from .constants import DISPLAY_MODES, FIELD_LEVELS, FIELD_TYPES
 
 # Version Constants
 # SCHEMA_VERSION corresponds to Info.version in airr-standards/specs/airr-schema.yaml
 SCHEMA_VERSION = "2.0.0"
 
-# Output field types (skip is config-only, not valid in output metadata)
-_OUTPUT_FIELD_TYPES = sorted(FIELD_TYPES - {"skip"})
+# Output display modes (skip means "not in output", so exclude it from schema)
+_OUTPUT_DISPLAY_MODES = sorted(DISPLAY_MODES - {"skip"})
 
 # Schema fragment for a single field_metadata entry
 _FIELD_ENTRY_SCHEMA = {
@@ -28,7 +28,11 @@ _FIELD_ENTRY_SCHEMA = {
     "properties": {
         "type": {
             "type": "string",
-            "enum": _OUTPUT_FIELD_TYPES,
+            "enum": sorted(FIELD_TYPES),
+        },
+        "display": {
+            "type": "string",
+            "enum": _OUTPUT_DISPLAY_MODES,
         },
         "label": {"type": "string"},
         "range": {

@@ -331,7 +331,8 @@ class ContributorInfo(TypedDict, total=False):
 class FieldMetadataEntry(TypedDict, total=False):
     """Metadata for a single data field."""
 
-    type: str  # "continuous", "categorical", "tooltip", "aa", or "dna"
+    type: str  # "continuous", "categorical", "aa", or "dna"
+    display: str  # "dropdown" (default), "tooltip"
     label: str  # Human-readable display label
     range: Optional[List[float]]  # [min, max] for continuous fields
 
@@ -340,11 +341,13 @@ class CustomFieldDeclaration(TypedDict, total=False):
     """Declaration of a custom data field from YAML config."""
 
     name: str  # Field name in the input data
-    output_name: Optional[str]  # Renamed field name in output (default: same as name)
-    level: str  # "clone", "node", "branch", or "mutation"
-    type: str  # "continuous", "categorical", "tooltip", "aa", or "dna"
+    output_name: Optional[str]  # Renamed field name in output
+    level: str  # "family"/"clone", "node", "branch", or "mutation"
+    type: str  # "continuous", "categorical", "aa", or "dna"
+    display: Optional[str]  # "dropdown" (default), "tooltip", or "skip"
     label: str  # Human-readable display label
-    path: Optional[str]  # Dot-path for JSON sources
+    skip: Optional[bool]  # Shorthand for display: skip
+    path: Optional[str]  # Dot-path for nested JSON fields
 
 
 class BuildInfo(TypedDict, total=False):
