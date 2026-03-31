@@ -2,7 +2,13 @@
 """
 Validation command for Olmsted CLI.
 
-Validates AIRR JSON or Olmsted dataset files against their schemas.
+Validates data files against Olmsted JSON schemas. Checks:
+- Required fields (dataset_id, unique_seqs_count, newick, etc.)
+- Schema conformance (types, structure)
+- Time tree constraints (optional: child distance >= parent distance)
+- Consolidated format integrity (metadata + datasets + clones + trees)
+
+See FORMATS.md "Validation" section for the full list of required fields.
 """
 
 import argparse
@@ -253,24 +259,50 @@ def get_args():
         description="Validate Olmsted/AIRR data files against schemas",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
+Validation checks:
+  Datasets:
+    - Required: dataset_id
+    - Schema conformance for all properties
+
+  Clones (clonal families):
+    - Required: unique_seqs_count, mean_mut_freq
+    - Schema conformance for gene calls, alignment positions, etc.
+    - Validates nested trees if present
+
+  Trees:
+    - Required: newick (valid Newick tree string)
+    - Schema conformance for tree metadata
+    - With --time-tree: checks that child distance >= parent distance
+      (monotonically increasing from root)
+
+  Nodes (within trees):
+    - Required: sequence_id, sequence_alignment, sequence_alignment_aa
+    - Schema conformance for metrics, multiplicity, etc.
+
+  Consolidated Olmsted JSON:
+    - Required: metadata, datasets, clones, trees top-level keys
+    - Validates format_version compatibility
+    - Recursively validates all datasets, clones, and trees
+
+  All schemas allow additionalProperties (extra fields are preserved).
+  See FORMATS.md for full field reference.
+
 Examples:
   # Auto-detect file type
   olmsted validate data.json
 
   # Explicitly specify file type
   olmsted validate --dataset datasets.json
-  olmsted validate --clones clones.family1.json clones.family2.json
-  olmsted validate --tree tree.abc123.json
-  olmsted validate --trees trees.collection.json
-
-  # Validate multiple files of different types
-  olmsted validate --dataset dataset.json --clones clones.*.json --tree tree.*.json
+  olmsted validate --clones clones.family1.json
 
   # Validate with verbose output (shows passing steps)
   olmsted validate -v 2 data.json
 
   # Validate and exit on first error
   olmsted validate --strict data.json
+
+  # Check time tree constraints
+  olmsted validate --time-tree data.json
 
 File types:
   --dataset: Olmsted dataset file containing clones
@@ -280,10 +312,10 @@ File types:
   --trees:   Array/collection of tree objects
 
 Auto-detection (when no type specified):
+  - Consolidated Olmsted (metadata + datasets + clones + trees)
   - Olmsted datasets (contain 'clones' field)
   - Clone collections (contain 'clone_id' or 'germline_alignment')
-  - Tree collections (contain 'trees' array)
-  - Single trees (contain 'newick' and 'nodes')
+  - Tree collections (contain 'trees' array or 'newick' + 'nodes')
         """,
     )
 
