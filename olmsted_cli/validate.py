@@ -6,7 +6,7 @@ Validates data files against Olmsted JSON schemas. Checks:
 - Required fields (dataset_id, unique_seqs_count, newick, etc.)
 - Schema conformance (types, structure)
 - Time tree constraints (optional: child distance >= parent distance)
-- Consolidated format integrity (metadata + datasets + clones + trees)
+- Olmsted JSON format integrity (metadata + datasets + clones + trees)
 
 See FORMATS.md "Validation" section for the full list of required fields.
 """
@@ -433,11 +433,11 @@ def _auto_detect_object_type(data, filepath, check_time_tree=False):
     validation_errors = []
 
     if "metadata" in data and "datasets" in data and "clones" in data and "trees" in data:
-        vprint.status(f"Auto-detected as consolidated Olmsted format: {filepath}")
+        vprint.status(f"Auto-detected as Olmsted JSON format: {filepath}")
         errors = validate_consolidated_data(data, vprint.level, check_time_tree)
         validation_errors.extend(errors)
         if not errors:
-            vprint.verbose("  Consolidated format: PASS")
+            vprint.verbose("  Olmsted JSON format: PASS")
 
     elif "clones" in data:
         vprint.status(f"Auto-detected as Olmsted dataset: {filepath}")
@@ -573,7 +573,7 @@ Validation checks:
     - Required: sequence_id, sequence_alignment, sequence_alignment_aa
     - Schema conformance for metrics, multiplicity, etc.
 
-  Consolidated Olmsted JSON:
+  Olmsted JSON:
     - Required: metadata, datasets, clones, trees top-level keys
     - Validates format_version compatibility
     - Recursively validates all datasets, clones, and trees
@@ -616,7 +616,7 @@ File types:
   -t / --tree    Companion tree CSV file
 
 Auto-detection (when no type specified):
-  JSON: Consolidated Olmsted, datasets, clone/tree collections, single clones/trees
+  JSON: Olmsted JSON, datasets, clone/tree collections, single clones/trees
   CSV:  PCP format (requires sample_id, parent_name, child_name columns)
         """,
     )

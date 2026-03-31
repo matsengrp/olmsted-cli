@@ -11,8 +11,8 @@ from olmsted_cli.version import version_string
 COMMANDS = {
     "process": ("Process data with automatic format detection", process_data),
     "validate": ("Validate data files against AIRR/Olmsted schemas", validate),
-    "summary": ("Generate summary statistics for consolidated data files", summary),
-    "split": ("Split consolidated data files into smaller files", split),
+    "summary": ("Generate summary statistics for Olmsted JSON files", summary),
+    "split": ("Split Olmsted JSON files into smaller files", split),
     "enrich": ("Add field_metadata to existing Olmsted JSON files", enrich),
     "build-config": ("Generate a YAML config from your data for editing", build_config),
 }

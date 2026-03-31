@@ -10,7 +10,7 @@ Supported formats:
 - PCP CSV: Parent-Child Pair format with optional Newick trees
 
 Output modes:
-- Single consolidated JSON file (default): All data in one file
+- Single Olmsted JSON file (default): All data in one file
 - Multiple files (--split-files): Separate datasets.json, clones.*.json, tree.*.json
 """
 
@@ -331,7 +331,7 @@ def process_airr_format(args):
                 airr_args,
             )
     else:
-        # Single consolidated file output (default)
+        # Olmsted JSON output (default)
         consolidated_data = create_consolidated_data(
             datasets, clones_dict, trees, args.inputs, FORMAT_AIRR, args
         )
@@ -339,7 +339,7 @@ def process_airr_format(args):
         output_dir = os.path.dirname(args.output) or "."
         output_file = os.path.basename(args.output)
         os.makedirs(output_dir, exist_ok=True)
-        vprint.status(f"Writing consolidated output to {args.output}")
+        vprint.status(f"Writing Olmsted JSON output to {args.output}")
         write_out(consolidated_data, output_dir, output_file, airr_args)
 
 
@@ -451,7 +451,7 @@ def process_pcp_format(args):
             for tree in trees:
                 write_out(tree, output_dir, f"tree.{tree['ident']}.json", args)
         else:
-            # Single consolidated file output (default)
+            # Olmsted JSON output (default)
             consolidated_data = create_consolidated_data(
                 datasets, clones_dict, trees, args.inputs, FORMAT_PCP, args
             )
@@ -459,7 +459,7 @@ def process_pcp_format(args):
             output_dir = os.path.dirname(args.output) or "."
             output_file = os.path.basename(args.output)
             os.makedirs(output_dir, exist_ok=True)
-            vprint.status(f"Writing consolidated output to {args.output}")
+            vprint.status(f"Writing Olmsted JSON output to {args.output}")
             write_out(consolidated_data, output_dir, output_file, args)
 
         vprint.status("Processing complete!")
@@ -478,7 +478,7 @@ def build_parser():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    # Auto-detect format and output to single consolidated file (default)
+    # Auto-detect format and output to single Olmsted JSON file (default)
     olmsted process -i data.json -o output/olmsted_data.json
 
     # With YAML config file
@@ -512,7 +512,7 @@ Examples:
     parser.add_argument(
         "-o",
         "--output",
-        help="Output file path for consolidated JSON (required unless --split-files is used)",
+        help="Output Olmsted JSON file path (required unless --split-files is used)",
     )
 
     # Format specification
@@ -528,7 +528,7 @@ Examples:
     parser.add_argument(
         "--split-files",
         metavar="DIR",
-        help="Output to multiple files in specified directory (datasets.json, clones.*.json, tree.*.json) instead of single consolidated file",
+        help="Output to multiple files in specified directory (datasets.json, clones.*.json, tree.*.json) instead of single Olmsted JSON file",
     )
     parser.add_argument(
         "--json-format",
