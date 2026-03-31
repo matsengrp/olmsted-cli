@@ -20,6 +20,7 @@ import yaml
 
 from .field_metadata import generate_field_metadata
 from .process_data import load_config
+from .process_utils import VerbosePrinter, add_verbosity_args, resolve_verbosity
 
 
 def get_args():
@@ -76,14 +77,10 @@ Examples:
         default="pretty",
         help="JSON output format (default: pretty)",
     )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="Show detailed output",
-    )
+    add_verbosity_args(parser)
 
     args = parser.parse_args()
+    resolve_verbosity(args)
 
     if not args.output and not args.in_place:
         parser.error("Either -o/--output or --in-place must be specified")
@@ -97,26 +94,26 @@ Examples:
 def main():
     """Main entry point for the enrich command."""
     args = get_args()
+    vprint = VerbosePrinter(args.verbose)
 
     # Load input file
     input_path = Path(args.input)
     if not input_path.exists():
-        print(f"Error: Input file not found: {input_path}", file=sys.stderr)
+        vprint.error(f"Error: Input file not found: {input_path}")
         sys.exit(1)
 
     try:
         with open(input_path) as f:
             data = json.load(f)
     except json.JSONDecodeError as e:
-        print(f"Error: Invalid JSON in input file: {e}", file=sys.stderr)
+        vprint.error(f"Error: Invalid JSON in input file: {e}")
         sys.exit(1)
 
     # Validate it looks like Olmsted JSON
     if "datasets" not in data or "clones" not in data:
-        print(
+        vprint.error(
             "Error: Input does not appear to be Olmsted JSON "
-            "(missing 'datasets' or 'clones' key)",
-            file=sys.stderr,
+            "(missing 'datasets' or 'clones' key)"
         )
         sys.exit(1)
 
@@ -185,12 +182,11 @@ def main():
 
             dataset["field_metadata"] = merged
 
-        if args.verbose:
-            levels = list(dataset["field_metadata"].keys())
-            total_fields = sum(len(v) for v in dataset["field_metadata"].values())
-            print(
-                f"Dataset '{dataset_id}': {total_fields} fields across levels: {levels}"
-            )
+        levels = list(dataset["field_metadata"].keys())
+        total_fields = sum(len(v) for v in dataset["field_metadata"].values())
+        vprint.verbose(
+            f"Dataset '{dataset_id}': {total_fields} fields across levels: {levels}"
+        )
 
     # Write output
     output_path = input_path if args.in_place else Path(args.output)
@@ -201,8 +197,7 @@ def main():
     with open(output_path, "w") as f:
         json.dump(data, f, indent=indent, separators=separators)
 
-    if args.verbose or not args.in_place:
-        print(f"Enriched data written to: {output_path}")
+    vprint.status(f"Enriched data written to: {output_path}")
 
 
 if __name__ == "__main__":

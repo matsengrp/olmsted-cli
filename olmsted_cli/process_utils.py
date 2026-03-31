@@ -112,6 +112,38 @@ class VerbosePrinter:
         self.print(*args, min_level=3, **kwargs)
 
 
+def add_verbosity_args(parser):
+    """Add standard -v/--verbose and -q/--quiet arguments to an argparser.
+
+    Usage:
+        parser = argparse.ArgumentParser(...)
+        add_verbosity_args(parser)
+        args = parser.parse_args()
+        vprint = VerbosePrinter(args.verbose)
+    """
+    from .constants import VERBOSITY_HELP
+
+    parser.add_argument(
+        "-v", "--verbose",
+        type=int,
+        choices=[0, 1, 2, 3],
+        default=1,
+        help=VERBOSITY_HELP,
+    )
+    parser.add_argument(
+        "-q", "--quiet",
+        action="store_true",
+        help="Quiet mode — errors only (equivalent to -v 0)",
+    )
+
+
+def resolve_verbosity(args):
+    """Resolve verbosity from args, handling -q flag."""
+    if getattr(args, "quiet", False):
+        args.verbose = 0
+    return args.verbose
+
+
 # Data extraction utilities
 def get_optional_int(row, key, default=0):
     """

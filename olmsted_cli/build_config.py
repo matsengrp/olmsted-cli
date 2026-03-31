@@ -101,6 +101,14 @@ Examples:
         help="Compute metrics (LBI, LBR, etc.) when processing PCP data",
     )
 
+    parser.add_argument(
+        "-v", "--verbose",
+        type=int,
+        choices=[0, 1, 2, 3],
+        default=1,
+        help="Verbosity: 0=errors only, 1=normal (default), 2=verbose, 3=debug",
+    )
+
     # Skip mode for config generation
     skip_group = parser.add_mutually_exclusive_group()
     skip_group.add_argument(

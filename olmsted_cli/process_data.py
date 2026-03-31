@@ -43,7 +43,9 @@ from .process_pcp_data import (
 )
 from .process_utils import (
     VerbosePrinter,
+    add_verbosity_args,
     create_consolidated_data,
+    resolve_verbosity,
     validate_dataset,
     validate_output_data,
     write_out,
@@ -531,20 +533,7 @@ Examples:
         "--name",
         help="Optional name for the dataset (stored in metadata)",
     )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        type=int,
-        choices=[0, 1, 2, 3],
-        default=1,
-        help="Set verbosity level: 0=quiet (errors only), 1=normal (default), 2=verbose, 3=debug",
-    )
-    parser.add_argument(
-        "-q",
-        "--quiet",
-        action="store_true",
-        help="Quiet mode - only show errors (equivalent to -v 0)",
-    )
+    add_verbosity_args(parser)
     parser.add_argument(
         "--validate",
         action="store_true",
@@ -800,8 +789,7 @@ def main():
     args = get_args()
 
     # Handle quiet mode
-    if args.quiet:
-        args.verbose = 0
+    resolve_verbosity(args)
 
     # Create verbosity printer
     vprint = VerbosePrinter(args.verbose)

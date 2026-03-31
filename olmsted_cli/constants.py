@@ -6,6 +6,21 @@ It has NO dependencies on other project modules.
 """
 
 # =============================================================================
+# Verbosity Levels
+# =============================================================================
+
+VERBOSITY_QUIET = 0    # Errors only
+VERBOSITY_NORMAL = 1   # Errors + warnings + key status messages (default)
+VERBOSITY_VERBOSE = 2  # Above + detailed progress, notifications, column mappings
+VERBOSITY_DEBUG = 3    # Above + internal data structures, per-node details
+
+VERBOSITY_HELP = (
+    "Verbosity level: 0=errors only, 1=normal (default), "
+    "2=verbose, 3=debug"
+)
+
+
+# =============================================================================
 # Enumerated Types
 # =============================================================================
 
