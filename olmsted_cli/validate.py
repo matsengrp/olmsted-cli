@@ -388,7 +388,16 @@ Auto-detection (when no type specified):
 
     # Validation options
     parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Show detailed validation errors"
+        "-v", "--verbose",
+        type=int,
+        choices=[0, 1, 2, 3],
+        default=1,
+        help="Verbosity: 0=errors only, 1=normal (default), 2=verbose, 3=debug",
+    )
+    parser.add_argument(
+        "-q", "--quiet",
+        action="store_true",
+        help="Quiet mode — errors only (equivalent to -v 0)",
     )
 
     parser.add_argument(
@@ -416,6 +425,10 @@ Auto-detection (when no type specified):
 def main():
     """Main entry point for validate command."""
     args = get_args()
+
+    # Handle quiet flag
+    if getattr(args, "quiet", False):
+        args.verbose = 0
 
     # Collect all files to validate with their types
     files_to_validate = []
