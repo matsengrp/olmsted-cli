@@ -3,7 +3,7 @@
         "format": "olmsted",
         "format_version": "1.0",
         "schema_version": "2.0.0",
-        "created_at": "2026-03-31T21:22:01.869995+00:00",
+        "created_at": "2026-03-31T21:41:41.713559+00:00",
         "source_format": "pcp",
         "source_files": [
             "pcp.csv"
@@ -17,7 +17,7 @@
         "generated_by": {
             "tool": "olmsted-cli",
             "version": "0.2.0",
-            "git_hash": "f5fbf7d"
+            "git_hash": "79f9797"
         },
         "name": "pcp-example",
         "processing_options": {
@@ -93,70 +93,15 @@
             "name": "pcp-example",
             "field_metadata": {
                 "clone": {
-                    "cdr1_alignment_end": {
-                        "type": "continuous",
-                        "display": "dropdown",
-                        "label": "CDR1 Alignment End"
-                    },
-                    "cdr1_alignment_start": {
-                        "type": "continuous",
-                        "display": "dropdown",
-                        "label": "CDR1 Alignment Start"
-                    },
-                    "cdr2_alignment_end": {
-                        "type": "continuous",
-                        "display": "dropdown",
-                        "label": "CDR2 Alignment End"
-                    },
-                    "cdr2_alignment_start": {
-                        "type": "continuous",
-                        "display": "dropdown",
-                        "label": "CDR2 Alignment Start"
-                    },
-                    "clone_id": {
-                        "type": "categorical",
-                        "display": "dropdown",
-                        "label": "Clone ID"
-                    },
-                    "d_alignment_end": {
-                        "type": "continuous",
-                        "display": "dropdown",
-                        "label": "D Alignment End"
-                    },
-                    "d_alignment_start": {
-                        "type": "continuous",
-                        "display": "dropdown",
-                        "label": "D Alignment Start"
-                    },
                     "d_call": {
                         "type": "categorical",
                         "display": "dropdown",
                         "label": "D Gene"
                     },
-                    "dataset_id": {
-                        "type": "categorical",
-                        "display": "dropdown",
-                        "label": "Dataset ID"
-                    },
                     "has_seed": {
                         "type": "categorical",
                         "display": "dropdown",
                         "label": "Has Seed"
-                    },
-                    "ident": {
-                        "type": "categorical",
-                        "display": "dropdown",
-                        "label": "Ident"
-                    },
-                    "j_alignment_end": {
-                        "type": "continuous",
-                        "display": "dropdown",
-                        "label": "J Alignment End"
-                    },
-                    "j_alignment_start": {
-                        "type": "continuous",
-                        "display": "dropdown",
-                        "label": "J Alignment Start"
                     },
                     "j_call": {
                         "type": "categorical",
@@ -167,11 +112,6 @@
                         "type": "continuous",
                         "display": "dropdown",
                         "label": "Junction Length"
-                    },
-                    "junction_start": {
-                        "type": "continuous",
-                        "display": "dropdown",
-                        "label": "Junction Start"
                     },
                     "locus": {
                         "type": "categorical",
@@ -203,16 +143,6 @@
                         "display": "dropdown",
                         "label": "Unique Sequences Count"
                     },
-                    "v_alignment_end": {
-                        "type": "continuous",
-                        "display": "dropdown",
-                        "label": "V Alignment End"
-                    },
-                    "v_alignment_start": {
-                        "type": "continuous",
-                        "display": "dropdown",
-                        "label": "V Alignment Start"
-                    },
                     "v_call": {
                         "type": "categorical",
                         "display": "dropdown",
@@ -234,11 +164,6 @@
                         "type": "continuous",
                         "display": "dropdown",
                         "label": "Multiplicity"
-                    },
-                    "type": {
-                        "type": "categorical",
-                        "display": "dropdown",
-                        "label": "Type"
                     }
                 },
                 "branch": {

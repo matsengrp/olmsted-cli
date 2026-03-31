@@ -37,8 +37,10 @@ from .constants import (
     KNOWN_BRANCH_FIELDS,
     KNOWN_CLONE_FIELDS,
     KNOWN_MUTATION_FIELDS,
-    normalize_level,
     KNOWN_NODE_FIELDS,
+    SUGGESTED_DISPLAY_MODES,
+    SUGGESTED_SKIP_FIELDS,
+    normalize_level,
 )
 
 
@@ -241,6 +243,22 @@ def _get_nested_value(d: Dict, path: str) -> Any:
     return current
 
 
+def _apply_suggestions(metadata: Dict) -> Dict:
+    """Apply SUGGESTED_SKIP_FIELDS and SUGGESTED_DISPLAY_MODES to metadata.
+
+    Removes fields in SUGGESTED_SKIP_FIELDS and applies display overrides
+    from SUGGESTED_DISPLAY_MODES. Only affects fields not already set by
+    the known field registry (which takes precedence).
+    """
+    for field_name in list(metadata.keys()):
+        if field_name in SUGGESTED_SKIP_FIELDS:
+            del metadata[field_name]
+        elif field_name in SUGGESTED_DISPLAY_MODES:
+            if metadata[field_name].get("display") == "dropdown":
+                metadata[field_name]["display"] = SUGGESTED_DISPLAY_MODES[field_name]
+    return metadata
+
+
 def _make_entry(type_str: str, label: str, display: str = "dropdown", **extra) -> Dict:
     """Build a field_metadata entry dict with type, display, label, and optional extras."""
     entry = {"type": type_str, "display": display, "label": label}
@@ -317,6 +335,7 @@ def generate_clone_metadata(
                 field_type = infer_field_type(values)
                 metadata[key] = _make_entry(field_type, humanize_label(key))
 
+    _apply_suggestions(metadata)
     _apply_custom_fields(metadata, custom_fields, "clone", clones)
 
     return metadata
@@ -358,6 +377,7 @@ def generate_node_metadata(
                 field_type = infer_field_type(values)
                 metadata[key] = _make_entry(field_type, humanize_label(key))
 
+    _apply_suggestions(metadata)
     _apply_custom_fields(metadata, custom_fields, "node", all_nodes)
 
     return metadata
@@ -392,6 +412,7 @@ def generate_branch_metadata(
             if values:
                 metadata[key] = _entry_from_known(KNOWN_BRANCH_FIELDS[key])
 
+    _apply_suggestions(metadata)
     _apply_custom_fields(metadata, custom_fields, "branch", all_nodes)
 
     return metadata
@@ -430,6 +451,7 @@ def generate_mutation_metadata(
         if has_aa_sequences:
             metadata["child_aa"] = _make_entry("aa", "Child Amino Acid")
             metadata["parent_aa"] = _make_entry("aa", "Parent Amino Acid", display="tooltip")
+        _apply_suggestions(metadata)
         _apply_custom_fields(metadata, custom_fields, "mutation", all_nodes)
         return metadata
 
@@ -460,6 +482,7 @@ def generate_mutation_metadata(
                         entry["range"] = field_range
                 metadata[key] = entry
 
+    _apply_suggestions(metadata)
     _apply_custom_fields(metadata, custom_fields, "mutation", all_mutations)
 
     return metadata

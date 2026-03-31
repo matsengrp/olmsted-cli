@@ -101,6 +101,19 @@ Examples:
         help="Compute metrics (LBI, LBR, etc.) when processing PCP data",
     )
 
+    # Skip mode for config generation
+    skip_group = parser.add_mutually_exclusive_group()
+    skip_group.add_argument(
+        "--no-skip",
+        action="store_true",
+        help="Don't suggest any skips — all fields get display: dropdown",
+    )
+    skip_group.add_argument(
+        "--skip-all",
+        action="store_true",
+        help="Skip all fields by default — user must manually un-skip what they want",
+    )
+
     return parser.parse_args()
 
 
@@ -243,6 +256,7 @@ def _format_field_block(name, level, entry, sample_values=None, field_range=None
 def _build_yaml(
     input_name, detected_format, all_clones, all_trees,
     input_path=None, tree_path=None,
+    no_skip=False, skip_all=False,
 ):
     """Build the YAML config string from clones and trees."""
     all_nodes = _collect_nodes(all_trees, max_nodes=500)
@@ -362,6 +376,10 @@ def _build_yaml(
     skip_entries = []
 
     def _is_skip(field):
+        if no_skip:
+            return False
+        if skip_all:
+            return True
         return field in SUGGESTED_SKIP_FIELDS
 
     # --- Clone level ---
@@ -532,6 +550,7 @@ def main():
     output_text = _build_yaml(
         input_path.name, detected_format, all_clones, all_trees,
         input_path=input_path, tree_path=trees_path,
+        no_skip=args.no_skip, skip_all=args.skip_all,
     )
 
     # Write output
