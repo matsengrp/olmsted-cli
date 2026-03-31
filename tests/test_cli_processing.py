@@ -31,6 +31,22 @@ def normalize_json(obj, float_tolerance=1e-12):
         return obj
 
 
+# Fields in metadata that change between runs (timestamps, git hashes)
+VOLATILE_METADATA_FIELDS = {"created_at", "git_hash"}
+
+
+def strip_volatile_fields(data):
+    """Remove volatile fields (timestamps, hashes) from consolidated data for comparison."""
+    data = json.loads(json.dumps(data))  # deep copy
+    if "metadata" in data:
+        for key in VOLATILE_METADATA_FIELDS:
+            data["metadata"].pop(key, None)
+        generated_by = data["metadata"].get("generated_by", {})
+        for key in VOLATILE_METADATA_FIELDS:
+            generated_by.pop(key, None)
+    return data
+
+
 def compare_json_files(file1, file2):
     """Compare two JSON files after normalizing."""
     with open(file1) as f:
@@ -42,6 +58,24 @@ def compare_json_files(file1, file2):
     norm2 = normalize_json(data2)
 
     return norm1 == norm2
+
+
+def compare_consolidated_files(file1, file2):
+    """Compare two consolidated JSON files, ignoring volatile metadata fields."""
+    with open(file1) as f:
+        data1 = json.load(f)
+    with open(file2) as f:
+        data2 = json.load(f)
+
+    norm1 = normalize_json(strip_volatile_fields(data1))
+    norm2 = normalize_json(strip_volatile_fields(data2))
+
+    if norm1 == norm2:
+        return True, "Files match"
+
+    # Find differences for error reporting
+    diff = format_json_diff(file1, file2)
+    return False, diff
 
 
 def compare_directories(dir1, dir2):
@@ -137,57 +171,28 @@ class TestOlmstedCLI:
 
     @pytest.mark.airr
     def test_airr_consolidated_processing(self):
-        """Test AIRR data processing using consolidated output format."""
-        # Input and output paths
+        """Test AIRR consolidated output matches golden data."""
         input_file = self.test_data_dir / "airr" / "airr.json"
         output_file = Path(self.temp_dir) / "airr_consolidated.json"
 
-        # Run the process command with consolidated output
         cmd = [
-            "olmsted",
-            "process",
-            "-f",
-            "airr",
-            "-i",
-            str(input_file),
-            "-o",
-            str(output_file),
-            "--seed",
-            "42",
-            "--name",
-            "airr-example",
+            "olmsted", "process", "-f", "airr",
+            "-i", str(input_file),
+            "-o", str(output_file),
+            "--seed", "42",
+            "--name", "airr-example",
             "--validate",
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)
-
-        # Check command succeeded
         assert result.returncode == 0, f"Command failed: {result.stderr}"
-
-        # Verify output file exists
         assert output_file.exists(), f"Output file not created: {output_file}"
 
-        # Load and verify structure
-        with open(output_file) as f:
-            data = json.load(f)
-
-        # Verify consolidated structure
-        assert "metadata" in data, "Consolidated data should have metadata"
-        assert "datasets" in data, "Consolidated data should have datasets"
-        assert "clones" in data, "Consolidated data should have clones"
-        assert "trees" in data, "Consolidated data should have trees"
-
-        # Verify metadata structure
-        from olmsted_cli.process_utils import CONSOLIDATED_JSON_VERSION
-
-        metadata = data["metadata"]
-        assert metadata["format_version"] == CONSOLIDATED_JSON_VERSION, (
-            "Should have correct format version"
+        # Compare against consolidated golden data (ignoring volatile fields)
+        match, message = compare_consolidated_files(
+            str(self.consolidated_airr_file), str(output_file)
         )
-        assert metadata["source_format"] == "airr", "Should identify source format"
-        assert "created_at" in metadata, "Should have creation timestamp"
-        assert "processing_info" in metadata, "Should have processing info"
-        assert metadata["name"] == "airr-example", "Should have correct name"
+        assert match, f"Output doesn't match consolidated golden data:\n{message}"
 
     @pytest.mark.pcp
     def test_pcp_processing(self):
@@ -313,57 +318,30 @@ class TestOlmstedCLI:
 
     @pytest.mark.pcp
     def test_pcp_consolidated_processing(self):
-        """Test PCP data processing using consolidated output format."""
-        # Input and output paths
+        """Test PCP consolidated output matches golden data."""
         input_clones = self.test_data_dir / "pcp" / "pcp.csv"
+        input_trees = self.test_data_dir / "pcp" / "trees.csv"
         output_file = Path(self.temp_dir) / "pcp_consolidated.json"
 
-        # Run the process command with consolidated output
         cmd = [
-            "olmsted",
-            "process",
-            "-f",
-            "pcp",
-            "-i",
-            str(input_clones),
-            "-o",
-            str(output_file),
-            "--seed",
-            "42",
-            "--name",
-            "pcp-example",
+            "olmsted", "process", "-f", "pcp",
+            "-i", str(input_clones),
+            "-t", str(input_trees),
+            "-o", str(output_file),
+            "--seed", "42",
+            "--name", "pcp-example",
             "--validate",
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)
-
-        # Check command succeeded
         assert result.returncode == 0, f"Command failed: {result.stderr}"
-
-        # Verify output file exists
         assert output_file.exists(), f"Output file not created: {output_file}"
 
-        # Load and verify structure
-        with open(output_file) as f:
-            data = json.load(f)
-
-        # Verify consolidated structure
-        assert "metadata" in data, "Consolidated data should have metadata"
-        assert "datasets" in data, "Consolidated data should have datasets"
-        assert "clones" in data, "Consolidated data should have clones"
-        assert "trees" in data, "Consolidated data should have trees"
-
-        # Verify metadata structure
-        from olmsted_cli.process_utils import CONSOLIDATED_JSON_VERSION
-
-        metadata = data["metadata"]
-        assert metadata["format_version"] == CONSOLIDATED_JSON_VERSION, (
-            "Should have correct format version"
+        # Compare against consolidated golden data (ignoring volatile fields)
+        match, message = compare_consolidated_files(
+            str(self.consolidated_pcp_file), str(output_file)
         )
-        assert metadata["source_format"] == "pcp", "Should identify source format"
-        assert "created_at" in metadata, "Should have creation timestamp"
-        assert "processing_info" in metadata, "Should have processing info"
-        assert metadata["name"] == "pcp-example", "Should have correct name"
+        assert match, f"Output doesn't match consolidated golden data:\n{message}"
 
     def test_auto_format_detection_airr(self):
         """Test automatic format detection for AIRR JSON files."""
