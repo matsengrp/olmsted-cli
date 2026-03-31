@@ -8,13 +8,14 @@ from olmsted_cli import build_config, enrich, process_data, split, summary, vali
 from olmsted_cli.version import version_string
 
 # Dispatch table: command name -> (help text, handler module)
+# Ordered by typical workflow: build-config → process → enrich, then utilities
 COMMANDS = {
-    "process": ("Process data with automatic format detection", process_data),
-    "validate": ("Validate data files against AIRR/Olmsted schemas", validate),
-    "summary": ("Generate summary statistics for Olmsted JSON files", summary),
-    "split": ("Split Olmsted JSON files into smaller files", split),
-    "enrich": ("Add field_metadata to existing Olmsted JSON files", enrich),
+    "process": ("Convert input data (AIRR/PCP) to Olmsted JSON format", process_data),
     "build-config": ("Generate a YAML config from your data for editing", build_config),
+    "enrich": ("Add field_metadata to existing Olmsted JSON files", enrich),
+    "validate": ("Validate data files against schemas", validate),
+    "summary": ("Generate summary statistics for Olmsted JSON files", summary),
+    "split": ("Split Olmsted JSON files into smaller files (legacy)", split),
 }
 
 
@@ -22,18 +23,16 @@ def main():
     """Main entry point for the olmsted CLI."""
     parser = argparse.ArgumentParser(
         prog="olmsted",
-        description="Olmsted CLI - Process AIRR and PCP format data",
+        description="Olmsted CLI — Convert immunological data to Olmsted JSON for visualization",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
-  # Auto-detect format and process
-  olmsted process -i data.json -o output/
+Typical workflow:
+  1. olmsted build-config -i data.csv -t trees.csv -o config.yaml
+  2. Edit config.yaml (adjust fields, labels, types)
+  3. olmsted process -c config.yaml
 
-  # Build a config from your data, then edit and use it
-  olmsted build-config -i data.csv -t trees.csv -o config.yaml
-
-  # Process with a config file
-  olmsted process -c config.yaml
+Or process directly:
+  olmsted process -i data.json -o output.json
         """,
     )
     parser.add_argument(
