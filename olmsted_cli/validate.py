@@ -622,8 +622,10 @@ Auto-detection (when no type specified):
     )
 
     parser.add_argument(
-        "files",
-        nargs="*",
+        "-i", "--input",
+        dest="files",
+        nargs="+",
+        metavar="FILE",
         help="Files to validate (auto-detects JSON type and CSV format)",
     )
     parser.add_argument(

@@ -474,140 +474,131 @@ def process_pcp_format(args):
 def build_parser():
     """Build the argument parser for the unified processor."""
     parser = argparse.ArgumentParser(
-        description="Unified data processor for Olmsted visualization (AIRR JSON and PCP CSV formats)",
+        description="Convert input data (AIRR JSON or PCP CSV) to Olmsted JSON format",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    # Auto-detect format and output to single Olmsted JSON file (default)
-    olmsted process -i data.json -o output/olmsted_data.json
-
-    # With YAML config file
+    # Process with a config file (recommended)
     olmsted process -c config.yaml
 
-    # Config with CLI overrides
-    olmsted process -c config.yaml -i other_data.csv -o override_output.json
+    # PCP format with trees
+    olmsted process -i data.csv -t trees.csv -o output.json
 
-    # PCP with separate trees file
-    olmsted process -i data.csv --tree trees.csv -o output/data.json -f pcp
+    # AIRR format (auto-detected)
+    olmsted process -i data.json -o output.json
 
-    # With validation
-    olmsted process -i data.json -o output/data.json --validate --strict-validation
+    # With metrics and validation
+    olmsted process -i data.csv -t trees.csv -o output.json --compute-metrics --validate
         """,
     )
 
-    # Config file
+    # --- Core arguments ---
     parser.add_argument(
-        "-c",
-        "--config",
+        "-i", "--input", "--inputs",
+        dest="inputs",
+        nargs="+",
+        help="Input file(s). AIRR: JSON file(s). PCP: CSV file",
+    )
+    parser.add_argument(
+        "-t", "--tree",
+        help="Companion tree CSV file (PCP format)",
+    )
+    parser.add_argument(
+        "-o", "--output",
+        help="Output Olmsted JSON file path",
+    )
+    parser.add_argument(
+        "-c", "--config",
         help="YAML configuration file (CLI arguments override config values)",
     )
-
-    # Input/Output arguments
     parser.add_argument(
-        "-i",
-        "--inputs",
-        nargs="+",
-        help="Input file(s). For AIRR: one or more JSON files. For PCP: CSV file (use --tree for trees file)",
-    )
-    parser.add_argument(
-        "-o",
-        "--output",
-        help="Output Olmsted JSON file path (required unless --split-files is used)",
-    )
-
-    # Format specification
-    parser.add_argument(
-        "-f",
-        "--format",
+        "-f", "--format",
         choices=[FORMAT_AIRR, FORMAT_PCP, FORMAT_AUTO],
         default=FORMAT_AUTO,
         help="Input format (default: auto-detect)",
     )
 
-    # Output options
+    # --- Dataset metadata ---
     parser.add_argument(
-        "--split-files",
-        metavar="DIR",
-        help="Output to multiple files in specified directory (datasets.json, clones.*.json, tree.*.json) instead of single Olmsted JSON file",
+        "-n", "--name",
+        help="Dataset name (stored in output metadata)",
     )
     parser.add_argument(
-        "--json-format",
-        choices=["pretty", "compact", "gzip"],
-        default="pretty",
-        help="JSON output format: 'pretty' (indented, human-readable), 'compact' (no whitespace), 'gzip' (compressed) (default: pretty)",
+        "--description",
+        help="Dataset description (stored in output metadata)",
     )
 
-    # Common processing options
+    # --- Processing options ---
     parser.add_argument(
-        "-n",
-        "--name",
-        help="Optional name for the dataset (stored in metadata)",
-    )
-    add_verbosity_args(parser)
-    parser.add_argument(
-        "--validate",
+        "--compute-metrics",
         action="store_true",
-        help="Validate output data against schemas before writing",
+        help="Compute LBI, LBR, affinity, scaled_affinity for all tree nodes",
     )
     parser.add_argument(
-        "--strict-validation",
-        action="store_true",
-        help="Exit with error if validation fails (requires --validate)",
+        "--lbi-tau",
+        type=float,
+        default=0.0125,
+        help="Time scale parameter for LBI calculation (default: 0.0125)",
     )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        help="Random seed for deterministic UUID generation",
-    )
-    parser.add_argument(
-        "-w",
-        "--warnings",
-        action="store_true",
-        help="Show warnings when tree and PCP data disagree on edges or branch lengths (PCP format only)",
-    )
-
-    # PCP-specific options
-    parser.add_argument(
-        "-t",
-        "--tree",
-        "--trees",
-        help="Input CSV file containing Newick trees (for PCP format, optional, can be gzipped)",
-    )
-
-    # AIRR-specific options
     parser.add_argument(
         "--naive-name",
         default="naive",
         help="Name of naive/root node for tree rooting (AIRR only)",
     )
     parser.add_argument(
-        "-r",
-        "--root-trees",
+        "-r", "--root-trees",
         action="store_true",
         help="Root trees using naive node (AIRR only)",
-    )
-
-    # PCP-specific tree metric options
-    parser.add_argument(
-        "--compute-metrics",
-        action="store_true",
-        help="Compute phylogenetic metrics (LBI, LBR, affinity, scaled_affinity) for all nodes. Works with any format that has tree branch lengths.",
-    )
-    parser.add_argument(
-        "--lbi-tau",
-        type=float,
-        default=0.0125,
-        help="Time scale parameter for LBI calculation (default: 0.0125, PCP only)",
     )
     parser.add_argument(
         "--standardize-names",
         action="store_true",
-        help="Rename nodes to standardized names: naive (root), Node1, Node2, ... (internal), Leaf1, Leaf2, ... (leaves) (PCP only)",
+        help="Rename nodes: naive (root), Node1, Node2, ..., Leaf1, Leaf2, ...",
     )
+
+    # --- Output options ---
+    parser.add_argument(
+        "--seed",
+        type=int,
+        help="Random seed for deterministic UUID generation",
+    )
+    parser.add_argument(
+        "--json-format",
+        choices=["pretty", "compact", "gzip"],
+        default="pretty",
+        help="JSON output format (default: pretty)",
+    )
+    parser.add_argument(
+        "--split-files",
+        metavar="DIR",
+        help="Output split files instead of single Olmsted JSON (legacy)",
+    )
+
+    # --- Validation ---
+    parser.add_argument(
+        "--validate",
+        action="store_true",
+        help="Validate output against schemas before writing",
+    )
+    parser.add_argument(
+        "--strict-validation",
+        action="store_true",
+        help="Exit with error if validation fails",
+    )
+    parser.add_argument(
+        "-w", "--warnings",
+        action="store_true",
+        help="Show warnings when tree and PCP data disagree",
+    )
+
+    # --- Verbosity ---
+    add_verbosity_args(parser)
+
+    # --- Advanced ---
     parser.add_argument(
         "--capture-all",
         action="store_true",
-        help="Capture all data fields from input (extra CSV columns, unknown JSON fields). Without this, only standard fields are processed. Use dump-fields to preview what will be captured.",
+        help="Capture all data fields from input (extra CSV columns, unknown JSON fields)",
     )
 
     return parser

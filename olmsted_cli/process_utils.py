@@ -585,9 +585,11 @@ def create_consolidated_data(
         },
     }
 
-    # Add optional name if provided
+    # Add optional name and description if provided
     if args and hasattr(args, "name") and args.name:
         metadata["name"] = args.name
+    if args and hasattr(args, "description") and args.description:
+        metadata["description"] = args.description
 
     # Add processing options if available
     if args:
