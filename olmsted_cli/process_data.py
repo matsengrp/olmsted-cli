@@ -234,12 +234,15 @@ def process_airr_format(args):
     airr_args.schema_dir = getattr(args, "schema_dir", None)
 
     # AIRR-specific arguments with defaults
-    airr_args.naive_name = getattr(args, "naive_name", "naive")
+    # --root consolidates --naive-name and --root-trees:
+    # --root → root at "naive"; --root NAME → root at NAME; not specified → no rooting
+    root_arg = getattr(args, "root", None)
+    airr_args.naive_name = root_arg if root_arg else "naive"
+    airr_args.root_trees = root_arg is not None
     airr_args.remove_invalid_clones = getattr(args, "remove_invalid_clones", False)
     airr_args.display_schema_html = None
     airr_args.display_schema = False
     airr_args.write_schema_yaml = False
-    airr_args.root_trees = getattr(args, "root_trees", False)
     airr_args.compute_metrics = getattr(args, "compute_metrics", False)
     airr_args.lbi_tau = getattr(args, "lbi_tau", 0.0125)
     airr_args.custom_fields = getattr(args, "custom_fields", None)
@@ -541,14 +544,12 @@ Examples:
         help="Time scale parameter for LBI calculation (default: 0.0125)",
     )
     parser.add_argument(
-        "--naive-name",
-        default="naive",
-        help="Name of naive/root node for tree rooting (AIRR only)",
-    )
-    parser.add_argument(
-        "-r", "--root-trees",
-        action="store_true",
-        help="Root trees using naive node (AIRR only)",
+        "-r", "--root",
+        nargs="?",
+        const="naive",
+        default=None,
+        metavar="NAME",
+        help="Root trees at the naive/germline node. Optionally specify node name (default: 'naive'). AIRR only.",
     )
     parser.add_argument(
         "--standardize-names",
@@ -620,8 +621,7 @@ _CONFIG_KEY_MAP = {
     "seed": "seed",
     "warnings": "warnings",
     "tree": "tree",
-    "naive_name": "naive_name",
-    "root_trees": "root_trees",
+    "root": "root",
     "compute_metrics": "compute_metrics",
     "lbi_tau": "lbi_tau",
     "standardize_names": "standardize_names",

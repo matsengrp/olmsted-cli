@@ -601,9 +601,9 @@ def create_consolidated_data(
 
         # Add format-specific options
         if detected_format == "airr":
+            root_arg = getattr(args, "root", None)
             metadata["processing_options"]["airr"] = {
-                "naive_name": getattr(args, "naive_name", "naive"),
-                "root_trees": getattr(args, "root_trees", False),
+                "root": root_arg,
             }
 
     return {

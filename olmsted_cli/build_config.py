@@ -344,8 +344,7 @@ def _build_yaml(
         lines.append("# compute_metrics: true")
         lines.append("# lbi_tau: 0.0125      # time scale parameter for LBI")
         lines.append("")
-        lines.append("# naive_name: naive     # name of root/naive node")
-        lines.append("# root_trees: false     # re-root trees at naive node")
+        lines.append("# root: naive           # root trees at named node (omit to skip rooting)")
         lines.append("# validate: false")
         lines.append("# verbose: 1")
 

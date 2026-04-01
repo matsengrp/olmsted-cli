@@ -36,11 +36,8 @@ format: airr
 # Random seed for deterministic UUID generation (omit for random UUIDs)
 # seed: 42
 
-# Name of naive/root node for tree rooting
-naive_name: naive
-
-# Root trees using naive node
-root_trees: false
+# Root trees at the naive/germline node (omit or set to null to skip rooting)
+# root: naive
 
 
 # --- Output Options -----------------------------------------------------------
