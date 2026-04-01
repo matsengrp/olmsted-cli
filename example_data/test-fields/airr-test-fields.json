@@ -99,7 +99,7 @@
               "foobar_description": "Abundant leaf",
               "foobar_per_site_score": [0.0, 0.0, 0.5, 0.95],
               "foobar_sparse_aa": {"2": "L", "3": "W"},
-              "surprise_mutations": [
+              "mutations": [
                 {
                   "site": 9,
                   "parent_aa": "I",
@@ -130,7 +130,7 @@
               "foobar_description": "Rare leaf",
               "foobar_per_site_score": [0.0, 0.0, 0.1, 0.55],
               "foobar_sparse_aa": {"3": "*"},
-              "surprise_mutations": [
+              "mutations": [
                 {
                   "site": 10,
                   "parent_aa": "F",
@@ -212,7 +212,7 @@
               "foobar_description": "Only leaf in clone B",
               "foobar_per_site_score": [0.0, 0.72, 0.0, 0.0],
               "foobar_sparse_aa": {"1": "N"},
-              "surprise_mutations": [
+              "mutations": [
                 {
                   "site": 4,
                   "parent_aa": "S",

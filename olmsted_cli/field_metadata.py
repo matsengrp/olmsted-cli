@@ -444,7 +444,7 @@ def generate_mutation_metadata(
     """
     Generate field metadata for mutation-level fields.
 
-    Mutation fields come from surprise_mutations arrays on nodes.
+    Mutation fields come from mutations arrays on nodes.
     Continuous fields include a "range" key with [min, max] for color scale domains.
 
     Args:
@@ -458,7 +458,7 @@ def generate_mutation_metadata(
 
     # Check if nodes have AA sequence data — if so, the web app will derive
     # per-mutation child_aa/parent_aa fields during alignment rendering,
-    # even if no surprise_mutations arrays exist in the data.
+    # even if no mutations arrays exist in the data.
     all_nodes = _collect_nodes(trees, max_nodes=20)
     has_aa_sequences = any(
         n.get("sequence_alignment_aa") for n in all_nodes if isinstance(n, dict)
@@ -528,7 +528,7 @@ def _collect_nodes(trees: List[Dict], max_nodes: int = 200) -> List[Dict]:
 
 
 def _collect_mutations(trees: List[Dict], max_mutations: int = 200) -> List[Dict]:
-    """Collect mutation dicts from surprise_mutations arrays across tree nodes."""
+    """Collect mutation dicts from mutations arrays across tree nodes."""
     mutations = []
     for tree in trees:
         tree_nodes = tree.get("nodes", [])
@@ -536,7 +536,7 @@ def _collect_mutations(trees: List[Dict], max_mutations: int = 200) -> List[Dict
             tree_nodes = list(tree_nodes.values())
         for node in tree_nodes:
             if isinstance(node, dict):
-                surprise = node.get("surprise_mutations")
+                surprise = node.get("mutations")
                 if isinstance(surprise, list):
                     for mut in surprise:
                         if isinstance(mut, dict):

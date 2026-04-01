@@ -169,7 +169,7 @@ AIRR (Adaptive Immune Receptor Repertoire) format is a single JSON file followin
 | `lbi`, `lbr` | No | Computed with `--compute-metrics` |
 | `affinity` | No | |
 | `timepoint_id` | No | Sampling timepoint |
-| `surprise_mutations` | No | Array of per-mutation surprise records |
+| `mutations` | No | Array of per-mutation records |
 
 **Extra fields**: Preserved in output and auto-detected.
 
@@ -311,7 +311,7 @@ The `field_metadata` object on each dataset describes available data fields for 
 | **family** | `clone` | Clone/family objects | Scatterplot axes, color, shape, facet |
 | **node** | `node` | Tree node objects | Tree node tooltips, properties |
 | **branch** | `branch` | Branch length on nodes | Tree branch coloring, width |
-| **mutation** | `mutation` | `surprise_mutations[]` on nodes, or derived by web app | Alignment mutation coloring |
+| **mutation** | `mutation` | `mutations[]` on nodes, or derived by web app | Alignment mutation coloring |
 
 ### Derived fields
 

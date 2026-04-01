@@ -171,9 +171,9 @@ class TestCustomFieldsParsing:
                     "level": "mutation",
                     "type": "continuous",
                     "label": "Surprise Score",
-                    "path": "nodes[].surprise_mutations[].surprise_mutsel",
+                    "path": "nodes[].mutations[].surprise_mutsel",
                 },
             ]
         })
         _, custom_fields = load_config(path)
-        assert custom_fields[0]["path"] == "nodes[].surprise_mutations[].surprise_mutsel"
+        assert custom_fields[0]["path"] == "nodes[].mutations[].surprise_mutsel"

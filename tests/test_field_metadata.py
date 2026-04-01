@@ -111,7 +111,7 @@ def trees_with_nodes():
 
 @pytest.fixture
 def trees_with_surprise():
-    """Mock trees with surprise_mutations on nodes."""
+    """Mock trees with mutations on nodes."""
     return [
         {
             "ident": "tree-1",
@@ -124,7 +124,7 @@ def trees_with_surprise():
                     "type": "leaf",
                     "sequence_alignment": "ATCG",
                     "sequence_alignment_aa": "M",
-                    "surprise_mutations": [
+                    "mutations": [
                         {
                             "site": 10,
                             "parent_aa": "A",
@@ -377,7 +377,7 @@ class TestGenerateMutationMetadata:
         assert "site" not in meta
 
     def test_no_surprise_data_but_has_sequences(self, trees_with_nodes):
-        """When nodes have AA sequences but no surprise_mutations,
+        """When nodes have AA sequences but no mutations,
         derived child_aa/parent_aa are still declared."""
         meta = generate_mutation_metadata(trees_with_nodes)
         assert "child_aa" in meta
@@ -390,7 +390,7 @@ class TestGenerateMutationMetadata:
         assert "surprise_mutsel" not in meta
 
     def test_no_sequences_no_mutations(self):
-        """Trees with no AA sequences and no surprise_mutations → empty."""
+        """Trees with no AA sequences and no mutations → empty."""
         trees = [{"nodes": [{"sequence_id": "a", "type": "leaf"}]}]
         meta = generate_mutation_metadata(trees)
         assert meta == {}

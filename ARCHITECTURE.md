@@ -146,7 +146,7 @@ _build_yaml()
     │   ├── Family level (clone) — from clone data
     │   ├── Node level — from tree node data
     │   ├── Branch level — from known branch fields
-    │   └── Mutation level — from surprise_mutations + derived AA
+    │   └── Mutation level — from mutations arrays + derived AA
     │
     └── Skipped fields section (from SUGGESTED_SKIP_FIELDS)
 ```
@@ -187,7 +187,7 @@ Custom field declaration? ──yes──→ Override type/label/output_name
 
 ### Derived Mutation Fields
 
-When nodes have `sequence_alignment_aa` but no `surprise_mutations`, the field_metadata still declares:
+When nodes have `sequence_alignment_aa` but no `mutations` arrays, the field_metadata still declares:
 - `child_aa` (type: `aa`) — derived by the web app during alignment rendering
 - `parent_aa` (type: `tooltip`) — derived alongside child_aa
 

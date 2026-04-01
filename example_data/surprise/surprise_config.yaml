@@ -19,7 +19,7 @@
 #   - Clone-level: mean_surprise_mutsel, num_mutations
 #   - Mutation-level: surprise_mutsel, surprise_neutral, selection_contribution, region
 #
-# The mutation-level fields are auto-detected from surprise_mutations arrays
+# The mutation-level fields are auto-detected from mutations arrays
 # on tree nodes. The clone-level fields below ensure correct type and label
 # classification for fields that auto-detection would also find, but with
 # more descriptive labels.

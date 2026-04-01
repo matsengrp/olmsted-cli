@@ -18,7 +18,7 @@ This directory contains example datasets for testing and demonstrating the Olmst
 The `surprise/` directory contains a subset of DASM2 mutation-selection surprise analysis data, pre-built in Olmsted JSON format. This data includes:
 
 - **Clone-level fields**: `mean_surprise_mutsel`, `num_mutations` (in addition to standard fields)
-- **Mutation-level fields**: `surprise_mutsel`, `surprise_neutral`, `selection_contribution`, `region` (per-mutation scores in `surprise_mutations` arrays on tree nodes)
+- **Mutation-level fields**: `surprise_mutsel`, `surprise_neutral`, `selection_contribution`, `region` (per-mutation scores in `mutations` arrays on tree nodes)
 - 3 clones across 3 subjects (d1, d3, d4) with different V genes
 
 ### Files

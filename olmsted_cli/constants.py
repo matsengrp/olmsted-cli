@@ -191,8 +191,8 @@ EXCLUDED_NODE_FIELDS = {
     "sequence_alignment", "sequence_alignment_aa",
     "sequence_alignment_light", "sequence_alignment_light_aa",
     "aa_sequence", "junction", "junction_aa",
-    # The surprise_mutations array itself (sub-fields are mutation-level)
-    "surprise_mutations",
+    # The mutations array itself (sub-fields are mutation-level)
+    "mutations",
     # Multiplicity arrays (complex objects, not scalar)
     "timepoint_multiplicities", "cluster_timepoint_multiplicities",
     # Structural (required for tree topology, not for viz encoding)
