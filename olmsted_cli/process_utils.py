@@ -1065,9 +1065,55 @@ def validate_tree(data, verbose=False, check_time_tree=False):
         errors.extend(olmsted_errors)
     # If AIRR validation passed OR Olmsted validation passed, consider it valid (no errors)
     
+    # Check tree has a root node
+    if "nodes" in data:
+        nodes = data["nodes"]
+        if isinstance(nodes, list):
+            nodes_list = nodes
+        elif isinstance(nodes, dict):
+            nodes_list = list(nodes.values())
+        else:
+            nodes_list = []
+
+        if nodes_list:
+            # Find root node(s) — nodes with parent=None or type="root"
+            root_nodes = [
+                n for n in nodes_list
+                if isinstance(n, dict) and (
+                    n.get("parent") is None or n.get("type") == "root"
+                )
+            ]
+
+            if not root_nodes:
+                # No root found — check for common naive/germline node names
+                all_names = [n.get("sequence_id", "") for n in nodes_list if isinstance(n, dict)]
+                naive_candidates = [
+                    name for name in all_names
+                    if name and any(
+                        hint in name.lower()
+                        for hint in ("naive", "germline", "inferred_naive", "root", "uca")
+                    )
+                ]
+                msg = "Tree has no root node (no node with parent=null or type='root')"
+                if naive_candidates:
+                    msg += (
+                        f". Found candidate root node(s): {naive_candidates[:3]}. "
+                        f"Try reprocessing with: --root {naive_candidates[0]}"
+                    )
+                errors.append(msg)
+            elif len(root_nodes) > 1:
+                root_ids = [n.get("sequence_id", "?") for n in root_nodes]
+                errors.append(
+                    f"Tree has multiple root nodes ({len(root_nodes)}): {root_ids[:5]}"
+                )
+            else:
+                if verbose >= 2:
+                    root_id = root_nodes[0].get("sequence_id", "?")
+                    print(f"  Root node: {root_id}")
+
     # Check time tree constraints if requested and nodes are present
-    if check_time_tree and 'nodes' in data and isinstance(data['nodes'], list):
-        time_tree_errors = validate_time_tree(data['nodes'], verbose=verbose)
+    if check_time_tree and "nodes" in data and isinstance(data["nodes"], list):
+        time_tree_errors = validate_time_tree(data["nodes"], verbose=verbose)
         if time_tree_errors:
             errors.extend(time_tree_errors)
 
