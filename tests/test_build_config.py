@@ -8,6 +8,7 @@ import tempfile
 import pytest
 
 from olmsted_cli.build_config import _check_mutation_demotion
+from olmsted_cli.process_utils import unpack_encoded_mutations
 
 
 class TestBuildConfigOlmsted:
@@ -200,8 +201,9 @@ class TestBuildConfigNewTypes:
         lines = build_config_output.split("\n")
         for i, line in enumerate(lines):
             if "name: foobar_per_site_score" in line:
-                block = "\n".join(lines[i:i+5])
+                block = "\n".join(lines[i:i+6])
                 assert "level: mutation" in block
+                assert "encoding: list" in block
                 assert "type: continuous" in block
                 break
         else:
@@ -212,8 +214,9 @@ class TestBuildConfigNewTypes:
         lines = build_config_output.split("\n")
         for i, line in enumerate(lines):
             if "name: foobar_sparse_aa" in line:
-                block = "\n".join(lines[i:i+5])
+                block = "\n".join(lines[i:i+6])
                 assert "level: mutation" in block
+                assert "encoding: json" in block
                 assert "type: aa" in block
                 break
         else:
@@ -276,12 +279,14 @@ class TestMutationDemotion:
         nodes = self._make_nodes("scores", [[0.1, 0.2, 0.3, 0.4, 0.5]] * 3)
         result = _check_mutation_demotion(nodes, "scores")
         assert result is not None
+        assert result["encoding"] == "list"
         assert result["inner_type"] == "continuous"
 
     def test_list_aa_matching_length(self):
         nodes = self._make_nodes("residues", [["A", "V", "L", "M", "D"]] * 3)
         result = _check_mutation_demotion(nodes, "residues")
         assert result is not None
+        assert result["encoding"] == "list"
         assert result["inner_type"] == "aa"
 
     def test_list_wrong_length(self):
@@ -300,13 +305,30 @@ class TestMutationDemotion:
         nodes = self._make_nodes("sparse_scores", [{"0": 0.5, "3": 0.8}] * 3)
         result = _check_mutation_demotion(nodes, "sparse_scores")
         assert result is not None
+        assert result["encoding"] == "json"
         assert result["inner_type"] == "continuous"
 
     def test_json_aa_within_range(self):
         nodes = self._make_nodes("sparse_aa", [{"0": "D", "3": "E"}] * 3)
         result = _check_mutation_demotion(nodes, "sparse_aa")
         assert result is not None
+        assert result["encoding"] == "json"
         assert result["inner_type"] == "aa"
+
+    def test_surprise_style_detected(self):
+        """Array of dicts with 'site' key detected as surprise encoding."""
+        nodes = self._make_nodes("custom_scores", [
+            [{"site": 0, "score": 2.5, "region": "FWR1"},
+             {"site": 3, "score": 4.1, "region": "CDR1"}],
+        ] * 3)
+        result = _check_mutation_demotion(nodes, "custom_scores")
+        assert result is not None
+        assert result["encoding"] == "surprise"
+        assert result["source"] == "custom_scores"
+        assert "score" in result["inner_fields"]
+        assert "region" in result["inner_fields"]
+        assert result["inner_fields"]["score"] == "continuous"
+        assert result["inner_fields"]["region"] == "categorical"
 
     def test_json_keys_out_of_range(self):
         """JSON with keys beyond sequence length are not demoted."""
@@ -331,3 +353,127 @@ class TestMutationDemotion:
         nodes = self._make_nodes("lbi", [0.5, 0.3, 0.8])
         result = _check_mutation_demotion(nodes, "lbi")
         assert result is None
+
+
+class TestUnpackEncodedMutations:
+    """Tests for unpack_encoded_mutations: merging encoded data into mutations arrays."""
+
+    def _make_tree(self, nodes):
+        return {"nodes": nodes}
+
+    def test_list_encoding(self):
+        """List data unpacked into mutations by index."""
+        tree = self._make_tree([
+            {"sequence_id": "n1", "scores": [0.1, None, 0.3]},
+        ])
+        custom_fields = [
+            {"name": "scores", "level": "mutation", "encoding": "list",
+             "type": "continuous", "label": "Scores"},
+        ]
+        unpack_encoded_mutations([tree], custom_fields)
+        muts = tree["nodes"][0]["mutations"]
+        assert len(muts) == 2  # null skipped
+        assert muts[0] == {"site": 0, "scores": 0.1}
+        assert muts[1] == {"site": 2, "scores": 0.3}
+
+    def test_json_encoding(self):
+        """JSON dict data unpacked into mutations by key."""
+        tree = self._make_tree([
+            {"sequence_id": "n1", "sparse": {"0": "D", "3": "E"}},
+        ])
+        custom_fields = [
+            {"name": "sparse", "level": "mutation", "encoding": "json",
+             "type": "aa", "label": "Sparse"},
+        ]
+        unpack_encoded_mutations([tree], custom_fields)
+        muts = tree["nodes"][0]["mutations"]
+        assert len(muts) == 2
+        assert muts[0] == {"site": 0, "sparse": "D"}
+        assert muts[1] == {"site": 3, "sparse": "E"}
+
+    def test_surprise_encoding(self):
+        """Surprise-style array unpacked by extracting named inner fields."""
+        tree = self._make_tree([
+            {"sequence_id": "n1", "custom_scores": [
+                {"site": 0, "score_a": 2.5, "score_b": 1.0, "region": "FWR1"},
+                {"site": 3, "score_a": 4.1, "score_b": 0.8, "region": "CDR1"},
+            ]},
+        ])
+        custom_fields = [
+            {"name": "score_a", "level": "mutation", "encoding": "surprise",
+             "source": "custom_scores", "type": "continuous", "label": "Score A"},
+            {"name": "score_b", "level": "mutation", "encoding": "surprise",
+             "source": "custom_scores", "type": "continuous", "label": "Score B"},
+            {"name": "region", "level": "mutation", "encoding": "surprise",
+             "source": "custom_scores", "type": "categorical", "label": "Region"},
+        ]
+        unpack_encoded_mutations([tree], custom_fields)
+        muts = tree["nodes"][0]["mutations"]
+        assert len(muts) == 2
+        assert muts[0] == {"site": 0, "score_a": 2.5, "score_b": 1.0, "region": "FWR1"}
+        assert muts[1] == {"site": 3, "score_a": 4.1, "score_b": 0.8, "region": "CDR1"}
+
+    def test_merge_with_existing_mutations(self):
+        """Encoded data merges with pre-existing mutations array."""
+        tree = self._make_tree([
+            {"sequence_id": "n1",
+             "mutations": [{"site": 0, "existing_field": 99}],
+             "scores": [0.5, 0.7]},
+        ])
+        custom_fields = [
+            {"name": "scores", "level": "mutation", "encoding": "list",
+             "type": "continuous", "label": "Scores"},
+        ]
+        unpack_encoded_mutations([tree], custom_fields)
+        muts = tree["nodes"][0]["mutations"]
+        assert len(muts) == 2
+        # Site 0 has both existing and new data
+        assert muts[0] == {"site": 0, "existing_field": 99, "scores": 0.5}
+        assert muts[1] == {"site": 1, "scores": 0.7}
+
+    def test_multiple_encodings_merge(self):
+        """Multiple encoded fields all merge into the same mutations array."""
+        tree = self._make_tree([
+            {"sequence_id": "n1",
+             "per_site": [0.1, 0.2, 0.3],
+             "sparse_aa": {"1": "D"}},
+        ])
+        custom_fields = [
+            {"name": "per_site", "level": "mutation", "encoding": "list",
+             "type": "continuous", "label": "Per Site"},
+            {"name": "sparse_aa", "level": "mutation", "encoding": "json",
+             "type": "aa", "label": "Sparse AA"},
+        ]
+        unpack_encoded_mutations([tree], custom_fields)
+        muts = tree["nodes"][0]["mutations"]
+        assert len(muts) == 3
+        assert muts[1] == {"site": 1, "per_site": 0.2, "sparse_aa": "D"}
+
+    def test_no_encoded_fields_noop(self):
+        """No encoding fields → no changes."""
+        tree = self._make_tree([
+            {"sequence_id": "n1", "mutations": [{"site": 0, "score": 1.0}]},
+        ])
+        custom_fields = [
+            {"name": "score", "level": "mutation", "type": "continuous", "label": "Score"},
+        ]
+        unpack_encoded_mutations([tree], custom_fields)
+        assert tree["nodes"][0]["mutations"] == [{"site": 0, "score": 1.0}]
+
+    def test_none_custom_fields(self):
+        """None custom_fields → no crash."""
+        tree = self._make_tree([{"sequence_id": "n1"}])
+        unpack_encoded_mutations([tree], None)
+
+    def test_dict_nodes_format(self):
+        """Works with nodes as dict (AIRR format) not just list."""
+        tree = {"nodes": {
+            "n1": {"sequence_id": "n1", "scores": [0.5, 0.8]},
+        }}
+        custom_fields = [
+            {"name": "scores", "level": "mutation", "encoding": "list",
+             "type": "continuous", "label": "Scores"},
+        ]
+        unpack_encoded_mutations([tree], custom_fields)
+        muts = tree["nodes"]["n1"]["mutations"]
+        assert len(muts) == 2

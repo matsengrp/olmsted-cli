@@ -70,6 +70,13 @@ FIELD_TYPES = {"continuous", "categorical", "aa", "dna", "list", "json"}
 #: - skip: excluded from output metadata entirely
 DISPLAY_MODES = {"dropdown", "tooltip", "skip"}
 
+#: Valid mutation encoding modes for custom_fields entries.
+#: These describe how mutation-level data is stored on nodes:
+#: - list: dense per-position array on node (index = site)
+#: - json: sparse dict on node (int key = site, value = field value)
+#: - surprise: array of dicts with "site" key on node (field = inner dict key)
+MUTATION_ENCODINGS = {"list", "json", "surprise"}
+
 #: Valid data levels for field_metadata.
 #: - family/clone: clonal family level (scatterplot axes, color, facet)
 #: - node: tree node level (node properties, tooltips)

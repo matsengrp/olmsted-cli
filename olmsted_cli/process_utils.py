@@ -539,6 +539,107 @@ def write_out(data, dirname, filename, args):
 CONSOLIDATED_JSON_VERSION = "1.0"
 
 
+def unpack_encoded_mutations(trees, custom_fields):
+    """Unpack encoded mutation-level fields from nodes into mutations arrays.
+
+    Processes custom_fields with an ``encoding`` key, reading data from node-level
+    fields and merging it into each node's ``mutations`` array (keyed by ``site``).
+
+    Supported encodings:
+        - list: Dense per-position array on node. Index = site, value = field value.
+          Null values are skipped.
+        - json: Sparse dict on node. Int key = site, value = field value.
+          Null values are skipped.
+        - surprise: Array of dicts with ``site`` key on node. ``source`` names
+          the node field containing the array; ``name`` is the inner field to extract.
+
+    Args:
+        trees: List of tree dicts (modified in place).
+        custom_fields: List of custom field declarations from config.
+    """
+    encoded = [cf for cf in (custom_fields or []) if cf.get("encoding")]
+    if not encoded:
+        return
+
+    # Group surprise fields by source for efficient single-pass merging
+    surprise_by_source = {}
+    for cf in encoded:
+        if cf["encoding"] == "surprise":
+            source = cf["source"]
+            surprise_by_source.setdefault(source, []).append(cf["name"])
+
+    for tree in trees:
+        nodes = tree.get("nodes", [])
+        if isinstance(nodes, dict):
+            node_list = list(nodes.values())
+        else:
+            node_list = nodes
+
+        for node in node_list:
+            if not isinstance(node, dict):
+                continue
+
+            # Index existing mutations by site
+            existing = node.get("mutations", [])
+            by_site = {}
+            for m in existing:
+                if isinstance(m, dict) and "site" in m:
+                    by_site[m["site"]] = m
+
+            for cf in encoded:
+                field_name = cf["name"]
+                encoding = cf["encoding"]
+
+                if encoding == "list":
+                    data = node.get(field_name)
+                    if not isinstance(data, list):
+                        continue
+                    for site, val in enumerate(data):
+                        if val is None:
+                            continue
+                        if site not in by_site:
+                            by_site[site] = {"site": site}
+                        by_site[site][field_name] = val
+
+                elif encoding == "json":
+                    data = node.get(field_name)
+                    if not isinstance(data, dict):
+                        continue
+                    for key, val in data.items():
+                        if val is None:
+                            continue
+                        try:
+                            site = int(key)
+                        except (ValueError, TypeError):
+                            continue
+                        if site not in by_site:
+                            by_site[site] = {"site": site}
+                        by_site[site][field_name] = val
+
+                elif encoding == "surprise":
+                    source = cf["source"]
+                    # Only process the source array once per node (first field triggers it)
+                    if field_name != surprise_by_source[source][0]:
+                        continue
+                    data = node.get(source)
+                    if not isinstance(data, list):
+                        continue
+                    fields_to_extract = surprise_by_source[source]
+                    for entry in data:
+                        if not isinstance(entry, dict) or "site" not in entry:
+                            continue
+                        site = entry["site"]
+                        if site not in by_site:
+                            by_site[site] = {"site": site}
+                        for fname in fields_to_extract:
+                            if fname in entry:
+                                by_site[site][fname] = entry[fname]
+
+            # Write back sorted by site
+            if by_site:
+                node["mutations"] = sorted(by_site.values(), key=lambda m: m["site"])
+
+
 def create_consolidated_data(
     datasets, clones_dict, trees, input_files, detected_format, args=None
 ):

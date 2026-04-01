@@ -65,6 +65,7 @@ from .process_utils import (
     create_consolidated_data,
     get_optional_int,
     translate_dna_to_aa,
+    unpack_encoded_mutations,
     validate_output_data,
     write_out,
 )
@@ -2347,8 +2348,11 @@ def process_pcp_to_olmsted(
                 }
                 trees.append(tree_light)
 
-    # Generate field_metadata from actual clone and tree data
+    # Unpack encoded mutation fields (list/json/surprise) before metadata generation
     dataset_clones = clones_dict.get(dataset_id, [])
+    unpack_encoded_mutations(trees, custom_fields)
+
+    # Generate field_metadata from actual clone and tree data
     dataset["field_metadata"] = generate_field_metadata(
         dataset_clones,
         trees,

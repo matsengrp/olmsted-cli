@@ -20,7 +20,12 @@ import yaml
 
 from .field_metadata import generate_field_metadata
 from .process_data import load_config
-from .process_utils import VerbosePrinter, add_verbosity_args, resolve_verbosity
+from .process_utils import (
+    VerbosePrinter,
+    add_verbosity_args,
+    resolve_verbosity,
+    unpack_encoded_mutations,
+)
 
 
 def get_args():
@@ -153,6 +158,9 @@ def main():
         clone_ids = {c.get("clone_id") for c in dataset_clones if c.get("clone_id")}
         for clone_id in clone_ids:
             dataset_trees.extend(trees_by_clone_id.get(clone_id, []))
+
+        # Unpack encoded mutation fields (list/json/surprise) before metadata generation
+        unpack_encoded_mutations(dataset_trees, custom_fields)
 
         # Generate field_metadata
         new_field_metadata = generate_field_metadata(

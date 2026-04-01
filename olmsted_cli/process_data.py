@@ -38,6 +38,7 @@ from .constants import (
     FORMAT_OLMSTED,
     FORMAT_PCP,
     FORMAT_UNKNOWN,
+    MUTATION_ENCODINGS,
     normalize_level,
 )
 
@@ -726,6 +727,27 @@ def load_config(config_path):
                         file=sys.stderr,
                     )
                     continue
+                # Validate encoding if specified (mutation-level only)
+                encoding = entry.get("encoding")
+                if encoding:
+                    if encoding not in MUTATION_ENCODINGS:
+                        print(
+                            f"Warning: custom_fields[{i}] has invalid encoding '{encoding}' (ignored)",
+                            file=sys.stderr,
+                        )
+                        continue
+                    if entry["level"] != "mutation":
+                        print(
+                            f"Warning: custom_fields[{i}] has encoding but level is '{entry['level']}', not 'mutation' (ignored)",
+                            file=sys.stderr,
+                        )
+                        continue
+                    if encoding == "surprise" and "source" not in entry:
+                        print(
+                            f"Warning: custom_fields[{i}] encoding 'surprise' requires 'source' key (ignored)",
+                            file=sys.stderr,
+                        )
+                        continue
                 custom_fields.append(entry)
 
     return config_dict, custom_fields

@@ -230,10 +230,15 @@ def _looks_like_local_path(values):
 
 
 def _check_mutation_demotion(nodes, field, max_samples=20):
-    """Check if a node-level list/json field contains per-position mutation data.
+    """Check if a node-level field contains per-position mutation data.
+
+    Detects three encodings:
+        - list: dense array matching sequence length, continuous/aa/dna values
+        - json: dict with int keys within sequence range, continuous/aa/dna values
+        - surprise: array of dicts with "site" key (returns inner field names)
 
     Returns a dict with demotion info if eligible, or None:
-        {"inner_type": "continuous"|"aa", "reason": str}
+        {"encoding": "list"|"json"|"surprise", "inner_type": str, ...}
     """
     values = _sample_values(nodes, field, max_samples=max_samples)
     if not values:
@@ -253,20 +258,43 @@ def _check_mutation_demotion(nodes, field, max_samples=20):
                 break
 
     if field_type == "list":
-        # Check if list lengths match any observed sequence length
-        list_lengths = {len(v) for v in values if isinstance(v, list)}
-        if not list_lengths or not (list_lengths & seq_lengths):
-            return None
-        # Check inner value type
-        inner_values = [item for v in values for item in v if item is not None]
-        if not inner_values:
-            return None
-        inner_type = infer_field_type(inner_values)
-        if inner_type in ("continuous", "aa", "dna"):
-            return {
-                "inner_type": inner_type,
-                "reason": f"list length matches sequence length ({list_lengths & seq_lengths})",
-            }
+        # Could be a dense per-position array or a surprise-style array of dicts
+        # Check for surprise-style first: list of dicts with "site" key
+        if values and all(isinstance(v, list) for v in values):
+            sample_items = [item for v in values for item in v[:5] if item is not None]
+            if sample_items and all(isinstance(item, dict) for item in sample_items):
+                if any("site" in item for item in sample_items):
+                    # Surprise-style: collect all inner field names (excluding "site")
+                    inner_fields = {}
+                    for v in values:
+                        for entry in v:
+                            if not isinstance(entry, dict):
+                                continue
+                            for k, val in entry.items():
+                                if k == "site" or val is None:
+                                    continue
+                                if k not in inner_fields:
+                                    inner_fields[k] = []
+                                inner_fields[k].append(val)
+                    if inner_fields:
+                        # Infer type for each inner field
+                        inner_types = {}
+                        for k, vals in inner_fields.items():
+                            inner_types[k] = infer_field_type(vals)
+                        return {
+                            "encoding": "surprise",
+                            "source": field,
+                            "inner_fields": inner_types,
+                        }
+
+            # Dense list: check if lengths match sequence length
+            list_lengths = {len(v) for v in values if isinstance(v, list)}
+            if list_lengths and (list_lengths & seq_lengths):
+                inner_values = [item for v in values for item in v if item is not None]
+                if inner_values:
+                    inner_type = infer_field_type(inner_values)
+                    if inner_type in ("continuous", "aa", "dna"):
+                        return {"encoding": "list", "inner_type": inner_type}
 
     elif field_type == "json":
         # Check if keys are parseable as ints within sequence range
@@ -294,10 +322,7 @@ def _check_mutation_demotion(nodes, field, max_samples=20):
             return None
         inner_type = infer_field_type(inner_values)
         if inner_type in ("continuous", "aa", "dna"):
-            return {
-                "inner_type": inner_type,
-                "reason": f"int keys within sequence range (max key: {max_key})",
-            }
+            return {"encoding": "json", "inner_type": inner_type}
 
     return None
 
@@ -326,7 +351,10 @@ def _field_summary(dicts, field, known_registry):
     return entry
 
 
-def _format_field_block(name, level, entry, sample_values=None, field_range=None, skip=False):
+def _format_field_block(
+    name, level, entry, sample_values=None, field_range=None,
+    skip=False, encoding=None, source=None,
+):
     """Format a single custom_fields YAML entry as a string."""
     lines = []
     lines.append(f"  - name: {name}")
@@ -337,6 +365,10 @@ def _format_field_block(name, level, entry, sample_values=None, field_range=None
         lines.append(f"    output_name: {alias}")
 
     lines.append(f"    level: {level}")
+    if encoding:
+        lines.append(f"    encoding: {encoding}")
+    if source:
+        lines.append(f"    source: {source}")
     if skip:
         lines.append(f"    skip: true")
     lines.append(f"    type: {entry['type']}")
@@ -520,16 +552,32 @@ def _build_yaml(
                 {"type": "aa", "display": "tooltip", "label": "Parent Amino Acid"},
             ))
 
-        # Demoted node fields (list/json containing per-position mutation data)
+        # Demoted node fields (list/json/surprise containing per-position mutation data)
         if demoted_fields:
             lines.append("  # The following fields were detected as per-position data")
             lines.append("  # stored on nodes (demoted from node to mutation level):")
             for field, info in sorted(demoted_fields.items()):
-                entry = _field_summary(all_nodes, field, KNOWN_NODE_FIELDS)
-                # Override type with the inner value type
-                entry["type"] = info["inner_type"]
-                samples = _sample_values(all_nodes, field, max_samples=6)
-                lines.append(_format_field_block(field, "mutation", entry, samples))
+                enc = info["encoding"]
+                if enc == "surprise":
+                    # Surprise: emit one entry per inner field
+                    for inner_name, inner_type in sorted(info["inner_fields"].items()):
+                        entry = {
+                            "type": inner_type,
+                            "display": "dropdown",
+                            "label": humanize_label(inner_name),
+                        }
+                        lines.append(_format_field_block(
+                            inner_name, "mutation", entry,
+                            encoding="surprise", source=field,
+                        ))
+                else:
+                    # list or json: emit single entry with encoding
+                    entry = _field_summary(all_nodes, field, KNOWN_NODE_FIELDS)
+                    entry["type"] = info["inner_type"]
+                    samples = _sample_values(all_nodes, field, max_samples=6)
+                    lines.append(_format_field_block(
+                        field, "mutation", entry, samples, encoding=enc,
+                    ))
 
         for field in active_mutation:
             entry = _field_summary(all_mutations, field, KNOWN_MUTATION_FIELDS)

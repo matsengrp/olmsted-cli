@@ -13,6 +13,8 @@
 #   label:       Display label in web app (required)
 #   skip:        true to exclude from metadata (shorthand for display: skip)
 #   range:       [min, max] for continuous fields (optional)
+#   encoding:    list, json, or surprise (mutation-level only, optional)
+#   source:      node field containing the data (required for encoding: surprise)
 #
 # Types (what the data IS):
 #   continuous  — numeric (axes, size, color scales)

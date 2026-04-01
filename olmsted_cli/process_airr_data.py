@@ -17,6 +17,7 @@ from urllib.parse import parse_qs, parse_qsl
 
 from .field_metadata import generate_field_metadata
 from .metrics import compute_tree_metrics
+from .process_utils import unpack_encoded_mutations
 
 if TYPE_CHECKING:
     from argparse import Namespace
@@ -284,11 +285,15 @@ def process_dataset(
         ]
     clones_dict[dataset["dataset_id"]] = clones
 
+    # Unpack encoded mutation fields (list/json/surprise) before metadata generation
+    custom_fields = getattr(args, "custom_fields", None)
+    unpack_encoded_mutations(trees, custom_fields)
+
     # Generate field_metadata from actual clone and tree data
     dataset["field_metadata"] = generate_field_metadata(
         clones,
         trees,
-        custom_fields=getattr(args, "custom_fields", None),
+        custom_fields=custom_fields,
     )
 
     del dataset["clones"]
