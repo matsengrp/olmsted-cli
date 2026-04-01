@@ -550,7 +550,7 @@ def unpack_encoded_mutations(trees, custom_fields):
           Null values are skipped.
         - json: Sparse dict on node. Int key = site, value = field value.
           Null values are skipped.
-        - surprise: Array of dicts with ``site`` key on node. ``source`` names
+        - records: Array of dicts with ``site`` key on node. ``source`` names
           the node field containing the array; ``name`` is the inner field to extract.
 
     Args:
@@ -561,12 +561,12 @@ def unpack_encoded_mutations(trees, custom_fields):
     if not encoded:
         return
 
-    # Group surprise fields by source for efficient single-pass merging
-    surprise_by_source = {}
+    # Group records fields by source for efficient single-pass merging
+    records_by_source = {}
     for cf in encoded:
-        if cf["encoding"] == "surprise":
+        if cf["encoding"] == "records":
             source = cf["source"]
-            surprise_by_source.setdefault(source, []).append(cf["name"])
+            records_by_source.setdefault(source, []).append(cf["name"])
 
     for tree in trees:
         nodes = tree.get("nodes", [])
@@ -616,15 +616,15 @@ def unpack_encoded_mutations(trees, custom_fields):
                             by_site[site] = {"site": site}
                         by_site[site][field_name] = val
 
-                elif encoding == "surprise":
+                elif encoding == "records":
                     source = cf["source"]
                     # Only process the source array once per node (first field triggers it)
-                    if field_name != surprise_by_source[source][0]:
+                    if field_name != records_by_source[source][0]:
                         continue
                     data = node.get(source)
                     if not isinstance(data, list):
                         continue
-                    fields_to_extract = surprise_by_source[source]
+                    fields_to_extract = records_by_source[source]
                     for entry in data:
                         if not isinstance(entry, dict) or "site" not in entry:
                             continue

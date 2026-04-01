@@ -742,9 +742,9 @@ def load_config(config_path):
                             file=sys.stderr,
                         )
                         continue
-                    if encoding == "surprise" and "source" not in entry:
+                    if encoding == "records" and "source" not in entry:
                         print(
-                            f"Warning: custom_fields[{i}] encoding 'surprise' requires 'source' key (ignored)",
+                            f"Warning: custom_fields[{i}] encoding 'records' requires 'source' key (ignored)",
                             file=sys.stderr,
                         )
                         continue

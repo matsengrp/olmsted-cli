@@ -74,8 +74,8 @@ DISPLAY_MODES = {"dropdown", "tooltip", "skip"}
 #: These describe how mutation-level data is stored on nodes:
 #: - list: dense per-position array on node (index = site)
 #: - json: sparse dict on node (int key = site, value = field value)
-#: - surprise: array of dicts with "site" key on node (field = inner dict key)
-MUTATION_ENCODINGS = {"list", "json", "surprise"}
+#: - records: array of dicts with "site" key on node (field = inner dict key)
+MUTATION_ENCODINGS = {"list", "json", "records"}
 
 #: Valid data levels for field_metadata.
 #: - family/clone: clonal family level (scatterplot axes, color, facet)

@@ -315,15 +315,15 @@ class TestMutationDemotion:
         assert result["encoding"] == "json"
         assert result["inner_type"] == "aa"
 
-    def test_surprise_style_detected(self):
-        """Array of dicts with 'site' key detected as surprise encoding."""
+    def test_records_style_detected(self):
+        """Array of dicts with 'site' key detected as records encoding."""
         nodes = self._make_nodes("custom_scores", [
             [{"site": 0, "score": 2.5, "region": "FWR1"},
              {"site": 3, "score": 4.1, "region": "CDR1"}],
         ] * 3)
         result = _check_mutation_demotion(nodes, "custom_scores")
         assert result is not None
-        assert result["encoding"] == "surprise"
+        assert result["encoding"] == "records"
         assert result["source"] == "custom_scores"
         assert "score" in result["inner_fields"]
         assert "region" in result["inner_fields"]
@@ -391,8 +391,8 @@ class TestUnpackEncodedMutations:
         assert muts[0] == {"site": 0, "sparse": "D"}
         assert muts[1] == {"site": 3, "sparse": "E"}
 
-    def test_surprise_encoding(self):
-        """Surprise-style array unpacked by extracting named inner fields."""
+    def test_records_encoding(self):
+        """Records-style array unpacked by extracting named inner fields."""
         tree = self._make_tree([
             {"sequence_id": "n1", "custom_scores": [
                 {"site": 0, "score_a": 2.5, "score_b": 1.0, "region": "FWR1"},
@@ -400,11 +400,11 @@ class TestUnpackEncodedMutations:
             ]},
         ])
         custom_fields = [
-            {"name": "score_a", "level": "mutation", "encoding": "surprise",
+            {"name": "score_a", "level": "mutation", "encoding": "records",
              "source": "custom_scores", "type": "continuous", "label": "Score A"},
-            {"name": "score_b", "level": "mutation", "encoding": "surprise",
+            {"name": "score_b", "level": "mutation", "encoding": "records",
              "source": "custom_scores", "type": "continuous", "label": "Score B"},
-            {"name": "region", "level": "mutation", "encoding": "surprise",
+            {"name": "region", "level": "mutation", "encoding": "records",
              "source": "custom_scores", "type": "categorical", "label": "Region"},
         ]
         unpack_encoded_mutations([tree], custom_fields)

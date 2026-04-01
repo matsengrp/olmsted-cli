@@ -235,10 +235,10 @@ def _check_mutation_demotion(nodes, field, max_samples=20):
     Detects three encodings:
         - list: dense array matching sequence length, continuous/aa/dna values
         - json: dict with int keys within sequence range, continuous/aa/dna values
-        - surprise: array of dicts with "site" key (returns inner field names)
+        - records: array of dicts with "site" key (returns inner field names)
 
     Returns a dict with demotion info if eligible, or None:
-        {"encoding": "list"|"json"|"surprise", "inner_type": str, ...}
+        {"encoding": "list"|"json"|"records", "inner_type": str, ...}
     """
     values = _sample_values(nodes, field, max_samples=max_samples)
     if not values:
@@ -258,8 +258,8 @@ def _check_mutation_demotion(nodes, field, max_samples=20):
                 break
 
     if field_type == "list":
-        # Could be a dense per-position array or a surprise-style array of dicts
-        # Check for surprise-style first: list of dicts with "site" key
+        # Could be a dense per-position array or a records-style array of dicts
+        # Check for records-style first: list of dicts with "site" key
         if values and all(isinstance(v, list) for v in values):
             sample_items = [item for v in values for item in v[:5] if item is not None]
             if sample_items and all(isinstance(item, dict) for item in sample_items):
@@ -282,7 +282,7 @@ def _check_mutation_demotion(nodes, field, max_samples=20):
                         for k, vals in inner_fields.items():
                             inner_types[k] = infer_field_type(vals)
                         return {
-                            "encoding": "surprise",
+                            "encoding": "records",
                             "source": field,
                             "inner_fields": inner_types,
                         }
@@ -552,13 +552,13 @@ def _build_yaml(
                 {"type": "aa", "display": "tooltip", "label": "Parent Amino Acid"},
             ))
 
-        # Demoted node fields (list/json/surprise containing per-position mutation data)
+        # Demoted node fields (list/json/records containing per-position mutation data)
         if demoted_fields:
             lines.append("  # The following fields were detected as per-position data")
             lines.append("  # stored on nodes (demoted from node to mutation level):")
             for field, info in sorted(demoted_fields.items()):
                 enc = info["encoding"]
-                if enc == "surprise":
+                if enc == "records":
                     # Surprise: emit one entry per inner field
                     for inner_name, inner_type in sorted(info["inner_fields"].items()):
                         entry = {
@@ -568,7 +568,7 @@ def _build_yaml(
                         }
                         lines.append(_format_field_block(
                             inner_name, "mutation", entry,
-                            encoding="surprise", source=field,
+                            encoding="records", source=field,
                         ))
                 else:
                     # list or json: emit single entry with encoding
