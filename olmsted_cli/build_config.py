@@ -30,6 +30,10 @@ from .constants import (
     KNOWN_CLONE_FIELDS,
     KNOWN_MUTATION_FIELDS,
     KNOWN_NODE_FIELDS,
+    MAX_NODES_SAMPLE,
+    MAX_SAMPLE_HEURISTIC,
+    MAX_SAMPLE_PREVIEW,
+    MAX_SAMPLE_VALUES,
     SUGGESTED_DISPLAY_MODES,
     SUGGESTED_SKIP_FIELDS,
 )
@@ -229,7 +233,7 @@ def _looks_like_local_path(values):
     return path_count > 0 and path_count >= len(values) // 2
 
 
-def _check_mutation_demotion(nodes, field, max_samples=20):
+def _check_mutation_demotion(nodes, field, max_samples=MAX_SAMPLE_HEURISTIC):
     """Check if a node-level field contains per-position mutation data.
 
     Detects three encodings:
@@ -337,7 +341,7 @@ def _field_summary(dicts, field, known_registry):
             "label": known["label"],
         }
     else:
-        values = sample_values(dicts, field, max_samples=50)
+        values = sample_values(dicts, field, max_samples=MAX_SAMPLE_VALUES)
         inferred_type = infer_field_type(values)
         display = "tooltip" if inferred_type in ("list", "json") else "dropdown"
         entry = {
@@ -400,8 +404,8 @@ def _build_yaml(
     no_skip=False, skip_all=False,
 ):
     """Build the YAML config string from templates and introspected data."""
-    all_nodes = collect_nodes(all_trees, max_nodes=500)
-    all_mutations = collect_mutations(all_trees, max_mutations=100000)
+    all_nodes = collect_nodes(all_trees, max_nodes=MAX_NODES_SAMPLE)
+    all_mutations = collect_mutations(all_trees)
 
     input_str = str(input_path) if input_path else input_name
     tree_str = str(tree_path) if tree_path else "trees.csv"
@@ -447,7 +451,7 @@ def _build_yaml(
             return True
         # Auto-skip fields whose values look like local file paths
         if dicts is not None:
-            values = sample_values(dicts, field, max_samples=20)
+            values = sample_values(dicts, field, max_samples=MAX_SAMPLE_HEURISTIC)
             if _looks_like_local_path(values):
                 return True
         return False
@@ -477,12 +481,12 @@ def _build_yaml(
                     if isinstance(c.get("sample"), dict) and c["sample"].get("locus")
                 })
             else:
-                samples = sample_values(all_clones, field, max_samples=6)
+                samples = sample_values(all_clones, field, max_samples=MAX_SAMPLE_PREVIEW)
             lines.append(_format_field_block(field, "family", entry, samples))
 
     for field in skip_clone:
         entry = _field_summary(all_clones, field, KNOWN_CLONE_FIELDS)
-        samples = sample_values(all_clones, field, max_samples=6)
+        samples = sample_values(all_clones, field, max_samples=MAX_SAMPLE_PREVIEW)
         skip_entries.append((field, "family", entry, samples, None))
 
     # --- Node level ---
@@ -508,12 +512,12 @@ def _build_yaml(
         lines.append("  # --- Node level (tree node properties, tooltips) ---")
         for field in remaining_node:
             entry = _field_summary(all_nodes, field, KNOWN_NODE_FIELDS)
-            samples = sample_values(all_nodes, field, max_samples=6)
+            samples = sample_values(all_nodes, field, max_samples=MAX_SAMPLE_PREVIEW)
             lines.append(_format_field_block(field, "node", entry, samples))
 
     for field in skip_node:
         entry = _field_summary(all_nodes, field, KNOWN_NODE_FIELDS)
-        samples = sample_values(all_nodes, field, max_samples=6)
+        samples = sample_values(all_nodes, field, max_samples=MAX_SAMPLE_PREVIEW)
         skip_entries.append((field, "node", entry, samples, None))
 
     # --- Branch level ---
@@ -523,7 +527,7 @@ def _build_yaml(
         lines.append("  # --- Branch level (tree branch coloring, width) ---")
         for field in sorted(branch_keys):
             entry = dict(KNOWN_BRANCH_FIELDS[field])
-            samples = sample_values(all_nodes, field, max_samples=6)
+            samples = sample_values(all_nodes, field, max_samples=MAX_SAMPLE_PREVIEW)
             lines.append(_format_field_block(field, "branch", entry, samples))
 
     # --- Mutation level ---
@@ -576,14 +580,14 @@ def _build_yaml(
                     # list or json: emit single entry with encoding
                     entry = _field_summary(all_nodes, field, KNOWN_NODE_FIELDS)
                     entry["type"] = info["inner_type"]
-                    samples = sample_values(all_nodes, field, max_samples=6)
+                    samples = sample_values(all_nodes, field, max_samples=MAX_SAMPLE_PREVIEW)
                     lines.append(_format_field_block(
                         field, "mutation", entry, samples, encoding=enc,
                     ))
 
         for field in active_mutation:
             entry = _field_summary(all_mutations, field, KNOWN_MUTATION_FIELDS)
-            samples = sample_values(all_mutations, field, max_samples=6)
+            samples = sample_values(all_mutations, field, max_samples=MAX_SAMPLE_PREVIEW)
             field_range = None
             if entry["type"] == "continuous":
                 field_range = compute_range(all_mutations, field)
@@ -591,7 +595,7 @@ def _build_yaml(
 
     for field in skip_mutation:
         entry = _field_summary(all_mutations, field, KNOWN_MUTATION_FIELDS)
-        samples = sample_values(all_mutations, field, max_samples=6)
+        samples = sample_values(all_mutations, field, max_samples=MAX_SAMPLE_PREVIEW)
         skip_entries.append((field, "mutation", entry, samples, None))
 
     # --- Skipped fields section (at the bottom) ---

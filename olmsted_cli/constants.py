@@ -77,6 +77,27 @@ DISPLAY_MODES = {"dropdown", "tooltip", "skip"}
 #: - records: array of dicts with "site" key on node (field = inner dict key)
 MUTATION_ENCODINGS = {"list", "json", "records"}
 
+# =============================================================================
+# Sampling limits for field introspection
+# =============================================================================
+#: These cap how much data is read during field type inference and metadata
+#: generation, avoiding full scans of large datasets.
+
+#: Max nodes to collect for field key discovery and type inference.
+MAX_NODES_SAMPLE = 500
+#: Max nodes to collect for quick checks (e.g. has_aa_sequences).
+MAX_NODES_QUICK = 20
+#: Max mutations to collect for key discovery and range computation.
+MAX_MUTATIONS = 100000
+#: Max values to sample per field for type inference.
+MAX_SAMPLE_VALUES = 50
+#: Max values to sample per field for demotion/skip heuristics.
+MAX_SAMPLE_HEURISTIC = 20
+#: Max values to sample per field for path-based lookups.
+MAX_SAMPLE_PATH = 10
+#: Max values to show as preview in build-config YAML output.
+MAX_SAMPLE_PREVIEW = 6
+
 #: Valid data levels for field_metadata.
 #: - family/clone: clonal family level (scatterplot axes, color, facet)
 #: - node: tree node level (node properties, tooltips)
