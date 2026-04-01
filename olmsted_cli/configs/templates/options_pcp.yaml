@@ -1,0 +1,23 @@
+
+# =============================================================================
+# Processing Options (uncomment and edit as needed)
+# =============================================================================
+
+inputs: [{input_path}]
+tree: {tree_path}
+output: output.json
+format: pcp
+
+# name: "My Dataset"
+# description: ""
+# seed: 42             # for reproducible UUIDs
+
+# --- Metric Computation ---
+# Computes LBI, LBR, affinity, and scaled_affinity for all tree nodes.
+# Requires tree branch lengths (works with any format that has them).
+# compute_metrics: true
+# lbi_tau: 0.0125      # time scale parameter for LBI
+
+# standardize_names: false  # rename nodes to naive, Node1, Leaf1, ...
+# validate: false
+# verbose: 1

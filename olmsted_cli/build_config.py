@@ -266,123 +266,53 @@ def _format_field_block(name, level, entry, sample_values=None, field_range=None
     return "\n".join(lines)
 
 
+def _load_template(name):
+    """Load a template file from configs/templates/."""
+    template_dir = Path(__file__).parent / "configs" / "templates"
+    template_path = template_dir / name
+    return template_path.read_text()
+
+
 def _build_yaml(
     input_name, detected_format, all_clones, all_trees,
     input_path=None, tree_path=None,
     no_skip=False, skip_all=False,
 ):
-    """Build the YAML config string from clones and trees."""
+    """Build the YAML config string from templates and introspected data."""
     all_nodes = _collect_nodes(all_trees, max_nodes=500)
     all_mutations = _collect_mutations(all_trees, max_mutations=500)
 
-    lines = []
-    lines.append("# =============================================================================")
-    lines.append(f"# Field configuration generated from: {input_name}")
-    lines.append(f"# Detected format: {detected_format}")
-    lines.append("# =============================================================================")
-    lines.append("#")
-    lines.append("# This file lists all fields discovered in your data. Edit it to:")
-    lines.append("#   - Remove fields you don't want in the web app dropdowns")
-    lines.append("#   - Change type (continuous, categorical, tooltip, aa, dna)")
-    lines.append("#   - Customize display labels")
-    lines.append("#   - Uncomment processing options below as needed")
-    lines.append("#")
+    input_str = str(input_path) if input_path else input_name
+    tree_str = str(tree_path) if tree_path else "trees.csv"
+
+    # Determine usage command for header
     if detected_format == FORMAT_OLMSTED:
-        lines.append("# Then use with:  olmsted enrich -i data.json -o enriched.json -c this_file.yaml")
+        usage_command = "olmsted enrich -i data.json -o enriched.json -c this_file.yaml"
     else:
-        lines.append("# Then use with:  olmsted process -c this_file.yaml")
-    lines.append("")
+        usage_command = "olmsted process -c this_file.yaml"
 
-    # --- Processing options template ---
-    lines.append("")
-    lines.append("# =============================================================================")
-    lines.append("# Processing Options (uncomment and edit as needed)")
-    lines.append("# =============================================================================")
-    lines.append("")
+    # Assemble from templates
+    parts = []
 
-    if detected_format == FORMAT_OLMSTED:
-        input_str = str(input_path) if input_path else input_name
-        lines.append(f"# input: {input_str}")
-        lines.append("# output: enriched_output.json")
-        lines.append("# mode: add            # add (merge with existing) or overwrite")
-    elif detected_format == FORMAT_PCP:
-        input_str = str(input_path) if input_path else input_name
-        lines.append(f"inputs: [{input_str}]")
-        if tree_path:
-            lines.append(f"tree: {tree_path}")
-        else:
-            lines.append("tree: trees.csv")
-        lines.append("output: output.json")
-        lines.append("format: pcp")
-        lines.append("")
-        lines.append("# name: \"My Dataset\"")
-        lines.append("# description: \"\"")
-        lines.append("# seed: 42             # for reproducible UUIDs")
-        lines.append("")
-        lines.append("# --- Metric Computation ---")
-        lines.append("# Computes LBI, LBR, affinity, and scaled_affinity for all tree nodes.")
-        lines.append("# Requires tree branch lengths (works with any format that has them).")
-        lines.append("# compute_metrics: true")
-        lines.append("# lbi_tau: 0.0125      # time scale parameter for LBI")
-        lines.append("")
-        lines.append("# standardize_names: false  # rename nodes to naive, Node1, Leaf1, ...")
-        lines.append("# validate: false")
-        lines.append("# verbose: 1")
-    elif detected_format == FORMAT_AIRR:
-        input_str = str(input_path) if input_path else input_name
-        lines.append(f"inputs: [{input_str}]")
-        lines.append("output: output.json")
-        lines.append("format: airr")
-        lines.append("")
-        lines.append("# name: \"My Dataset\"")
-        lines.append("# description: \"\"")
-        lines.append("# seed: 42             # for reproducible UUIDs")
-        lines.append("")
-        lines.append("# --- Metric Computation ---")
-        lines.append("# Computes LBI, LBR, affinity, and scaled_affinity for all tree nodes.")
-        lines.append("# Requires tree branch lengths (works with any format that has them).")
-        lines.append("# compute_metrics: true")
-        lines.append("# lbi_tau: 0.0125      # time scale parameter for LBI")
-        lines.append("")
-        lines.append("# root: naive           # root trees at named node (omit to skip rooting)")
-        lines.append("# validate: false")
-        lines.append("# verbose: 1")
+    # Header
+    parts.append(_load_template("header.yaml").format(
+        input_name=input_name,
+        detected_format=detected_format,
+        usage_command=usage_command,
+    ))
 
-    lines.append("")
-    lines.append("")
-    lines.append("# =============================================================================")
-    lines.append("# Field Declarations")
-    lines.append("# =============================================================================")
-    lines.append("#")
-    lines.append("# Each field entry supports:")
-    lines.append("#   name:        Field name in the input data (required)")
-    lines.append("#   output_name: Renamed field in output (optional)")
-    lines.append("#   level:       family, node, branch, or mutation (required)")
-    lines.append("#   type:        continuous, categorical, aa, or dna (required)")
-    lines.append("#   display:     dropdown (default), tooltip, or skip (optional)")
-    lines.append("#   label:       Display label in web app (required)")
-    lines.append("#   skip:        true to exclude from metadata (shorthand for display: skip)")
-    lines.append("#   range:       [min, max] for continuous fields (optional)")
-    lines.append("#")
-    lines.append("# Types (what the data IS):")
-    lines.append("#   continuous  — numeric (axes, size, color scales)")
-    lines.append("#   categorical — string/enum (color, shape, facet)")
-    lines.append("#   aa          — amino acid identity (full genetic alphabet)")
-    lines.append("#   dna         — nucleotide identity (full genetic alphabet)")
-    lines.append("#")
-    lines.append("# Display modes (how to show it):")
-    lines.append("#   dropdown    — in visualization controls (default, omit if not needed)")
-    lines.append("#   tooltip     — shown on hover only, not in controls")
-    lines.append("#   skip        — excluded from output metadata entirely")
-    lines.append("#")
-    lines.append("# Cross-format aliases (suggested output_name, remove if not needed):")
-    lines.append("#   v_gene, v_gene_heavy  ->  v_call")
-    lines.append("#   d_gene, d_gene_heavy  ->  d_call")
-    lines.append("#   j_gene, j_gene_heavy  ->  j_call")
-    lines.append("#   rearrangement_count   ->  unique_seqs_count")
-    lines.append("#   size                  ->  total_read_count")
-    lines.append("")
-    lines.append("custom_fields:")
+    # Processing options (per-format)
+    options_template = f"options_{detected_format}.yaml"
+    parts.append(_load_template(options_template).format(
+        input_path=input_str,
+        tree_path=tree_str,
+    ))
+
+    # Field declarations header
+    parts.append(_load_template("fields_header.yaml"))
+
+    # Build the fields section
+    lines = []
 
     # Collect skip entries separately for the bottom section
     skip_entries = []
@@ -481,7 +411,7 @@ def _build_yaml(
             ))
             lines.append(_format_field_block(
                 "parent_aa", "mutation",
-                {"type": "tooltip", "label": "Parent Amino Acid"},
+                {"type": "aa", "display": "tooltip", "label": "Parent Amino Acid"},
             ))
 
         for field in active_mutation:
@@ -499,17 +429,14 @@ def _build_yaml(
 
     # --- Skipped fields section (at the bottom) ---
     if skip_entries:
-        lines.append("")
-        lines.append("")
-        lines.append("  # =================================================================")
-        lines.append("  # Skipped fields (not included in output metadata)")
-        lines.append("  # Remove 'skip: true' to include a field, or delete the entry")
-        lines.append("  # =================================================================")
+        parts.append(_load_template("skip_header.yaml"))
         for field, level, entry, samples, field_range in skip_entries:
             lines.append(_format_field_block(field, level, entry, samples, field_range, skip=True))
 
     lines.append("")
-    return "\n".join(lines)
+
+    # Assemble: templates + dynamic field lines
+    return "".join(parts) + "\n".join(lines)
 
 
 def main():
