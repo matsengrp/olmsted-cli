@@ -1,0 +1,8 @@
+
+# =============================================================================
+# Processing Options (uncomment and edit as needed)
+# =============================================================================
+
+# input: {input_path}
+# output: enriched_output.json
+# mode: add            # add (merge with existing) or overwrite

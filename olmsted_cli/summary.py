@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summary command for olmsted-cli - provides statistics about consolidated JSON files."""
+"""Summary command for olmsted-cli - provides statistics about Olmsted JSON files."""
 
 import argparse
 import json
@@ -9,10 +9,10 @@ from pathlib import Path
 
 def analyze_consolidated_data(data):
     """
-    Analyze consolidated data and extract summary statistics.
+    Analyze Olmsted JSON data and extract summary statistics.
     
     Args:
-        data: Consolidated JSON data dictionary
+        data: Olmsted JSON data dictionary
         
     Returns:
         dict: Summary statistics
@@ -261,24 +261,24 @@ def format_summary_text(summary):
 def get_args():
     """Parse command line arguments for summary command."""
     parser = argparse.ArgumentParser(
-        description="Generate summary statistics for consolidated Olmsted data files",
+        description="Generate summary statistics for Olmsted JSON files",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   # Basic summary
-  olmsted summary consolidated_data.json
+  olmsted summary data.json
   
   # Output as JSON
-  olmsted summary --json consolidated_data.json
+  olmsted summary --json data.json
   
   # Save summary to file
-  olmsted summary consolidated_data.json -o summary.txt
+  olmsted summary data.json -o summary.txt
         """,
     )
     
     parser.add_argument(
         "input_file",
-        help="Consolidated JSON file to analyze"
+        help="Olmsted JSON file to analyze"
     )
     
     parser.add_argument(
@@ -294,10 +294,17 @@ Examples:
     
     parser.add_argument(
         "-v", "--verbose",
-        action="store_true",
-        help="Include detailed gene lists and sample information"
+        type=int,
+        choices=[0, 1, 2, 3],
+        default=1,
+        help="Verbosity: 0=errors only, 1=normal (default), 2=verbose (detailed gene lists), 3=debug",
     )
-    
+    parser.add_argument(
+        "-q", "--quiet",
+        action="store_true",
+        help="Quiet mode — errors only (equivalent to -v 0)",
+    )
+
     return parser.parse_args()
 
 
@@ -326,7 +333,7 @@ def main():
     required_keys = ["metadata", "datasets", "clones", "trees"]
     missing_keys = [key for key in required_keys if key not in data]
     if missing_keys:
-        print(f"Error: Not a valid consolidated format. Missing keys: {missing_keys}", file=sys.stderr)
+        print(f"Error: Not a valid Olmsted JSON format. Missing keys: {missing_keys}", file=sys.stderr)
         sys.exit(1)
     
     # Analyze data

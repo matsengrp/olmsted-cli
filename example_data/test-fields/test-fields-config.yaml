@@ -1,0 +1,90 @@
+# =============================================================================
+# Test config: declares foobar fields at every level and type
+# =============================================================================
+#
+# This config exercises the full field_metadata system with bogus metrics
+# at each combination of level × type.
+#
+# Use with any of the test-fields example data:
+#   olmsted enrich -i olmsted-test-fields.json -o enriched.json -c test-fields-config.yaml
+#   olmsted process -i airr-test-fields.json -o output.json -c test-fields-config.yaml
+#   olmsted process -i pcp-test-fields.csv -t trees-test-fields.csv -o output.json -c test-fields-config.yaml
+
+custom_fields:
+  # === Clone level ===
+  - name: foobar_score
+    level: clone
+    type: continuous
+    label: "Foobar Score"
+
+  - name: foobar_category
+    level: clone
+    type: categorical
+    label: "Foobar Category"
+
+  - name: foobar_note
+    level: clone
+    type: tooltip
+    label: "Foobar Note"
+
+  - name: foobar_params
+    level: clone
+    type: json
+    display: tooltip
+    label: "Foobar Parameters"
+
+  - name: foobar_path
+    level: clone
+    type: categorical
+    skip: true
+    label: "Foobar Path"
+
+  # === Node level ===
+  - name: foobar_weight
+    level: node
+    type: continuous
+    label: "Foobar Weight"
+
+  - name: foobar_class
+    level: node
+    type: categorical
+    label: "Foobar Class"
+
+  - name: foobar_description
+    level: node
+    type: tooltip
+    label: "Foobar Description"
+
+  # === Mutation level ===
+  - name: foobar_impact
+    level: mutation
+    type: continuous
+    label: "Foobar Impact"
+    # range: [0.0, 1.0]  # uncomment to set explicit color scale domain
+
+  - name: foobar_tier
+    level: mutation
+    type: categorical
+    label: "Foobar Tier"
+
+  - name: child_aa
+    level: mutation
+    type: aa
+    label: "Mutant Amino Acid"
+
+  - name: parent_aa
+    level: mutation
+    type: aa
+    display: tooltip
+    label: "Parent Amino Acid"
+
+  # === Mutation level (demoted from node — per-position data) ===
+  - name: foobar_per_site_score
+    level: mutation
+    type: continuous
+    label: "Foobar Per Site Score"
+
+  - name: foobar_sparse_aa
+    level: mutation
+    type: aa
+    label: "Foobar Sparse AA"

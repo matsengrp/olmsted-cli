@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Split command for olmsted-cli - splits consolidated JSON files into smaller files."""
+"""Split command for olmsted-cli - splits Olmsted JSON files into smaller files."""
 
 import argparse
 import json
@@ -12,10 +12,10 @@ from datetime import datetime
 
 def split_consolidated_data(data, max_clones_per_file):
     """
-    Split consolidated data into multiple files based on max clones per file.
+    Split Olmsted JSON data into multiple files based on max clones per file.
     
     Args:
-        data: Consolidated JSON data dictionary
+        data: Olmsted JSON data dictionary
         max_clones_per_file: Maximum number of clonal families per output file
         
     Returns:
@@ -25,7 +25,7 @@ def split_consolidated_data(data, max_clones_per_file):
     required_keys = ["metadata", "datasets", "clones", "trees"]
     missing_keys = [key for key in required_keys if key not in data]
     if missing_keys:
-        raise ValueError(f"Not a valid consolidated format. Missing keys: {missing_keys}")
+        raise ValueError(f"Not a valid Olmsted JSON format. Missing keys: {missing_keys}")
     
     # Get all clones and trees
     all_clones = []
@@ -144,12 +144,12 @@ def split_consolidated_data(data, max_clones_per_file):
 def get_args():
     """Parse command line arguments for split command."""
     parser = argparse.ArgumentParser(
-        description="Split consolidated Olmsted data files into smaller files",
+        description="Split Olmsted JSON files into smaller files",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   # Split into files with max 100 clones each
-  olmsted split -i consolidated_data.json -o output_dir --max-clones 100
+  olmsted split -i data.json -o output_dir --max-clones 100
   
   # Split with custom naming
   olmsted split -i data.json -o splits --max-clones 50 --base-name my_dataset
@@ -159,7 +159,7 @@ Examples:
     parser.add_argument(
         "-i", "--input",
         required=True,
-        help="Input consolidated JSON file to split"
+        help="Input Olmsted JSON file to split"
     )
     
     parser.add_argument(
@@ -182,10 +182,17 @@ Examples:
     
     parser.add_argument(
         "-v", "--verbose",
-        action="store_true",
-        help="Show detailed output"
+        type=int,
+        choices=[0, 1, 2, 3],
+        default=1,
+        help="Verbosity: 0=errors only, 1=normal (default), 2=verbose, 3=debug",
     )
-    
+    parser.add_argument(
+        "-q", "--quiet",
+        action="store_true",
+        help="Quiet mode — errors only (equivalent to -v 0)",
+    )
+
     return parser.parse_args()
 
 

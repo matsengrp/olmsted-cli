@@ -13,9 +13,37 @@ airr-standards/specs/airr-schema.yaml. The SCHEMA_VERSION constant corresponds
 to the 'version' field in the Info section of that schema.
 """
 
+from .constants import DISPLAY_MODES, FIELD_LEVELS, FIELD_TYPES
+
 # Version Constants
 # SCHEMA_VERSION corresponds to Info.version in airr-standards/specs/airr-schema.yaml
 SCHEMA_VERSION = "2.0.0"
+
+# Output display modes (skip means "not in output", so exclude it from schema)
+_OUTPUT_DISPLAY_MODES = sorted(DISPLAY_MODES - {"skip"})
+
+# Schema fragment for a single field_metadata entry
+_FIELD_ENTRY_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "type": {
+            "type": "string",
+            "enum": sorted(FIELD_TYPES),
+        },
+        "display": {
+            "type": "string",
+            "enum": _OUTPUT_DISPLAY_MODES,
+        },
+        "label": {"type": "string"},
+        "range": {
+            "type": "array",
+            "items": {"type": "number"},
+            "minItems": 2,
+            "maxItems": 2,
+        },
+    },
+    "required": ["type", "label"],
+}
 
 # Timepoint multiplicity schema - for individual timepoint/multiplicity pairs
 timepoint_multiplicity_spec = {
@@ -249,10 +277,6 @@ clone_spec = {
     "required": [
         "unique_seqs_count",
         "mean_mut_freq",
-        "v_alignment_start",
-        "v_alignment_end",
-        "j_alignment_start",
-        "j_alignment_end",
     ],
     "properties": {
         "ident": {
@@ -651,6 +675,19 @@ dataset_spec = {
                     "sample_id": {"type": "string"},
                 },
             },
+        },
+        "field_metadata": {
+            "description": "Metadata describing available data fields at each level",
+            "type": ["object", "null"],
+            "properties": {
+                level: {
+                    "description": f"{level.title()}-level field metadata",
+                    "type": "object",
+                    "additionalProperties": _FIELD_ENTRY_SCHEMA,
+                }
+                for level in sorted(FIELD_LEVELS)
+            },
+            "additionalProperties": False,
         },
         "clones": {
             "description": "Clonal families in the dataset",

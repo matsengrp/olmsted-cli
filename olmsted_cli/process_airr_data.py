@@ -15,6 +15,10 @@ from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from urllib.parse import parse_qs, parse_qsl
 
+from .field_metadata import generate_field_metadata
+from .metrics import compute_tree_metrics
+from .process_utils import unpack_encoded_mutations
+
 if TYPE_CHECKING:
     from argparse import Namespace
 
@@ -150,25 +154,55 @@ def process_tree(args, clone_id, tree):
 
 
 def process_clone(args, dataset, clone):
-    # -=1 *_start positions since AIRR schema uses 1-based closed interval but we need python slice conventions (0-based, open interval) for source code (vega visualization). See bin/process_data.py
+    # -=1 *_start positions since AIRR schema uses 1-based closed interval
+    # but we need python slice conventions (0-based, open interval) for
+    # source code (vega visualization). Gracefully skip missing positions.
+    _missing_fields = []
     for start_pos_key in [
         "v_alignment_start",
         "d_alignment_start",
         "j_alignment_start",
         "junction_start",
     ]:
-        clone[start_pos_key] -= 1
-    # need to cretae a copy of the dataset without clonal families that we can nest under clonal family for viz convenience
+        if start_pos_key in clone and clone[start_pos_key] is not None:
+            clone[start_pos_key] -= 1
+        else:
+            _missing_fields.append(start_pos_key)
+
+    if _missing_fields and getattr(args, "verbose", 0) >= 2:
+        clone_id = clone.get("clone_id", "unknown")
+        print(
+            f"  Note: clone '{clone_id}' missing position fields: {_missing_fields}",
+            file=sys.stderr,
+        )
+
+    # need to create a copy of the dataset without clonal families that we
+    # can nest under clonal family for viz convenience
     _dataset = dataset.copy()
     del _dataset["clones"]
     clone["dataset"] = _dataset
-    clone["sample"] = list(
-        filter(
-            lambda sample: sample["sample_id"] == clone["sample_id"],
-            clone["dataset"]["samples"],
-        )
-    )[0]
-    del clone["dataset"]["samples"]
+
+    # Match sample by sample_id; gracefully handle missing match
+    matching_samples = [
+        s for s in clone["dataset"].get("samples", [])
+        if s.get("sample_id") == clone.get("sample_id")
+    ]
+    if matching_samples:
+        clone["sample"] = matching_samples[0]
+    else:
+        clone["sample"] = {
+            "sample_id": clone.get("sample_id", "unknown"),
+            "locus": "igh",
+        }
+        if getattr(args, "verbose", 0) >= 1:
+            print(
+                f"  Note: clone '{clone.get('clone_id', '?')}' sample_id "
+                f"'{clone.get('sample_id')}' not found in dataset samples",
+                file=sys.stderr,
+            )
+
+    if "samples" in clone.get("dataset", {}):
+        del clone["dataset"]["samples"]
     return ensure_ident(clone, prefix="clone-")
 
 
@@ -191,9 +225,11 @@ def process_dataset(
         Processed dataset in Olmsted format, or None if processing fails
     """
     dataset["clone_count"] = len(dataset["clones"])
-    dataset["subjects_count"] = len(set(cf["subject_id"] for cf in dataset["clones"]))
+    dataset["subjects_count"] = len(
+        set(cf.get("subject_id", "unknown") for cf in dataset["clones"])
+    )
     dataset["timepoints_count"] = len(
-        set(sample["timepoint_id"] for sample in dataset["samples"])
+        set(sample.get("timepoint_id", "unknown") for sample in dataset.get("samples", []))
     )
     clones = list(
         map(functools.partial(process_clone, args, dataset), dataset["clones"])
@@ -210,6 +246,36 @@ def process_dataset(
             processed_tree = process_tree(args, cf["clone_id"], tree)
             processed_trees.append(processed_tree)
 
+        # Compute metrics on trees if requested (LBI, LBR, scaled_affinity)
+        if getattr(args, "compute_metrics", False):
+            lbi_tau = getattr(args, "lbi_tau", 0.0125)
+            for tree in processed_trees:
+                nodes = tree.get("nodes", {})
+                if not nodes:
+                    continue
+                # Build nodes_dict and edges from the tree's node data
+                if isinstance(nodes, list):
+                    nodes_dict = {n["sequence_id"]: n for n in nodes}
+                else:
+                    nodes_dict = nodes
+                edges = []
+                root_id = None
+                for nid, ndata in nodes_dict.items():
+                    parent = ndata.get("parent")
+                    if parent is None:
+                        root_id = nid
+                    else:
+                        length = ndata.get("length", 0.0) or 0.0
+                        edges.append((parent, nid, length))
+                if root_id is None:
+                    continue
+
+                compute_tree_metrics(nodes_dict, edges, root_id, tau=lbi_tau)
+
+                # Write back if nodes was a list
+                if isinstance(tree["nodes"], list):
+                    tree["nodes"] = list(nodes_dict.values())
+
         # Add processed trees to the main trees list
         trees.extend(processed_trees)
 
@@ -218,6 +284,18 @@ def process_dataset(
             dict_subset(tree, set(tree.keys()) - {"nodes"}) for tree in processed_trees
         ]
     clones_dict[dataset["dataset_id"]] = clones
+
+    # Unpack encoded mutation fields (list/json/surprise) before metadata generation
+    custom_fields = getattr(args, "custom_fields", None)
+    unpack_encoded_mutations(trees, custom_fields)
+
+    # Generate field_metadata from actual clone and tree data
+    dataset["field_metadata"] = generate_field_metadata(
+        clones,
+        trees,
+        custom_fields=custom_fields,
+    )
+
     del dataset["clones"]
     dataset["schema_version"] = SCHEMA_VERSION
     return ensure_ident(dataset, prefix="dataset-")

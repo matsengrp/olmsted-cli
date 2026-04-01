@@ -22,32 +22,38 @@
                 "timepoint_id": "merged"
             },
             {
-                "ident": "sample-cc42c52c-6fb9-faa8-b57f-3933f1ac3d30",
-                "sample_id": "sample-igg-1013",
-                "locus": "igh",
-                "timepoint_id": "merged"
-            },
-            {
-                "ident": "sample-654906d9-16e2-5db5-4643-0490059032c0",
+                "ident": "sample-bfdd83da-8e95-1048-1ec0-fc750e65bc19",
                 "sample_id": "sample-igg-0007",
                 "locus": "igh",
                 "timepoint_id": "merged"
             },
             {
-                "ident": "sample-5d82ca72-029f-eb0a-694b-97f7c2233755",
-                "sample_id": "sample-igg-201c",
+                "ident": "sample-8ad370da-caa2-665c-2cdc-b78f8886901f",
+                "sample_id": "sample-igg-705c",
                 "locus": "igh",
                 "timepoint_id": "merged"
             },
             {
-                "ident": "sample-122c6f7f-bd3e-46f6-0113-bb7303ccdfef",
+                "ident": "sample-d20f0d49-77e8-15c5-ebe4-2927bc6aeb1f",
                 "sample_id": "sample-igg-4002",
                 "locus": "igh",
                 "timepoint_id": "merged"
             },
             {
-                "ident": "sample-c9d235f3-341d-19b6-246f-7fa44d5352eb",
+                "ident": "sample-12e70729-8abf-66ae-3611-fd397f3f50ce",
                 "sample_id": "sample-igg-5001",
+                "locus": "igh",
+                "timepoint_id": "merged"
+            },
+            {
+                "ident": "sample-b3598fe2-630b-536f-74e7-274c35d14209",
+                "sample_id": "sample-igg-602c",
+                "locus": "igh",
+                "timepoint_id": "merged"
+            },
+            {
+                "ident": "sample-38df5d3a-b824-4bde-6380-04ee71f7ed33",
+                "sample_id": "sample-igg-201c",
                 "locus": "igh",
                 "timepoint_id": "merged"
             }
@@ -56,6 +62,101 @@
         "clone_count": 8,
         "subjects_count": 1,
         "timepoints_count": 1,
-        "name": "pcp-example"
+        "name": "pcp-example",
+        "field_metadata": {
+            "clone": {
+                "d_call": {
+                    "type": "categorical",
+                    "display": "dropdown",
+                    "label": "D Gene"
+                },
+                "has_seed": {
+                    "type": "categorical",
+                    "display": "dropdown",
+                    "label": "Has Seed"
+                },
+                "j_call": {
+                    "type": "categorical",
+                    "display": "dropdown",
+                    "label": "J Gene"
+                },
+                "junction_length": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "Junction Length"
+                },
+                "locus": {
+                    "type": "categorical",
+                    "display": "dropdown",
+                    "label": "Locus"
+                },
+                "mean_mut_freq": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "Mean Mutation Frequency"
+                },
+                "sample_id": {
+                    "type": "categorical",
+                    "display": "dropdown",
+                    "label": "Sample"
+                },
+                "subject_id": {
+                    "type": "categorical",
+                    "display": "dropdown",
+                    "label": "Subject"
+                },
+                "total_read_count": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "Total Read Count"
+                },
+                "unique_seqs_count": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "Unique Sequences Count"
+                },
+                "v_call": {
+                    "type": "categorical",
+                    "display": "dropdown",
+                    "label": "V Gene"
+                }
+            },
+            "node": {
+                "cluster_multiplicity": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "Cluster Multiplicity"
+                },
+                "distance": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "Distance from Root"
+                },
+                "multiplicity": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "Multiplicity"
+                }
+            },
+            "branch": {
+                "length": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "Branch Length"
+                }
+            },
+            "mutation": {
+                "child_aa": {
+                    "type": "aa",
+                    "display": "dropdown",
+                    "label": "Child Amino Acid"
+                },
+                "parent_aa": {
+                    "type": "aa",
+                    "display": "tooltip",
+                    "label": "Parent Amino Acid"
+                }
+            }
+        }
     }
 ]

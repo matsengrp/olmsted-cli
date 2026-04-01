@@ -1,0 +1,22 @@
+
+# =============================================================================
+# Processing Options (uncomment and edit as needed)
+# =============================================================================
+
+inputs: [{input_path}]
+output: output.json
+format: airr
+
+# name: "My Dataset"
+# description: ""
+# seed: 42             # for reproducible UUIDs
+
+# --- Metric Computation ---
+# Computes LBI, LBR, affinity, and scaled_affinity for all tree nodes.
+# Requires tree branch lengths (works with any format that has them).
+# compute_metrics: true
+# lbi_tau: 0.0125      # time scale parameter for LBI
+
+# root: naive           # root trees at named node (omit to skip rooting)
+# validate: false
+# verbose: 1

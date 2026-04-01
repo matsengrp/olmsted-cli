@@ -51,6 +51,131 @@
         "clone_count": 8,
         "subjects_count": 1,
         "timepoints_count": 1,
+        "field_metadata": {
+            "clone": {
+                "d_call": {
+                    "type": "categorical",
+                    "display": "dropdown",
+                    "label": "D Gene"
+                },
+                "has_seed": {
+                    "type": "categorical",
+                    "display": "dropdown",
+                    "label": "Has Seed"
+                },
+                "j_call": {
+                    "type": "categorical",
+                    "display": "dropdown",
+                    "label": "J Gene"
+                },
+                "junction_length": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "Junction Length"
+                },
+                "locus": {
+                    "type": "categorical",
+                    "display": "dropdown",
+                    "label": "Locus"
+                },
+                "mean_mut_freq": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "Mean Mutation Frequency"
+                },
+                "rearrangement_count": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "Rearrangement Count"
+                },
+                "sample_id": {
+                    "type": "categorical",
+                    "display": "dropdown",
+                    "label": "Sample"
+                },
+                "sampled_seqs_count": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "Sampled Sequences Count"
+                },
+                "size": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "Size"
+                },
+                "subject_id": {
+                    "type": "categorical",
+                    "display": "dropdown",
+                    "label": "Subject"
+                },
+                "total_read_count": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "Total Read Count"
+                },
+                "unique_seqs_count": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "Unique Sequences Count"
+                },
+                "v_call": {
+                    "type": "categorical",
+                    "display": "dropdown",
+                    "label": "V Gene"
+                }
+            },
+            "node": {
+                "cluster_multiplicity": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "Cluster Multiplicity"
+                },
+                "distance": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "Distance from Root"
+                },
+                "lbi": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "LBI"
+                },
+                "lbr": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "LBR"
+                },
+                "multiplicity": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "Multiplicity"
+                },
+                "timepoint_id": {
+                    "type": "categorical",
+                    "display": "dropdown",
+                    "label": "Timepoint"
+                }
+            },
+            "branch": {
+                "length": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "Branch Length"
+                }
+            },
+            "mutation": {
+                "child_aa": {
+                    "type": "aa",
+                    "display": "dropdown",
+                    "label": "Child Amino Acid"
+                },
+                "parent_aa": {
+                    "type": "aa",
+                    "display": "tooltip",
+                    "label": "Parent Amino Acid"
+                }
+            }
+        },
         "schema_version": "2.0.0"
     }
 ]

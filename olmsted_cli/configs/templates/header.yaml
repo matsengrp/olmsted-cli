@@ -1,0 +1,13 @@
+# =============================================================================
+# Field configuration generated from: {input_name}
+# Detected format: {detected_format}
+# =============================================================================
+#
+# This file lists all fields discovered in your data. Edit it to:
+#   - Remove fields you don't want in the web app dropdowns
+#   - Change type (continuous, categorical, aa, dna, list, json)
+#   - Change display mode (dropdown, tooltip, skip)
+#   - Customize display labels
+#   - Uncomment processing options below as needed
+#
+# Then use with:  {usage_command}

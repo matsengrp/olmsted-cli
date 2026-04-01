@@ -23,7 +23,7 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Dict, List, Literal, Optional, TypedDict
+from typing import Any, Dict, List, Literal, Optional, TypedDict
 
 
 # =============================================================================
@@ -328,6 +328,28 @@ class ContributorInfo(TypedDict, total=False):
     affiliation_ror_id: str
 
 
+class FieldMetadataEntry(TypedDict, total=False):
+    """Metadata for a single data field."""
+
+    type: str  # "continuous", "categorical", "aa", or "dna"
+    display: str  # "dropdown" (default), "tooltip"
+    label: str  # Human-readable display label
+    range: Optional[List[float]]  # [min, max] for continuous fields
+
+
+class CustomFieldDeclaration(TypedDict, total=False):
+    """Declaration of a custom data field from YAML config."""
+
+    name: str  # Field name in the input data
+    output_name: Optional[str]  # Renamed field name in output
+    level: str  # "family"/"clone", "node", "branch", or "mutation"
+    type: str  # "continuous", "categorical", "aa", or "dna"
+    display: Optional[str]  # "dropdown" (default), "tooltip", or "skip"
+    label: str  # Human-readable display label
+    skip: Optional[bool]  # Shorthand for display: skip
+    path: Optional[str]  # Dot-path for nested JSON fields
+
+
 class BuildInfo(TypedDict, total=False):
     """Build/processing information."""
 
@@ -387,6 +409,9 @@ class OlmstedDataset(TypedDict, total=False):
     # Embedded data (for single-file format)
     clones: Optional[List[OlmstedClone]]
     trees: Optional[List[OlmstedTree]]
+
+    # Field metadata (describes available fields at each level)
+    field_metadata: Optional[Dict[str, Dict[str, FieldMetadataEntry]]]
 
     # Dataset name (user-provided)
     name: Optional[str]

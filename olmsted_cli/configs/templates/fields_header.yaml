@@ -1,0 +1,39 @@
+
+
+# =============================================================================
+# Field Declarations
+# =============================================================================
+#
+# Each field entry supports:
+#   name:        Field name in the input data (required)
+#   output_name: Renamed field in output (optional)
+#   level:       family, node, branch, or mutation (required)
+#   type:        continuous, categorical, aa, dna, list, or json (required)
+#   display:     dropdown (default), tooltip, or skip (optional)
+#   label:       Display label in web app (required)
+#   skip:        true to exclude from metadata (shorthand for display: skip)
+#   range:       [min, max] for continuous fields (optional)
+#   encoding:    list, json, or records (mutation-level only, optional)
+#   source:      node field containing the data (required for encoding: records)
+#
+# Types (what the data IS):
+#   continuous  — numeric (axes, size, color scales)
+#   categorical — string/enum (color, shape, facet)
+#   aa          — amino acid identity (full genetic alphabet)
+#   dna         — nucleotide identity (full genetic alphabet)
+#   list        — ordered sequence of values (e.g. per-position data)
+#   json        — structured key-value data (pretty-printed in tooltips)
+#
+# Display modes (how to show it):
+#   dropdown    — in visualization controls (default, omit if not needed)
+#   tooltip     — shown on hover only, not in controls
+#   skip        — excluded from output metadata entirely
+#
+# Cross-format aliases (suggested output_name, remove if not needed):
+#   v_gene, v_gene_heavy  ->  v_call
+#   d_gene, d_gene_heavy  ->  d_call
+#   j_gene, j_gene_heavy  ->  j_call
+#   rearrangement_count   ->  unique_seqs_count
+#   size                  ->  total_read_count
+
+custom_fields:

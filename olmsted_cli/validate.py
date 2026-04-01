@@ -2,120 +2,390 @@
 """
 Validation command for Olmsted CLI.
 
-Validates AIRR JSON or Olmsted dataset files against their schemas.
+Validates data files against Olmsted JSON schemas. Checks:
+- Required fields (dataset_id, unique_seqs_count, newick, etc.)
+- Schema conformance (types, structure)
+- Time tree constraints (optional: child distance >= parent distance)
+- Olmsted JSON format integrity (metadata + datasets + clones + trees)
+
+See FORMATS.md "Validation" section for the full list of required fields.
 """
 
 import argparse
+import csv
+import gzip
 import json
 import sys
+from collections import defaultdict
 from pathlib import Path
-from tqdm import tqdm
 
+from .constants import (
+    CHAIN_COLUMN_ALIASES,
+    KNOWN_PCP_COLUMNS,
+    KNOWN_TREE_COLUMNS,
+)
 from .process_utils import (
+    VerbosePrinter,
+    add_verbosity_args,
+    resolve_verbosity,
     validate_clone,
     validate_consolidated_data,
     validate_dataset,
     validate_tree,
 )
 
+# Module-level VerbosePrinter, initialized in main()
+vprint = VerbosePrinter(1)
 
-def _validate_dataset_with_children(data, verbose, validation_errors, check_time_tree=False):
-    """Helper function to validate a dataset and its clones/trees."""
-    validation_errors.extend(validate_dataset(data, verbose))
+PCP_REQUIRED_COLUMNS = {"sample_id", "parent_name", "child_name"}
+TREE_REQUIRED_COLUMNS_A = {"family_name", "newick_tree"}
+TREE_REQUIRED_COLUMNS_B = {"family", "newick"}  # alternative names
 
-    # If dataset is valid, validate its clones and trees
-    if not validation_errors:
-        clones = data.get("clones", [])
-        
-        if len(clones) > 1:  # Show progress bar if more than 1 clone
-            with tqdm(clones, desc="Validating clones", unit="clone", leave=False) as pbar:
-                for i, clone in enumerate(pbar):
-                    clone_id = clone.get('clone_id', f'clone-{i}') if isinstance(clone, dict) else f'clone-{i}'
-                    pbar.set_description(f"Validating clone {clone_id}")
-                    errors = validate_clone(clone, verbose)
-                    if errors:
-                        validation_errors.extend([f"Clone {i}: {e}" for e in errors])
 
-                    # Validate trees for this clone
-                    trees = clone.get("trees", []) if isinstance(clone, dict) else []
-                    for j, tree in enumerate(trees):
-                        errors = validate_tree(tree, verbose, check_time_tree)
-                        if errors:
-                            validation_errors.extend(
-                                [f"Clone {i}, Tree {j}: {e}" for e in errors]
-                            )
+# =============================================================================
+# CSV Validation
+# =============================================================================
+
+
+def _open_csv(filepath):
+    """Open a CSV file (plain or gzipped) and return a DictReader + fieldnames."""
+    if str(filepath).endswith(".gz"):
+        fh = gzip.open(filepath, "rt")
+    else:
+        fh = open(filepath, "r")
+    reader = csv.DictReader(fh)
+    return fh, reader
+
+
+def validate_pcp_csv(filepath, tree_filepath=None):
+    """
+    Validate a PCP CSV file and optionally its companion tree CSV.
+
+    Checks:
+    - Required columns present
+    - Recognized vs unknown columns (reported as info)
+    - Column aliases detected
+    - Data integrity: at least one family, root nodes exist
+    - Parent-child relationships form valid trees
+    - Sequence data present on at least root nodes
+    - Tree CSV: required columns, family name alignment, newick parsing
+
+    Returns:
+        tuple: (is_valid, list of errors, list of warnings)
+    """
+    errors = []
+    warnings = []
+
+    # --- Open and read PCP CSV ---
+    try:
+        fh, reader = _open_csv(filepath)
+    except Exception as e:
+        return False, [f"Failed to read CSV: {e}"], []
+
+    with fh:
+        fieldnames = set(reader.fieldnames or [])
+        # Filter empty column names (unnamed index columns)
+        fieldnames = {f for f in fieldnames if f}
+
+        # Check required columns
+        missing_required = PCP_REQUIRED_COLUMNS - fieldnames
+        if missing_required:
+            errors.append(f"Missing required columns: {sorted(missing_required)}")
+            return False, errors, warnings
+
+        vprint.verbose(f"  Required columns: PASS ({sorted(PCP_REQUIRED_COLUMNS)})")
+
+        # Check for column aliases
+        alias_found = []
+        for col in fieldnames:
+            if col.lower() in CHAIN_COLUMN_ALIASES:
+                canonical = CHAIN_COLUMN_ALIASES[col.lower()]
+                if canonical not in fieldnames:
+                    alias_found.append(f"{col} -> {canonical}")
+        if alias_found:
+            vprint.verbose(f"  Column aliases detected: {alias_found}")
+
+        # Categorize columns
+        known_cols = fieldnames & KNOWN_PCP_COLUMNS
+        # Also count aliased columns as known
+        aliased_cols = {c for c in fieldnames if c.lower() in CHAIN_COLUMN_ALIASES}
+        extra_cols = fieldnames - KNOWN_PCP_COLUMNS - aliased_cols
+        if extra_cols:
+            vprint.verbose(f"  Extra columns (will be captured as node fields): {sorted(extra_cols)}")
+        vprint.verbose(f"  Known columns: {len(known_cols)}, Extra: {len(extra_cols)}")
+
+        # Check for sequence data
+        has_sequences = (
+            "parent_heavy" in fieldnames or "child_heavy" in fieldnames
+            or "parent_light" in fieldnames or "child_light" in fieldnames
+            or "parent_seq" in fieldnames or "child_seq" in fieldnames
+            or "parent_sequence" in fieldnames or "child_sequence" in fieldnames
+        )
+        if not has_sequences:
+            warnings.append("No sequence columns found (parent_heavy/child_heavy). Tree alignment will not be available.")
         else:
-            # No progress bar for single clone
-            for i, clone in enumerate(clones):
-                errors = validate_clone(clone, verbose)
-                if errors:
-                    validation_errors.extend([f"Clone {i}: {e}" for e in errors])
+            vprint.verbose("  Sequence columns: PASS")
 
-                for j, tree in enumerate(clone.get("trees", [])):
-                    errors = validate_tree(tree, verbose, check_time_tree)
-                    if errors:
-                        validation_errors.extend(
-                            [f"Clone {i}, Tree {j}: {e}" for e in errors]
-                        )
+        # Check for paired data
+        has_heavy = any(c in fieldnames for c in ("parent_heavy", "child_heavy", "parent_seq", "child_seq"))
+        has_light = any(c in fieldnames for c in ("parent_light", "child_light"))
+        if has_heavy and has_light:
+            vprint.verbose("  Paired data detected (heavy + light)")
+        elif has_light and not has_heavy:
+            vprint.verbose("  Light chain only data detected")
+
+        # Read rows and check data integrity
+        families = defaultdict(lambda: {"parents": set(), "children": set(), "rows": 0})
+        row_count = 0
+        for row in reader:
+            row_count += 1
+            family_id = row.get("family", row.get("sample_id", ""))
+            parent = row.get("parent_name", "")
+            child = row.get("child_name", "")
+            if family_id:
+                families[family_id]["parents"].add(parent)
+                families[family_id]["children"].add(child)
+                families[family_id]["rows"] += 1
+
+        if row_count == 0:
+            errors.append("CSV file has no data rows")
+            return False, errors, warnings
+
+        vprint.verbose(f"  Rows: {row_count}, Families: {len(families)}")
+
+        # Check each family has a root (a parent that is never a child)
+        families_without_root = []
+        for family_id, fam in families.items():
+            roots = fam["parents"] - fam["children"]
+            if not roots:
+                families_without_root.append(family_id)
+
+        if families_without_root:
+            warnings.append(
+                f"{len(families_without_root)} families have no root node "
+                f"(every parent also appears as a child): {families_without_root[:5]}"
+                + (" ..." if len(families_without_root) > 5 else "")
+            )
+        else:
+            vprint.verbose(f"  Root nodes: PASS (all {len(families)} families have roots)")
+
+    # --- Validate tree CSV if provided ---
+    if tree_filepath:
+        tree_errors, tree_warnings = validate_tree_csv(tree_filepath, set(families.keys()))
+        errors.extend(tree_errors)
+        warnings.extend(tree_warnings)
+
+    return len(errors) == 0, errors, warnings
 
 
-def _validate_explicit_file_type(data, file_type, filepath, verbose, check_time_tree=False):
+def validate_tree_csv(filepath, pcp_family_ids=None):
+    """
+    Validate a tree CSV file.
+
+    Checks:
+    - Required columns present (family_name/family + newick_tree/newick)
+    - Newick strings parse correctly (basic syntax check)
+    - Family names align with PCP CSV (if pcp_family_ids provided)
+
+    Returns:
+        tuple: (list of errors, list of warnings)
+    """
+    errors = []
+    warnings = []
+
+    try:
+        fh, reader = _open_csv(filepath)
+    except Exception as e:
+        return [f"Failed to read tree CSV: {e}"], []
+
+    with fh:
+        fieldnames = set(reader.fieldnames or [])
+
+        # Check required columns (either naming convention)
+        has_family_col = "family_name" in fieldnames or "family" in fieldnames
+        has_newick_col = "newick_tree" in fieldnames or "newick" in fieldnames
+
+        if not has_family_col:
+            errors.append("Missing required column: 'family_name' or 'family'")
+        if not has_newick_col:
+            errors.append("Missing required column: 'newick_tree' or 'newick'")
+        if errors:
+            return errors, warnings
+
+        vprint.verbose(f"  Tree CSV required columns: PASS")
+
+        # Identify column names
+        family_col = "family_name" if "family_name" in fieldnames else "family"
+        newick_col = "newick_tree" if "newick_tree" in fieldnames else "newick"
+
+        # Extra columns
+        known = KNOWN_TREE_COLUMNS
+        extra = {f for f in fieldnames if f} - known
+        if extra:
+            vprint.verbose(f"  Extra tree columns (will be family-level fields): {sorted(extra)}")
+
+        # Read and validate rows
+        tree_families = set()
+        row_count = 0
+        newick_errors = []
+
+        for row in reader:
+            row_count += 1
+            family_name = row.get(family_col, "")
+            newick = row.get(newick_col, "")
+            tree_families.add(family_name)
+
+            # Basic newick syntax check
+            if not newick or not newick.strip():
+                newick_errors.append(f"Row {row_count} ({family_name}): empty newick string")
+            elif not newick.strip().endswith(";"):
+                newick_errors.append(f"Row {row_count} ({family_name}): newick doesn't end with ';'")
+
+        if row_count == 0:
+            errors.append("Tree CSV has no data rows")
+            return errors, warnings
+
+        vprint.verbose(f"  Tree CSV rows: {row_count}, families: {len(tree_families)}")
+
+        if newick_errors:
+            for e in newick_errors[:5]:
+                errors.append(e)
+            if len(newick_errors) > 5:
+                errors.append(f"... and {len(newick_errors) - 5} more newick errors")
+        else:
+            vprint.verbose(f"  Newick syntax: PASS (all {row_count} trees)")
+
+        # Check alignment with PCP families
+        if pcp_family_ids is not None:
+            # Tree families should be a subset of PCP families
+            missing_in_pcp = tree_families - pcp_family_ids
+            missing_in_trees = pcp_family_ids - tree_families
+
+            if missing_in_pcp:
+                warnings.append(
+                    f"{len(missing_in_pcp)} tree families not found in PCP data: "
+                    f"{sorted(missing_in_pcp)[:5]}"
+                    + (" ..." if len(missing_in_pcp) > 5 else "")
+                )
+            if missing_in_trees:
+                warnings.append(
+                    f"{len(missing_in_trees)} PCP families have no tree: "
+                    f"{sorted(missing_in_trees)[:5]}"
+                    + (" ..." if len(missing_in_trees) > 5 else "")
+                )
+            if not missing_in_pcp and not missing_in_trees:
+                vprint.verbose(f"  Family alignment: PASS (PCP and tree families match)")
+            elif not missing_in_pcp:
+                vprint.verbose(f"  Family alignment: all tree families found in PCP")
+
+    return errors, warnings
+
+
+def _validate_dataset_with_children(data, validation_errors, check_time_tree=False):
+    """Helper function to validate a dataset and its clones/trees."""
+    dataset_errors = validate_dataset(data, vprint.level)
+    validation_errors.extend(dataset_errors)
+    if dataset_errors:
+        return
+
+    vprint.verbose("  Dataset schema: PASS")
+
+    clones = data.get("clones", [])
+    clone_pass = 0
+    clone_fail = 0
+
+    iterator = clones
+    if len(clones) > 1:
+        iterator = vprint.progress(clones, desc="Validating clones", unit="clone", leave=False)
+
+    for i, clone in enumerate(iterator):
+        clone_id = clone.get("clone_id", f"clone-{i}") if isinstance(clone, dict) else f"clone-{i}"
+        if hasattr(iterator, "set_description"):
+            iterator.set_description(f"Validating clone {clone_id}")
+
+        errors = validate_clone(clone, vprint.level)
+        if errors:
+            validation_errors.extend([f"Clone {i}: {e}" for e in errors])
+            clone_fail += 1
+        else:
+            clone_pass += 1
+
+        trees = clone.get("trees", []) if isinstance(clone, dict) else []
+        for j, tree in enumerate(trees):
+            errors = validate_tree(tree, vprint.level, check_time_tree)
+            if errors:
+                validation_errors.extend([f"Clone {i}, Tree {j}: {e}" for e in errors])
+
+    if clone_pass:
+        vprint.verbose(f"  Clones validated: {clone_pass} passed, {clone_fail} failed")
+
+
+def _validate_items(items, item_type, validate_fn, validation_errors, check_time_tree=False):
+    """Validate a list of items (clones or trees) with progress bar."""
+    pass_count = 0
+    fail_count = 0
+
+    iterator = items
+    if len(items) > 1:
+        iterator = vprint.progress(items, desc=f"Validating {item_type}s", unit=item_type, leave=False)
+
+    for i, item in enumerate(iterator):
+        if isinstance(item, dict):
+            item_id = item.get("clone_id", item.get("ident", item.get("tree_id", f"{item_type}-{i}")))
+        else:
+            item_id = f"{item_type}-{i}"
+        if hasattr(iterator, "set_description"):
+            iterator.set_description(f"Validating {item_type} {item_id}")
+
+        if item_type == "tree":
+            errors = validate_fn(item, vprint.level, check_time_tree)
+        else:
+            errors = validate_fn(item, vprint.level)
+
+        if errors:
+            validation_errors.extend([f"{item_type.title()} {i}: {e}" for e in errors])
+            fail_count += 1
+        else:
+            pass_count += 1
+
+    vprint.verbose(f"  {item_type.title()}s validated: {pass_count} passed, {fail_count} failed")
+
+
+def _validate_explicit_file_type(data, file_type, filepath, check_time_tree=False):
     """Handle validation for explicitly specified file types."""
     validation_errors = []
 
     if file_type == "dataset":
-        print(f"Validating as Olmsted dataset: {filepath}")
-        _validate_dataset_with_children(data, verbose, validation_errors, check_time_tree)
+        vprint.status(f"Validating as Olmsted dataset: {filepath}")
+        _validate_dataset_with_children(data, validation_errors, check_time_tree)
 
     elif file_type == "clones":
-        print(f"Validating as clone collection: {filepath}")
+        vprint.status(f"Validating as clone collection: {filepath}")
         if isinstance(data, list):
-            if len(data) > 1:  # Show progress bar if more than 1 clone
-                with tqdm(data, desc="Validating clones", unit="clone", leave=False) as pbar:
-                    for i, clone in enumerate(pbar):
-                        clone_id = clone.get('clone_id', f'clone-{i}') if isinstance(clone, dict) else f'clone-{i}'
-                        pbar.set_description(f"Validating clone {clone_id}")
-                        errors = validate_clone(clone, verbose)
-                        if errors:
-                            validation_errors.extend([f"Clone {i}: {e}" for e in errors])
-            else:
-                # No progress bar for single clone
-                for i, clone in enumerate(data):
-                    errors = validate_clone(clone, verbose)
-                    if errors:
-                        validation_errors.extend([f"Clone {i}: {e}" for e in errors])
+            _validate_items(data, "clone", validate_clone, validation_errors)
         else:
             validation_errors.append("Expected a list of clones")
 
     elif file_type == "clone":
-        print(f"Validating as single clone: {filepath}")
-        errors = validate_clone(data, verbose)
+        vprint.status(f"Validating as single clone: {filepath}")
+        errors = validate_clone(data, vprint.level)
         validation_errors.extend(errors)
+        if not errors:
+            vprint.verbose("  Clone schema: PASS")
 
     elif file_type == "trees":
-        print(f"Validating as tree collection: {filepath}")
+        vprint.status(f"Validating as tree collection: {filepath}")
         if isinstance(data, list):
-            if len(data) > 1:  # Show progress bar if more than 1 tree
-                with tqdm(data, desc="Validating trees", unit="tree", leave=False) as pbar:
-                    for i, tree in enumerate(pbar):
-                        tree_id = tree.get('ident', tree.get('tree_id', f'tree-{i}')) if isinstance(tree, dict) else f'tree-{i}'
-                        pbar.set_description(f"Validating tree {tree_id}")
-                        errors = validate_tree(tree, verbose, check_time_tree)
-                        if errors:
-                            validation_errors.extend([f"Tree {i}: {e}" for e in errors])
-            else:
-                # No progress bar for single tree
-                for i, tree in enumerate(data):
-                    errors = validate_tree(tree, verbose, check_time_tree)
-                    if errors:
-                        validation_errors.extend([f"Tree {i}: {e}" for e in errors])
+            _validate_items(data, "tree", validate_tree, validation_errors, check_time_tree)
         else:
             validation_errors.append("Expected a list of trees")
 
     elif file_type == "tree":
-        print(f"Validating as single tree: {filepath}")
-        errors = validate_tree(data, verbose, check_time_tree)
+        vprint.status(f"Validating as single tree: {filepath}")
+        errors = validate_tree(data, vprint.level, check_time_tree)
         validation_errors.extend(errors)
+        if not errors:
+            vprint.verbose("  Tree schema: PASS")
 
     else:
         validation_errors.append(f"Unknown file type: {file_type}")
@@ -123,159 +393,109 @@ def _validate_explicit_file_type(data, file_type, filepath, verbose, check_time_
     return validation_errors
 
 
-def _auto_detect_array_type(data, filepath, verbose, check_time_tree=False):
+def _auto_detect_array_type(data, filepath, check_time_tree=False):
     """Auto-detect and validate array-type data."""
     validation_errors = []
 
     if len(data) == 0:
-        validation_errors.append(
-            "Empty array - unable to determine file type for validation."
-        )
+        validation_errors.append("Empty array - unable to determine file type.")
         return validation_errors
 
     first_item = data[0]
     if not isinstance(first_item, dict):
         validation_errors.append(
-            "Unable to determine file type for validation. Use --dataset, --clone(s), or --tree(s) to specify."
+            "Unable to determine file type. Use --dataset, --clone(s), or --tree(s) to specify."
         )
         return validation_errors
 
     if "clone_id" in first_item or "germline_alignment" in first_item:
-        # Array of clones
-        print(f"Auto-detected as clone collection: {filepath}")
-        if len(data) > 1:  # Show progress bar if more than 1 clone
-            with tqdm(data, desc="Validating clones", unit="clone", leave=False) as pbar:
-                for i, clone in enumerate(pbar):
-                    clone_id = clone.get('clone_id', f'clone-{i}') if isinstance(clone, dict) else f'clone-{i}'
-                    pbar.set_description(f"Validating clone {clone_id}")
-                    errors = validate_clone(clone, verbose)
-                    if errors:
-                        validation_errors.extend([f"Clone {i}: {e}" for e in errors])
-        else:
-            # No progress bar for single clone
-            for i, clone in enumerate(data):
-                errors = validate_clone(clone, verbose)
-                if errors:
-                    validation_errors.extend([f"Clone {i}: {e}" for e in errors])
+        vprint.status(f"Auto-detected as clone collection: {filepath}")
+        _validate_items(data, "clone", validate_clone, validation_errors)
 
     elif "dataset_id" in first_item:
-        # Array of datasets
-        print(f"Auto-detected as dataset collection: {filepath}")
-        if len(data) > 1:  # Show progress bar if more than 1 dataset
-            with tqdm(data, desc="Validating datasets", unit="dataset", leave=False) as pbar:
-                for i, dataset in enumerate(pbar):
-                    dataset_id = dataset.get('dataset_id', f'dataset-{i}') if isinstance(dataset, dict) else f'dataset-{i}'
-                    pbar.set_description(f"Validating dataset {dataset_id}")
-                    errors = validate_dataset(dataset, verbose)
-                    if errors:
-                        validation_errors.extend([f"Dataset {i}: {e}" for e in errors])
-        else:
-            # No progress bar for single dataset
-            for i, dataset in enumerate(data):
-                errors = validate_dataset(dataset, verbose)
-                if errors:
-                    validation_errors.extend([f"Dataset {i}: {e}" for e in errors])
+        vprint.status(f"Auto-detected as dataset collection: {filepath}")
+        _validate_items(data, "dataset", validate_dataset, validation_errors)
 
     elif "newick" in first_item and "nodes" in first_item:
-        # Array of trees
-        print(f"Auto-detected as tree collection: {filepath}")
-        if len(data) > 1:  # Show progress bar if more than 1 tree
-            with tqdm(data, desc="Validating trees", unit="tree", leave=False) as pbar:
-                for i, tree in enumerate(pbar):
-                    tree_id = tree.get('ident', tree.get('tree_id', f'tree-{i}')) if isinstance(tree, dict) else f'tree-{i}'
-                    pbar.set_description(f"Validating tree {tree_id}")
-                    errors = validate_tree(tree, verbose, check_time_tree)
-                    if errors:
-                        validation_errors.extend([f"Tree {i}: {e}" for e in errors])
-        else:
-            # No progress bar for single tree
-            for i, tree in enumerate(data):
-                errors = validate_tree(tree, verbose, check_time_tree)
-                if errors:
-                    validation_errors.extend([f"Tree {i}: {e}" for e in errors])
+        vprint.status(f"Auto-detected as tree collection: {filepath}")
+        _validate_items(data, "tree", validate_tree, validation_errors, check_time_tree)
 
     else:
         validation_errors.append(
-            "Unable to determine file type for validation. Use --dataset, --clone(s), or --tree(s) to specify."
+            "Unable to determine file type. Use --dataset, --clone(s), or --tree(s) to specify."
         )
 
     return validation_errors
 
 
-def _auto_detect_object_type(data, filepath, verbose, check_time_tree=False):
+def _auto_detect_object_type(data, filepath, check_time_tree=False):
     """Auto-detect and validate object-type data."""
     validation_errors = []
 
-    if (
-        "metadata" in data
-        and "datasets" in data
-        and "clones" in data
-        and "trees" in data
-    ):
-        # This looks like consolidated format
-        print(f"Auto-detected as consolidated Olmsted format: {filepath}")
-        errors = validate_consolidated_data(data, verbose, check_time_tree)
+    if "metadata" in data and "datasets" in data and "clones" in data and "trees" in data:
+        vprint.status(f"Auto-detected as Olmsted JSON format: {filepath}")
+        errors = validate_consolidated_data(data, vprint.level, check_time_tree)
         validation_errors.extend(errors)
+        if not errors:
+            vprint.verbose("  Olmsted JSON format: PASS")
 
     elif "clones" in data:
-        # This looks like a dataset file
-        print(f"Auto-detected as Olmsted dataset: {filepath}")
-        _validate_dataset_with_children(data, verbose, validation_errors, check_time_tree)
+        vprint.status(f"Auto-detected as Olmsted dataset: {filepath}")
+        _validate_dataset_with_children(data, validation_errors, check_time_tree)
 
     elif "trees" in data and isinstance(data.get("trees"), list):
-        # Validate as a collection of trees
-        print(f"Auto-detected as tree collection: {filepath}")
-        trees = data["trees"]
-        if len(trees) > 1:  # Show progress bar if more than 1 tree
-            with tqdm(trees, desc="Validating trees", unit="tree", leave=False) as pbar:
-                for i, tree in enumerate(pbar):
-                    tree_id = tree.get('ident', tree.get('tree_id', f'tree-{i}')) if isinstance(tree, dict) else f'tree-{i}'
-                    pbar.set_description(f"Validating tree {tree_id}")
-                    errors = validate_tree(tree, verbose, check_time_tree)
-                    if errors:
-                        validation_errors.extend([f"Tree {i}: {e}" for e in errors])
-        else:
-            # No progress bar for single tree
-            for i, tree in enumerate(trees):
-                errors = validate_tree(tree, verbose, check_time_tree)
-                if errors:
-                    validation_errors.extend([f"Tree {i}: {e}" for e in errors])
+        vprint.status(f"Auto-detected as tree collection: {filepath}")
+        _validate_items(data["trees"], "tree", validate_tree, validation_errors, check_time_tree)
 
     elif "newick" in data and "nodes" in data:
-        # Single tree
-        print(f"Auto-detected as single tree: {filepath}")
-        errors = validate_tree(data, verbose, check_time_tree)
+        vprint.status(f"Auto-detected as single tree: {filepath}")
+        errors = validate_tree(data, vprint.level, check_time_tree)
         validation_errors.extend(errors)
+        if not errors:
+            vprint.verbose("  Tree schema: PASS")
 
     elif "clone_id" in data or "germline_alignment" in data:
-        # Single clone
-        print(f"Auto-detected as single clone: {filepath}")
-        errors = validate_clone(data, verbose)
+        vprint.status(f"Auto-detected as single clone: {filepath}")
+        errors = validate_clone(data, vprint.level)
         validation_errors.extend(errors)
+        if not errors:
+            vprint.verbose("  Clone schema: PASS")
 
     else:
         validation_errors.append(
-            "Unable to determine file type for validation. Use --dataset, --clone(s), or --tree(s) to specify."
+            "Unable to determine file type. Use --dataset, --clone(s), or --tree(s) to specify."
         )
 
     return validation_errors
 
 
-def validate_file(filepath, file_type=None, verbose=False, strict=False, check_time_tree=False):
+def validate_file(filepath, file_type=None, verbose=1, strict=False,
+                   check_time_tree=False, tree_filepath=None):
     """
-    Validate a single data file.
+    Validate a single data file (JSON or CSV).
 
     Args:
         filepath: Path to the file to validate
-        file_type: Explicit file type ('dataset', 'clone', 'tree', 'clones', 'trees', or None for auto-detect)
-        verbose: Show detailed validation errors
+        file_type: Explicit file type, "pcp", "tree-csv", or None for auto-detect
+        verbose: Verbosity level (0-3). Sets module-level vprint.
         strict: Exit on first validation error
         check_time_tree: Whether to validate time tree constraints
+        tree_filepath: Companion tree CSV file (for PCP validation)
 
     Returns:
         tuple: (is_valid, list of errors)
     """
-    # Load and parse the file
+    global vprint
+    vprint = VerbosePrinter(verbose)
+    filepath = str(filepath)
+
+    # Detect CSV files
+    is_csv = filepath.endswith(".csv") or filepath.endswith(".csv.gz")
+
+    if is_csv or file_type == "pcp":
+        return _validate_csv_file(filepath, file_type, tree_filepath)
+
+    # JSON validation
     try:
         with open(filepath, "r") as f:
             data = json.load(f)
@@ -284,20 +504,47 @@ def validate_file(filepath, file_type=None, verbose=False, strict=False, check_t
     except Exception as e:
         return False, [f"Failed to read file: {e}"]
 
-    # Validate based on file type
     if file_type is not None:
-        # Use explicitly specified file type
-        validation_errors = _validate_explicit_file_type(
-            data, file_type, filepath, verbose, check_time_tree
-        )
+        validation_errors = _validate_explicit_file_type(data, file_type, filepath, check_time_tree)
     else:
-        # Auto-detect file type based on content
         if isinstance(data, list):
-            validation_errors = _auto_detect_array_type(data, filepath, verbose, check_time_tree)
+            validation_errors = _auto_detect_array_type(data, filepath, check_time_tree)
         else:
-            validation_errors = _auto_detect_object_type(data, filepath, verbose, check_time_tree)
+            validation_errors = _auto_detect_object_type(data, filepath, check_time_tree)
 
     return len(validation_errors) == 0, validation_errors
+
+
+def _validate_csv_file(filepath, file_type=None, tree_filepath=None):
+    """Route CSV validation based on file type or auto-detection."""
+    path = Path(filepath)
+
+    # Auto-detect: CSV files are assumed to be PCP format
+    if file_type is None:
+        try:
+            fh, reader = _open_csv(filepath)
+            with fh:
+                fieldnames = set(reader.fieldnames or [])
+            if PCP_REQUIRED_COLUMNS.issubset(fieldnames):
+                file_type = "pcp"
+            else:
+                return False, [
+                    f"Cannot determine CSV type. Found columns: {sorted(fieldnames)[:10]}. "
+                    "Expected PCP format (sample_id, parent_name, child_name)."
+                ]
+        except Exception as e:
+            return False, [f"Failed to read CSV: {e}"]
+
+    vprint.status(f"Validating as PCP CSV: {filepath}")
+    if tree_filepath:
+        vprint.status(f"  Companion tree CSV: {tree_filepath}")
+    else:
+        vprint.status(f"  Warning: No companion tree CSV provided (-t). Tree validation skipped.")
+
+    is_valid, errors, file_warnings = validate_pcp_csv(filepath, tree_filepath)
+    for w in file_warnings:
+        vprint.status(f"  Warning: {w}")
+    return is_valid, errors
 
 
 def get_args():
@@ -306,104 +553,123 @@ def get_args():
         description="Validate Olmsted/AIRR data files against schemas",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
+Validation checks:
+  Datasets:
+    - Required: dataset_id
+    - Schema conformance for all properties
+
+  Clones (clonal families):
+    - Required: unique_seqs_count, mean_mut_freq
+    - Schema conformance for gene calls, alignment positions, etc.
+    - Validates nested trees if present
+
+  Trees:
+    - Required: newick (valid Newick tree string)
+    - Schema conformance for tree metadata
+    - With --time-tree: checks that child distance >= parent distance
+      (monotonically increasing from root)
+
+  Nodes (within trees):
+    - Required: sequence_id, sequence_alignment, sequence_alignment_aa
+    - Schema conformance for metrics, multiplicity, etc.
+
+  Olmsted JSON:
+    - Required: metadata, datasets, clones, trees top-level keys
+    - Validates format_version compatibility
+    - Recursively validates all datasets, clones, and trees
+
+  PCP CSV (requires -t for tree CSV):
+    - Required columns: sample_id, parent_name, child_name
+    - Reports recognized vs extra columns
+    - Checks root nodes exist for each family
+    - Checks for sequence data columns
+    - Tree CSV: required columns, newick syntax, family alignment
+
+  All JSON schemas allow additionalProperties (extra fields are preserved).
+  See FORMATS.md for full field reference.
+
 Examples:
-  # Auto-detect file type
+  # Auto-detect file type (JSON or CSV)
   olmsted validate data.json
+  olmsted validate pcp.csv
 
-  # Explicitly specify file type
-  olmsted validate --dataset datasets.json
-  olmsted validate --clones clones.family1.json clones.family2.json
-  olmsted validate --tree tree.abc123.json
-  olmsted validate --trees trees.collection.json
+  # Validate PCP CSV with companion tree file
+  olmsted validate --pcp pcp.csv -t trees.csv
 
-  # Validate multiple files of different types
-  olmsted validate --dataset dataset.json --clones clones.*.json --tree tree.*.json
+  # Validate split-format JSON files
+  olmsted validate --split datasets.json clones.*.json tree.*.json
 
-  # Validate with verbose output
-  olmsted validate -v data.json
+  # Validate with verbose output (shows passing steps)
+  olmsted validate -v 2 data.json
 
   # Validate and exit on first error
   olmsted validate --strict data.json
 
+  # Check time tree constraints
+  olmsted validate --time-tree data.json
+
 File types:
-  --dataset: Olmsted dataset file containing clones
-  --clone:   Single clone object
-  --clones:  Array/collection of clone objects
-  --tree:    Single tree object with newick and nodes
-  --trees:   Array/collection of tree objects
+  (positional)   Auto-detect format (JSON or CSV)
+  --dataset      Olmsted dataset JSON file
+  --split        Split-format JSON files (auto-detects clone/tree/dataset)
+  --pcp          PCP CSV file (requires -t for companion tree CSV)
+  -t / --tree    Companion tree CSV file
 
 Auto-detection (when no type specified):
-  - Olmsted datasets (contain 'clones' field)
-  - Clone collections (contain 'clone_id' or 'germline_alignment')
-  - Tree collections (contain 'trees' array)
-  - Single trees (contain 'newick' and 'nodes')
+  JSON: Olmsted JSON, datasets, clone/tree collections, single clones/trees
+  CSV:  PCP format (requires sample_id, parent_name, child_name columns)
         """,
     )
 
-    # File arguments with explicit types
     parser.add_argument(
-        "files", nargs="*", help="JSON files to validate (auto-detect type)"
+        "-i", "--input",
+        dest="files",
+        nargs="+",
+        metavar="FILE",
+        help="Files to validate (auto-detects JSON type and CSV format)",
     )
-
     parser.add_argument(
         "--dataset",
         "--datasets",
-        nargs="+",
         dest="dataset_files",
-        metavar="FILE",
-        help="Validate files as Olmsted datasets",
-    )
-
-    parser.add_argument(
-        "--clone",
         nargs="+",
-        dest="clone_files",
         metavar="FILE",
-        help="Validate files as single clone objects",
+        help="Validate JSON files as Olmsted datasets",
     )
-
     parser.add_argument(
-        "--clones",
+        "--split",
+        dest="split_files",
         nargs="+",
-        dest="clones_files",
         metavar="FILE",
-        help="Validate files as clone collections (arrays)",
+        help="Validate split-format JSON files (auto-detects clone/tree/dataset arrays)",
     )
-
     parser.add_argument(
-        "--tree",
+        "--pcp",
+        dest="pcp_files",
         nargs="+",
-        dest="tree_files",
         metavar="FILE",
-        help="Validate files as single tree objects",
+        help="Validate PCP CSV files (requires -t for companion tree CSV)",
+    )
+    parser.add_argument(
+        "-t", "--tree",
+        dest="tree_csv_file",
+        metavar="FILE",
+        help="Companion tree CSV file (required for PCP validation)",
     )
 
-    parser.add_argument(
-        "--trees",
-        nargs="+",
-        dest="trees_files",
-        metavar="FILE",
-        help="Validate files as tree collections (arrays)",
-    )
-
-    # Validation options
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", help="Show detailed validation errors"
-    )
+    add_verbosity_args(parser)
 
     parser.add_argument(
         "--strict",
         action="store_true",
         help="Exit with error code on first validation failure",
     )
-
     parser.add_argument(
         "--schema",
         choices=["airr", "olmsted", "both"],
         default="both",
         help="Which schema to validate against (default: both)",
     )
-    
     parser.add_argument(
         "--time-tree",
         action="store_true",
@@ -415,95 +681,93 @@ Auto-detection (when no type specified):
 
 def main():
     """Main entry point for validate command."""
+    global vprint
     args = get_args()
+    resolve_verbosity(args)
+    vprint = VerbosePrinter(args.verbose)
 
     # Collect all files to validate with their types
     files_to_validate = []
 
-    # Add files with auto-detect
     for filepath in args.files or []:
         files_to_validate.append((filepath, None))
-
-    # Add explicitly typed files
     for filepath in args.dataset_files or []:
         files_to_validate.append((filepath, "dataset"))
+    for filepath in args.split_files or []:
+        files_to_validate.append((filepath, None))  # auto-detect split type
+    for filepath in args.pcp_files or []:
+        files_to_validate.append((filepath, "pcp"))
 
-    for filepath in args.clone_files or []:
-        files_to_validate.append((filepath, "clone"))
-
-    for filepath in args.clones_files or []:
-        files_to_validate.append((filepath, "clones"))
-
-    for filepath in args.tree_files or []:
-        files_to_validate.append((filepath, "tree"))
-
-    for filepath in args.trees_files or []:
-        files_to_validate.append((filepath, "trees"))
+    # Enforce -t with --pcp
+    has_pcp = bool(args.pcp_files)
+    if has_pcp and not args.tree_csv_file:
+        vprint.error("Error: --pcp requires -t/--tree for companion tree CSV file")
+        sys.exit(1)
 
     if not files_to_validate:
-        print("Error: No files specified for validation")
-        print("Use 'olmsted validate --help' for usage information")
+        vprint.error("Error: No files specified for validation")
+        vprint.error("Use 'olmsted validate --help' for usage information")
         sys.exit(1)
 
     all_valid = True
     total_errors = 0
 
-    # Use progress bar for multiple files
-    with tqdm(files_to_validate, desc="Validating files", unit="file", disable=len(files_to_validate) == 1) as pbar:
-        for filepath, file_type in pbar:
-            # Update progress bar description
+    pbar = vprint.progress(files_to_validate, desc="Validating files", unit="file")
+    for filepath, file_type in pbar:
+        if hasattr(pbar, "set_description"):
             pbar.set_description(f"Validating {Path(filepath).name}")
-            
-            # Print header for single file or verbose mode
-            if len(files_to_validate) == 1 or args.verbose:
-                print(f"\n{'=' * 60}")
-                print(f"Validating: {filepath}")
-                if file_type:
-                    print(f"Type: {file_type} (explicitly specified)")
-                else:
-                    print(f"Type: auto-detect")
-                print(f"{'=' * 60}")
 
-            if not Path(filepath).exists():
-                print(f"ERROR: File not found: {filepath}")
-                all_valid = False
-                total_errors += 1
-                if args.strict:
-                    sys.exit(1)
-                continue
+        vprint.verbose(f"\n{'=' * 60}")
+        vprint.verbose(f"Validating: {filepath}")
+        if file_type:
+            vprint.verbose(f"Type: {file_type} (explicitly specified)")
+        else:
+            vprint.verbose(f"Type: auto-detect")
+        vprint.verbose(f"{'=' * 60}")
 
-            is_valid, errors = validate_file(filepath, file_type, args.verbose, args.strict, args.time_tree)
+        if not Path(filepath).exists():
+            vprint.error(f"ERROR: File not found: {filepath}")
+            all_valid = False
+            total_errors += 1
+            if args.strict:
+                sys.exit(1)
+            continue
 
-            if is_valid:
-                if len(files_to_validate) == 1 or args.verbose:
-                    print(f"✅ VALID - {filepath}")
-            else:
-                print(f"❌ INVALID - {filepath}")
-                total_errors += len(errors)
+        # Pass companion tree file for PCP validation
+        tree_fp = getattr(args, "tree_csv_file", None) if file_type == "pcp" else None
+        is_valid, errors = validate_file(
+            filepath, file_type, args.verbose, args.strict, args.time_tree, tree_fp
+        )
 
-                if args.verbose:
-                    print("\nErrors found:")
-                    for error in errors:
-                        print(f"  - {error}")
-                else:
-                    print(f"  {len(errors)} error(s) found (use -v for details)")
+        if is_valid:
+            vprint.status(f"VALID: {filepath}")
+        else:
+            vprint.status(f"INVALID: {filepath}")
+            total_errors += len(errors)
 
-                all_valid = False
-                if args.strict:
-                    sys.exit(1)
+            vprint.verbose("\nErrors found:")
+            for error in errors:
+                vprint.verbose(f"  - {error}")
+
+            if vprint.level < 2:
+                vprint.status(f"  {len(errors)} error(s) found (use -v 2 for details)")
+
+            all_valid = False
+            if args.strict:
+                sys.exit(1)
 
     # Summary
-    print(f"\n{'=' * 60}")
-    print("VALIDATION SUMMARY")
-    print(f"{'=' * 60}")
-    print(f"Files validated: {len(files_to_validate)}")
-    print(f"Total errors: {total_errors}")
+    vprint.status(f"\n{'=' * 60}")
+    vprint.status("VALIDATION SUMMARY")
+    vprint.status(f"{'=' * 60}")
+    vprint.status(f"Files validated: {len(files_to_validate)}")
+    vprint.status(f"Total errors: {total_errors}")
 
     if all_valid:
-        print("\n✅ All files are valid!")
+        vprint.status("\nAll files are valid!")
         sys.exit(0)
     else:
-        print("\n❌ Validation failed for one or more files")
+        vprint.status("\nValidation failed for one or more files")
         sys.exit(1)
 
 

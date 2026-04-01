@@ -18,6 +18,7 @@ import yaml
 from tqdm import tqdm
 
 from .schemas import SCHEMA_VERSION, clone_spec, dataset_spec, tree_spec
+from .version import __version__, get_git_hash
 
 # Constants for infinity handling
 inf = float("inf")
@@ -109,6 +110,57 @@ class VerbosePrinter:
             **kwargs: Keyword arguments to pass to print()
         """
         self.print(*args, min_level=3, **kwargs)
+
+    def progress(self, iterable, min_level=1, **tqdm_kwargs):
+        """
+        Wrap an iterable with tqdm, respecting verbosity level.
+
+        At levels below min_level, returns the bare iterable (no progress bar).
+        At min_level and above, returns a tqdm-wrapped iterable.
+
+        Args:
+            iterable: The iterable to wrap.
+            min_level: Minimum verbosity level to show progress bar (default: 1).
+            **tqdm_kwargs: Keyword arguments passed to tqdm.
+
+        Returns:
+            The iterable, optionally wrapped with tqdm.
+        """
+        if self.level >= min_level:
+            return tqdm(iterable, **tqdm_kwargs)
+        return iterable
+
+
+def add_verbosity_args(parser):
+    """Add standard -v/--verbose and -q/--quiet arguments to an argparser.
+
+    Usage:
+        parser = argparse.ArgumentParser(...)
+        add_verbosity_args(parser)
+        args = parser.parse_args()
+        vprint = VerbosePrinter(args.verbose)
+    """
+    from .constants import VERBOSITY_HELP
+
+    parser.add_argument(
+        "-v", "--verbose",
+        type=int,
+        choices=[0, 1, 2, 3],
+        default=1,
+        help=VERBOSITY_HELP,
+    )
+    parser.add_argument(
+        "-q", "--quiet",
+        action="store_true",
+        help="Quiet mode — errors only (equivalent to -v 0)",
+    )
+
+
+def resolve_verbosity(args):
+    """Resolve verbosity from args, handling -q flag."""
+    if getattr(args, "quiet", False):
+        args.verbose = 0
+    return args.verbose
 
 
 # Data extraction utilities
@@ -487,6 +539,107 @@ def write_out(data, dirname, filename, args):
 CONSOLIDATED_JSON_VERSION = "1.0"
 
 
+def unpack_encoded_mutations(trees, custom_fields):
+    """Unpack encoded mutation-level fields from nodes into mutations arrays.
+
+    Processes custom_fields with an ``encoding`` key, reading data from node-level
+    fields and merging it into each node's ``mutations`` array (keyed by ``site``).
+
+    Supported encodings:
+        - list: Dense per-position array on node. Index = site, value = field value.
+          Null values are skipped.
+        - json: Sparse dict on node. Int key = site, value = field value.
+          Null values are skipped.
+        - records: Array of dicts with ``site`` key on node. ``source`` names
+          the node field containing the array; ``name`` is the inner field to extract.
+
+    Args:
+        trees: List of tree dicts (modified in place).
+        custom_fields: List of custom field declarations from config.
+    """
+    encoded = [cf for cf in (custom_fields or []) if cf.get("encoding")]
+    if not encoded:
+        return
+
+    # Group records fields by source for efficient single-pass merging
+    records_by_source = {}
+    for cf in encoded:
+        if cf["encoding"] == "records":
+            source = cf["source"]
+            records_by_source.setdefault(source, []).append(cf["name"])
+
+    for tree in trees:
+        nodes = tree.get("nodes", [])
+        if isinstance(nodes, dict):
+            node_list = list(nodes.values())
+        else:
+            node_list = nodes
+
+        for node in node_list:
+            if not isinstance(node, dict):
+                continue
+
+            # Index existing mutations by site
+            existing = node.get("mutations", [])
+            by_site = {}
+            for m in existing:
+                if isinstance(m, dict) and "site" in m:
+                    by_site[m["site"]] = m
+
+            for cf in encoded:
+                field_name = cf["name"]
+                encoding = cf["encoding"]
+
+                if encoding == "list":
+                    data = node.get(field_name)
+                    if not isinstance(data, list):
+                        continue
+                    for site, val in enumerate(data):
+                        if val is None:
+                            continue
+                        if site not in by_site:
+                            by_site[site] = {"site": site}
+                        by_site[site][field_name] = val
+
+                elif encoding == "json":
+                    data = node.get(field_name)
+                    if not isinstance(data, dict):
+                        continue
+                    for key, val in data.items():
+                        if val is None:
+                            continue
+                        try:
+                            site = int(key)
+                        except (ValueError, TypeError):
+                            continue
+                        if site not in by_site:
+                            by_site[site] = {"site": site}
+                        by_site[site][field_name] = val
+
+                elif encoding == "records":
+                    source = cf["source"]
+                    # Only process the source array once per node (first field triggers it)
+                    if field_name != records_by_source[source][0]:
+                        continue
+                    data = node.get(source)
+                    if not isinstance(data, list):
+                        continue
+                    fields_to_extract = records_by_source[source]
+                    for entry in data:
+                        if not isinstance(entry, dict) or "site" not in entry:
+                            continue
+                        site = entry["site"]
+                        if site not in by_site:
+                            by_site[site] = {"site": site}
+                        for fname in fields_to_extract:
+                            if fname in entry:
+                                by_site[site][fname] = entry[fname]
+
+            # Write back sorted by site
+            if by_site:
+                node["mutations"] = sorted(by_site.values(), key=lambda m: m["site"])
+
+
 def create_consolidated_data(
     datasets, clones_dict, trees, input_files, detected_format, args=None
 ):
@@ -514,6 +667,7 @@ def create_consolidated_data(
                     total_leaf_count += 1
 
     metadata = {
+        "format": "olmsted",
         "format_version": CONSOLIDATED_JSON_VERSION,
         "schema_version": SCHEMA_VERSION,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -527,13 +681,16 @@ def create_consolidated_data(
         },
         "generated_by": {
             "tool": "olmsted-cli",
-            "version": SCHEMA_VERSION,
+            "version": __version__,
+            "git_hash": get_git_hash(),
         },
     }
 
-    # Add optional name if provided
+    # Add optional name and description if provided
     if args and hasattr(args, "name") and args.name:
         metadata["name"] = args.name
+    if args and hasattr(args, "description") and args.description:
+        metadata["description"] = args.description
 
     # Add processing options if available
     if args:
@@ -545,9 +702,9 @@ def create_consolidated_data(
 
         # Add format-specific options
         if detected_format == "airr":
+            root_arg = getattr(args, "root", None)
             metadata["processing_options"]["airr"] = {
-                "naive_name": getattr(args, "naive_name", "naive"),
-                "root_trees": getattr(args, "root_trees", False),
+                "root": root_arg,
             }
 
     return {
@@ -1009,9 +1166,55 @@ def validate_tree(data, verbose=False, check_time_tree=False):
         errors.extend(olmsted_errors)
     # If AIRR validation passed OR Olmsted validation passed, consider it valid (no errors)
     
+    # Check tree has a root node
+    if "nodes" in data:
+        nodes = data["nodes"]
+        if isinstance(nodes, list):
+            nodes_list = nodes
+        elif isinstance(nodes, dict):
+            nodes_list = list(nodes.values())
+        else:
+            nodes_list = []
+
+        if nodes_list:
+            # Find root node(s) — nodes with parent=None or type="root"
+            root_nodes = [
+                n for n in nodes_list
+                if isinstance(n, dict) and (
+                    n.get("parent") is None or n.get("type") == "root"
+                )
+            ]
+
+            if not root_nodes:
+                # No root found — check for common naive/germline node names
+                all_names = [n.get("sequence_id", "") for n in nodes_list if isinstance(n, dict)]
+                naive_candidates = [
+                    name for name in all_names
+                    if name and any(
+                        hint in name.lower()
+                        for hint in ("naive", "germline", "inferred_naive", "root", "uca")
+                    )
+                ]
+                msg = "Tree has no root node (no node with parent=null or type='root')"
+                if naive_candidates:
+                    msg += (
+                        f". Found candidate root node(s): {naive_candidates[:3]}. "
+                        f"Try reprocessing with: --root {naive_candidates[0]}"
+                    )
+                errors.append(msg)
+            elif len(root_nodes) > 1:
+                root_ids = [n.get("sequence_id", "?") for n in root_nodes]
+                errors.append(
+                    f"Tree has multiple root nodes ({len(root_nodes)}): {root_ids[:5]}"
+                )
+            else:
+                if verbose >= 2:
+                    root_id = root_nodes[0].get("sequence_id", "?")
+                    print(f"  Root node: {root_id}")
+
     # Check time tree constraints if requested and nodes are present
-    if check_time_tree and 'nodes' in data and isinstance(data['nodes'], list):
-        time_tree_errors = validate_time_tree(data['nodes'], verbose=verbose)
+    if check_time_tree and "nodes" in data and isinstance(data["nodes"], list):
+        time_tree_errors = validate_time_tree(data["nodes"], verbose=verbose)
         if time_tree_errors:
             errors.extend(time_tree_errors)
 

@@ -2,6 +2,12 @@
 
 Command-line interface and data processing utilities for the [Olmsted webapp](https://github.com/matsengrp/olmsted).  The Olmsted web application can be launched locally through the git repository, or is also available at https://www.olmstedviz.org.
 
+See also:
+- **[FORMATS.md](./FORMATS.md)**: Input/output format specifications, field mapping, validation
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)**: System architecture, data flow, design decisions
+- **[DEVELOPMENT.md](./DEVELOPMENT.md)**: Development guide, testing, contributing
+- **[CLAUDE.md](./CLAUDE.md)**: AI assistant guidance, code quality rules
+
 ## Overview
 
 `olmsted-cli` is a Python package that processes immunological data from AIRR and PCP formats into the Olmsted JSON format for visualization in the Olmsted web application. It handles sequencing data, reconstructs phylogenetic trees, and calculates various metrics for clonal family analysis.
@@ -70,6 +76,8 @@ olmsted process -i sequences.csv --tree trees.csv -o output/data.json --compute-
 | Command | Purpose |
 |---------|---------|
 | **`process`** | This is the primary tool: Converts input AIRR or PCP format data into Olmsted-readable JSON format |
+| **`enrich`** | Add field metadata to existing Olmsted JSON files (e.g., pre-built surprise analysis data) |
+| **`build-config`** | Generate a YAML config from your data for editing |
 | **`validate`** | Verify data files conform to Olmsted schema |
 | **`summary`** | Generate statistics and metadata report for processed data |
 | **`split`** | Divide large consolidated files into smaller chunks for performance |
@@ -101,6 +109,7 @@ olmsted process -i input.csv -f pcp -o output.json
 | `--unbundle DIR` | Unbundle output into separate component files (datasets.json, clones.*.json, tree.*.json) for backwards compatibility with Olmsted web app |
 | `-f, --format {airr,pcp,auto}` | Input format (default: auto-detect) |
 | `-t, --tree FILE` | Trees file for PCP format (optional, can be gzipped) |
+| `-c, --config FILE` | YAML configuration file (CLI arguments override config values) |
 
 #### Processing Options
 
@@ -176,6 +185,179 @@ Expected columns in the trees file:
 | `family_name` | Clonal family identifier (must match `family` in PCP CSV) |
 | `sample_id` | Sample identifier (must match `sample_id` in PCP CSV) |
 | `newick_tree` | Newick format tree string for the family |
+
+---
+
+### `enrich` - Add Field Metadata to Existing Files
+
+Add `field_metadata` to pre-built Olmsted JSON files. This is useful for data produced outside the standard `process` pipeline (e.g., surprise analysis data from DASM2).
+
+#### Basic Usage
+
+```bash
+# Introspect fields and add metadata
+olmsted enrich -i data.json -o enriched.json
+
+# With custom field declarations
+olmsted enrich -i data.json -o enriched.json -c surprise.yaml
+
+# Modify file in place
+olmsted enrich -i data.json --in-place -c surprise.yaml
+```
+
+#### Options
+
+| Option | Description |
+|--------|-------------|
+| `-i, --input FILE` | Input Olmsted JSON file |
+| `-o, --output FILE` | Output file path (required unless `--in-place`) |
+| `--in-place` | Modify the input file in place |
+| `-c, --config FILE` | YAML config with custom field declarations |
+| `--json-format {pretty,compact}` | JSON output format (default: pretty) |
+| `-v, --verbose` | Show detailed output |
+
+---
+
+### `build-config` - Generate Config from Data
+
+Introspect your data and generate a YAML config listing processing options, every discoverable field with its inferred type/label/sample values, and cross-format alias suggestions. Edit the config, then use it with `process` or `enrich`.
+
+#### Typical Workflow
+
+```bash
+# 1. Generate a config from your data
+olmsted build-config -i data.json -o config.yaml
+
+# 2. Edit config.yaml — remove fields you don't need, fix labels, adjust types
+
+# 3. Use the config to enrich your data
+olmsted enrich -i data.json -o enriched.json -c config.yaml
+```
+
+#### Options
+
+| Option | Description |
+|--------|-------------|
+| `-i, --input FILE` | Input Olmsted JSON file to introspect |
+| `-o, --output FILE` | Output YAML file (default: print to stdout) |
+
+#### Example Output
+
+```yaml
+custom_fields:
+  # --- Family level (clonal family — scatterplot axes, color, facet) ---
+  - name: mean_mut_freq
+    level: family
+    type: continuous
+    label: "Mean Mutation Frequency"
+    # sample values: 0.115, 0.056, 0.036, ...
+
+  - name: rearrangement_count
+    output_name: unique_seqs_count    # suggested cross-format alias
+    level: family
+    type: continuous
+    label: "Rearrangement Count"
+
+  # --- Mutation level (alignment coloring) ---
+  - name: surprise_mutsel
+    level: mutation
+    type: continuous
+    label: "Surprise (MutSel)"
+    # range in data: [0.68, 13.03]
+
+  # =================================================================
+  # Skipped fields (not included in output metadata)
+  # =================================================================
+  - name: partition
+    level: family
+    skip: true
+    type: tooltip
+    label: "Partition"
+```
+
+---
+
+### Configuration Files
+
+Instead of passing all options on the command line, you can use a YAML configuration file. CLI arguments always override config values.
+
+```bash
+# Use a config file
+olmsted process -c config.yaml
+
+# Config with CLI overrides (CLI wins)
+olmsted process -c config.yaml -i other_data.csv -o override.json
+```
+
+#### Default Configs
+
+Default configuration files are included with the package as starting points. Copy one and customize it for your dataset:
+
+| Config | Format | Purpose |
+|--------|--------|---------|
+| `pcp.yaml` | PCP | Standard PCP processing with all options documented |
+| `airr.yaml` | AIRR | Standard AIRR processing with all options documented |
+| `surprise.yaml` | Enrich | Custom field declarations for DASM2 surprise analysis data |
+
+To copy a default config:
+
+```bash
+# Find the configs directory
+python -c "import olmsted_cli.configs; print(olmsted_cli.configs.__path__[0])"
+
+# Copy and customize
+cp $(python -c "import olmsted_cli.configs; print(olmsted_cli.configs.__path__[0])")/pcp.yaml my_config.yaml
+```
+
+#### Config File Structure
+
+```yaml
+# Standard CLI options (use underscores, not hyphens)
+inputs: [data.csv]
+output: output/result.json
+tree: trees.csv
+format: pcp
+name: "My Dataset"
+description: "Heavy chain BCR data from experiment X"
+seed: 42
+compute_metrics: true
+lbi_tau: 0.0125
+verbose: 1
+validate: true
+
+# Custom field declarations
+custom_fields:
+  - name: my_metric
+    level: family             # family, node, branch, or mutation
+    type: continuous          # continuous, categorical, tooltip, aa, or dna
+    label: "My Metric"       # Display label in web app
+
+  - name: internal_id
+    level: family
+    skip: true                # exclude from output metadata
+    type: categorical
+    label: "Internal ID"
+```
+
+#### Custom Fields
+
+The `custom_fields` section lets you declare additional data fields that should appear in the web app's visualization controls. Each entry supports:
+
+| Key | Description |
+|-----|-------------|
+| `name` | Field name as it appears in the input data |
+| `output_name` | *(optional)* Renamed field in output (for cross-format alignment) |
+| `level` | `family` (scatterplot), `node` (tree nodes), `branch` (branches), `mutation` (alignment) |
+| `type` | `continuous`, `categorical`, `tooltip`, `aa` (amino acid), or `dna` (nucleotide) |
+| `label` | Human-readable label for dropdowns and tooltips |
+| `skip` | *(optional)* `true` to exclude from output metadata |
+| `range` | *(optional)* `[min, max]` for continuous fields (color scale domain) |
+
+**Levels**: `family` is the preferred name for the clonal family level (also accepts `clone` as an alias). The output JSON uses `clone` internally for backward compatibility.
+
+**Types**: `aa` and `dna` tell the web app to use the full genetic alphabet for color palettes, rather than just the values present in the data.
+
+Standard fields (e.g., `unique_seqs_count`, `v_call`, `lbi`) are auto-detected and don't need to be declared. Use `build-config` to generate a starting config with all discoverable fields.
 
 ---
 
@@ -344,3 +526,5 @@ ruff check .
 - **Live Web App**: https://olmstedviz.org
 
 ---
+
+_Last updated: 2026-03-31_
