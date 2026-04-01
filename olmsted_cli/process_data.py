@@ -24,9 +24,8 @@ import traceback
 import uuid
 from pathlib import Path
 
-import yaml
-
 import jsonschema
+import yaml
 from tqdm import tqdm
 
 from .constants import (
@@ -41,7 +40,6 @@ from .constants import (
     MUTATION_ENCODINGS,
     normalize_level,
 )
-
 from .process_airr_data import (
     clone_spec,
     process_dataset,
@@ -630,7 +628,8 @@ _CONFIG_KEY_MAP = {
 }
 
 # Valid config keys (including custom_fields which is handled separately)
-_VALID_CONFIG_KEYS = set(_CONFIG_KEY_MAP.keys()) | {"custom_fields"}
+# Enrich-specific keys are also accepted (input, mode) so configs work for both commands.
+_VALID_CONFIG_KEYS = set(_CONFIG_KEY_MAP.keys()) | {"custom_fields", "input", "mode"}
 
 
 def load_config(config_path):
@@ -679,6 +678,12 @@ def load_config(config_path):
             if config_key in ("inputs", "tree", "output", "split_files"):
                 value = _resolve_paths(value, config_dir)
             config_dict[arg_dest] = value
+
+    # Enrich-specific keys (not in _CONFIG_KEY_MAP)
+    if "input" in raw_config:
+        config_dict["input"] = _resolve_paths(raw_config["input"], config_dir)
+    if "mode" in raw_config:
+        config_dict["mode"] = raw_config["mode"]
 
     # Parse custom_fields
     custom_fields = []

@@ -43,7 +43,6 @@ from .constants import (
     normalize_level,
 )
 
-
 # =============================================================================
 # Utility functions
 # =============================================================================
@@ -158,7 +157,7 @@ def humanize_label(field_name: str) -> str:
     return " ".join(result)
 
 
-def _sample_values(dicts: List[Dict], field: str, max_samples: int = 50) -> List[Any]:
+def sample_values(dicts: List[Dict], field: str, max_samples: int = 50) -> List[Any]:
     """Sample non-null values for a field across a list of dicts."""
     values = []
     for d in dicts:
@@ -169,7 +168,7 @@ def _sample_values(dicts: List[Dict], field: str, max_samples: int = 50) -> List
     return values
 
 
-def _sample_values_by_path(dicts: List[Dict], path: str, max_samples: int = 50) -> List[Any]:
+def sample_values_by_path(dicts: List[Dict], path: str, max_samples: int = 50) -> List[Any]:
     """Sample non-null values using a dot-path across a list of dicts."""
     values = []
     for d in dicts:
@@ -181,7 +180,7 @@ def _sample_values_by_path(dicts: List[Dict], path: str, max_samples: int = 50) 
     return values
 
 
-def _collect_keys(dicts: List[Dict]) -> set:
+def collect_keys(dicts: List[Dict]) -> set:
     """Collect the union of all keys across a list of dicts."""
     keys = set()
     for d in dicts:
@@ -225,7 +224,7 @@ def _apply_custom_fields(metadata, custom_fields, level, data_dicts=None):
         # (user may be declaring a field they intend to add later).
         path = cf.get("path")
         if path and data_dicts:
-            values = _sample_values_by_path(data_dicts, path, max_samples=10)
+            values = sample_values_by_path(data_dicts, path, max_samples=10)
             # If values found and type is continuous, compute range
             if values and entry["type"] == "continuous" and "range" not in cf:
                 numeric_vals = [v for v in values if isinstance(v, (int, float)) and not isinstance(v, bool)]
@@ -326,12 +325,12 @@ def generate_clone_metadata(
         return {}
 
     metadata = {}
-    all_keys = _collect_keys(clones)
+    all_keys = collect_keys(clones)
 
     # Check for known fields that use dot-paths (e.g., locus → sample.locus)
     for field_name, field_info in KNOWN_CLONE_FIELDS.items():
         if "path" in field_info and field_name not in all_keys:
-            values = _sample_values_by_path(clones, field_info["path"], max_samples=10)
+            values = sample_values_by_path(clones, field_info["path"], max_samples=10)
             if values:
                 all_keys.add(field_name)
 
@@ -343,13 +342,13 @@ def generate_clone_metadata(
             known = KNOWN_CLONE_FIELDS[key]
             # Use path if specified, otherwise top-level lookup
             if "path" in known:
-                values = _sample_values_by_path(clones, known["path"])
+                values = sample_values_by_path(clones, known["path"])
             else:
-                values = _sample_values(clones, key)
+                values = sample_values(clones, key)
             if values:
                 metadata[key] = _entry_from_known(known)
         else:
-            values = _sample_values(clones, key)
+            values = sample_values(clones, key)
             if values:
                 field_type = infer_field_type(values)
                 metadata[key] = _make_entry(field_type, humanize_label(key))
@@ -376,22 +375,22 @@ def generate_node_metadata(
     Returns:
         Dict mapping field_name -> {"type": ..., "label": ...}
     """
-    all_nodes = _collect_nodes(trees)
+    all_nodes = collect_nodes(trees)
     if not all_nodes:
         return {}
 
     metadata = {}
-    all_keys = _collect_keys(all_nodes) - EXCLUDED_NODE_FIELDS
+    all_keys = collect_keys(all_nodes) - EXCLUDED_NODE_FIELDS
 
     for key in sorted(all_keys):
         if key in KNOWN_NODE_FIELDS:
-            values = _sample_values(all_nodes, key)
+            values = sample_values(all_nodes, key)
             if values:
                 metadata[key] = _entry_from_known(KNOWN_NODE_FIELDS[key])
         elif key in KNOWN_BRANCH_FIELDS:
             continue
         else:
-            values = _sample_values(all_nodes, key)
+            values = sample_values(all_nodes, key)
             if values:
                 field_type = infer_field_type(values)
                 metadata[key] = _make_entry(field_type, humanize_label(key))
@@ -418,16 +417,16 @@ def generate_branch_metadata(
     Returns:
         Dict mapping field_name -> {"type": ..., "label": ...}
     """
-    all_nodes = _collect_nodes(trees)
+    all_nodes = collect_nodes(trees)
     if not all_nodes:
         return {}
 
     metadata = {}
-    all_keys = _collect_keys(all_nodes) - EXCLUDED_BRANCH_FIELDS
+    all_keys = collect_keys(all_nodes) - EXCLUDED_BRANCH_FIELDS
 
     for key in sorted(all_keys):
         if key in KNOWN_BRANCH_FIELDS:
-            values = _sample_values(all_nodes, key)
+            values = sample_values(all_nodes, key)
             if values:
                 metadata[key] = _entry_from_known(KNOWN_BRANCH_FIELDS[key])
 
@@ -454,12 +453,12 @@ def generate_mutation_metadata(
     Returns:
         Dict mapping field_name -> {"type": ..., "label": ..., "range"?: [...]}
     """
-    all_mutations = _collect_mutations(trees)
+    all_mutations = collect_mutations(trees, max_mutations=100000)
 
     # Check if nodes have AA sequence data — if so, the web app will derive
     # per-mutation child_aa/parent_aa fields during alignment rendering,
     # even if no mutations arrays exist in the data.
-    all_nodes = _collect_nodes(trees, max_nodes=20)
+    all_nodes = collect_nodes(trees, max_nodes=20)
     has_aa_sequences = any(
         n.get("sequence_alignment_aa") for n in all_nodes if isinstance(n, dict)
     )
@@ -474,29 +473,26 @@ def generate_mutation_metadata(
         _apply_custom_fields(metadata, custom_fields, "mutation", all_nodes)
         return metadata
 
-    # Collect ALL mutations (not sampled) for accurate range computation
-    all_mutations_full = _collect_mutations(trees, max_mutations=100000)
-
     metadata = {}
-    all_keys = _collect_keys(all_mutations) - EXCLUDED_MUTATION_FIELDS
+    all_keys = collect_keys(all_mutations) - EXCLUDED_MUTATION_FIELDS
 
     for key in sorted(all_keys):
         if key in KNOWN_MUTATION_FIELDS:
-            values = _sample_values(all_mutations, key)
+            values = sample_values(all_mutations, key)
             if values:
                 entry = _entry_from_known(KNOWN_MUTATION_FIELDS[key])
                 if entry["type"] == "continuous":
-                    field_range = compute_range(all_mutations_full, key)
+                    field_range = compute_range(all_mutations, key)
                     if field_range:
                         entry["range"] = field_range
                 metadata[key] = entry
         else:
-            values = _sample_values(all_mutations, key)
+            values = sample_values(all_mutations, key)
             if values:
                 field_type = infer_field_type(values)
                 entry = _make_entry(field_type, humanize_label(key))
                 if field_type == "continuous":
-                    field_range = compute_range(all_mutations_full, key)
+                    field_range = compute_range(all_mutations, key)
                     if field_range:
                         entry["range"] = field_range
                 metadata[key] = entry
@@ -512,7 +508,7 @@ def generate_mutation_metadata(
 # =============================================================================
 
 
-def _collect_nodes(trees: List[Dict], max_nodes: int = 200) -> List[Dict]:
+def collect_nodes(trees: List[Dict], max_nodes: int = 200) -> List[Dict]:
     """Collect node dicts from across trees (up to max_nodes for sampling)."""
     nodes = []
     for tree in trees:
@@ -527,7 +523,7 @@ def _collect_nodes(trees: List[Dict], max_nodes: int = 200) -> List[Dict]:
     return nodes
 
 
-def _collect_mutations(trees: List[Dict], max_mutations: int = 200) -> List[Dict]:
+def collect_mutations(trees: List[Dict], max_mutations: int = 200) -> List[Dict]:
     """Collect mutation dicts from mutations arrays across tree nodes."""
     mutations = []
     for tree in trees:
@@ -536,9 +532,9 @@ def _collect_mutations(trees: List[Dict], max_mutations: int = 200) -> List[Dict
             tree_nodes = list(tree_nodes.values())
         for node in tree_nodes:
             if isinstance(node, dict):
-                surprise = node.get("mutations")
-                if isinstance(surprise, list):
-                    for mut in surprise:
+                node_mutations = node.get("mutations")
+                if isinstance(node_mutations, list):
+                    for mut in node_mutations:
                         if isinstance(mut, dict):
                             mutations.append(mut)
                             if len(mutations) >= max_mutations:

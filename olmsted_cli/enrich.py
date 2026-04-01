@@ -16,8 +16,6 @@ import json
 import sys
 from pathlib import Path
 
-import yaml
-
 from .field_metadata import generate_field_metadata
 from .process_data import load_config
 from .process_utils import (
@@ -52,8 +50,7 @@ Examples:
     parser.add_argument(
         "-i",
         "--input",
-        required=True,
-        help="Input Olmsted JSON file to enrich",
+        help="Input Olmsted JSON file to enrich (required, or provide in config)",
     )
     parser.add_argument(
         "-o",
@@ -87,8 +84,24 @@ Examples:
     args = parser.parse_args()
     resolve_verbosity(args)
 
+    # Load config and apply values where CLI didn't explicitly set them
+    custom_fields = None
+    if args.config:
+        config_dict, custom_fields = load_config(args.config)
+        # Apply config values for enrich-specific keys
+        _ENRICH_CONFIG_KEYS = {"input", "output", "mode"}
+        for key in _ENRICH_CONFIG_KEYS:
+            if key in config_dict and getattr(args, key, None) is None:
+                setattr(args, key, config_dict[key])
+
+    args.custom_fields = custom_fields
+
+    # Validate required args (after config loading)
+    if not args.input:
+        parser.error("the following arguments are required: -i/--input (or provide in config)")
+
     if not args.output and not args.in_place:
-        parser.error("Either -o/--output or --in-place must be specified")
+        parser.error("Either -o/--output or --in-place must be specified (or provide output in config)")
 
     if args.output and args.in_place:
         parser.error("Cannot specify both -o/--output and --in-place")
@@ -122,10 +135,8 @@ def main():
         )
         sys.exit(1)
 
-    # Load custom fields from config if provided
-    custom_fields = None
-    if args.config:
-        _, custom_fields = load_config(args.config)
+    # Custom fields already loaded during arg parsing
+    custom_fields = args.custom_fields
 
     # Ensure metadata has the format tag
     if "metadata" not in data:

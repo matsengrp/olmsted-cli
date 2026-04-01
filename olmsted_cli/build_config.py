@@ -16,7 +16,6 @@ import json
 import sys
 from pathlib import Path
 
-from .process_data import detect_file_format
 from .constants import (
     EXCLUDED_CLONE_FIELDS,
     EXCLUDED_MUTATION_FIELDS,
@@ -35,18 +34,19 @@ from .constants import (
     SUGGESTED_SKIP_FIELDS,
 )
 from .field_metadata import (
+    collect_keys,
+    collect_mutations,
+    collect_nodes,
     compute_range,
     humanize_label,
     infer_field_type,
-    _collect_mutations,
-    _collect_nodes,
-    _collect_keys,
-    _sample_values,
+    sample_values,
 )
+from .process_data import detect_file_format
 
 
 def get_args():
-    """Parse command line arguments for the dump-fields command."""
+    """Parse command line arguments for the build-config command."""
     parser = argparse.ArgumentParser(
         description="Generate a YAML config from your data for editing",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -146,10 +146,10 @@ def _load_olmsted(input_path):
 def _load_pcp(input_path, trees_path, seed, compute_metrics):
     """Process PCP data and return clones and trees."""
     from .process_pcp_data import (
+        deterministic_uuid,
         parse_newick_csv,
         parse_pcp_csv,
         process_pcp_to_olmsted,
-        deterministic_uuid,
     )
 
     pcp_families = parse_pcp_csv(str(input_path))
@@ -240,7 +240,7 @@ def _check_mutation_demotion(nodes, field, max_samples=20):
     Returns a dict with demotion info if eligible, or None:
         {"encoding": "list"|"json"|"records", "inner_type": str, ...}
     """
-    values = _sample_values(nodes, field, max_samples=max_samples)
+    values = sample_values(nodes, field, max_samples=max_samples)
     if not values:
         return None
 
@@ -337,7 +337,7 @@ def _field_summary(dicts, field, known_registry):
             "label": known["label"],
         }
     else:
-        values = _sample_values(dicts, field, max_samples=50)
+        values = sample_values(dicts, field, max_samples=50)
         inferred_type = infer_field_type(values)
         display = "tooltip" if inferred_type in ("list", "json") else "dropdown"
         entry = {
@@ -400,8 +400,8 @@ def _build_yaml(
     no_skip=False, skip_all=False,
 ):
     """Build the YAML config string from templates and introspected data."""
-    all_nodes = _collect_nodes(all_trees, max_nodes=500)
-    all_mutations = _collect_mutations(all_trees, max_mutations=500)
+    all_nodes = collect_nodes(all_trees, max_nodes=500)
+    all_mutations = collect_mutations(all_trees, max_mutations=100000)
 
     input_str = str(input_path) if input_path else input_name
     tree_str = str(tree_path) if tree_path else "trees.csv"
@@ -447,13 +447,13 @@ def _build_yaml(
             return True
         # Auto-skip fields whose values look like local file paths
         if dicts is not None:
-            values = _sample_values(dicts, field, max_samples=20)
+            values = sample_values(dicts, field, max_samples=20)
             if _looks_like_local_path(values):
                 return True
         return False
 
     # --- Clone level ---
-    clone_keys = _collect_keys(all_clones) - EXCLUDED_CLONE_FIELDS
+    clone_keys = collect_keys(all_clones) - EXCLUDED_CLONE_FIELDS
     has_locus = any(
         isinstance(c.get("sample"), dict) and c["sample"].get("locus") is not None
         for c in all_clones[:20]
@@ -461,8 +461,9 @@ def _build_yaml(
     if has_locus:
         clone_keys.add("locus")
 
-    active_clone = [f for f in sorted(clone_keys) if not _is_skip(f, all_clones)]
-    skip_clone = [f for f in sorted(clone_keys) if _is_skip(f, all_clones)]
+    active_clone, skip_clone = [], []
+    for f in sorted(clone_keys):
+        (skip_clone if _is_skip(f, all_clones) else active_clone).append(f)
 
     if active_clone:
         lines.append("")
@@ -476,20 +477,21 @@ def _build_yaml(
                     if isinstance(c.get("sample"), dict) and c["sample"].get("locus")
                 })
             else:
-                samples = _sample_values(all_clones, field, max_samples=6)
+                samples = sample_values(all_clones, field, max_samples=6)
             lines.append(_format_field_block(field, "family", entry, samples))
 
     for field in skip_clone:
         entry = _field_summary(all_clones, field, KNOWN_CLONE_FIELDS)
-        samples = _sample_values(all_clones, field, max_samples=6)
+        samples = sample_values(all_clones, field, max_samples=6)
         skip_entries.append((field, "family", entry, samples, None))
 
     # --- Node level ---
-    node_keys = _collect_keys(all_nodes) - EXCLUDED_NODE_FIELDS
+    node_keys = collect_keys(all_nodes) - EXCLUDED_NODE_FIELDS
     node_keys -= set(KNOWN_BRANCH_FIELDS.keys())
 
-    active_node = [f for f in sorted(node_keys) if not _is_skip(f, all_nodes)]
-    skip_node = [f for f in sorted(node_keys) if _is_skip(f, all_nodes)]
+    active_node, skip_node = [], []
+    for f in sorted(node_keys):
+        (skip_node if _is_skip(f, all_nodes) else active_node).append(f)
 
     # Check for node fields that should be demoted to mutation level
     demoted_fields = {}  # field -> demotion info
@@ -506,35 +508,35 @@ def _build_yaml(
         lines.append("  # --- Node level (tree node properties, tooltips) ---")
         for field in remaining_node:
             entry = _field_summary(all_nodes, field, KNOWN_NODE_FIELDS)
-            samples = _sample_values(all_nodes, field, max_samples=6)
+            samples = sample_values(all_nodes, field, max_samples=6)
             lines.append(_format_field_block(field, "node", entry, samples))
 
     for field in skip_node:
         entry = _field_summary(all_nodes, field, KNOWN_NODE_FIELDS)
-        samples = _sample_values(all_nodes, field, max_samples=6)
+        samples = sample_values(all_nodes, field, max_samples=6)
         skip_entries.append((field, "node", entry, samples, None))
 
     # --- Branch level ---
-    branch_keys = _collect_keys(all_nodes) & set(KNOWN_BRANCH_FIELDS.keys())
+    branch_keys = collect_keys(all_nodes) & set(KNOWN_BRANCH_FIELDS.keys())
     if branch_keys:
         lines.append("")
         lines.append("  # --- Branch level (tree branch coloring, width) ---")
         for field in sorted(branch_keys):
             entry = dict(KNOWN_BRANCH_FIELDS[field])
-            samples = _sample_values(all_nodes, field, max_samples=6)
+            samples = sample_values(all_nodes, field, max_samples=6)
             lines.append(_format_field_block(field, "branch", entry, samples))
 
     # --- Mutation level ---
-    mutation_keys = _collect_keys(all_mutations) - EXCLUDED_MUTATION_FIELDS
-    all_mutations_full = _collect_mutations(all_trees, max_mutations=100000)
+    mutation_keys = collect_keys(all_mutations) - EXCLUDED_MUTATION_FIELDS
 
     has_aa_sequences = any(
         n.get("sequence_alignment_aa") for n in all_nodes if isinstance(n, dict)
     )
     has_derived_aa = has_aa_sequences and "child_aa" not in mutation_keys
 
-    active_mutation = [f for f in sorted(mutation_keys) if not _is_skip(f, all_mutations)]
-    skip_mutation = [f for f in sorted(mutation_keys) if _is_skip(f, all_mutations)]
+    active_mutation, skip_mutation = [], []
+    for f in sorted(mutation_keys):
+        (skip_mutation if _is_skip(f, all_mutations) else active_mutation).append(f)
 
     if active_mutation or has_derived_aa or demoted_fields:
         lines.append("")
@@ -574,22 +576,22 @@ def _build_yaml(
                     # list or json: emit single entry with encoding
                     entry = _field_summary(all_nodes, field, KNOWN_NODE_FIELDS)
                     entry["type"] = info["inner_type"]
-                    samples = _sample_values(all_nodes, field, max_samples=6)
+                    samples = sample_values(all_nodes, field, max_samples=6)
                     lines.append(_format_field_block(
                         field, "mutation", entry, samples, encoding=enc,
                     ))
 
         for field in active_mutation:
             entry = _field_summary(all_mutations, field, KNOWN_MUTATION_FIELDS)
-            samples = _sample_values(all_mutations, field, max_samples=6)
+            samples = sample_values(all_mutations, field, max_samples=6)
             field_range = None
             if entry["type"] == "continuous":
-                field_range = compute_range(all_mutations_full, field)
+                field_range = compute_range(all_mutations, field)
             lines.append(_format_field_block(field, "mutation", entry, samples, field_range))
 
     for field in skip_mutation:
         entry = _field_summary(all_mutations, field, KNOWN_MUTATION_FIELDS)
-        samples = _sample_values(all_mutations, field, max_samples=6)
+        samples = sample_values(all_mutations, field, max_samples=6)
         skip_entries.append((field, "mutation", entry, samples, None))
 
     # --- Skipped fields section (at the bottom) ---
@@ -605,7 +607,7 @@ def _build_yaml(
 
 
 def main():
-    """Main entry point for the dump-fields command."""
+    """Main entry point for the build-config command."""
     args = get_args()
 
     input_path = Path(args.input)
