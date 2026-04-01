@@ -7,7 +7,7 @@ import tempfile
 
 import pytest
 
-from olmsted_cli.build_config import _check_mutation_demotion
+from olmsted_cli.build_config import _check_mutation_demotion, _looks_like_local_path
 from olmsted_cli.process_utils import unpack_encoded_mutations
 
 
@@ -236,6 +236,41 @@ class TestBuildConfigNewTypes:
     def test_demotion_comment_present(self, build_config_output):
         """Demoted fields section has explanatory comment."""
         assert "demoted from node to mutation level" in build_config_output
+
+
+class TestLooksLikeLocalPath:
+    """Tests for _looks_like_local_path heuristic."""
+
+    def test_absolute_paths(self):
+        assert _looks_like_local_path(["/data/raw/file.fasta", "/tmp/out.json"])
+
+    def test_relative_paths(self):
+        assert _looks_like_local_path(["./data/file.csv", "../other/file.txt"])
+
+    def test_home_paths(self):
+        assert _looks_like_local_path(["~/Documents/data.json"])
+
+    def test_windows_paths(self):
+        assert _looks_like_local_path(["C:\\Users\\data\\file.csv"])
+
+    def test_urls_not_paths(self):
+        assert not _looks_like_local_path(["https://example.com/data.json"])
+        assert not _looks_like_local_path(["http://api.example.com/v1"])
+
+    def test_regular_strings_not_paths(self):
+        assert not _looks_like_local_path(["group-alpha", "group-beta"])
+        assert not _looks_like_local_path(["IGHV3-48*01", "IGHJ4*02"])
+
+    def test_empty_list(self):
+        assert not _looks_like_local_path([])
+
+    def test_non_string_values_ignored(self):
+        assert not _looks_like_local_path([42, 3.14, True])
+
+    def test_mixed_paths_and_strings(self):
+        """Threshold: at least half must be paths."""
+        assert _looks_like_local_path(["/data/a.txt", "/data/b.txt", "other"])
+        assert not _looks_like_local_path(["/data/a.txt", "foo", "bar", "baz"])
 
 
 class TestBuildConfigFormatDetection:

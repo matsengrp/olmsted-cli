@@ -225,3 +225,92 @@ class TestEnrichCommand:
         finally:
             if os.path.exists(output_path):
                 os.unlink(output_path)
+
+    def test_enrich_mode_overwrite(self, sample_olmsted_json):
+        """--mode overwrite replaces existing field_metadata entirely."""
+        import subprocess
+
+        # First enrich to add field_metadata
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as out:
+            output_path = out.name
+
+        try:
+            subprocess.run(
+                ["olmsted", "enrich", "-i", sample_olmsted_json, "-o", output_path],
+                capture_output=True, text=True,
+            )
+
+            # Add a fake field to the existing metadata
+            with open(output_path) as f:
+                data = json.load(f)
+            data["datasets"][0]["field_metadata"]["clone"]["fake_field"] = {
+                "type": "continuous", "display": "dropdown", "label": "Fake"
+            }
+            with open(output_path, "w") as f:
+                json.dump(data, f)
+
+            # Enrich again with overwrite — fake_field should be gone
+            with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as out2:
+                output_path2 = out2.name
+
+            result = subprocess.run(
+                ["olmsted", "enrich", "-i", output_path, "-o", output_path2,
+                 "--mode", "overwrite"],
+                capture_output=True, text=True,
+            )
+            assert result.returncode == 0
+
+            with open(output_path2) as f:
+                overwritten = json.load(f)
+
+            fm = overwritten["datasets"][0]["field_metadata"]
+            assert "fake_field" not in fm.get("clone", {})
+            # Real fields should still be present
+            assert "unique_seqs_count" in fm["clone"]
+        finally:
+            for p in (output_path, output_path2):
+                if os.path.exists(p):
+                    os.unlink(p)
+
+    def test_enrich_mode_add_preserves_existing(self, sample_olmsted_json):
+        """--mode add (default) preserves existing field_metadata entries."""
+        import subprocess
+
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as out:
+            output_path = out.name
+
+        try:
+            subprocess.run(
+                ["olmsted", "enrich", "-i", sample_olmsted_json, "-o", output_path],
+                capture_output=True, text=True,
+            )
+
+            # Add a fake field to the existing metadata
+            with open(output_path) as f:
+                data = json.load(f)
+            data["datasets"][0]["field_metadata"]["clone"]["fake_field"] = {
+                "type": "continuous", "display": "dropdown", "label": "Fake"
+            }
+            with open(output_path, "w") as f:
+                json.dump(data, f)
+
+            # Enrich again with default add mode — fake_field should survive
+            with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as out2:
+                output_path2 = out2.name
+
+            result = subprocess.run(
+                ["olmsted", "enrich", "-i", output_path, "-o", output_path2],
+                capture_output=True, text=True,
+            )
+            assert result.returncode == 0
+
+            with open(output_path2) as f:
+                merged = json.load(f)
+
+            fm = merged["datasets"][0]["field_metadata"]
+            assert "fake_field" in fm["clone"]
+            assert "unique_seqs_count" in fm["clone"]
+        finally:
+            for p in (output_path, output_path2):
+                if os.path.exists(p):
+                    os.unlink(p)

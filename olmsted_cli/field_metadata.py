@@ -270,8 +270,12 @@ def _apply_suggestions(metadata: Dict) -> Dict:
     """Apply SUGGESTED_SKIP_FIELDS and SUGGESTED_DISPLAY_MODES to metadata.
 
     Removes fields in SUGGESTED_SKIP_FIELDS and applies display overrides
-    from SUGGESTED_DISPLAY_MODES. Only affects fields not already set by
-    the known field registry (which takes precedence).
+    from SUGGESTED_DISPLAY_MODES. Runs before _apply_custom_fields, so
+    user config declarations can re-add suggested-skip fields if needed.
+
+    Note: build_config._is_skip also consults SUGGESTED_SKIP_FIELDS for
+    YAML layout (active vs skip section). These are separate concerns —
+    this function affects output metadata, _is_skip affects config generation.
     """
     for field_name in list(metadata.keys()):
         if field_name in SUGGESTED_SKIP_FIELDS:
@@ -291,7 +295,7 @@ def _make_entry(type_str: str, label: str, display: str = "dropdown", **extra) -
     return entry
 
 
-def _entry_from_known(known: Dict) -> Dict:
+def entry_from_known(known: Dict) -> Dict:
     """Build a field_metadata entry from a known fields registry entry.
 
     Copies type, display, and label. Omits path (internal routing only).
@@ -351,7 +355,7 @@ def generate_clone_metadata(
             else:
                 values = sample_values(clones, key)
             if values:
-                metadata[key] = _entry_from_known(known)
+                metadata[key] = entry_from_known(known)
         else:
             values = sample_values(clones, key)
             if values:
@@ -391,7 +395,7 @@ def generate_node_metadata(
         if key in KNOWN_NODE_FIELDS:
             values = sample_values(all_nodes, key)
             if values:
-                metadata[key] = _entry_from_known(KNOWN_NODE_FIELDS[key])
+                metadata[key] = entry_from_known(KNOWN_NODE_FIELDS[key])
         elif key in KNOWN_BRANCH_FIELDS:
             continue
         else:
@@ -433,7 +437,7 @@ def generate_branch_metadata(
         if key in KNOWN_BRANCH_FIELDS:
             values = sample_values(all_nodes, key)
             if values:
-                metadata[key] = _entry_from_known(KNOWN_BRANCH_FIELDS[key])
+                metadata[key] = entry_from_known(KNOWN_BRANCH_FIELDS[key])
 
     _apply_suggestions(metadata)
     _apply_custom_fields(metadata, custom_fields, "branch", all_nodes)
@@ -485,7 +489,7 @@ def generate_mutation_metadata(
         if key in KNOWN_MUTATION_FIELDS:
             values = sample_values(all_mutations, key)
             if values:
-                entry = _entry_from_known(KNOWN_MUTATION_FIELDS[key])
+                entry = entry_from_known(KNOWN_MUTATION_FIELDS[key])
                 if entry["type"] == "continuous":
                     field_range = compute_range(all_mutations, key)
                     if field_range:

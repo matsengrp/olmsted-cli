@@ -42,6 +42,7 @@ from .field_metadata import (
     collect_mutations,
     collect_nodes,
     compute_range,
+    entry_from_known,
     humanize_label,
     infer_field_type,
     sample_values,
@@ -200,8 +201,9 @@ def _load_airr(input_path):
         datasets_raw = [data]
 
     args = Namespace(
-        naive_name="naive",
-        root_trees=False,
+        root=None,           # no rooting for build-config introspection
+        naive_name="naive",  # default for process_dataset compatibility
+        root_trees=False,    # no rooting for build-config introspection
         verbose=0,
         custom_fields=None,
     )
@@ -334,12 +336,7 @@ def _check_mutation_demotion(nodes, field, max_samples=MAX_SAMPLE_HEURISTIC):
 def _field_summary(dicts, field, known_registry):
     """Build a summary dict for a single field: type, display, label."""
     if field in known_registry:
-        known = known_registry[field]
-        entry = {
-            "type": known["type"],
-            "display": known.get("display", "dropdown"),
-            "label": known["label"],
-        }
+        entry = entry_from_known(known_registry[field])
     else:
         values = sample_values(dicts, field, max_samples=MAX_SAMPLE_VALUES)
         inferred_type = infer_field_type(values)
