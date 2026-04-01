@@ -9,9 +9,13 @@ Minimal datasets with foobar bogus metrics at every field level and type, for te
 | **clone** | `foobar_score` | continuous | Bogus numeric clone metric |
 | **clone** | `foobar_category` | categorical | Bogus clone grouping |
 | **clone** | `foobar_note` | tooltip | Bogus clone description |
+| **clone** | `foobar_params` | json | Bogus structured parameters (tooltip display) |
+| **clone** | `foobar_path` | categorical | Local file path (auto-skipped) |
 | **node** | `foobar_weight` | continuous | Bogus numeric node metric |
 | **node** | `foobar_class` | categorical | Bogus node classification |
 | **node** | `foobar_description` | tooltip | Bogus node description |
+| **node→mutation** | `foobar_per_site_score` | list (inner: continuous) | Per-position scores, demoted to mutation level |
+| **node→mutation** | `foobar_sparse_aa` | json (inner: aa) | Sparse per-position AA changes, demoted to mutation level |
 | **mutation** | `foobar_impact` | continuous | Bogus numeric mutation score |
 | **mutation** | `foobar_tier` | categorical | Bogus mutation tier |
 | **mutation** | `child_aa` | aa | Amino acid identity (genetic alphabet type) |
@@ -23,7 +27,7 @@ Minimal datasets with foobar bogus metrics at every field level and type, for te
 |------|--------|---------------------------------|
 | `olmsted-test-fields.json` | Olmsted JSON | Yes — all levels including mutation |
 | `airr-test-fields.json` | AIRR JSON | Yes — clone, node, and mutation levels |
-| `pcp-test-fields.csv` + `trees-test-fields.csv` | PCP CSV | No — PCP parser only passes known columns |
+| `pcp-test-fields.csv` + `trees-test-fields.csv` | PCP CSV | Yes — includes JSON-encoded list/dict columns |
 | `test-fields-config.yaml` | YAML config | Declares all foobar fields for any format |
 
 ## Usage
@@ -35,7 +39,7 @@ olmsted enrich -i olmsted-test-fields.json -o enriched.json -c test-fields-confi
 # AIRR: process with config
 olmsted process -i airr-test-fields.json -o output.json -c test-fields-config.yaml
 
-# PCP: process with config (foobar fields declared but not in CSV data)
+# PCP: process with config
 olmsted process -i pcp-test-fields.csv -t trees-test-fields.csv -o output.json -c test-fields-config.yaml
 
 # Dump fields from any format
@@ -44,11 +48,12 @@ olmsted build-config -i airr-test-fields.json
 olmsted build-config -i pcp-test-fields.csv -t trees-test-fields.csv
 ```
 
-## Notes on PCP and Mutation-Level Data
+## New Type Coverage
 
-The PCP parser extracts only known columns — extra columns in the CSV are not passed through to the output. Custom node/branch/mutation-level fields require either:
+### list and json types
+- `foobar_per_site_score`: A list of floats on each node, length matching the AA sequence (4 positions). Detected as `list` type, then demoted to mutation level with `inner_type: continuous`.
+- `foobar_sparse_aa`: A JSON dict with integer keys mapping to single AA characters. Detected as `json` type, then demoted to mutation level with `inner_type: aa`.
+- `foobar_params`: A JSON dict with non-integer keys (method names, settings). Stays at clone level as `json` with `display: tooltip`.
 
-1. Adding them after processing via `olmsted enrich` with a config
-2. Working in Olmsted JSON or AIRR format where arbitrary fields are preserved
-
-Mutation-level data (like `surprise_mutations`) is stored as arrays on tree nodes in the Olmsted JSON output. There is no native PCP column format for per-mutation data. This could theoretically be supported with serialized columns (e.g., JSON arrays in CSV cells), but that is not currently implemented.
+### Path detection
+- `foobar_path`: Contains local file paths (e.g. `/data/raw/sample-1/clone-A.fasta`). Auto-detected and suggested for skip in build-config output.

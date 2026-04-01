@@ -27,6 +27,18 @@ custom_fields:
     type: tooltip
     label: "Foobar Note"
 
+  - name: foobar_params
+    level: clone
+    type: json
+    display: tooltip
+    label: "Foobar Parameters"
+
+  - name: foobar_path
+    level: clone
+    type: categorical
+    skip: true
+    label: "Foobar Path"
+
   # === Node level ===
   - name: foobar_weight
     level: node
@@ -62,5 +74,17 @@ custom_fields:
 
   - name: parent_aa
     level: mutation
-    type: tooltip
+    type: aa
+    display: tooltip
     label: "Parent Amino Acid"
+
+  # === Mutation level (demoted from node — per-position data) ===
+  - name: foobar_per_site_score
+    level: mutation
+    type: continuous
+    label: "Foobar Per Site Score"
+
+  - name: foobar_sparse_aa
+    level: mutation
+    type: aa
+    label: "Foobar Sparse AA"

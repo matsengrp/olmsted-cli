@@ -60,13 +60,17 @@ def infer_field_type(values: List[Any]) -> str:
         "continuous" if all values are numeric,
         "aa" if all values are single amino acid characters,
         "dna" if all values are single nucleotide characters,
-        "categorical" for strings, booleans, mixed types, or complex values.
+        "list" if all values are lists,
+        "json" if all values are dicts,
+        "categorical" for strings, booleans, or mixed types.
     """
     if not values:
         return "categorical"
 
     numeric_count = 0
     string_count = 0
+    list_count = 0
+    dict_count = 0
     string_values = []
     for v in values:
         if isinstance(v, bool):
@@ -76,9 +80,24 @@ def infer_field_type(values: List[Any]) -> str:
         elif isinstance(v, str):
             string_count += 1
             string_values.append(v)
+        elif isinstance(v, list):
+            list_count += 1
+        elif isinstance(v, dict):
+            dict_count += 1
         else:
-            # Complex types (lists, dicts) — categorical for type, display: tooltip suggested
             return "categorical"
+
+    # All lists → list type
+    if list_count > 0 and list_count == len(values):
+        return "list"
+
+    # All dicts → json type
+    if dict_count > 0 and dict_count == len(values):
+        return "json"
+
+    # Mixed complex types → categorical
+    if list_count > 0 or dict_count > 0:
+        return "categorical"
 
     if numeric_count > 0 and string_count == 0:
         return "continuous"

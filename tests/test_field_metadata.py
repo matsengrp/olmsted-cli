@@ -185,9 +185,17 @@ class TestInferFieldType:
     def test_empty_values(self):
         assert infer_field_type([]) == "categorical"
 
-    def test_complex_values(self):
-        assert infer_field_type([{"a": 1}, {"b": 2}]) == "categorical"
-        assert infer_field_type([[1, 2], [3, 4]]) == "categorical"
+    def test_list_values(self):
+        assert infer_field_type([[1, 2], [3, 4]]) == "list"
+        assert infer_field_type([["a", "b"], ["c"]]) == "list"
+
+    def test_json_values(self):
+        assert infer_field_type([{"a": 1}, {"b": 2}]) == "json"
+        assert infer_field_type([{"3": "A", "7": "G"}]) == "json"
+
+    def test_mixed_complex_values(self):
+        assert infer_field_type([[1, 2], {"a": 1}]) == "categorical"
+        assert infer_field_type([[1, 2], "hello"]) == "categorical"
 
 
 # =============================================================================

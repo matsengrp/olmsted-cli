@@ -215,6 +215,93 @@ def _load_airr(input_path):
     return all_clones, all_trees
 
 
+def _looks_like_local_path(values):
+    """Check if sample string values look like local file paths (not URLs)."""
+    path_prefixes = ("/", "./", "../", "~")
+    path_count = 0
+    for v in values:
+        if not isinstance(v, str):
+            continue
+        if any(v.startswith(p) for p in path_prefixes) or "\\" in v:
+            # Exclude URLs
+            if not v.startswith(("http://", "https://", "ftp://")):
+                path_count += 1
+    return path_count > 0 and path_count >= len(values) // 2
+
+
+def _check_mutation_demotion(nodes, field, max_samples=20):
+    """Check if a node-level list/json field contains per-position mutation data.
+
+    Returns a dict with demotion info if eligible, or None:
+        {"inner_type": "continuous"|"aa", "reason": str}
+    """
+    values = _sample_values(nodes, field, max_samples=max_samples)
+    if not values:
+        return None
+
+    field_type = infer_field_type(values)
+
+    # Get sequence lengths for comparison
+    seq_lengths = set()
+    for node in nodes[:max_samples]:
+        if not isinstance(node, dict):
+            continue
+        for seq_field in ("sequence_alignment_aa", "sequence_alignment"):
+            seq = node.get(seq_field)
+            if isinstance(seq, str) and len(seq) > 0:
+                seq_lengths.add(len(seq))
+                break
+
+    if field_type == "list":
+        # Check if list lengths match any observed sequence length
+        list_lengths = {len(v) for v in values if isinstance(v, list)}
+        if not list_lengths or not (list_lengths & seq_lengths):
+            return None
+        # Check inner value type
+        inner_values = [item for v in values for item in v if item is not None]
+        if not inner_values:
+            return None
+        inner_type = infer_field_type(inner_values)
+        if inner_type in ("continuous", "aa", "dna"):
+            return {
+                "inner_type": inner_type,
+                "reason": f"list length matches sequence length ({list_lengths & seq_lengths})",
+            }
+
+    elif field_type == "json":
+        # Check if keys are parseable as ints within sequence range
+        all_keys_int = True
+        max_key = -1
+        inner_values = []
+        for v in values:
+            if not isinstance(v, dict):
+                return None
+            for k, val in v.items():
+                try:
+                    k_int = int(k)
+                    max_key = max(max_key, k_int)
+                except (ValueError, TypeError):
+                    all_keys_int = False
+                    break
+                if val is not None:
+                    inner_values.append(val)
+            if not all_keys_int:
+                break
+        if not all_keys_int or max_key < 0 or not inner_values:
+            return None
+        # Check max key is within sequence range
+        if seq_lengths and max_key >= max(seq_lengths):
+            return None
+        inner_type = infer_field_type(inner_values)
+        if inner_type in ("continuous", "aa", "dna"):
+            return {
+                "inner_type": inner_type,
+                "reason": f"int keys within sequence range (max key: {max_key})",
+            }
+
+    return None
+
+
 def _field_summary(dicts, field, known_registry):
     """Build a summary dict for a single field: type, display, label."""
     if field in known_registry:
@@ -226,9 +313,11 @@ def _field_summary(dicts, field, known_registry):
         }
     else:
         values = _sample_values(dicts, field, max_samples=50)
+        inferred_type = infer_field_type(values)
+        display = "tooltip" if inferred_type in ("list", "json") else "dropdown"
         entry = {
-            "type": infer_field_type(values),
-            "display": "dropdown",
+            "type": inferred_type,
+            "display": display,
             "label": humanize_label(field),
         }
     # Apply suggested display mode override
@@ -317,12 +406,19 @@ def _build_yaml(
     # Collect skip entries separately for the bottom section
     skip_entries = []
 
-    def _is_skip(field):
+    def _is_skip(field, dicts=None):
         if no_skip:
             return False
         if skip_all:
             return True
-        return field in SUGGESTED_SKIP_FIELDS
+        if field in SUGGESTED_SKIP_FIELDS:
+            return True
+        # Auto-skip fields whose values look like local file paths
+        if dicts is not None:
+            values = _sample_values(dicts, field, max_samples=20)
+            if _looks_like_local_path(values):
+                return True
+        return False
 
     # --- Clone level ---
     clone_keys = _collect_keys(all_clones) - EXCLUDED_CLONE_FIELDS
@@ -333,8 +429,8 @@ def _build_yaml(
     if has_locus:
         clone_keys.add("locus")
 
-    active_clone = [f for f in sorted(clone_keys) if not _is_skip(f)]
-    skip_clone = [f for f in sorted(clone_keys) if _is_skip(f)]
+    active_clone = [f for f in sorted(clone_keys) if not _is_skip(f, all_clones)]
+    skip_clone = [f for f in sorted(clone_keys) if _is_skip(f, all_clones)]
 
     if active_clone:
         lines.append("")
@@ -360,13 +456,23 @@ def _build_yaml(
     node_keys = _collect_keys(all_nodes) - EXCLUDED_NODE_FIELDS
     node_keys -= set(KNOWN_BRANCH_FIELDS.keys())
 
-    active_node = [f for f in sorted(node_keys) if not _is_skip(f)]
-    skip_node = [f for f in sorted(node_keys) if _is_skip(f)]
+    active_node = [f for f in sorted(node_keys) if not _is_skip(f, all_nodes)]
+    skip_node = [f for f in sorted(node_keys) if _is_skip(f, all_nodes)]
 
-    if active_node:
+    # Check for node fields that should be demoted to mutation level
+    demoted_fields = {}  # field -> demotion info
+    remaining_node = []
+    for field in active_node:
+        demotion = _check_mutation_demotion(all_nodes, field)
+        if demotion:
+            demoted_fields[field] = demotion
+        else:
+            remaining_node.append(field)
+
+    if remaining_node:
         lines.append("")
         lines.append("  # --- Node level (tree node properties, tooltips) ---")
-        for field in active_node:
+        for field in remaining_node:
             entry = _field_summary(all_nodes, field, KNOWN_NODE_FIELDS)
             samples = _sample_values(all_nodes, field, max_samples=6)
             lines.append(_format_field_block(field, "node", entry, samples))
@@ -395,10 +501,10 @@ def _build_yaml(
     )
     has_derived_aa = has_aa_sequences and "child_aa" not in mutation_keys
 
-    active_mutation = [f for f in sorted(mutation_keys) if not _is_skip(f)]
-    skip_mutation = [f for f in sorted(mutation_keys) if _is_skip(f)]
+    active_mutation = [f for f in sorted(mutation_keys) if not _is_skip(f, all_mutations)]
+    skip_mutation = [f for f in sorted(mutation_keys) if _is_skip(f, all_mutations)]
 
-    if active_mutation or has_derived_aa:
+    if active_mutation or has_derived_aa or demoted_fields:
         lines.append("")
         lines.append("  # --- Mutation level (alignment coloring) ---")
 
@@ -413,6 +519,17 @@ def _build_yaml(
                 "parent_aa", "mutation",
                 {"type": "aa", "display": "tooltip", "label": "Parent Amino Acid"},
             ))
+
+        # Demoted node fields (list/json containing per-position mutation data)
+        if demoted_fields:
+            lines.append("  # The following fields were detected as per-position data")
+            lines.append("  # stored on nodes (demoted from node to mutation level):")
+            for field, info in sorted(demoted_fields.items()):
+                entry = _field_summary(all_nodes, field, KNOWN_NODE_FIELDS)
+                # Override type with the inner value type
+                entry["type"] = info["inner_type"]
+                samples = _sample_values(all_nodes, field, max_samples=6)
+                lines.append(_format_field_block(field, "mutation", entry, samples))
 
         for field in active_mutation:
             entry = _field_summary(all_mutations, field, KNOWN_MUTATION_FIELDS)

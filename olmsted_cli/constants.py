@@ -60,7 +60,9 @@ VALIDATE_TREE_CSV = "tree-csv"
 #: - categorical: string/enum values (color, shape, facet)
 #: - aa: amino acid identity (uses full genetic alphabet)
 #: - dna: nucleotide identity (uses full genetic alphabet)
-FIELD_TYPES = {"continuous", "categorical", "aa", "dna"}
+#: - list: ordered sequence of values (e.g. per-position mutation data in PCP)
+#: - json: structured key-value data (e.g. sparse mutation data in PCP)
+FIELD_TYPES = {"continuous", "categorical", "aa", "dna", "list", "json"}
 
 #: Valid display modes for field_metadata entries.
 #: - dropdown: shown in visualization controls (default)

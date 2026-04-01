@@ -7,6 +7,8 @@ import tempfile
 
 import pytest
 
+from olmsted_cli.build_config import _check_mutation_demotion
+
 
 class TestBuildConfigOlmsted:
     def test_olmsted_json(self):
@@ -130,6 +132,11 @@ class TestBuildConfigPcp:
         assert "foobar_category" in output
         assert "foobar_weight" in output
         assert "foobar_class" in output
+        # New types: list/json demoted to mutation, json at clone, path auto-skipped
+        assert "foobar_per_site_score" in output
+        assert "foobar_sparse_aa" in output
+        assert "foobar_params" in output
+        assert "foobar_path" in output
 
     def test_pcp_shows_compute_metrics(self):
         """PCP config template includes compute_metrics option."""
@@ -156,6 +163,78 @@ class TestBuildConfigAirr:
         assert "v_call" in output or "V Gene" in output
 
 
+class TestBuildConfigNewTypes:
+    """Tests for list, json, path detection in build-config output."""
+
+    @pytest.fixture(params=[
+        ("example_data/test-fields/olmsted-test-fields.json", None),
+        ("example_data/test-fields/airr-test-fields.json", None),
+        ("example_data/test-fields/pcp-test-fields.csv",
+         "example_data/test-fields/trees-test-fields.csv"),
+    ], ids=["olmsted", "airr", "pcp"])
+    def build_config_output(self, request):
+        input_path, tree_path = request.param
+        cmd = ["olmsted", "build-config", "-i", input_path]
+        if tree_path:
+            cmd += ["-t", tree_path]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        assert result.returncode == 0
+        return result.stdout
+
+    def test_json_at_clone_level(self, build_config_output):
+        """foobar_params (non-int keys) stays at family level as json."""
+        assert "foobar_params" in build_config_output
+        # Should be in clone/family section with type: json
+        lines = build_config_output.split("\n")
+        for i, line in enumerate(lines):
+            if "name: foobar_params" in line:
+                block = "\n".join(lines[i:i+5])
+                assert "level: family" in block
+                assert "type: json" in block
+                break
+        else:
+            pytest.fail("foobar_params not found in output")
+
+    def test_list_demoted_to_mutation(self, build_config_output):
+        """foobar_per_site_score (list matching seq length) demoted to mutation."""
+        lines = build_config_output.split("\n")
+        for i, line in enumerate(lines):
+            if "name: foobar_per_site_score" in line:
+                block = "\n".join(lines[i:i+5])
+                assert "level: mutation" in block
+                assert "type: continuous" in block
+                break
+        else:
+            pytest.fail("foobar_per_site_score not found in output")
+
+    def test_json_demoted_to_mutation(self, build_config_output):
+        """foobar_sparse_aa (int keys, AA values) demoted to mutation."""
+        lines = build_config_output.split("\n")
+        for i, line in enumerate(lines):
+            if "name: foobar_sparse_aa" in line:
+                block = "\n".join(lines[i:i+5])
+                assert "level: mutation" in block
+                assert "type: aa" in block
+                break
+        else:
+            pytest.fail("foobar_sparse_aa not found in output")
+
+    def test_path_auto_skipped(self, build_config_output):
+        """foobar_path (local file paths) auto-skipped."""
+        lines = build_config_output.split("\n")
+        for i, line in enumerate(lines):
+            if "name: foobar_path" in line:
+                block = "\n".join(lines[i:i+5])
+                assert "skip: true" in block
+                break
+        else:
+            pytest.fail("foobar_path not found in output")
+
+    def test_demotion_comment_present(self, build_config_output):
+        """Demoted fields section has explanatory comment."""
+        assert "demoted from node to mutation level" in build_config_output
+
+
 class TestBuildConfigFormatDetection:
     def test_detects_olmsted(self):
         result = subprocess.run(
@@ -180,3 +259,75 @@ class TestBuildConfigFormatDetection:
             capture_output=True, text=True,
         )
         assert "AIRR" in result.stderr
+
+
+class TestMutationDemotion:
+    """Tests for _check_mutation_demotion: detecting node fields with per-position data."""
+
+    def _make_nodes(self, field, values, seq_len=5):
+        """Helper: create node dicts with a sequence and a test field."""
+        seq = "A" * seq_len
+        return [
+            {"sequence_alignment_aa": seq, field: v}
+            for v in values
+        ]
+
+    def test_list_continuous_matching_length(self):
+        nodes = self._make_nodes("scores", [[0.1, 0.2, 0.3, 0.4, 0.5]] * 3)
+        result = _check_mutation_demotion(nodes, "scores")
+        assert result is not None
+        assert result["inner_type"] == "continuous"
+
+    def test_list_aa_matching_length(self):
+        nodes = self._make_nodes("residues", [["A", "V", "L", "M", "D"]] * 3)
+        result = _check_mutation_demotion(nodes, "residues")
+        assert result is not None
+        assert result["inner_type"] == "aa"
+
+    def test_list_wrong_length(self):
+        """Lists that don't match sequence length are not demoted."""
+        nodes = self._make_nodes("scores", [[0.1, 0.2, 0.3]] * 3, seq_len=5)
+        result = _check_mutation_demotion(nodes, "scores")
+        assert result is None
+
+    def test_list_categorical_not_demoted(self):
+        """Lists of categorical strings are not demoted."""
+        nodes = self._make_nodes("labels", [["foo", "bar", "baz", "qux", "xyz"]] * 3)
+        result = _check_mutation_demotion(nodes, "labels")
+        assert result is None
+
+    def test_json_continuous_within_range(self):
+        nodes = self._make_nodes("sparse_scores", [{"0": 0.5, "3": 0.8}] * 3)
+        result = _check_mutation_demotion(nodes, "sparse_scores")
+        assert result is not None
+        assert result["inner_type"] == "continuous"
+
+    def test_json_aa_within_range(self):
+        nodes = self._make_nodes("sparse_aa", [{"0": "D", "3": "E"}] * 3)
+        result = _check_mutation_demotion(nodes, "sparse_aa")
+        assert result is not None
+        assert result["inner_type"] == "aa"
+
+    def test_json_keys_out_of_range(self):
+        """JSON with keys beyond sequence length are not demoted."""
+        nodes = self._make_nodes("scores", [{"0": 0.5, "99": 0.8}] * 3, seq_len=5)
+        result = _check_mutation_demotion(nodes, "scores")
+        assert result is None
+
+    def test_json_non_int_keys(self):
+        """JSON with non-integer keys are not demoted."""
+        nodes = self._make_nodes("data", [{"region": 0.5, "site": 0.8}] * 3)
+        result = _check_mutation_demotion(nodes, "data")
+        assert result is None
+
+    def test_no_sequence_no_demotion(self):
+        """Without sequences, no demotion is possible."""
+        nodes = [{"scores": [0.1, 0.2, 0.3]}] * 3
+        result = _check_mutation_demotion(nodes, "scores")
+        assert result is None
+
+    def test_scalar_field_not_demoted(self):
+        """Regular scalar fields are not affected."""
+        nodes = self._make_nodes("lbi", [0.5, 0.3, 0.8])
+        result = _check_mutation_demotion(nodes, "lbi")
+        assert result is None

@@ -8,7 +8,7 @@
 #   name:        Field name in the input data (required)
 #   output_name: Renamed field in output (optional)
 #   level:       family, node, branch, or mutation (required)
-#   type:        continuous, categorical, aa, or dna (required)
+#   type:        continuous, categorical, aa, dna, list, or json (required)
 #   display:     dropdown (default), tooltip, or skip (optional)
 #   label:       Display label in web app (required)
 #   skip:        true to exclude from metadata (shorthand for display: skip)
@@ -19,6 +19,8 @@
 #   categorical — string/enum (color, shape, facet)
 #   aa          — amino acid identity (full genetic alphabet)
 #   dna         — nucleotide identity (full genetic alphabet)
+#   list        — ordered sequence of values (e.g. per-position data)
+#   json        — structured key-value data (pretty-printed in tooltips)
 #
 # Display modes (how to show it):
 #   dropdown    — in visualization controls (default, omit if not needed)
