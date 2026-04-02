@@ -40,9 +40,11 @@ from .utils import (  # noqa: F401 — re-exported for backward compatibility
     remap_list,
     rename_keys,
     resolve_verbosity,
+    set_verbosity,
     strip_ns,
     translate_dna_to_aa,
     try_del,
+    vprint,
 )
 from .version import __version__, get_git_hash
 
@@ -75,7 +77,7 @@ def write_out(data, dirname, filename, args):
         full_path = full_path + ".gz"
 
     # Print status
-    print(f"writing {full_path}")
+    vprint.status(f"writing {full_path}")
 
     # Check if CSV output is requested (for CFT data)
     if hasattr(args, "csv") and args.csv and isinstance(data, list):
@@ -375,10 +377,10 @@ def load_official_airr_schema():
         with open(schema_path, "r") as f:
             return yaml.safe_load(f)
     except FileNotFoundError:
-        print("Warning: Official AIRR schema not found")
+        vprint.error("Warning: Official AIRR schema not found")
         return None
     except Exception as e:
-        print(f"Warning: Failed to load official AIRR schema: {e}")
+        vprint.error(f"Warning: Failed to load official AIRR schema: {e}")
         return None
 
 
@@ -506,7 +508,7 @@ def validate_output_data(datasets, clones_dict, trees, args):
     if not hasattr(args, "validate") or not args.validate:
         return True
 
-    print("\nValidating output data against schemas...")
+    vprint.status("\nValidating output data against schemas...")
 
     validation_passed = True
     total_errors = 0
@@ -516,13 +518,13 @@ def validate_output_data(datasets, clones_dict, trees, args):
         for i, dataset in enumerate(datasets):
             errors = validate_dataset(dataset, verbose=getattr(args, "verbose", False))
             if errors:
-                print(f"FAIL: Dataset {i} validation failed:")
+                vprint.error(f"FAIL: Dataset {i} validation failed:")
                 for error in errors:
-                    print(f"  - {error}")
+                    vprint.error(f"  - {error}")
                 validation_passed = False
                 total_errors += len(errors)
             elif getattr(args, "verbose", False):
-                print(f"PASS: Dataset {i} validation passed")
+                vprint.status(f"PASS: Dataset {i} validation passed")
 
         # Validate clones
         clone_count = 0
@@ -542,20 +544,20 @@ def validate_output_data(datasets, clones_dict, trees, args):
                     if errors:
                         clone_failures += 1
                         if getattr(args, "verbose", False):
-                            print(
+                            vprint.error(
                                 f"FAIL: Clone {clone_id} validation failed:"
                             )
                             for error in errors:
-                                print(f"  - {error}")
+                                vprint.error(f"  - {error}")
                         validation_passed = False
                         total_errors += len(errors)
-                    
+
                     pbar.update(1)
 
         if clone_failures == 0:
-            print(f"PASS: Clone validation passed ({clone_count} clones)")
+            vprint.status(f"PASS: Clone validation passed ({clone_count} clones)")
         else:
-            print(f"FAIL: Clone validation: {clone_failures}/{clone_count} failed")
+            vprint.error(f"FAIL: Clone validation: {clone_failures}/{clone_count} failed")
 
         # Validate trees
         tree_count = 0
@@ -573,22 +575,22 @@ def validate_output_data(datasets, clones_dict, trees, args):
                 if errors:
                     tree_failures += 1
                     if getattr(args, "verbose", False):
-                        print(f"FAIL: Tree {tree_id} validation failed:")
+                        vprint.error(f"FAIL: Tree {tree_id} validation failed:")
                         for error in errors:
-                            print(f"  - {error}")
+                            vprint.error(f"  - {error}")
                     validation_passed = False
                     total_errors += len(errors)
 
         if tree_failures == 0:
-            print(f"PASS: Tree validation passed ({tree_count} trees)")
+            vprint.status(f"PASS: Tree validation passed ({tree_count} trees)")
         else:
-            print(f"FAIL: Tree validation: {tree_failures}/{tree_count} failed")
+            vprint.error(f"FAIL: Tree validation: {tree_failures}/{tree_count} failed")
 
         if total_errors > 0:
-            print(f"\nTotal validation errors: {total_errors}")
+            vprint.error(f"\nTotal validation errors: {total_errors}")
 
     except Exception as e:
-        print(f"Validation error: {str(e)}")
+        vprint.error(f"Validation error: {str(e)}")
         validation_passed = False
 
     return validation_passed
@@ -830,7 +832,7 @@ def validate_tree(data, verbose=False, check_time_tree=False):
             else:
                 if verbose >= 2:
                     root_id = root_nodes[0].get("sequence_id", "?")
-                    print(f"  Root node: {root_id}")
+                    vprint.verbose(f"  Root node: {root_id}")
 
     # Check time tree constraints if requested and nodes are present
     if check_time_tree and "nodes" in data and isinstance(data["nodes"], list):

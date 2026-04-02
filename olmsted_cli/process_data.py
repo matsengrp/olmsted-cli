@@ -60,6 +60,7 @@ from .process_utils import (
     validate_output_data,
     write_out,
 )
+from .utils import set_verbosity, vprint
 
 
 
@@ -137,8 +138,6 @@ def process_airr_format(args):
     Args:
         args: Parsed command line arguments
     """
-    # Create verbosity printer
-    vprint = VerbosePrinter(args.verbose)
 
     vprint.status("Processing AIRR format...")
 
@@ -274,8 +273,6 @@ def process_pcp_format(args):
     Args:
         args: Parsed command line arguments
     """
-    # Create verbosity printer
-    vprint = VerbosePrinter(args.verbose)
 
     vprint.status("Processing PCP format...")
 
@@ -571,14 +568,14 @@ def load_config(config_path):
     """
     config_path = Path(config_path)
     if not config_path.exists():
-        print(f"Error: Config file not found: {config_path}", file=sys.stderr)
+        vprint.error(f"Error: Config file not found: {config_path}")
         sys.exit(1)
 
     try:
         with open(config_path) as f:
             raw_config = yaml.safe_load(f)
     except yaml.YAMLError as e:
-        print(f"Error: Invalid YAML in config file: {e}", file=sys.stderr)
+        vprint.error(f"Error: Invalid YAML in config file: {e}")
         sys.exit(1)
 
     if not raw_config or not isinstance(raw_config, dict):
@@ -589,7 +586,7 @@ def load_config(config_path):
     # Warn about unrecognized keys
     for key in raw_config:
         if key not in _VALID_CONFIG_KEYS:
-            print(f"Warning: Unrecognized config key '{key}' (ignored)", file=sys.stderr)
+            vprint.error(f"Warning: Unrecognized config key '{key}' (ignored)")
 
     # Map config keys to argparse dest names
     config_dict = {}
@@ -614,9 +611,8 @@ def load_config(config_path):
         if isinstance(raw_fields, list):
             for i, entry in enumerate(raw_fields):
                 if not isinstance(entry, dict):
-                    print(
-                        f"Warning: custom_fields[{i}] is not a dict (ignored)",
-                        file=sys.stderr,
+                    vprint.error(
+                        f"Warning: custom_fields[{i}] is not a dict (ignored)"
                     )
                     continue
                 # Skip entries only need name and level
@@ -627,52 +623,45 @@ def load_config(config_path):
                     required_keys = {"name", "level", "type", "label"}
                 missing = required_keys - set(entry.keys())
                 if missing:
-                    print(
-                        f"Warning: custom_fields[{i}] missing required keys: {missing} (ignored)",
-                        file=sys.stderr,
+                    vprint.error(
+                        f"Warning: custom_fields[{i}] missing required keys: {missing} (ignored)"
                     )
                     continue
                 if entry.get("level") not in FIELD_LEVELS:
-                    print(
-                        f"Warning: custom_fields[{i}] has invalid level '{entry['level']}' (ignored)",
-                        file=sys.stderr,
+                    vprint.error(
+                        f"Warning: custom_fields[{i}] has invalid level '{entry['level']}' (ignored)"
                     )
                     continue
                 # Normalize level alias (family → clone)
                 entry["level"] = normalize_level(entry["level"])
                 if not is_skip and entry.get("type") not in FIELD_TYPES:
-                    print(
-                        f"Warning: custom_fields[{i}] has invalid type '{entry['type']}' (ignored)",
-                        file=sys.stderr,
+                    vprint.error(
+                        f"Warning: custom_fields[{i}] has invalid type '{entry['type']}' (ignored)"
                     )
                     continue
                 # Validate display mode if specified
                 display = entry.get("display")
                 if display and display not in DISPLAY_MODES:
-                    print(
-                        f"Warning: custom_fields[{i}] has invalid display '{display}' (ignored)",
-                        file=sys.stderr,
+                    vprint.error(
+                        f"Warning: custom_fields[{i}] has invalid display '{display}' (ignored)"
                     )
                     continue
                 # Validate encoding if specified (mutation-level only)
                 encoding = entry.get("encoding")
                 if encoding:
                     if encoding not in MUTATION_ENCODINGS:
-                        print(
-                            f"Warning: custom_fields[{i}] has invalid encoding '{encoding}' (ignored)",
-                            file=sys.stderr,
+                        vprint.error(
+                            f"Warning: custom_fields[{i}] has invalid encoding '{encoding}' (ignored)"
                         )
                         continue
                     if entry["level"] != "mutation":
-                        print(
-                            f"Warning: custom_fields[{i}] has encoding but level is '{entry['level']}', not 'mutation' (ignored)",
-                            file=sys.stderr,
+                        vprint.error(
+                            f"Warning: custom_fields[{i}] has encoding but level is '{entry['level']}', not 'mutation' (ignored)"
                         )
                         continue
                     if encoding == "records" and "source" not in entry:
-                        print(
-                            f"Warning: custom_fields[{i}] encoding 'records' requires 'source' key (ignored)",
-                            file=sys.stderr,
+                        vprint.error(
+                            f"Warning: custom_fields[{i}] encoding 'records' requires 'source' key (ignored)"
                         )
                         continue
                 custom_fields.append(entry)
@@ -741,8 +730,8 @@ def main():
     # Handle quiet mode
     resolve_verbosity(args)
 
-    # Create verbosity printer
-    vprint = VerbosePrinter(args.verbose)
+    # Set global verbosity
+    set_verbosity(args.verbose)
 
     # Validate output arguments
     if not args.output and not args.split_files:

@@ -16,6 +16,24 @@ from tqdm import tqdm
 from .constants import VERBOSITY_HELP
 
 
+# Module-level VerbosePrinter instance.  Call set_verbosity() early in each
+# command's main() to configure the level.  All modules import ``vprint``
+# from here instead of using naked print().
+
+
+def set_verbosity(level=1):
+    """Set the global verbosity level.
+
+    Call this once at the start of each CLI command after parsing args::
+
+        set_verbosity(args.verbose)
+
+    All modules that ``from .utils import vprint`` will then respect the level
+    because this mutates the existing object rather than replacing it.
+    """
+    vprint.level = level
+
+
 # Constants for infinity handling
 inf = float("inf")
 neginf = float("-inf")
@@ -125,6 +143,11 @@ class VerbosePrinter:
         if self.level >= min_level:
             return tqdm(iterable, **tqdm_kwargs)
         return iterable
+
+
+# Initialize default vprint (normal verbosity).
+# Commands override this via set_verbosity() after parsing args.
+vprint = VerbosePrinter(1)
 
 
 def add_verbosity_args(parser):

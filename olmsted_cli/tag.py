@@ -26,6 +26,7 @@ from .process_utils import (
     resolve_verbosity,
     tag_field_metadata,
 )
+from .utils import set_verbosity, vprint
 
 
 def get_args():
@@ -112,7 +113,7 @@ Examples:
 def main():
     """Main entry point for the tag command."""
     args = get_args()
-    vprint = VerbosePrinter(args.verbose)
+    set_verbosity(args.verbose)
 
     # Load input file
     input_path = Path(args.input)

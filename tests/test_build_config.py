@@ -285,7 +285,7 @@ class TestBuildConfigFormatDetection:
              "example_data/surprise/surprise_subset.json"],
             capture_output=True, text=True,
         )
-        assert "OLMSTED" in result.stderr
+        assert "OLMSTED" in result.stderr or "OLMSTED" in result.stdout
 
     def test_detects_pcp(self):
         result = subprocess.run(
@@ -293,7 +293,7 @@ class TestBuildConfigFormatDetection:
              "example_data/pcp/pcp.csv"],
             capture_output=True, text=True,
         )
-        assert "PCP" in result.stderr
+        assert "PCP" in result.stderr or "PCP" in result.stdout
 
     def test_detects_airr(self):
         result = subprocess.run(
@@ -301,7 +301,7 @@ class TestBuildConfigFormatDetection:
              "example_data/airr/airr.json"],
             capture_output=True, text=True,
         )
-        assert "AIRR" in result.stderr
+        assert "AIRR" in result.stderr or "AIRR" in result.stdout
 
 
 class TestMutationDemotion:

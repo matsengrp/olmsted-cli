@@ -69,6 +69,7 @@ from .process_utils import (
     validate_output_data,
     write_out,
 )
+from .utils import set_verbosity, vprint
 
 
 from .constants import CHAIN_COLUMN_ALIASES, KNOWN_PCP_COLUMNS, KNOWN_TREE_COLUMNS
@@ -244,7 +245,7 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
 
         # Report column remapping
         for note in column_notifications:
-            print(f"  Note: {note}", file=sys.stderr)
+            vprint.verbose(f"  Note: {note}")
 
         # Validate required columns (flexible format support)
         required_cols = {"sample_id", "parent_name", "child_name"}
@@ -587,7 +588,7 @@ def parse_newick_tree(newick_string):
     try:
         tree = ete3.Tree(newick_string, format=1)  # format=1 means flexible with internal node names
     except Exception as e:
-        print(f"Warning: Failed to parse Newick tree with ETE3: {e}")
+        vprint.error(f"Warning: Failed to parse Newick tree with ETE3: {e}")
         # Return empty structure on parse failure
         return {}, [], None
 
@@ -807,21 +808,21 @@ def merge_tree_topology_with_pcp(pcp_family_data, newick_string, warn_disagreeme
     # Print warnings if requested and disagreements were found
     if warn_disagreements and disagreements:
         display_id = family_id if family_id else pcp_family_data.get("family_data", {}).get("sample_id", "unknown")
-        print(f"\nWarning: Found {len(disagreements)} disagreement(s) in family {display_id}:")
+        vprint.error(f"\nWarning: Found {len(disagreements)} disagreement(s) in family {display_id}:")
         for i, disagree in enumerate(disagreements, 1):
             if disagree["type"] == "branch_length":
-                print(f"  {i}. Branch length mismatch for edge {disagree['edge'][0]} -> {disagree['edge'][1]}:")
-                print(f"     Tree: {disagree['tree_value']:.10f}, PCP: {disagree['pcp_value']:.10f}")
+                vprint.error(f"  {i}. Branch length mismatch for edge {disagree['edge'][0]} -> {disagree['edge'][1]}:")
+                vprint.error(f"     Tree: {disagree['tree_value']:.10f}, PCP: {disagree['pcp_value']:.10f}")
             elif disagree["type"] == "missing_edge":
                 if disagree["source"] == "PCP has edge not in tree":
-                    print(f"  {i}. Edge {disagree['edge'][0]} -> {disagree['edge'][1]} exists in PCP but not in tree")
+                    vprint.error(f"  {i}. Edge {disagree['edge'][0]} -> {disagree['edge'][1]} exists in PCP but not in tree")
                 elif disagree["source"] == "Tree has edge not in PCP":
-                    print(f"  {i}. Edge {disagree['edge'][0]} -> {disagree['edge'][1]} exists in tree but not in PCP")
+                    vprint.error(f"  {i}. Edge {disagree['edge'][0]} -> {disagree['edge'][1]} exists in tree but not in PCP")
             elif disagree["type"] == "missing_node":
                 if disagree["source"] == "PCP has node not in tree":
-                    print(f"  {i}. Node '{disagree['node']}' exists in PCP but not in tree")
+                    vprint.error(f"  {i}. Node '{disagree['node']}' exists in PCP but not in tree")
                 elif disagree["source"] == "Tree has node not in PCP":
-                    print(f"  {i}. Node '{disagree['node']}' exists in tree but not in PCP")
+                    vprint.error(f"  {i}. Node '{disagree['node']}' exists in tree but not in PCP")
 
     # Update distances based on tree topology
     # Calculate distance from root for each node
@@ -1578,8 +1579,8 @@ def process_pcp_to_olmsted(
     Returns:
         Tuple of (datasets, clones_dict, trees) with proper Olmsted types
     """
-    # Create verbosity printer
-    vprint = VerbosePrinter(verbosity)
+    # Set global verbosity
+    set_verbosity(verbosity)
 
     if uuid_generator is None:
         uuid_generator = lambda prefix="": f"{prefix}{str(uuid.uuid4())}" if prefix else str(uuid.uuid4())

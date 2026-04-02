@@ -50,7 +50,7 @@ from .field_metadata import (
     sample_values_by_path,
 )
 from .format_detection import detect_file_format
-from .utils import add_verbosity_args, resolve_verbosity
+from .utils import add_verbosity_args, resolve_verbosity, set_verbosity, vprint
 
 
 def get_args():
@@ -729,10 +729,11 @@ def _build_yaml(
 def main():
     """Main entry point for the build-config command."""
     args = get_args()
+    set_verbosity(args.verbose)
 
     input_path = Path(args.input)
     if not input_path.exists():
-        print(f"Error: Input file not found: {input_path}", file=sys.stderr)
+        vprint.error(f"Error: Input file not found: {input_path}")
         sys.exit(1)
 
     # Detect format
@@ -741,15 +742,14 @@ def main():
     else:
         detected_format = detect_file_format(input_path)
     if detected_format == FORMAT_UNKNOWN:
-        print(
+        vprint.error(
             f"Error: Could not detect format for {input_path}. "
-            "Use -f to specify: airr, pcp, or olmsted",
-            file=sys.stderr,
+            "Use -f to specify: airr, pcp, or olmsted"
         )
         sys.exit(1)
 
     # Load data based on format
-    print(f"Reading {detected_format.upper()} data from: {input_path.name}", file=sys.stderr)
+    vprint.status(f"Reading {detected_format.upper()} data from: {input_path.name}")
 
     if detected_format == FORMAT_OLMSTED:
         all_clones, all_trees = _load_olmsted(input_path)
@@ -761,15 +761,12 @@ def main():
     elif detected_format == FORMAT_AIRR:
         all_clones, all_trees = _load_airr(input_path)
     else:
-        print(f"Error: Unsupported format: {detected_format}", file=sys.stderr)
+        vprint.error(f"Error: Unsupported format: {detected_format}")
         sys.exit(1)
 
     clone_count = len(all_clones)
     tree_count = len(all_trees)
-    print(
-        f"Found {clone_count} clones, {tree_count} trees",
-        file=sys.stderr,
-    )
+    vprint.status(f"Found {clone_count} clones, {tree_count} trees")
 
     # Build YAML
     trees_path = Path(args.tree) if args.tree else None
@@ -785,7 +782,7 @@ def main():
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with open(output_path, "w") as f:
             f.write(output_text)
-        print(f"Config written to: {output_path}", file=sys.stderr)
+        vprint.status(f"Config written to: {output_path}")
     else:
         print(output_text)
 

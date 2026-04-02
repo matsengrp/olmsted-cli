@@ -9,6 +9,8 @@ import copy
 import uuid
 from datetime import datetime
 
+from .utils import set_verbosity, vprint
+
 
 def split_consolidated_data(data, max_clones_per_file):
     """
@@ -199,11 +201,16 @@ Examples:
 def main():
     """Main entry point for split command."""
     args = get_args()
-    
+
+    # Handle quiet mode
+    if getattr(args, "quiet", False):
+        args.verbose = 0
+    set_verbosity(args.verbose)
+
     # Validate input file
     input_path = Path(args.input)
     if not input_path.exists():
-        print(f"Error: Input file not found: {args.input}", file=sys.stderr)
+        vprint.error(f"Error: Input file not found: {args.input}")
         sys.exit(1)
     
     # Create output directory
@@ -224,21 +231,21 @@ def main():
         with open(input_path, 'r') as f:
             data = json.load(f)
     except json.JSONDecodeError as e:
-        print(f"Error: Failed to parse JSON: {e}", file=sys.stderr)
+        vprint.error(f"Error: Failed to parse JSON: {e}")
         sys.exit(1)
     except Exception as e:
-        print(f"Error: Failed to read file: {e}", file=sys.stderr)
+        vprint.error(f"Error: Failed to read file: {e}")
         sys.exit(1)
-    
+
     # Split the data
     try:
         split_files = split_consolidated_data(data, args.max_clones)
     except Exception as e:
-        print(f"Error: Failed to split data: {e}", file=sys.stderr)
+        vprint.error(f"Error: Failed to split data: {e}")
         sys.exit(1)
-    
+
     if len(split_files) == 1:
-        print(f"File has {sum(len(clones) for clones in data['clones'].values())} clones, "
+        vprint.status(f"File has {sum(len(clones) for clones in data['clones'].values())} clones, "
               f"which is within the limit of {args.max_clones}. No splitting needed.")
         return
     
@@ -257,22 +264,22 @@ def main():
             if args.verbose:
                 clone_count = sum(len(clones) for clones in split_data['clones'].values())
                 tree_count = len(split_data['trees'])
-                print(f"Created {output_filename}: {clone_count} clones, {tree_count} trees")
-                
+                vprint.status(f"Created {output_filename}: {clone_count} clones, {tree_count} trees")
+
         except Exception as e:
-            print(f"Error: Failed to write {output_path}: {e}", file=sys.stderr)
+            vprint.error(f"Error: Failed to write {output_path}: {e}")
             sys.exit(1)
-    
+
     # Summary
     total_clones = sum(len(clones) for clones in data['clones'].values())
     total_trees = len(data['trees'])
-    
-    print(f"Successfully split {input_path.name} into {len(split_files)} files:")
-    print(f"  Total clones: {total_clones}")
-    print(f"  Total trees: {total_trees}")
-    print(f"  Max clones per file: {args.max_clones}")
-    print(f"  Output directory: {output_dir}")
-    print(f"  Files created: {', '.join(f.name for f in output_files)}")
+
+    vprint.status(f"Successfully split {input_path.name} into {len(split_files)} files:")
+    vprint.status(f"  Total clones: {total_clones}")
+    vprint.status(f"  Total trees: {total_trees}")
+    vprint.status(f"  Max clones per file: {args.max_clones}")
+    vprint.status(f"  Output directory: {output_dir}")
+    vprint.status(f"  Files created: {', '.join(f.name for f in output_files)}")
 
 
 if __name__ == "__main__":

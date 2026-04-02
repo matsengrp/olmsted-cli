@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from .constants import FORMAT_AIRR, FORMAT_OLMSTED, FORMAT_PCP, FORMAT_UNKNOWN
+from .utils import vprint
 
 
 @contextmanager
@@ -92,6 +93,6 @@ def detect_file_format(file_path):
                     return FORMAT_PCP
 
     except Exception as e:
-        print(f"Warning: Could not detect format for {file_path}: {e}")
+        vprint.error(f"Warning: Could not detect format for {file_path}: {e}")
 
     return FORMAT_UNKNOWN
