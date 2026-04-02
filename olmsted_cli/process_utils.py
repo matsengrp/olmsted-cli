@@ -12,11 +12,12 @@ import json
 import os
 import uuid
 from datetime import datetime, timezone
-
 import jsonschema
 import yaml
 from tqdm import tqdm
 
+from .build_config import generate_default_config
+from .field_metadata import generate_field_metadata
 from .schemas import SCHEMA_VERSION, clone_spec, dataset_spec, tree_spec
 from .version import __version__, get_git_hash
 
@@ -660,9 +661,6 @@ def tag_field_metadata(clones, trees, custom_fields=None):
         Dict with level keys mapping to field metadata dicts, suitable
         for assigning to ``dataset["field_metadata"]``.
     """
-    from .build_config import generate_default_config
-    from .field_metadata import generate_field_metadata
-
     if custom_fields is None:
         custom_fields = generate_default_config(clones, trees)
 

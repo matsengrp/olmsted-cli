@@ -6,7 +6,7 @@ import tempfile
 
 import pytest
 
-from olmsted_cli.process_data import detect_file_format
+from olmsted_cli.format_detection import detect_file_format
 
 
 class TestDetectFileFormat:

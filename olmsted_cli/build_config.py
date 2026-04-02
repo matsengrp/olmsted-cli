@@ -49,7 +49,7 @@ from .field_metadata import (
     sample_values,
     sample_values_by_path,
 )
-from .process_data import detect_file_format
+from .format_detection import detect_file_format
 
 
 def get_args():

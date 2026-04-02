@@ -50,6 +50,7 @@ from .process_pcp_data import (
     parse_pcp_csv,
     process_pcp_to_olmsted,
 )
+from .format_detection import detect_file_format
 from .process_utils import (
     VerbosePrinter,
     add_verbosity_args,
@@ -60,85 +61,6 @@ from .process_utils import (
     write_out,
 )
 
-
-def detect_file_format(file_path):
-    """
-    Automatically detect the file format based on file extension and content.
-
-    Args:
-        file_path: Path to the input file
-
-    Returns:
-        str: Detected format (FORMAT_AIRR, FORMAT_PCP, FORMAT_OLMSTED, or FORMAT_UNKNOWN)
-    """
-    file_path = Path(file_path)
-
-    # CSV files are always PCP
-    if file_path.suffix.lower() == ".csv":
-        return FORMAT_PCP
-    if file_path.suffix.lower() == ".gz" and file_path.stem.endswith(".csv"):
-        return FORMAT_PCP
-
-    # JSON files need content inspection to distinguish AIRR from Olmsted
-    if file_path.suffix.lower() == ".json" or (
-        file_path.suffix.lower() == ".gz" and file_path.stem.endswith(".json")
-    ):
-        try:
-            if str(file_path).endswith(".gz"):
-                file_handle = gzip.open(file_path, "rt")
-            else:
-                file_handle = open(file_path, "r")
-
-            with file_handle:
-                data = json.load(file_handle)
-
-            if isinstance(data, dict):
-                # Explicit format tag in metadata
-                metadata = data.get("metadata", {})
-                if isinstance(metadata, dict) and metadata.get("format") == FORMAT_OLMSTED:
-                    return FORMAT_OLMSTED
-                # Heuristic fallback: Olmsted JSON has "datasets" and "metadata"
-                if "datasets" in data and "metadata" in data:
-                    return FORMAT_OLMSTED
-                # AIRR JSON has "clones" with "dataset_id" or standard AIRR keys
-                if "dataset_id" in data or "clones" in data or "ident" in data:
-                    return FORMAT_AIRR
-            elif isinstance(data, list):
-                # Multi-dataset AIRR
-                return FORMAT_AIRR
-        except (json.JSONDecodeError, OSError, ValueError):
-            pass
-
-    # If extension doesn't help, try to peek at content for CSV
-    try:
-        if str(file_path).endswith(".gz"):
-            file_handle = gzip.open(file_path, "rt")
-        else:
-            file_handle = open(file_path, "r")
-
-        with file_handle:
-            first_lines = []
-            for i, line in enumerate(file_handle):
-                first_lines.append(line.strip())
-                if i >= 2:
-                    break
-
-            if first_lines:
-                first_line = first_lines[0].lower()
-                pcp_indicators = [
-                    "sample_id",
-                    "parent_name",
-                    "child_name",
-                    "family_name",
-                    "newick",
-                ]
-                if any(indicator in first_line for indicator in pcp_indicators):
-                    return FORMAT_PCP
-
-    except Exception as e:
-        print(f"Warning: Could not detect format for {file_path}: {e}")
-
-    return FORMAT_UNKNOWN
 
 
 def validate_airr_file(file_path):
