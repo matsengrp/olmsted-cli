@@ -628,7 +628,7 @@ _CONFIG_KEY_MAP = {
 }
 
 # Valid config keys (including custom_fields which is handled separately)
-# Enrich-specific keys are also accepted (input, mode) so configs work for both commands.
+# Tag-specific keys are also accepted (input, mode) so configs work for both commands.
 _VALID_CONFIG_KEYS = set(_CONFIG_KEY_MAP.keys()) | {"custom_fields", "input", "mode"}
 
 
@@ -679,7 +679,7 @@ def load_config(config_path):
                 value = _resolve_paths(value, config_dir)
             config_dict[arg_dest] = value
 
-    # Enrich-specific keys (not in _CONFIG_KEY_MAP)
+    # Tag-specific keys (not in _CONFIG_KEY_MAP)
     if "input" in raw_config:
         config_dict["input"] = _resolve_paths(raw_config["input"], config_dir)
     if "mode" in raw_config:
@@ -873,7 +873,7 @@ def main():
         elif format_to_use == FORMAT_OLMSTED:
             vprint.error(
                 "Error: Input is already in Olmsted JSON format. "
-                "Use 'olmsted enrich' to add field_metadata to existing Olmsted files."
+                "Use 'olmsted tag' to add field_metadata to existing Olmsted files."
             )
             sys.exit(1)
         else:

@@ -1,14 +1,14 @@
 """
-Enrich command for adding field_metadata to existing Olmsted JSON files.
+Tag command for adding field_metadata to existing Olmsted JSON files.
 
 This command introspects an existing Olmsted JSON file, discovers available
 fields at each level (clone, node, branch, mutation), and adds a
 field_metadata object to each dataset.
 
 Usage:
-    olmsted enrich -i data.json -o enriched.json
-    olmsted enrich -i data.json -o enriched.json -c config.yaml
-    olmsted enrich -i data.json --in-place
+    olmsted tag -i data.json -o tagged.json
+    olmsted tag -i data.json -o tagged.json -c config.yaml
+    olmsted tag -i data.json --in-place
 """
 
 import argparse
@@ -16,41 +16,40 @@ import json
 import sys
 from pathlib import Path
 
-from .field_metadata import generate_field_metadata
 from .process_data import load_config
 from .process_utils import (
     VerbosePrinter,
     add_verbosity_args,
     resolve_verbosity,
-    unpack_encoded_mutations,
+    tag_field_metadata,
 )
 
 
 def get_args():
-    """Parse command line arguments for the enrich command."""
+    """Parse command line arguments for the tag command."""
     parser = argparse.ArgumentParser(
         description="Add field_metadata to an existing Olmsted JSON file",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    # Basic enrichment (introspect and add field_metadata)
-    olmsted enrich -i data.json -o enriched.json
+    # Basic tagging (introspect and add field_metadata)
+    olmsted tag -i data.json -o tagged.json
 
     # With custom field declarations from config
-    olmsted enrich -i data.json -o enriched.json -c config.yaml
+    olmsted tag -i data.json -o tagged.json -c config.yaml
 
     # In-place modification
-    olmsted enrich -i data.json --in-place
+    olmsted tag -i data.json --in-place
 
     # In-place with config
-    olmsted enrich -i data.json --in-place -c config.yaml
+    olmsted tag -i data.json --in-place -c config.yaml
         """,
     )
 
     parser.add_argument(
         "-i",
         "--input",
-        help="Input Olmsted JSON file to enrich (required, or provide in config)",
+        help="Input Olmsted JSON file to tag (required, or provide in config)",
     )
     parser.add_argument(
         "-o",
@@ -88,9 +87,9 @@ Examples:
     custom_fields = None
     if args.config:
         config_dict, custom_fields = load_config(args.config)
-        # Apply config values for enrich-specific keys
-        _ENRICH_CONFIG_KEYS = {"input", "output", "mode"}
-        for key in _ENRICH_CONFIG_KEYS:
+        # Apply config values for tag-specific keys
+        _TAG_CONFIG_KEYS = {"input", "output", "mode"}
+        for key in _TAG_CONFIG_KEYS:
             if key in config_dict and getattr(args, key, None) is None:
                 setattr(args, key, config_dict[key])
 
@@ -110,7 +109,7 @@ Examples:
 
 
 def main():
-    """Main entry point for the enrich command."""
+    """Main entry point for the tag command."""
     args = get_args()
     vprint = VerbosePrinter(args.verbose)
 
@@ -152,7 +151,7 @@ def main():
         if clone_id:
             trees_by_clone_id.setdefault(clone_id, []).append(tree)
 
-    # Enrich each dataset
+    # Tag each dataset with field_metadata
     datasets = data.get("datasets", [])
     clones_dict = data.get("clones", {})
 
@@ -170,12 +169,9 @@ def main():
         for clone_id in clone_ids:
             dataset_trees.extend(trees_by_clone_id.get(clone_id, []))
 
-        # Unpack encoded mutation fields (list/json/surprise) before metadata generation
-        unpack_encoded_mutations(dataset_trees, custom_fields)
-
-        # Generate field_metadata
-        new_field_metadata = generate_field_metadata(
-            dataset_clones, dataset_trees, custom_fields=custom_fields
+        # Generate field_metadata (uses generate_default_config when no config provided)
+        new_field_metadata = tag_field_metadata(
+            dataset_clones, dataset_trees, custom_fields
         )
 
         if args.mode == "overwrite":
@@ -216,7 +212,7 @@ def main():
     with open(output_path, "w") as f:
         json.dump(data, f, indent=indent, separators=separators)
 
-    vprint.status(f"Enriched data written to: {output_path}")
+    vprint.status(f"Tagged data written to: {output_path}")
 
 
 if __name__ == "__main__":

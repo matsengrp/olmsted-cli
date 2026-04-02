@@ -65,7 +65,7 @@ pytest --cov=olmsted_cli
 | `test_field_metadata.py` | Field registries, type inference, AA/DNA detection, ranges, custom fields |
 | `test_build_config.py` | Config generation from all formats, alias suggestions, skip section |
 | `test_config.py` | YAML config loading, custom_fields validation, path resolution |
-| `test_enrich.py` | Enrich command (add metadata, preserve data, in-place, custom fields) |
+| `test_tag.py` | Tag command (add metadata, preserve data, in-place, custom fields) |
 | `test_pcp_extras.py` | Extra CSV columns, chain partitioning, column aliases, coercion |
 | `test_format_detection.py` | Olmsted/AIRR/PCP format detection |
 | `test_validation.py` | Schema validation for datasets, clones, trees |
@@ -101,7 +101,7 @@ olmsted-cli/
 │   ├── process_airr_data.py  # AIRR JSON processing
 │   ├── process_utils.py      # Shared utilities, output writing
 │   ├── build_config.py       # build-config command
-│   ├── enrich.py             # enrich command
+│   ├── tag.py                # tag command
 │   ├── api.py                # Programmatic API
 │   └── configs/              # Default YAML configs
 ├── tests/                    # Test suite
@@ -109,7 +109,7 @@ olmsted-cli/
 │   ├── airr/                 # AIRR format + golden data
 │   ├── pcp/                  # PCP format + golden data
 │   ├── pcp-paired/           # Paired heavy/light PCP
-│   ├── surprise/             # DASM2 surprise analysis subset
+│   ├── surprise/             # Pre-built Olmsted JSON with mutation-level data
 │   └── test-fields/          # Foobar test data (all types × levels)
 ├── ARCHITECTURE.md           # System architecture
 ├── DEVELOPMENT.md            # This file

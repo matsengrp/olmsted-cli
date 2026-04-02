@@ -83,25 +83,10 @@
                     "display": "dropdown",
                     "label": "Mean Mutation Frequency"
                 },
-                "rearrangement_count": {
-                    "type": "continuous",
-                    "display": "dropdown",
-                    "label": "Rearrangement Count"
-                },
                 "sample_id": {
                     "type": "categorical",
                     "display": "dropdown",
                     "label": "Sample"
-                },
-                "sampled_seqs_count": {
-                    "type": "continuous",
-                    "display": "dropdown",
-                    "label": "Sampled Sequences Count"
-                },
-                "size": {
-                    "type": "continuous",
-                    "display": "dropdown",
-                    "label": "Size"
                 },
                 "subject_id": {
                     "type": "categorical",

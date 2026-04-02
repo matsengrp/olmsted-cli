@@ -15,9 +15,8 @@ from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from urllib.parse import parse_qs, parse_qsl
 
-from .field_metadata import generate_field_metadata
 from .metrics import compute_tree_metrics
-from .process_utils import unpack_encoded_mutations
+from .process_utils import tag_field_metadata
 
 if TYPE_CHECKING:
     from argparse import Namespace
@@ -285,16 +284,9 @@ def process_dataset(
         ]
     clones_dict[dataset["dataset_id"]] = clones
 
-    # Unpack encoded mutation fields (list/json/surprise) before metadata generation
+    # Generate field_metadata (uses generate_default_config when no config provided)
     custom_fields = getattr(args, "custom_fields", None)
-    unpack_encoded_mutations(trees, custom_fields)
-
-    # Generate field_metadata from actual clone and tree data
-    dataset["field_metadata"] = generate_field_metadata(
-        clones,
-        trees,
-        custom_fields=custom_fields,
-    )
+    dataset["field_metadata"] = tag_field_metadata(clones, trees, custom_fields)
 
     del dataset["clones"]
     dataset["schema_version"] = SCHEMA_VERSION

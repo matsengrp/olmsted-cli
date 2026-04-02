@@ -32,6 +32,7 @@ from .constants import (
     KNOWN_NODE_FIELDS,
     MAX_NODES_SAMPLE,
     MAX_SAMPLE_HEURISTIC,
+    MAX_SAMPLE_PATH,
     MAX_SAMPLE_PREVIEW,
     MAX_SAMPLE_VALUES,
     SUGGESTED_DISPLAY_MODES,
@@ -46,6 +47,7 @@ from .field_metadata import (
     humanize_label,
     infer_field_type,
     sample_values,
+    sample_values_by_path,
 )
 from .process_data import detect_file_format
 
@@ -71,7 +73,7 @@ Examples:
 
     # Then edit the config and use it
     olmsted process -c config.yaml
-    olmsted enrich -i data.json -o enriched.json -c config.yaml
+    olmsted tag -i data.json -o tagged.json -c config.yaml
         """,
     )
 
@@ -352,6 +354,176 @@ def _field_summary(dicts, field, known_registry):
     return entry
 
 
+def _should_skip(field, dicts=None, no_skip=False, skip_all=False):
+    """Determine if a field should be suggested as skip in the config.
+
+    Args:
+        field: Field name.
+        dicts: Optional data dicts for heuristic checks (e.g., file paths).
+        no_skip: If True, never suggest skip.
+        skip_all: If True, always suggest skip.
+    """
+    if no_skip:
+        return False
+    if skip_all:
+        return True
+    if field in SUGGESTED_SKIP_FIELDS:
+        return True
+    if dicts is not None:
+        values = sample_values(dicts, field, max_samples=MAX_SAMPLE_HEURISTIC)
+        if _looks_like_local_path(values):
+            return True
+    return False
+
+
+def _make_field_entry(name, level, entry, skip=False, encoding=None, source=None):
+    """Build a custom_fields dict entry matching load_config() format."""
+    d = {"name": name, "level": level, "type": entry["type"], "label": entry["label"]}
+    # Apply cross-format aliases (e.g., rearrangement_count → unique_seqs_count)
+    alias = FIELD_ALIASES.get(name)
+    if alias and alias != name:
+        d["output_name"] = alias
+    display = entry.get("display", "dropdown")
+    if display != "dropdown":
+        d["display"] = display
+    if skip:
+        d["skip"] = True
+    if encoding:
+        d["encoding"] = encoding
+    if source:
+        d["source"] = source
+    return d
+
+
+def generate_default_config(clones, trees, *, no_skip=False, skip_all=False):
+    """Generate default field declarations by introspecting data.
+
+    Discovers fields at each level (clone, node, branch, mutation), infers
+    types from data, applies skip suggestions, and detects mutation demotion.
+
+    This is the single source of truth for field discovery. Both the
+    ``build-config`` YAML output and the ``process``/``tag`` pipelines
+    use this function to determine what fields exist and how they should
+    be configured.
+
+    Args:
+        clones: List of clone dicts.
+        trees: List of tree dicts.
+        no_skip: If True, no fields are suggested as skip.
+        skip_all: If True, all fields are suggested as skip.
+
+    Returns:
+        List of custom_field dicts in the same format as ``load_config()``.
+        Each dict has keys: name, level, type, label, and optionally
+        skip, display, encoding, source.
+    """
+    all_nodes = collect_nodes(trees, max_nodes=MAX_NODES_SAMPLE)
+    all_mutations = collect_mutations(trees)
+    fields = []
+
+    # --- Clone level ---
+    clone_keys = collect_keys(clones) - EXCLUDED_CLONE_FIELDS
+    # Check for known fields with dot-paths (e.g., locus → sample.locus)
+    for field_name, field_info in KNOWN_CLONE_FIELDS.items():
+        if "path" in field_info and field_name not in clone_keys:
+            values = sample_values_by_path(clones, field_info["path"], max_samples=MAX_SAMPLE_PATH)
+            if values:
+                clone_keys.add(field_name)
+
+    for field in sorted(clone_keys):
+        # Only include fields that have actual non-null values
+        if field in KNOWN_CLONE_FIELDS and "path" in KNOWN_CLONE_FIELDS[field]:
+            values = sample_values_by_path(clones, KNOWN_CLONE_FIELDS[field]["path"])
+        else:
+            values = sample_values(clones, field)
+        if not values:
+            continue
+        entry = _field_summary(clones, field, KNOWN_CLONE_FIELDS)
+        skip = _should_skip(field, clones, no_skip, skip_all)
+        fields.append(_make_field_entry(field, "clone", entry, skip=skip))
+
+    # --- Node level ---
+    node_keys = collect_keys(all_nodes) - EXCLUDED_NODE_FIELDS
+    node_keys -= set(KNOWN_BRANCH_FIELDS.keys())
+
+    for field in sorted(node_keys):
+        # Only include fields that have actual non-null values
+        values = sample_values(all_nodes, field)
+        if not values:
+            continue
+        demotion = _check_mutation_demotion(all_nodes, field)
+        if demotion:
+            # Add node-level skip entry so users can opt back in
+            entry = _field_summary(all_nodes, field, KNOWN_NODE_FIELDS)
+            fields.append(_make_field_entry(field, "node", entry, skip=True))
+            # Add mutation-level entries with encoding
+            enc = demotion["encoding"]
+            if enc == "records":
+                for inner_name, inner_type in sorted(demotion["inner_fields"].items()):
+                    inner_entry = {
+                        "type": inner_type,
+                        "display": "dropdown",
+                        "label": humanize_label(inner_name),
+                    }
+                    fields.append(_make_field_entry(
+                        inner_name, "mutation", inner_entry,
+                        encoding="records", source=field,
+                    ))
+            else:
+                # list or json: single mutation entry
+                mut_entry = dict(entry)
+                mut_entry["type"] = demotion["inner_type"]
+                fields.append(_make_field_entry(
+                    field, "mutation", mut_entry, encoding=enc,
+                ))
+        else:
+            entry = _field_summary(all_nodes, field, KNOWN_NODE_FIELDS)
+            skip = _should_skip(field, all_nodes, no_skip, skip_all)
+            fields.append(_make_field_entry(field, "node", entry, skip=skip))
+
+    # --- Branch level ---
+    branch_keys = collect_keys(all_nodes) & set(KNOWN_BRANCH_FIELDS.keys())
+    for field in sorted(branch_keys):
+        values = sample_values(all_nodes, field)
+        if not values:
+            continue
+        entry = entry_from_known(KNOWN_BRANCH_FIELDS[field])
+        fields.append(_make_field_entry(field, "branch", entry))
+
+    # --- Mutation level ---
+    has_aa_sequences = any(
+        n.get("sequence_alignment_aa") for n in all_nodes if isinstance(n, dict)
+    )
+    mutation_keys = collect_keys(all_mutations) - EXCLUDED_MUTATION_FIELDS
+    # Track mutation field names already emitted (e.g., from demotion)
+    emitted_mutation_names = {f["name"] for f in fields if f["level"] == "mutation"}
+    has_derived_aa = (
+        has_aa_sequences
+        and "child_aa" not in mutation_keys
+        and "child_aa" not in emitted_mutation_names
+    )
+
+    if has_derived_aa:
+        fields.append(_make_field_entry(
+            "child_aa", "mutation",
+            {"type": "aa", "display": "dropdown", "label": "Child Amino Acid"},
+        ))
+        fields.append(_make_field_entry(
+            "parent_aa", "mutation",
+            {"type": "aa", "display": "tooltip", "label": "Parent Amino Acid"},
+        ))
+
+    for field in sorted(mutation_keys):
+        values = sample_values(all_mutations, field)
+        if not values:
+            continue
+        entry = _field_summary(all_mutations, field, KNOWN_MUTATION_FIELDS)
+        skip = _should_skip(field, all_mutations, no_skip, skip_all)
+        fields.append(_make_field_entry(field, "mutation", entry, skip=skip))
+
+    return fields
+
+
 def _format_field_block(
     name, level, entry, sample_values=None, field_range=None,
     skip=False, encoding=None, source=None,
@@ -395,6 +567,30 @@ def _load_template(name):
     return template_path.read_text()
 
 
+def _get_sample_values_for_field(cf, all_clones, all_nodes, all_mutations):
+    """Get sample values for a config field entry, for YAML preview."""
+    level = cf["level"]
+    name = cf["name"]
+
+    if level == "clone":
+        # Path-based fields (e.g., locus → sample.locus)
+        if name in KNOWN_CLONE_FIELDS and "path" in KNOWN_CLONE_FIELDS[name]:
+            return sample_values_by_path(all_clones, KNOWN_CLONE_FIELDS[name]["path"],
+                                         max_samples=MAX_SAMPLE_PREVIEW)
+        return sample_values(all_clones, name, max_samples=MAX_SAMPLE_PREVIEW)
+    elif level == "node":
+        return sample_values(all_nodes, name, max_samples=MAX_SAMPLE_PREVIEW)
+    elif level == "branch":
+        return sample_values(all_nodes, name, max_samples=MAX_SAMPLE_PREVIEW)
+    elif level == "mutation":
+        if cf.get("encoding"):
+            # Encoded fields: sample from nodes (source field), not mutations
+            return sample_values(all_nodes, cf.get("source", name),
+                                 max_samples=MAX_SAMPLE_PREVIEW)
+        return sample_values(all_mutations, name, max_samples=MAX_SAMPLE_PREVIEW)
+    return []
+
+
 def _build_yaml(
     input_name, detected_format, all_clones, all_trees,
     input_path=None, tree_path=None,
@@ -404,196 +600,113 @@ def _build_yaml(
     all_nodes = collect_nodes(all_trees, max_nodes=MAX_NODES_SAMPLE)
     all_mutations = collect_mutations(all_trees)
 
+    # Generate structured config (single source of truth for field discovery)
+    config_fields = generate_default_config(
+        all_clones, all_trees, no_skip=no_skip, skip_all=skip_all,
+    )
+
     input_str = str(input_path) if input_path else input_name
     tree_str = str(tree_path) if tree_path else "trees.csv"
 
     # Determine usage command for header
     if detected_format == FORMAT_OLMSTED:
-        usage_command = "olmsted enrich -i data.json -o enriched.json -c this_file.yaml"
+        usage_command = "olmsted tag -i data.json -o tagged.json -c this_file.yaml"
     else:
         usage_command = "olmsted process -c this_file.yaml"
 
     # Assemble from templates
     parts = []
 
-    # Header
     parts.append(_load_template("header.yaml").format(
         input_name=input_name,
         detected_format=detected_format,
         usage_command=usage_command,
     ))
 
-    # Processing options (per-format)
     options_template = f"options_{detected_format}.yaml"
     parts.append(_load_template(options_template).format(
         input_path=input_str,
         tree_path=tree_str,
     ))
 
-    # Field declarations header
     parts.append(_load_template("fields_header.yaml"))
 
-    # Build the fields section
+    # Group config fields by level for presentation
     lines = []
-
-    # Collect skip entries separately for the bottom section
     skip_entries = []
 
-    def _is_skip(field, dicts=None):
-        if no_skip:
-            return False
-        if skip_all:
-            return True
-        if field in SUGGESTED_SKIP_FIELDS:
-            return True
-        # Auto-skip fields whose values look like local file paths
-        if dicts is not None:
-            values = sample_values(dicts, field, max_samples=MAX_SAMPLE_HEURISTIC)
-            if _looks_like_local_path(values):
-                return True
-        return False
+    # Level display names and section headers
+    level_headers = {
+        "clone": "  # --- Family level (clonal family — scatterplot axes, color, facet) ---",
+        "node": "  # --- Node level (tree node properties, tooltips) ---",
+        "branch": "  # --- Branch level (tree branch coloring, width) ---",
+        "mutation": "  # --- Mutation level (alignment coloring) ---",
+    }
+    # Config uses "family" for clone level in YAML
+    level_yaml_names = {"clone": "family", "node": "node", "branch": "branch", "mutation": "mutation"}
 
-    # --- Clone level ---
-    clone_keys = collect_keys(all_clones) - EXCLUDED_CLONE_FIELDS
-    has_locus = any(
-        isinstance(c.get("sample"), dict) and c["sample"].get("locus") is not None
-        for c in all_clones[:20]
-    )
-    if has_locus:
-        clone_keys.add("locus")
+    # Separate active and skip entries, preserving order within each level
+    for level in ("clone", "node", "branch", "mutation"):
+        yaml_level = level_yaml_names[level]
+        level_fields = [cf for cf in config_fields if cf["level"] == level]
+        active = [cf for cf in level_fields if not cf.get("skip")]
+        skipped = [cf for cf in level_fields if cf.get("skip")]
 
-    active_clone, skip_clone = [], []
-    for f in sorted(clone_keys):
-        (skip_clone if _is_skip(f, all_clones) else active_clone).append(f)
+        # Mutation level has special sub-sections
+        if level == "mutation":
+            derived = [cf for cf in active if not cf.get("encoding")]
+            demoted = [cf for cf in active if cf.get("encoding")]
+            # Only those without encoding and without a source → derived AA fields
+            derived_aa = [cf for cf in derived if cf["name"] in ("child_aa", "parent_aa")
+                          and cf["type"] in ("aa", "dna")]
+            regular = [cf for cf in derived if cf not in derived_aa]
 
-    if active_clone:
-        lines.append("")
-        lines.append("  # --- Family level (clonal family — scatterplot axes, color, facet) ---")
-        for field in active_clone:
-            entry = _field_summary(all_clones, field, KNOWN_CLONE_FIELDS)
-            if field == "locus":
-                samples = list({
-                    c["sample"]["locus"]
-                    for c in all_clones[:50]
-                    if isinstance(c.get("sample"), dict) and c["sample"].get("locus")
-                })
-            else:
-                samples = sample_values(all_clones, field, max_samples=MAX_SAMPLE_PREVIEW)
-            lines.append(_format_field_block(field, "family", entry, samples))
+            if derived_aa or demoted or regular:
+                lines.append("")
+                lines.append(level_headers[level])
 
-    for field in skip_clone:
-        entry = _field_summary(all_clones, field, KNOWN_CLONE_FIELDS)
-        samples = sample_values(all_clones, field, max_samples=MAX_SAMPLE_PREVIEW)
-        skip_entries.append((field, "family", entry, samples, None))
+            if derived_aa:
+                lines.append("  # The following fields are derived by the web app from")
+                lines.append("  # parent/child sequence alignments during rendering:")
+                for cf in derived_aa:
+                    entry = {"type": cf["type"], "display": cf.get("display", "dropdown"),
+                             "label": cf["label"]}
+                    lines.append(_format_field_block(cf["name"], yaml_level, entry))
 
-    # --- Node level ---
-    node_keys = collect_keys(all_nodes) - EXCLUDED_NODE_FIELDS
-    node_keys -= set(KNOWN_BRANCH_FIELDS.keys())
-
-    active_node, skip_node = [], []
-    for f in sorted(node_keys):
-        (skip_node if _is_skip(f, all_nodes) else active_node).append(f)
-
-    # Check for node fields that should be demoted to mutation level
-    demoted_fields = {}  # field -> demotion info
-    remaining_node = []
-    for field in active_node:
-        demotion = _check_mutation_demotion(all_nodes, field)
-        if demotion:
-            demoted_fields[field] = demotion
-        else:
-            remaining_node.append(field)
-
-    if remaining_node:
-        lines.append("")
-        lines.append("  # --- Node level (tree node properties, tooltips) ---")
-        for field in remaining_node:
-            entry = _field_summary(all_nodes, field, KNOWN_NODE_FIELDS)
-            samples = sample_values(all_nodes, field, max_samples=MAX_SAMPLE_PREVIEW)
-            lines.append(_format_field_block(field, "node", entry, samples))
-
-    for field in skip_node:
-        entry = _field_summary(all_nodes, field, KNOWN_NODE_FIELDS)
-        samples = sample_values(all_nodes, field, max_samples=MAX_SAMPLE_PREVIEW)
-        skip_entries.append((field, "node", entry, samples, None))
-
-    # --- Branch level ---
-    branch_keys = collect_keys(all_nodes) & set(KNOWN_BRANCH_FIELDS.keys())
-    if branch_keys:
-        lines.append("")
-        lines.append("  # --- Branch level (tree branch coloring, width) ---")
-        for field in sorted(branch_keys):
-            entry = dict(KNOWN_BRANCH_FIELDS[field])
-            samples = sample_values(all_nodes, field, max_samples=MAX_SAMPLE_PREVIEW)
-            lines.append(_format_field_block(field, "branch", entry, samples))
-
-    # --- Mutation level ---
-    mutation_keys = collect_keys(all_mutations) - EXCLUDED_MUTATION_FIELDS
-
-    has_aa_sequences = any(
-        n.get("sequence_alignment_aa") for n in all_nodes if isinstance(n, dict)
-    )
-    has_derived_aa = has_aa_sequences and "child_aa" not in mutation_keys
-
-    active_mutation, skip_mutation = [], []
-    for f in sorted(mutation_keys):
-        (skip_mutation if _is_skip(f, all_mutations) else active_mutation).append(f)
-
-    if active_mutation or has_derived_aa or demoted_fields:
-        lines.append("")
-        lines.append("  # --- Mutation level (alignment coloring) ---")
-
-        if has_derived_aa:
-            lines.append("  # The following fields are derived by the web app from")
-            lines.append("  # parent/child sequence alignments during rendering:")
-            lines.append(_format_field_block(
-                "child_aa", "mutation",
-                {"type": "aa", "label": "Child Amino Acid"},
-            ))
-            lines.append(_format_field_block(
-                "parent_aa", "mutation",
-                {"type": "aa", "display": "tooltip", "label": "Parent Amino Acid"},
-            ))
-
-        # Demoted node fields (list/json/records containing per-position mutation data)
-        if demoted_fields:
-            lines.append("  # The following fields were detected as per-position data")
-            lines.append("  # stored on nodes (demoted from node to mutation level):")
-            for field, info in sorted(demoted_fields.items()):
-                enc = info["encoding"]
-                if enc == "records":
-                    # Surprise: emit one entry per inner field
-                    for inner_name, inner_type in sorted(info["inner_fields"].items()):
-                        entry = {
-                            "type": inner_type,
-                            "display": "dropdown",
-                            "label": humanize_label(inner_name),
-                        }
-                        lines.append(_format_field_block(
-                            inner_name, "mutation", entry,
-                            encoding="records", source=field,
-                        ))
-                else:
-                    # list or json: emit single entry with encoding
-                    entry = _field_summary(all_nodes, field, KNOWN_NODE_FIELDS)
-                    entry["type"] = info["inner_type"]
-                    samples = sample_values(all_nodes, field, max_samples=MAX_SAMPLE_PREVIEW)
+            if demoted:
+                lines.append("  # The following fields were detected as per-position data")
+                lines.append("  # stored on nodes (demoted from node to mutation level):")
+                for cf in demoted:
+                    entry = {"type": cf["type"], "display": cf.get("display", "dropdown"),
+                             "label": cf["label"]}
                     lines.append(_format_field_block(
-                        field, "mutation", entry, samples, encoding=enc,
+                        cf["name"], yaml_level, entry,
+                        encoding=cf.get("encoding"), source=cf.get("source"),
                     ))
 
-        for field in active_mutation:
-            entry = _field_summary(all_mutations, field, KNOWN_MUTATION_FIELDS)
-            samples = sample_values(all_mutations, field, max_samples=MAX_SAMPLE_PREVIEW)
-            field_range = None
-            if entry["type"] == "continuous":
-                field_range = compute_range(all_mutations, field)
-            lines.append(_format_field_block(field, "mutation", entry, samples, field_range))
+            for cf in regular:
+                entry = {"type": cf["type"], "display": cf.get("display", "dropdown"),
+                         "label": cf["label"]}
+                samples = _get_sample_values_for_field(cf, all_clones, all_nodes, all_mutations)
+                field_range = None
+                if entry["type"] == "continuous":
+                    field_range = compute_range(all_mutations, cf["name"])
+                lines.append(_format_field_block(cf["name"], yaml_level, entry, samples, field_range))
 
-    for field in skip_mutation:
-        entry = _field_summary(all_mutations, field, KNOWN_MUTATION_FIELDS)
-        samples = sample_values(all_mutations, field, max_samples=MAX_SAMPLE_PREVIEW)
-        skip_entries.append((field, "mutation", entry, samples, None))
+        elif active:
+            lines.append("")
+            lines.append(level_headers[level])
+            for cf in active:
+                entry = {"type": cf["type"], "display": cf.get("display", "dropdown"),
+                         "label": cf["label"]}
+                samples = _get_sample_values_for_field(cf, all_clones, all_nodes, all_mutations)
+                lines.append(_format_field_block(cf["name"], yaml_level, entry, samples))
+
+        for cf in skipped:
+            entry = {"type": cf["type"], "display": cf.get("display", "dropdown"),
+                     "label": cf["label"]}
+            samples = _get_sample_values_for_field(cf, all_clones, all_nodes, all_mutations)
+            skip_entries.append((cf["name"], yaml_level, entry, samples, None))
 
     # --- Skipped fields section (at the bottom) ---
     if skip_entries:

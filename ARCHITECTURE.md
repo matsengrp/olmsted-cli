@@ -50,7 +50,7 @@ types.py              (no imports)
     │
     ├── process_data.py   (imports constants, process_pcp_data, process_airr_data)
     ├── build_config.py   (imports constants, field_metadata, process_data)
-    ├── enrich.py         (imports field_metadata, process_data)
+    ├── tag.py            (imports field_metadata, process_data)
     │
     └── cli.py            (imports all command modules)
 ```
@@ -104,7 +104,7 @@ detect_file_format()
             └── create_consolidated_data() → write_out()
 ```
 
-### `enrich` Command
+### `tag` Command
 
 ```
 Input Olmsted JSON
@@ -230,7 +230,7 @@ argparse defaults  <  YAML config values  <  explicit CLI arguments
 
 ### Config ↔ Command Compatibility
 
-The same config file can be used with both `process` and `enrich`. `process`-specific args (inputs, format, compute_metrics, etc.) are recognized by `load_config()` but silently ignored by `enrich`, which only reads `custom_fields`.
+The same config file can be used with both `process` and `tag`. `process`-specific args (inputs, format, compute_metrics, etc.) are recognized by `load_config()` but silently ignored by `tag`, which only reads `custom_fields`.
 
 ---
 
@@ -323,7 +323,7 @@ These work on any tree with branch lengths — both PCP and AIRR data.
         },
         "mutation": {
           "child_aa": {"type": "aa", "label": "Child Amino Acid"},
-          "surprise_mutsel": {"type": "continuous", "label": "Surprise (MutSel)", "range": [0.68, 13.03]}
+          "selection_contribution": {"type": "continuous", "label": "Selection Contribution", "range": [-2.5, 5.1]}
         }
       }
     }
@@ -361,7 +361,7 @@ These work on any tree with branch lengths — both PCP and AIRR data.
 | `process_airr_data.py` | AIRR JSON processing |
 | `process_utils.py` | create_consolidated_data(), write_out(), validation |
 | `build_config.py` | build-config command |
-| `enrich.py` | enrich command |
+| `tag.py` | tag command |
 | `cli.py` | Subcommand routing |
 
 ---

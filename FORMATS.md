@@ -277,11 +277,11 @@ The `field_metadata` object on each dataset describes available data fields for 
         "display": "tooltip",
         "label": "Parent Amino Acid"
       },
-      "surprise_mutsel": {
+      "selection_contribution": {
         "type": "continuous",
         "display": "dropdown",
-        "label": "Surprise (MutSel)",
-        "range": [0.68, 13.03]
+        "label": "Selection Contribution",
+        "range": [-2.5, 5.1]
       }
     }
   }

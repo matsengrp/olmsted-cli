@@ -4,15 +4,15 @@
 import argparse
 import sys
 
-from olmsted_cli import build_config, enrich, process_data, split, summary, validate
+from olmsted_cli import build_config, process_data, split, summary, tag, validate
 from olmsted_cli.version import version_string
 
 # Dispatch table: command name -> (help text, handler module)
-# Ordered by typical workflow: build-config → process → enrich, then utilities
+# Ordered by typical workflow: build-config → process → tag, then utilities
 COMMANDS = {
     "process": ("Convert input data (AIRR/PCP) to Olmsted JSON format", process_data),
     "build-config": ("Generate a YAML config from your data for editing", build_config),
-    "enrich": ("Add field_metadata to existing Olmsted JSON files", enrich),
+    "tag": ("Add field_metadata to existing Olmsted JSON files", tag),
     "validate": ("Validate data files against schemas", validate),
     "summary": ("Generate summary statistics for Olmsted JSON files", summary),
     "split": ("Split Olmsted JSON files into smaller files (legacy)", split),

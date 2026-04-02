@@ -640,6 +640,37 @@ def unpack_encoded_mutations(trees, custom_fields):
                 node["mutations"] = sorted(by_site.values(), key=lambda m: m["site"])
 
 
+def tag_field_metadata(clones, trees, custom_fields=None):
+    """Generate field_metadata for a dataset, applying default config if needed.
+
+    This is the shared entry point used by ``process`` and ``tag`` to
+    produce field_metadata.  It ensures both commands use
+    ``generate_default_config`` as the single source of truth for field
+    discovery when no explicit config is provided.
+
+    Args:
+        clones: List of clone dicts for the dataset.
+        trees: List of tree dicts for the dataset (modified in place by
+            unpack_encoded_mutations).
+        custom_fields: Optional list of custom field declarations from a
+            user-provided config.  When *None*, defaults are generated
+            via ``generate_default_config``.
+
+    Returns:
+        Dict with level keys mapping to field metadata dicts, suitable
+        for assigning to ``dataset["field_metadata"]``.
+    """
+    from .build_config import generate_default_config
+    from .field_metadata import generate_field_metadata
+
+    if custom_fields is None:
+        custom_fields = generate_default_config(clones, trees)
+
+    unpack_encoded_mutations(trees, custom_fields)
+
+    return generate_field_metadata(clones, trees, custom_fields=custom_fields)
+
+
 def create_consolidated_data(
     datasets, clones_dict, trees, input_files, detected_format, args=None
 ):

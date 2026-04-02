@@ -4,5 +4,5 @@
 # =============================================================================
 
 # input: {input_path}
-# output: enriched_output.json
+# output: tagged_output.json
 # mode: add            # add (merge with existing) or overwrite

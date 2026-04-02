@@ -63,16 +63,15 @@ from .process_utils import (
     SCHEMA_VERSION,
     VerbosePrinter,
     create_consolidated_data,
+    tag_field_metadata,
     get_optional_int,
     translate_dna_to_aa,
-    unpack_encoded_mutations,
     validate_output_data,
     write_out,
 )
 
 
 from .constants import CHAIN_COLUMN_ALIASES, KNOWN_PCP_COLUMNS, KNOWN_TREE_COLUMNS
-from .field_metadata import generate_field_metadata
 from .metrics import compute_tree_metrics
 
 
@@ -2348,16 +2347,9 @@ def process_pcp_to_olmsted(
                 }
                 trees.append(tree_light)
 
-    # Unpack encoded mutation fields (list/json/surprise) before metadata generation
+    # Generate field_metadata (uses generate_default_config when no config provided)
     dataset_clones = clones_dict.get(dataset_id, [])
-    unpack_encoded_mutations(trees, custom_fields)
-
-    # Generate field_metadata from actual clone and tree data
-    dataset["field_metadata"] = generate_field_metadata(
-        dataset_clones,
-        trees,
-        custom_fields=custom_fields,
-    )
+    dataset["field_metadata"] = tag_field_metadata(dataset_clones, trees, custom_fields)
 
     datasets.append(dataset)
     return datasets, clones_dict, trees
