@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 """
-Shared utilities for processing various data formats in Olmsted.
+Processing utilities for Olmsted data pipelines.
 
-This module contains common functions and constants used by
-process_airr_data.py, process_pcp_data.py, and other data processors.
+This module contains functions that depend on other project modules
+(schemas, build_config, field_metadata).  Pure utilities with no
+project dependencies live in ``utils.py``.
 """
 
 import csv
@@ -19,432 +20,38 @@ from tqdm import tqdm
 from .build_config import generate_default_config
 from .field_metadata import generate_field_metadata
 from .schemas import SCHEMA_VERSION, clone_spec, dataset_spec, tree_spec
+from .utils import (  # noqa: F401 — re-exported for backward compatibility
+    VerbosePrinter,
+    add_verbosity_args,
+    clean_record,
+    comp,
+    dict_subset,
+    get_in,
+    get_optional_int,
+    inf,
+    is_nullable_string,
+    json_rep,
+    listof,
+    listofint,
+    lspy,
+    merge,
+    natural_number,
+    neginf,
+    nospy,
+    remap_dict_values,
+    remap_list,
+    rename_keys,
+    resolve_verbosity,
+    spy,
+    strip_ns,
+    translate_dna_to_aa,
+    try_del,
+)
 from .version import __version__, get_git_hash
 
-# Constants for infinity handling
-inf = float("inf")
-neginf = float("-inf")
 
-
-# Verbosity-aware printing
-class VerbosePrinter:
-    """
-    Handle verbosity-aware printing for Olmsted CLI tools.
-
-    This class provides a clean interface for printing messages at different
-    verbosity levels without scattering if-statements throughout the code.
-
-    Verbosity levels:
-        0: Errors only (quiet mode)
-        1: Normal status messages (default)
-        2: Verbose output with detailed information
-        3: Debug output with extensive diagnostic information
-
-    Usage:
-        vprint = VerbosePrinter(args.verbose)
-        vprint.error("Something went wrong!")  # Always shown
-        vprint.status("Processing file...")     # Level 1+
-        vprint.verbose("Command arguments:")    # Level 2+
-        vprint.debug(f"Mutation count: {n}")   # Level 3+
-
-        # Or use the generic print with custom min_level
-        vprint.print("Custom message", min_level=2)
-    """
-
-    def __init__(self, level=1):
-        """
-        Initialize the VerbosePrinter.
-
-        Args:
-            level: Verbosity level (0=quiet, 1=normal, 2=verbose, 3=debug)
-        """
-        self.level = level
-
-    def print(self, *args, min_level=1, **kwargs):
-        """
-        Print if current verbosity level >= min_level.
-
-        Args:
-            *args: Arguments to pass to print()
-            min_level: Minimum verbosity level required to print
-            **kwargs: Keyword arguments to pass to print()
-        """
-        if self.level >= min_level:
-            print(*args, **kwargs)
-
-    def error(self, *args, **kwargs):
-        """
-        Always print errors (level 0+).
-
-        Args:
-            *args: Arguments to pass to print()
-            **kwargs: Keyword arguments to pass to print()
-        """
-        print(*args, **kwargs)
-
-    def status(self, *args, **kwargs):
-        """
-        Print status messages (level 1+).
-
-        Args:
-            *args: Arguments to pass to print()
-            **kwargs: Keyword arguments to pass to print()
-        """
-        self.print(*args, min_level=1, **kwargs)
-
-    def verbose(self, *args, **kwargs):
-        """
-        Print verbose messages (level 2+).
-
-        Args:
-            *args: Arguments to pass to print()
-            **kwargs: Keyword arguments to pass to print()
-        """
-        self.print(*args, min_level=2, **kwargs)
-
-    def debug(self, *args, **kwargs):
-        """
-        Print debug messages (level 3+).
-
-        Args:
-            *args: Arguments to pass to print()
-            **kwargs: Keyword arguments to pass to print()
-        """
-        self.print(*args, min_level=3, **kwargs)
-
-    def progress(self, iterable, min_level=1, **tqdm_kwargs):
-        """
-        Wrap an iterable with tqdm, respecting verbosity level.
-
-        At levels below min_level, returns the bare iterable (no progress bar).
-        At min_level and above, returns a tqdm-wrapped iterable.
-
-        Args:
-            iterable: The iterable to wrap.
-            min_level: Minimum verbosity level to show progress bar (default: 1).
-            **tqdm_kwargs: Keyword arguments passed to tqdm.
-
-        Returns:
-            The iterable, optionally wrapped with tqdm.
-        """
-        if self.level >= min_level:
-            return tqdm(iterable, **tqdm_kwargs)
-        return iterable
-
-
-def add_verbosity_args(parser):
-    """Add standard -v/--verbose and -q/--quiet arguments to an argparser.
-
-    Usage:
-        parser = argparse.ArgumentParser(...)
-        add_verbosity_args(parser)
-        args = parser.parse_args()
-        vprint = VerbosePrinter(args.verbose)
-    """
-    from .constants import VERBOSITY_HELP
-
-    parser.add_argument(
-        "-v", "--verbose",
-        type=int,
-        choices=[0, 1, 2, 3],
-        default=1,
-        help=VERBOSITY_HELP,
-    )
-    parser.add_argument(
-        "-q", "--quiet",
-        action="store_true",
-        help="Quiet mode — errors only (equivalent to -v 0)",
-    )
-
-
-def resolve_verbosity(args):
-    """Resolve verbosity from args, handling -q flag."""
-    if getattr(args, "quiet", False):
-        args.verbose = 0
-    return args.verbose
-
-
-# Data extraction utilities
-def get_optional_int(row, key, default=0):
-    """
-    Extract integer from row dictionary, returning default if missing or empty.
-
-    This helper consolidates the repeated pattern:
-        value = int(row.get(key, default)) if row.get(key) else default
-
-    Args:
-        row (dict): Dictionary containing data (typically a CSV row)
-        key (str): Key to extract from the dictionary
-        default (int): Value to return if key is missing or empty (default: 0)
-
-    Returns:
-        int: The integer value from row[key], or default if missing/empty
-
-    Examples:
-        >>> row = {"count": "42", "empty": "", "zero": "0"}
-        >>> get_optional_int(row, "count")
-        42
-        >>> get_optional_int(row, "empty")
-        0
-        >>> get_optional_int(row, "missing")
-        0
-        >>> get_optional_int(row, "zero")
-        0
-        >>> get_optional_int(row, "missing", default=None)
-        None
-    """
-    value = row.get(key)
-    return int(value) if value else default
-
-
-# General utility functions
-def comp(f, g):
-    """
-    Function composition: comp(f, g)(x) == f(g(x))
-    """
-
-    def h(*args, **kw_args):
-        return f(g(*args, **kw_args))
-
-    return h
-
-
-def strip_ns(a):
-    # Handle namespace stripping for both : and / separators
-    return str(a).split(":")[-1].split("/")[-1]
-
-
-def dict_subset(d, keys):
-    return {k: d[k] for k in keys if k in d}
-
-
-def merge(d, d2):
-    """
-    Merge d2 into d, returning a new dict (non-mutating).
-    """
-    d = d.copy()
-    d.update(d2)
-    return d
-
-
-def get_in(d, path):
-    """
-    Retrieve value from nested dictionary using a path list.
-
-    Args:
-        d: Dictionary to traverse
-        path: List of keys representing path to value
-
-    Returns:
-        Value at path or empty dict if path doesn't exist
-    """
-    return (
-        d
-        if len(path) == 0
-        else get_in(d.get(path[0]) if isinstance(d, dict) else {}, path[1:])
-    )
-
-
-def clean_record(d):
-    """
-    Clean a record by removing namespaces and handling special values.
-
-    Args:
-        d: Data to clean (dict, list, or value)
-
-    Returns:
-        Cleaned data
-    """
-    if isinstance(d, list):
-        return list(map(clean_record, d))
-    elif isinstance(d, dict):
-        return {strip_ns(k): clean_record(v) for k, v in d.items()}
-    # can't have infinity in json
-    elif d == inf or d == neginf:
-        return None
-    else:
-        return d
-
-
-def spy(x):
-    print("debugging:", x)
-    return x
-
-
-def lspy(xs):
-    xs_ = list(xs)
-    print("debugging listable:", xs_)
-    return xs_
-
-
-def nospy(xs):
-    return xs
-
-
-def translate_dna_to_aa(dna_sequence):
-    """
-    Translate DNA sequence to amino acid sequence.
-    Uses standard genetic code, handles ambiguous bases.
-    """
-    if not dna_sequence:
-        return ""
-
-    # Standard genetic code
-    codon_table = {
-        "TTT": "F",
-        "TTC": "F",
-        "TTA": "L",
-        "TTG": "L",
-        "TCT": "S",
-        "TCC": "S",
-        "TCA": "S",
-        "TCG": "S",
-        "TAT": "Y",
-        "TAC": "Y",
-        "TAA": "*",
-        "TAG": "*",
-        "TGT": "C",
-        "TGC": "C",
-        "TGA": "*",
-        "TGG": "W",
-        "CTT": "L",
-        "CTC": "L",
-        "CTA": "L",
-        "CTG": "L",
-        "CCT": "P",
-        "CCC": "P",
-        "CCA": "P",
-        "CCG": "P",
-        "CAT": "H",
-        "CAC": "H",
-        "CAA": "Q",
-        "CAG": "Q",
-        "CGT": "R",
-        "CGC": "R",
-        "CGA": "R",
-        "CGG": "R",
-        "ATT": "I",
-        "ATC": "I",
-        "ATA": "I",
-        "ATG": "M",
-        "ACT": "T",
-        "ACC": "T",
-        "ACA": "T",
-        "ACG": "T",
-        "AAT": "N",
-        "AAC": "N",
-        "AAA": "K",
-        "AAG": "K",
-        "AGT": "S",
-        "AGC": "S",
-        "AGA": "R",
-        "AGG": "R",
-        "GTT": "V",
-        "GTC": "V",
-        "GTA": "V",
-        "GTG": "V",
-        "GCT": "A",
-        "GCC": "A",
-        "GCA": "A",
-        "GCG": "A",
-        "GAT": "D",
-        "GAC": "D",
-        "GAA": "E",
-        "GAG": "E",
-        "GGT": "G",
-        "GGC": "G",
-        "GGA": "G",
-        "GGG": "G",
-    }
-
-    aa_sequence = ""
-    # Process in chunks of 3 nucleotides
-    for i in range(0, len(dna_sequence) - 2, 3):
-        codon = dna_sequence[i : i + 3].upper()
-        # Handle ambiguous bases by using 'X' for unknown amino acids
-        if len(codon) == 3 and codon in codon_table:
-            aa_sequence += codon_table[codon]
-        else:
-            aa_sequence += "X"  # Unknown amino acid for ambiguous codons
-
-    return aa_sequence
-
-
-# Additional utility functions consolidated from process_cft_data.py
-
-
-def rename_keys(record, mapping, to_keep=None):
-    """
-    Rename keys in a record based on a mapping dictionary.
-
-    Args:
-        record: Dictionary to modify
-        mapping: Dict mapping old keys to new keys
-        to_keep: List of keys to keep with original name (copy, don't move)
-    """
-    if to_keep is None:
-        to_keep = []
-
-    for k in mapping.keys():
-        if k in record:
-            record[mapping[k]] = record.pop(k) if k not in to_keep else record[k]
-
-
-def remap_list(lst, mapping):
-    """Apply key renaming to all elements in a list."""
-    for element in lst:
-        rename_keys(element, mapping)
-
-
-def remap_dict_values(d, mapping):
-    """Apply key renaming to all values in a dictionary."""
-    for v in d.values():
-        rename_keys(v, mapping)
-
-
-def try_del(d, attr):
-    """Safely delete an attribute from a dictionary, ignoring errors."""
-    try:
-        del d[attr]
-    except (KeyError, TypeError):
-        pass
-
-
-def listof(xs_str, f=None):
-    """Split a colon-separated string and apply optional function to each element."""
-    if f is None:
-        f = lambda x: x
-    return list(map(f, xs_str.split(":")))
-
-
-def listofint(xs_str):
-    """Split a colon-separated string and convert each element to int."""
-    return listof(xs_str, int)
-
-
-# JSON utility functions
-def json_rep(x):
-    """
-    JSON serialization helper for non-standard types.
-
-    Converts UUID objects to strings and other iterables to lists.
-    Used as the 'default' parameter for json.dump().
-
-    Args:
-        x: Object to convert
-
-    Returns:
-        JSON-serializable representation
-    """
-    if isinstance(x, uuid.UUID):
-        return str(x)
-    else:
-        # Try to convert to list (for sets, tuples, etc.)
-        try:
-            return list(x)
-        except TypeError:
-            # Let json.dump() handle the error for truly non-serializable types
-            raise
+# VerbosePrinter and all general-purpose utilities now live in utils.py.
+# They are re-exported above for backward compatibility.
 
 
 def write_out(data, dirname, filename, args):
@@ -742,19 +349,6 @@ def create_consolidated_data(
         "clones": clones_dict,
         "trees": trees,
     }
-
-
-# Schema utility functions
-def natural_number(desc):
-    """Create a natural number schema specification with description."""
-    return {"description": desc, "minimum": 0, "type": "integer"}
-
-
-def is_nullable_string(checker, instance):
-    """Check if an instance is either a string or null (for JSON schema validation)."""
-    return jsonschema.Draft4Validator.TYPE_CHECKER.is_type(
-        instance, "string"
-    ) or jsonschema.Draft4Validator.TYPE_CHECKER.is_type(instance, "null")
 
 
 # Schema loading and validation functions
