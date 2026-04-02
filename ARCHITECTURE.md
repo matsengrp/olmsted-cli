@@ -95,7 +95,7 @@ detect_file_format()
     │       │   ├── _partition_chain_fields() for extras
     │       │   ├── compute_tree_metrics() if --compute-metrics
     │       │   ├── mean_mut_freq calculation
-    │       │   └── generate_field_metadata()
+    │       │   └── tag_field_metadata()
     │       │
     │       └── create_consolidated_data() → write_out()
     │
@@ -106,7 +106,7 @@ detect_file_format()
             │   ├── process_clone()   (position adjustment, sample lookup)
             │   ├── process_tree()    (tree parsing, node processing)
             │   ├── compute_tree_metrics() if --compute-metrics
-            │   └── generate_field_metadata()
+            │   └── tag_field_metadata()
             │
             └── create_consolidated_data() → write_out()
 ```
@@ -125,7 +125,10 @@ Ensure metadata.format = "olmsted"
     ▼
 For each dataset:
     ├── Collect clones and matching trees
-    ├── generate_field_metadata(clones, trees, custom_fields)
+    ├── tag_field_metadata(clones, trees, custom_fields)
+    │       ├── generate_default_config() if no custom_fields
+    │       ├── unpack_encoded_mutations()
+    │       └── generate_field_metadata()
     └── Merge with existing field_metadata (add mode) or replace (overwrite mode)
     │
     ▼

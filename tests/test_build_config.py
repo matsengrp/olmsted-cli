@@ -740,21 +740,6 @@ class TestProcessMatchesBuildConfig:
     """Integration test: process without config should produce the same
     field_metadata as build-config + process -c."""
 
-    def test_airr_process_uses_default_config(self):
-        """AIRR processing without config produces field_metadata matching
-        what generate_default_config would produce."""
-        result = subprocess.run(
-            ["olmsted", "process", "-f", "airr",
-             "-i", "example_data/airr/airr.json",
-             "-o", "/dev/null", "--seed", "42",
-             "--name", "test", "-q"],
-            capture_output=True, text=True,
-        )
-        # If this passes, it means process used generate_default_config
-        # and the golden data comparison in test_cli_processing already
-        # verifies the output matches. This test just confirms no errors.
-        assert result.returncode == 0, f"stderr: {result.stderr}"
-
     def test_tag_without_config_matches(self):
         """Tagging without config produces same result as with default config."""
         # Process to get olmsted JSON

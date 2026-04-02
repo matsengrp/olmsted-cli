@@ -2,6 +2,7 @@
 
 import json
 import os
+import subprocess
 import tempfile
 
 import pytest
@@ -79,7 +80,6 @@ def cleanup_files(sample_olmsted_json):
 
 class TestTagCommand:
     def test_tag_adds_field_metadata(self, sample_olmsted_json):
-        import subprocess
 
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as out:
             output_path = out.name
@@ -106,7 +106,6 @@ class TestTagCommand:
                 os.unlink(output_path)
 
     def test_tag_preserves_data(self, sample_olmsted_json):
-        import subprocess
 
         # Read original
         with open(sample_olmsted_json) as f:
@@ -139,7 +138,6 @@ class TestTagCommand:
                 os.unlink(output_path)
 
     def test_tag_in_place(self, sample_olmsted_json):
-        import subprocess
 
         result = subprocess.run(
             ["olmsted", "tag", "-i", sample_olmsted_json, "--in-place"],
@@ -154,7 +152,6 @@ class TestTagCommand:
         assert "field_metadata" in data["datasets"][0]
 
     def test_tag_with_custom_fields(self, sample_olmsted_json):
-        import subprocess
 
         config = {
             "custom_fields": [
@@ -201,7 +198,6 @@ class TestTagCommand:
                     os.unlink(p)
 
     def test_tag_node_level(self, sample_olmsted_json):
-        import subprocess
 
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as out:
             output_path = out.name
@@ -228,7 +224,6 @@ class TestTagCommand:
 
     def test_tag_mode_overwrite(self, sample_olmsted_json):
         """--mode overwrite replaces existing field_metadata entirely."""
-        import subprocess
 
         # First tag to add field_metadata
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as out:
@@ -274,7 +269,6 @@ class TestTagCommand:
 
     def test_tag_mode_add_preserves_existing(self, sample_olmsted_json):
         """--mode add (default) preserves existing field_metadata entries."""
-        import subprocess
 
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as out:
             output_path = out.name

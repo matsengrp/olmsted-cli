@@ -50,6 +50,7 @@ from .field_metadata import (
     sample_values_by_path,
 )
 from .format_detection import detect_file_format
+from .utils import add_verbosity_args, resolve_verbosity
 
 
 def get_args():
@@ -113,13 +114,7 @@ Examples:
         help="Compute metrics (LBI, LBR, etc.) when processing PCP data",
     )
 
-    parser.add_argument(
-        "-v", "--verbose",
-        type=int,
-        choices=[0, 1, 2, 3],
-        default=1,
-        help="Verbosity: 0=errors only, 1=normal (default), 2=verbose, 3=debug",
-    )
+    add_verbosity_args(parser)
 
     # Skip mode for config generation
     skip_group = parser.add_mutually_exclusive_group()
@@ -134,7 +129,9 @@ Examples:
         help="Skip all fields by default — user must manually un-skip what they want",
     )
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    resolve_verbosity(args)
+    return args
 
 
 def _load_olmsted(input_path):
