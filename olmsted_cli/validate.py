@@ -33,9 +33,7 @@ from .process_utils import (
     validate_dataset,
     validate_tree,
 )
-
-# Module-level VerbosePrinter, initialized in main()
-vprint = VerbosePrinter(1)
+from .utils import set_verbosity, vprint
 
 PCP_REQUIRED_COLUMNS = {"sample_id", "parent_name", "child_name"}
 TREE_REQUIRED_COLUMNS_A = {"family_name", "newick_tree"}
@@ -485,8 +483,7 @@ def validate_file(filepath, file_type=None, verbose=1, strict=False,
     Returns:
         tuple: (is_valid, list of errors)
     """
-    global vprint
-    vprint = VerbosePrinter(verbose)
+    set_verbosity(verbose)
     filepath = str(filepath)
 
     # Detect CSV files
@@ -681,10 +678,9 @@ Auto-detection (when no type specified):
 
 def main():
     """Main entry point for validate command."""
-    global vprint
     args = get_args()
     resolve_verbosity(args)
-    vprint = VerbosePrinter(args.verbose)
+    set_verbosity(args.verbose)
 
     # Collect all files to validate with their types
     files_to_validate = []

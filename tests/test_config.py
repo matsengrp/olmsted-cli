@@ -70,7 +70,7 @@ class TestLoadConfig:
         })
         config_dict, _ = load_config(path)
         captured = capsys.readouterr()
-        assert "Unrecognized config key 'typo_key'" in captured.err
+        assert "Unrecognized config key 'typo_key'" in (captured.err + captured.out)
 
     def test_relative_paths_resolved(self, config_dir):
         path = write_config(config_dir, {
@@ -134,7 +134,7 @@ class TestCustomFieldsParsing:
         _, custom_fields = load_config(path)
         assert len(custom_fields) == 0
         captured = capsys.readouterr()
-        assert "invalid level" in captured.err
+        assert "invalid level" in (captured.err + captured.out)
 
     def test_invalid_type_skipped(self, config_dir, capsys):
         path = write_config(config_dir, {
@@ -150,7 +150,7 @@ class TestCustomFieldsParsing:
         _, custom_fields = load_config(path)
         assert len(custom_fields) == 0
         captured = capsys.readouterr()
-        assert "invalid type" in captured.err
+        assert "invalid type" in (captured.err + captured.out)
 
     def test_missing_required_keys_skipped(self, config_dir, capsys):
         path = write_config(config_dir, {
@@ -161,7 +161,7 @@ class TestCustomFieldsParsing:
         _, custom_fields = load_config(path)
         assert len(custom_fields) == 0
         captured = capsys.readouterr()
-        assert "missing required keys" in captured.err
+        assert "missing required keys" in (captured.err + captured.out)
 
     def test_custom_field_with_path(self, config_dir):
         path = write_config(config_dir, {

@@ -50,6 +50,7 @@ from .process_pcp_data import (
     parse_pcp_csv,
     process_pcp_to_olmsted,
 )
+from .format_detection import detect_file_format
 from .process_utils import (
     VerbosePrinter,
     add_verbosity_args,
@@ -59,86 +60,8 @@ from .process_utils import (
     validate_output_data,
     write_out,
 )
+from .utils import set_verbosity, vprint
 
-
-def detect_file_format(file_path):
-    """
-    Automatically detect the file format based on file extension and content.
-
-    Args:
-        file_path: Path to the input file
-
-    Returns:
-        str: Detected format (FORMAT_AIRR, FORMAT_PCP, FORMAT_OLMSTED, or FORMAT_UNKNOWN)
-    """
-    file_path = Path(file_path)
-
-    # CSV files are always PCP
-    if file_path.suffix.lower() == ".csv":
-        return FORMAT_PCP
-    if file_path.suffix.lower() == ".gz" and file_path.stem.endswith(".csv"):
-        return FORMAT_PCP
-
-    # JSON files need content inspection to distinguish AIRR from Olmsted
-    if file_path.suffix.lower() == ".json" or (
-        file_path.suffix.lower() == ".gz" and file_path.stem.endswith(".json")
-    ):
-        try:
-            if str(file_path).endswith(".gz"):
-                file_handle = gzip.open(file_path, "rt")
-            else:
-                file_handle = open(file_path, "r")
-
-            with file_handle:
-                data = json.load(file_handle)
-
-            if isinstance(data, dict):
-                # Explicit format tag in metadata
-                metadata = data.get("metadata", {})
-                if isinstance(metadata, dict) and metadata.get("format") == FORMAT_OLMSTED:
-                    return FORMAT_OLMSTED
-                # Heuristic fallback: Olmsted JSON has "datasets" and "metadata"
-                if "datasets" in data and "metadata" in data:
-                    return FORMAT_OLMSTED
-                # AIRR JSON has "clones" with "dataset_id" or standard AIRR keys
-                if "dataset_id" in data or "clones" in data or "ident" in data:
-                    return FORMAT_AIRR
-            elif isinstance(data, list):
-                # Multi-dataset AIRR
-                return FORMAT_AIRR
-        except (json.JSONDecodeError, OSError, ValueError):
-            pass
-
-    # If extension doesn't help, try to peek at content for CSV
-    try:
-        if str(file_path).endswith(".gz"):
-            file_handle = gzip.open(file_path, "rt")
-        else:
-            file_handle = open(file_path, "r")
-
-        with file_handle:
-            first_lines = []
-            for i, line in enumerate(file_handle):
-                first_lines.append(line.strip())
-                if i >= 2:
-                    break
-
-            if first_lines:
-                first_line = first_lines[0].lower()
-                pcp_indicators = [
-                    "sample_id",
-                    "parent_name",
-                    "child_name",
-                    "family_name",
-                    "newick",
-                ]
-                if any(indicator in first_line for indicator in pcp_indicators):
-                    return FORMAT_PCP
-
-    except Exception as e:
-        print(f"Warning: Could not detect format for {file_path}: {e}")
-
-    return FORMAT_UNKNOWN
 
 
 def validate_airr_file(file_path):
@@ -215,8 +138,6 @@ def process_airr_format(args):
     Args:
         args: Parsed command line arguments
     """
-    # Create verbosity printer
-    vprint = VerbosePrinter(args.verbose)
 
     vprint.status("Processing AIRR format...")
 
@@ -352,8 +273,6 @@ def process_pcp_format(args):
     Args:
         args: Parsed command line arguments
     """
-    # Create verbosity printer
-    vprint = VerbosePrinter(args.verbose)
 
     vprint.status("Processing PCP format...")
 
@@ -628,7 +547,7 @@ _CONFIG_KEY_MAP = {
 }
 
 # Valid config keys (including custom_fields which is handled separately)
-# Enrich-specific keys are also accepted (input, mode) so configs work for both commands.
+# Tag-specific keys are also accepted (input, mode) so configs work for both commands.
 _VALID_CONFIG_KEYS = set(_CONFIG_KEY_MAP.keys()) | {"custom_fields", "input", "mode"}
 
 
@@ -649,14 +568,14 @@ def load_config(config_path):
     """
     config_path = Path(config_path)
     if not config_path.exists():
-        print(f"Error: Config file not found: {config_path}", file=sys.stderr)
+        vprint.error(f"Error: Config file not found: {config_path}")
         sys.exit(1)
 
     try:
         with open(config_path) as f:
             raw_config = yaml.safe_load(f)
     except yaml.YAMLError as e:
-        print(f"Error: Invalid YAML in config file: {e}", file=sys.stderr)
+        vprint.error(f"Error: Invalid YAML in config file: {e}")
         sys.exit(1)
 
     if not raw_config or not isinstance(raw_config, dict):
@@ -667,7 +586,7 @@ def load_config(config_path):
     # Warn about unrecognized keys
     for key in raw_config:
         if key not in _VALID_CONFIG_KEYS:
-            print(f"Warning: Unrecognized config key '{key}' (ignored)", file=sys.stderr)
+            vprint.error(f"Warning: Unrecognized config key '{key}' (ignored)")
 
     # Map config keys to argparse dest names
     config_dict = {}
@@ -679,7 +598,7 @@ def load_config(config_path):
                 value = _resolve_paths(value, config_dir)
             config_dict[arg_dest] = value
 
-    # Enrich-specific keys (not in _CONFIG_KEY_MAP)
+    # Tag-specific keys (not in _CONFIG_KEY_MAP)
     if "input" in raw_config:
         config_dict["input"] = _resolve_paths(raw_config["input"], config_dir)
     if "mode" in raw_config:
@@ -692,9 +611,8 @@ def load_config(config_path):
         if isinstance(raw_fields, list):
             for i, entry in enumerate(raw_fields):
                 if not isinstance(entry, dict):
-                    print(
-                        f"Warning: custom_fields[{i}] is not a dict (ignored)",
-                        file=sys.stderr,
+                    vprint.error(
+                        f"Warning: custom_fields[{i}] is not a dict (ignored)"
                     )
                     continue
                 # Skip entries only need name and level
@@ -705,52 +623,45 @@ def load_config(config_path):
                     required_keys = {"name", "level", "type", "label"}
                 missing = required_keys - set(entry.keys())
                 if missing:
-                    print(
-                        f"Warning: custom_fields[{i}] missing required keys: {missing} (ignored)",
-                        file=sys.stderr,
+                    vprint.error(
+                        f"Warning: custom_fields[{i}] missing required keys: {missing} (ignored)"
                     )
                     continue
                 if entry.get("level") not in FIELD_LEVELS:
-                    print(
-                        f"Warning: custom_fields[{i}] has invalid level '{entry['level']}' (ignored)",
-                        file=sys.stderr,
+                    vprint.error(
+                        f"Warning: custom_fields[{i}] has invalid level '{entry['level']}' (ignored)"
                     )
                     continue
                 # Normalize level alias (family → clone)
                 entry["level"] = normalize_level(entry["level"])
                 if not is_skip and entry.get("type") not in FIELD_TYPES:
-                    print(
-                        f"Warning: custom_fields[{i}] has invalid type '{entry['type']}' (ignored)",
-                        file=sys.stderr,
+                    vprint.error(
+                        f"Warning: custom_fields[{i}] has invalid type '{entry['type']}' (ignored)"
                     )
                     continue
                 # Validate display mode if specified
                 display = entry.get("display")
                 if display and display not in DISPLAY_MODES:
-                    print(
-                        f"Warning: custom_fields[{i}] has invalid display '{display}' (ignored)",
-                        file=sys.stderr,
+                    vprint.error(
+                        f"Warning: custom_fields[{i}] has invalid display '{display}' (ignored)"
                     )
                     continue
                 # Validate encoding if specified (mutation-level only)
                 encoding = entry.get("encoding")
                 if encoding:
                     if encoding not in MUTATION_ENCODINGS:
-                        print(
-                            f"Warning: custom_fields[{i}] has invalid encoding '{encoding}' (ignored)",
-                            file=sys.stderr,
+                        vprint.error(
+                            f"Warning: custom_fields[{i}] has invalid encoding '{encoding}' (ignored)"
                         )
                         continue
                     if entry["level"] != "mutation":
-                        print(
-                            f"Warning: custom_fields[{i}] has encoding but level is '{entry['level']}', not 'mutation' (ignored)",
-                            file=sys.stderr,
+                        vprint.error(
+                            f"Warning: custom_fields[{i}] has encoding but level is '{entry['level']}', not 'mutation' (ignored)"
                         )
                         continue
                     if encoding == "records" and "source" not in entry:
-                        print(
-                            f"Warning: custom_fields[{i}] encoding 'records' requires 'source' key (ignored)",
-                            file=sys.stderr,
+                        vprint.error(
+                            f"Warning: custom_fields[{i}] encoding 'records' requires 'source' key (ignored)"
                         )
                         continue
                 custom_fields.append(entry)
@@ -819,8 +730,8 @@ def main():
     # Handle quiet mode
     resolve_verbosity(args)
 
-    # Create verbosity printer
-    vprint = VerbosePrinter(args.verbose)
+    # Set global verbosity
+    set_verbosity(args.verbose)
 
     # Validate output arguments
     if not args.output and not args.split_files:
@@ -873,7 +784,7 @@ def main():
         elif format_to_use == FORMAT_OLMSTED:
             vprint.error(
                 "Error: Input is already in Olmsted JSON format. "
-                "Use 'olmsted enrich' to add field_metadata to existing Olmsted files."
+                "Use 'olmsted tag' to add field_metadata to existing Olmsted files."
             )
             sys.exit(1)
         else:

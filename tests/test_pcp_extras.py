@@ -305,11 +305,11 @@ class TestPcpMinimalData:
         try:
             result = subprocess.run(
                 ["olmsted", "process", "-i", pcp_path, "-f", "pcp",
-                 "-o", out_path, "--seed", "42"],
+                 "-o", out_path, "--seed", "42", "-v", "2"],
                 capture_output=True, text=True,
             )
             assert result.returncode == 0, f"stderr: {result.stderr}"
-            assert "mapped to" in result.stderr  # Should print alias notifications
+            assert "mapped to" in (result.stderr + result.stdout)  # Should print alias notifications
 
             with open(out_path) as f:
                 data = json.load(f)

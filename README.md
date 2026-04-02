@@ -76,7 +76,7 @@ olmsted process -i sequences.csv --tree trees.csv -o output/data.json --compute-
 | Command | Purpose |
 |---------|---------|
 | **`process`** | This is the primary tool: Converts input AIRR or PCP format data into Olmsted-readable JSON format |
-| **`enrich`** | Add field metadata to existing Olmsted JSON files (e.g., pre-built surprise analysis data) |
+| **`tag`** | Add field metadata to existing Olmsted JSON files |
 | **`build-config`** | Generate a YAML config from your data for editing |
 | **`validate`** | Verify data files conform to Olmsted schema |
 | **`summary`** | Generate statistics and metadata report for processed data |
@@ -188,21 +188,21 @@ Expected columns in the trees file:
 
 ---
 
-### `enrich` - Add Field Metadata to Existing Files
+### `tag` - Add Field Metadata to Existing Files
 
-Add `field_metadata` to pre-built Olmsted JSON files. This is useful for data produced outside the standard `process` pipeline (e.g., surprise analysis data from DASM2).
+Add `field_metadata` to pre-built Olmsted JSON files. This is useful for data produced outside the standard `process` pipeline.
 
 #### Basic Usage
 
 ```bash
 # Introspect fields and add metadata
-olmsted enrich -i data.json -o enriched.json
+olmsted tag -i data.json -o tagged.json
 
 # With custom field declarations
-olmsted enrich -i data.json -o enriched.json -c surprise.yaml
+olmsted tag -i data.json -o tagged.json -c config.yaml
 
 # Modify file in place
-olmsted enrich -i data.json --in-place -c surprise.yaml
+olmsted tag -i data.json --in-place -c config.yaml
 ```
 
 #### Options
@@ -220,7 +220,7 @@ olmsted enrich -i data.json --in-place -c surprise.yaml
 
 ### `build-config` - Generate Config from Data
 
-Introspect your data and generate a YAML config listing processing options, every discoverable field with its inferred type/label/sample values, and cross-format alias suggestions. Edit the config, then use it with `process` or `enrich`.
+Introspect your data and generate a YAML config listing processing options, every discoverable field with its inferred type/label/sample values, and cross-format alias suggestions. Edit the config, then use it with `process` or `tag`.
 
 #### Typical Workflow
 
@@ -230,8 +230,8 @@ olmsted build-config -i data.json -o config.yaml
 
 # 2. Edit config.yaml — remove fields you don't need, fix labels, adjust types
 
-# 3. Use the config to enrich your data
-olmsted enrich -i data.json -o enriched.json -c config.yaml
+# 3. Use the config to tag your data
+olmsted tag -i data.json -o tagged.json -c config.yaml
 ```
 
 #### Options
@@ -259,11 +259,11 @@ custom_fields:
     label: "Rearrangement Count"
 
   # --- Mutation level (alignment coloring) ---
-  - name: surprise_mutsel
+  - name: selection_contribution
     level: mutation
     type: continuous
-    label: "Surprise (MutSel)"
-    # range in data: [0.68, 13.03]
+    label: "Selection Contribution"
+    # range in data: [-2.5, 5.1]
 
   # =================================================================
   # Skipped fields (not included in output metadata)
@@ -297,7 +297,7 @@ Default configuration files are included with the package as starting points. Co
 |--------|--------|---------|
 | `pcp.yaml` | PCP | Standard PCP processing with all options documented |
 | `airr.yaml` | AIRR | Standard AIRR processing with all options documented |
-| `surprise.yaml` | Enrich | Custom field declarations for DASM2 surprise analysis data |
+| `olmsted.yaml` | Tag | Custom field declarations for pre-built Olmsted JSON data |
 
 To copy a default config:
 

@@ -37,25 +37,32 @@ olmsted-cli converts immunological sequencing data (AIRR JSON, PCP CSV) into Olm
 ## Module Dependency Hierarchy
 
 ```
-constants.py          (no imports — bottom of hierarchy)
-types.py              (no imports)
+constants.py            (no imports — bottom of hierarchy)
+types.py                (no imports)
+utils.py                (no project imports — general-purpose utilities)
     │
-    ├── schemas.py        (imports constants)
-    ├── metrics.py        (standalone)
-    ├── field_metadata.py (imports constants)
+    ├── schemas.py          (imports constants)
+    ├── metrics.py          (standalone)
+    ├── field_metadata.py   (imports constants)
+    ├── format_detection.py (imports constants)
     │
-    ├── process_utils.py  (imports schemas)
-    ├── process_pcp_data.py  (imports constants, metrics, process_utils, field_metadata)
-    ├── process_airr_data.py (imports constants, metrics, process_utils, field_metadata)
+    ├── build_config.py     (imports constants, field_metadata, format_detection)
     │
-    ├── process_data.py   (imports constants, process_pcp_data, process_airr_data)
-    ├── build_config.py   (imports constants, field_metadata, process_data)
-    ├── enrich.py         (imports field_metadata, process_data)
+    ├── process_utils.py    (imports build_config, field_metadata, schemas, utils)
+    ├── process_pcp_data.py (imports constants, metrics, process_utils)
+    ├── process_airr_data.py(imports constants, metrics, process_utils)
     │
-    └── cli.py            (imports all command modules)
+    ├── process_data.py     (imports constants, format_detection, process_utils,
+    │                         process_pcp_data, process_airr_data)
+    ├── tag.py              (imports process_data, process_utils)
+    │
+    └── cli.py              (imports all command modules)
 ```
 
-**Key rule**: `process_pcp_data.py` and `process_airr_data.py` never import from each other. Shared logic lives in `metrics.py` or `process_utils.py`.
+**Key rules**:
+- `process_pcp_data.py` and `process_airr_data.py` never import from each other. Shared logic lives in `metrics.py` or `process_utils.py`.
+- `utils.py`, `constants.py`, and `types.py` have **no project dependencies** — any module can import from them without creating cycles.
+- `format_detection.py` is a leaf module (depends only on constants) so it can be imported by both `build_config.py` and `process_data.py` without cycles.
 
 ---
 
@@ -88,7 +95,7 @@ detect_file_format()
     │       │   ├── _partition_chain_fields() for extras
     │       │   ├── compute_tree_metrics() if --compute-metrics
     │       │   ├── mean_mut_freq calculation
-    │       │   └── generate_field_metadata()
+    │       │   └── tag_field_metadata()
     │       │
     │       └── create_consolidated_data() → write_out()
     │
@@ -99,12 +106,12 @@ detect_file_format()
             │   ├── process_clone()   (position adjustment, sample lookup)
             │   ├── process_tree()    (tree parsing, node processing)
             │   ├── compute_tree_metrics() if --compute-metrics
-            │   └── generate_field_metadata()
+            │   └── tag_field_metadata()
             │
             └── create_consolidated_data() → write_out()
 ```
 
-### `enrich` Command
+### `tag` Command
 
 ```
 Input Olmsted JSON
@@ -118,7 +125,10 @@ Ensure metadata.format = "olmsted"
     ▼
 For each dataset:
     ├── Collect clones and matching trees
-    ├── generate_field_metadata(clones, trees, custom_fields)
+    ├── tag_field_metadata(clones, trees, custom_fields)
+    │       ├── generate_default_config() if no custom_fields
+    │       ├── unpack_encoded_mutations()
+    │       └── generate_field_metadata()
     └── Merge with existing field_metadata (add mode) or replace (overwrite mode)
     │
     ▼
@@ -230,7 +240,7 @@ argparse defaults  <  YAML config values  <  explicit CLI arguments
 
 ### Config ↔ Command Compatibility
 
-The same config file can be used with both `process` and `enrich`. `process`-specific args (inputs, format, compute_metrics, etc.) are recognized by `load_config()` but silently ignored by `enrich`, which only reads `custom_fields`.
+The same config file can be used with both `process` and `tag`. `process`-specific args (inputs, format, compute_metrics, etc.) are recognized by `load_config()` but silently ignored by `tag`, which only reads `custom_fields`.
 
 ---
 
@@ -323,7 +333,7 @@ These work on any tree with branch lengths — both PCP and AIRR data.
         },
         "mutation": {
           "child_aa": {"type": "aa", "label": "Child Amino Acid"},
-          "surprise_mutsel": {"type": "continuous", "label": "Surprise (MutSel)", "range": [0.68, 13.03]}
+          "selection_contribution": {"type": "continuous", "label": "Selection Contribution", "range": [-2.5, 5.1]}
         }
       }
     }
@@ -356,14 +366,16 @@ These work on any tree with branch lengths — both PCP and AIRR data.
 | `schemas.py` | JSON Schema for validation (auto-generated from constants) |
 | `metrics.py` | LBI, LBR, scaled_affinity computation |
 | `field_metadata.py` | generate_field_metadata() and helpers |
-| `process_data.py` | CLI entry for process, format detection, YAML config |
+| `utils.py` | General-purpose utilities (VerbosePrinter, dict helpers, translate_dna_to_aa) |
+| `format_detection.py` | File format detection (AIRR, PCP, Olmsted) |
+| `process_data.py` | CLI entry for process, YAML config loading |
 | `process_pcp_data.py` | PCP CSV parsing, column handling, clone assembly |
 | `process_airr_data.py` | AIRR JSON processing |
-| `process_utils.py` | create_consolidated_data(), write_out(), validation |
-| `build_config.py` | build-config command |
-| `enrich.py` | enrich command |
+| `process_utils.py` | tag_field_metadata(), create_consolidated_data(), write_out(), validation |
+| `build_config.py` | build-config command, generate_default_config() |
+| `tag.py` | tag command |
 | `cli.py` | Subcommand routing |
 
 ---
 
-_Last updated: 2026-03-29_
+_Last updated: 2026-04-02_

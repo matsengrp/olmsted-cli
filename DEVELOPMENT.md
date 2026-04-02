@@ -65,7 +65,7 @@ pytest --cov=olmsted_cli
 | `test_field_metadata.py` | Field registries, type inference, AA/DNA detection, ranges, custom fields |
 | `test_build_config.py` | Config generation from all formats, alias suggestions, skip section |
 | `test_config.py` | YAML config loading, custom_fields validation, path resolution |
-| `test_enrich.py` | Enrich command (add metadata, preserve data, in-place, custom fields) |
+| `test_tag.py` | Tag command (add metadata, preserve data, in-place, custom fields) |
 | `test_pcp_extras.py` | Extra CSV columns, chain partitioning, column aliases, coercion |
 | `test_format_detection.py` | Olmsted/AIRR/PCP format detection |
 | `test_validation.py` | Schema validation for datasets, clones, trees |
@@ -99,9 +99,11 @@ olmsted-cli/
 │   ├── process_data.py       # Unified processor + YAML config
 │   ├── process_pcp_data.py   # PCP CSV parsing and conversion
 │   ├── process_airr_data.py  # AIRR JSON processing
-│   ├── process_utils.py      # Shared utilities, output writing
-│   ├── build_config.py       # build-config command
-│   ├── enrich.py             # enrich command
+│   ├── utils.py              # General-purpose utilities (no project deps)
+│   ├── format_detection.py   # File format detection
+│   ├── process_utils.py      # Processing utilities, output writing, validation
+│   ├── build_config.py       # build-config command, generate_default_config()
+│   ├── tag.py                # tag command
 │   ├── api.py                # Programmatic API
 │   └── configs/              # Default YAML configs
 ├── tests/                    # Test suite
@@ -109,7 +111,7 @@ olmsted-cli/
 │   ├── airr/                 # AIRR format + golden data
 │   ├── pcp/                  # PCP format + golden data
 │   ├── pcp-paired/           # Paired heavy/light PCP
-│   ├── surprise/             # DASM2 surprise analysis subset
+│   ├── surprise/             # Pre-built Olmsted JSON with mutation-level data
 │   └── test-fields/          # Foobar test data (all types × levels)
 ├── ARCHITECTURE.md           # System architecture
 ├── DEVELOPMENT.md            # This file
@@ -170,4 +172,4 @@ twine upload dist/*
 
 ---
 
-_Last updated: 2026-03-29_
+_Last updated: 2026-04-02_

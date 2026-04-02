@@ -388,8 +388,27 @@ def generate_node_metadata(
     if not all_nodes:
         return {}
 
+    # Collect node fields that have been demoted to mutation level via encoding.
+    # These are source fields for records-encoded mutations, or field names for
+    # list/json-encoded mutations.  Exclude them from node metadata unless the
+    # config explicitly includes them at node level (not skipped).
+    demoted_sources = set()
+    node_level_overrides = set()
+    if custom_fields:
+        for cf in custom_fields:
+            norm = normalize_level(cf.get("level", ""))
+            if norm == "mutation" and cf.get("encoding"):
+                if cf["encoding"] == "records" and cf.get("source"):
+                    demoted_sources.add(cf["source"])
+                elif cf["encoding"] in ("list", "json"):
+                    demoted_sources.add(cf["name"])
+            elif norm == "node" and not cf.get("skip") and cf.get("display") != "skip":
+                node_level_overrides.add(cf["name"])
+    # Only exclude demoted sources that aren't explicitly re-included at node level
+    demoted_exclusions = demoted_sources - node_level_overrides
+
     metadata = {}
-    all_keys = collect_keys(all_nodes) - EXCLUDED_NODE_FIELDS
+    all_keys = collect_keys(all_nodes) - EXCLUDED_NODE_FIELDS - demoted_exclusions
 
     for key in sorted(all_keys):
         if key in KNOWN_NODE_FIELDS:

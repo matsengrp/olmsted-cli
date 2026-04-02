@@ -1,7 +1,8 @@
-"""Tests for the enrich command."""
+"""Tests for the tag command."""
 
 import json
 import os
+import subprocess
 import tempfile
 
 import pytest
@@ -77,16 +78,15 @@ def cleanup_files(sample_olmsted_json):
         os.unlink(sample_olmsted_json)
 
 
-class TestEnrichCommand:
-    def test_enrich_adds_field_metadata(self, sample_olmsted_json):
-        import subprocess
+class TestTagCommand:
+    def test_tag_adds_field_metadata(self, sample_olmsted_json):
 
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as out:
             output_path = out.name
 
         try:
             result = subprocess.run(
-                ["olmsted", "enrich", "-i", sample_olmsted_json, "-o", output_path],
+                ["olmsted", "tag", "-i", sample_olmsted_json, "-o", output_path],
                 capture_output=True,
                 text=True,
             )
@@ -105,8 +105,7 @@ class TestEnrichCommand:
             if os.path.exists(output_path):
                 os.unlink(output_path)
 
-    def test_enrich_preserves_data(self, sample_olmsted_json):
-        import subprocess
+    def test_tag_preserves_data(self, sample_olmsted_json):
 
         # Read original
         with open(sample_olmsted_json) as f:
@@ -117,32 +116,31 @@ class TestEnrichCommand:
 
         try:
             subprocess.run(
-                ["olmsted", "enrich", "-i", sample_olmsted_json, "-o", output_path],
+                ["olmsted", "tag", "-i", sample_olmsted_json, "-o", output_path],
                 capture_output=True,
                 text=True,
             )
 
             with open(output_path) as f:
-                enriched = json.load(f)
+                tagged = json.load(f)
 
             # All original data should still be present
-            # Metadata may have "format": "olmsted" added by enrich
+            # Metadata may have "format": "olmsted" added by tag
             for key in original["metadata"]:
-                assert enriched["metadata"][key] == original["metadata"][key]
-            assert enriched["metadata"].get("format") == "olmsted"
-            assert enriched["clones"] == original["clones"]
-            assert enriched["trees"] == original["trees"]
+                assert tagged["metadata"][key] == original["metadata"][key]
+            assert tagged["metadata"].get("format") == "olmsted"
+            assert tagged["clones"] == original["clones"]
+            assert tagged["trees"] == original["trees"]
             # Dataset should have field_metadata added but otherwise same
-            assert enriched["datasets"][0]["dataset_id"] == original["datasets"][0]["dataset_id"]
+            assert tagged["datasets"][0]["dataset_id"] == original["datasets"][0]["dataset_id"]
         finally:
             if os.path.exists(output_path):
                 os.unlink(output_path)
 
-    def test_enrich_in_place(self, sample_olmsted_json):
-        import subprocess
+    def test_tag_in_place(self, sample_olmsted_json):
 
         result = subprocess.run(
-            ["olmsted", "enrich", "-i", sample_olmsted_json, "--in-place"],
+            ["olmsted", "tag", "-i", sample_olmsted_json, "--in-place"],
             capture_output=True,
             text=True,
         )
@@ -153,8 +151,7 @@ class TestEnrichCommand:
 
         assert "field_metadata" in data["datasets"][0]
 
-    def test_enrich_with_custom_fields(self, sample_olmsted_json):
-        import subprocess
+    def test_tag_with_custom_fields(self, sample_olmsted_json):
 
         config = {
             "custom_fields": [
@@ -179,7 +176,7 @@ class TestEnrichCommand:
         try:
             result = subprocess.run(
                 [
-                    "olmsted", "enrich",
+                    "olmsted", "tag",
                     "-i", sample_olmsted_json,
                     "-o", output_path,
                     "-c", config_path,
@@ -200,15 +197,14 @@ class TestEnrichCommand:
                 if os.path.exists(p):
                     os.unlink(p)
 
-    def test_enrich_node_level(self, sample_olmsted_json):
-        import subprocess
+    def test_tag_node_level(self, sample_olmsted_json):
 
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as out:
             output_path = out.name
 
         try:
             result = subprocess.run(
-                ["olmsted", "enrich", "-i", sample_olmsted_json, "-o", output_path],
+                ["olmsted", "tag", "-i", sample_olmsted_json, "-o", output_path],
                 capture_output=True,
                 text=True,
             )
@@ -226,17 +222,16 @@ class TestEnrichCommand:
             if os.path.exists(output_path):
                 os.unlink(output_path)
 
-    def test_enrich_mode_overwrite(self, sample_olmsted_json):
+    def test_tag_mode_overwrite(self, sample_olmsted_json):
         """--mode overwrite replaces existing field_metadata entirely."""
-        import subprocess
 
-        # First enrich to add field_metadata
+        # First tag to add field_metadata
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as out:
             output_path = out.name
 
         try:
             subprocess.run(
-                ["olmsted", "enrich", "-i", sample_olmsted_json, "-o", output_path],
+                ["olmsted", "tag", "-i", sample_olmsted_json, "-o", output_path],
                 capture_output=True, text=True,
             )
 
@@ -249,12 +244,12 @@ class TestEnrichCommand:
             with open(output_path, "w") as f:
                 json.dump(data, f)
 
-            # Enrich again with overwrite — fake_field should be gone
+            # Tag again with overwrite — fake_field should be gone
             with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as out2:
                 output_path2 = out2.name
 
             result = subprocess.run(
-                ["olmsted", "enrich", "-i", output_path, "-o", output_path2,
+                ["olmsted", "tag", "-i", output_path, "-o", output_path2,
                  "--mode", "overwrite"],
                 capture_output=True, text=True,
             )
@@ -272,16 +267,15 @@ class TestEnrichCommand:
                 if os.path.exists(p):
                     os.unlink(p)
 
-    def test_enrich_mode_add_preserves_existing(self, sample_olmsted_json):
+    def test_tag_mode_add_preserves_existing(self, sample_olmsted_json):
         """--mode add (default) preserves existing field_metadata entries."""
-        import subprocess
 
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as out:
             output_path = out.name
 
         try:
             subprocess.run(
-                ["olmsted", "enrich", "-i", sample_olmsted_json, "-o", output_path],
+                ["olmsted", "tag", "-i", sample_olmsted_json, "-o", output_path],
                 capture_output=True, text=True,
             )
 
@@ -294,12 +288,12 @@ class TestEnrichCommand:
             with open(output_path, "w") as f:
                 json.dump(data, f)
 
-            # Enrich again with default add mode — fake_field should survive
+            # Tag again with default add mode — fake_field should survive
             with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as out2:
                 output_path2 = out2.name
 
             result = subprocess.run(
-                ["olmsted", "enrich", "-i", output_path, "-o", output_path2],
+                ["olmsted", "tag", "-i", output_path, "-o", output_path2],
                 capture_output=True, text=True,
             )
             assert result.returncode == 0

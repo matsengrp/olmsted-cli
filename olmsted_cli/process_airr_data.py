@@ -15,9 +15,9 @@ from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from urllib.parse import parse_qs, parse_qsl
 
-from .field_metadata import generate_field_metadata
 from .metrics import compute_tree_metrics
-from .process_utils import unpack_encoded_mutations
+from .process_utils import tag_field_metadata
+from .utils import vprint
 
 if TYPE_CHECKING:
     from argparse import Namespace
@@ -171,9 +171,8 @@ def process_clone(args, dataset, clone):
 
     if _missing_fields and getattr(args, "verbose", 0) >= 2:
         clone_id = clone.get("clone_id", "unknown")
-        print(
-            f"  Note: clone '{clone_id}' missing position fields: {_missing_fields}",
-            file=sys.stderr,
+        vprint.verbose(
+            f"  Note: clone '{clone_id}' missing position fields: {_missing_fields}"
         )
 
     # need to create a copy of the dataset without clonal families that we
@@ -195,10 +194,9 @@ def process_clone(args, dataset, clone):
             "locus": "igh",
         }
         if getattr(args, "verbose", 0) >= 1:
-            print(
+            vprint.status(
                 f"  Note: clone '{clone.get('clone_id', '?')}' sample_id "
-                f"'{clone.get('sample_id')}' not found in dataset samples",
-                file=sys.stderr,
+                f"'{clone.get('sample_id')}' not found in dataset samples"
             )
 
     if "samples" in clone.get("dataset", {}):
@@ -285,16 +283,9 @@ def process_dataset(
         ]
     clones_dict[dataset["dataset_id"]] = clones
 
-    # Unpack encoded mutation fields (list/json/surprise) before metadata generation
+    # Generate field_metadata (uses generate_default_config when no config provided)
     custom_fields = getattr(args, "custom_fields", None)
-    unpack_encoded_mutations(trees, custom_fields)
-
-    # Generate field_metadata from actual clone and tree data
-    dataset["field_metadata"] = generate_field_metadata(
-        clones,
-        trees,
-        custom_fields=custom_fields,
-    )
+    dataset["field_metadata"] = tag_field_metadata(clones, trees, custom_fields)
 
     del dataset["clones"]
     dataset["schema_version"] = SCHEMA_VERSION
@@ -474,7 +465,7 @@ def main():
     args = get_args()
     datasets, clones_dict, trees = [], {}, []
     for infile in args.inputs or []:
-        print(f"\nProcessing infile: {str(infile)}")
+        vprint.status(f"\nProcessing infile: {str(infile)}")
         try:
             with open(infile, "r") as fh:
                 dataset = json.load(fh)
@@ -490,9 +481,9 @@ def main():
                 if errors:
                     error_msg = "Dataset validation failed"
                     if args.verbose:
-                        print(f"Dataset validation failed:")
+                        vprint.error(f"Dataset validation failed:")
                         for error in errors:
-                            print(f"  - {error}")
+                            vprint.error(f"  - {error}")
                     else:
                         error_msg += ". Please rerun with `-v` for detailed errors"
                     raise Exception(error_msg)
@@ -500,12 +491,12 @@ def main():
                 dataset = process_dataset(args, dataset, clones_dict, trees)
                 datasets.append(dataset)
         except Exception:
-            print(f"Unable to process infile: {infile}")
+            vprint.error(f"Unable to process infile: {infile}")
             if args.verbose:
                 exc_info = sys.exc_info()
                 traceback.print_exception(*exc_info)
             else:
-                print("Please rerun with `-v` for detailed errors.")
+                vprint.error("Please rerun with `-v` for detailed errors.")
             sys.exit(1)
     # write out schema
     if args.write_schema_yaml:
@@ -530,7 +521,7 @@ def main():
     if args.validate:
         if not validate_output_data(datasets, clones_dict, trees, args):
             if args.strict_validation:
-                print(
+                vprint.error(
                     "\nExiting due to validation errors (--strict-validation enabled)"
                 )
                 sys.exit(1)
@@ -556,7 +547,7 @@ def main():
         output_dir = os.path.dirname(args.output) or "."
         output_file = os.path.basename(args.output)
         os.makedirs(output_dir, exist_ok=True)
-        print(f"Writing consolidated output to {args.output}")
+        vprint.status(f"Writing consolidated output to {args.output}")
         write_out(consolidated_data, output_dir, output_file, args)
 
 

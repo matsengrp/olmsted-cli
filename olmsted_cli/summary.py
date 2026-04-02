@@ -6,6 +6,8 @@ import json
 import sys
 from pathlib import Path
 
+from .utils import set_verbosity, vprint
+
 
 def analyze_consolidated_data(data):
     """
@@ -311,52 +313,57 @@ Examples:
 def main():
     """Main entry point for summary command."""
     args = get_args()
-    
+
+    # Handle quiet mode
+    if getattr(args, "quiet", False):
+        args.verbose = 0
+    set_verbosity(args.verbose)
+
     # Validate input file
     input_path = Path(args.input_file)
     if not input_path.exists():
-        print(f"Error: Input file not found: {args.input_file}", file=sys.stderr)
+        vprint.error(f"Error: Input file not found: {args.input_file}")
         sys.exit(1)
-    
+
     # Load and parse data
     try:
         with open(input_path, 'r') as f:
             data = json.load(f)
     except json.JSONDecodeError as e:
-        print(f"Error: Failed to parse JSON: {e}", file=sys.stderr)
+        vprint.error(f"Error: Failed to parse JSON: {e}")
         sys.exit(1)
     except Exception as e:
-        print(f"Error: Failed to read file: {e}", file=sys.stderr)
+        vprint.error(f"Error: Failed to read file: {e}")
         sys.exit(1)
-    
+
     # Validate data structure
     required_keys = ["metadata", "datasets", "clones", "trees"]
     missing_keys = [key for key in required_keys if key not in data]
     if missing_keys:
-        print(f"Error: Not a valid Olmsted JSON format. Missing keys: {missing_keys}", file=sys.stderr)
+        vprint.error(f"Error: Not a valid Olmsted JSON format. Missing keys: {missing_keys}")
         sys.exit(1)
-    
+
     # Analyze data
     try:
         summary = analyze_consolidated_data(data)
     except Exception as e:
-        print(f"Error: Failed to analyze data: {e}", file=sys.stderr)
+        vprint.error(f"Error: Failed to analyze data: {e}")
         sys.exit(1)
-    
+
     # Format output
     if args.json:
         output_text = json.dumps(summary, indent=2)
     else:
         output_text = format_summary_text(summary)
-    
+
     # Write output
     if args.output:
         try:
             with open(args.output, 'w') as f:
                 f.write(output_text)
-            print(f"Summary written to: {args.output}")
+            vprint.status(f"Summary written to: {args.output}")
         except Exception as e:
-            print(f"Error: Failed to write output file: {e}", file=sys.stderr)
+            vprint.error(f"Error: Failed to write output file: {e}")
             sys.exit(1)
     else:
         print(output_text)

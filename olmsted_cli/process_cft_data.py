@@ -46,13 +46,18 @@ from .process_utils import (
     listof,
     listofint,
     neginf,
-    nospy,
     remap_dict_values,
     remap_list,
     rename_keys,
     try_del,
     write_out,
 )
+from .utils import vprint
+
+
+def nospy(xs):
+    """Identity function (debug stub, can be replaced with spy() during development)."""
+    return xs
 
 default_schema_path = os.path.join(os.path.dirname(__file__), "..", "cft_schema.json")
 
@@ -374,7 +379,7 @@ def parse_tree_data(args, c):
                             str(c["cft.reconstruction:asr_tree"]["tripl.file:path"]),
                         )
                     )
-                    print("newick:", newick)
+                    vprint.verbose("newick:", newick)
                 raise e
         else:
             # node is root
@@ -478,7 +483,7 @@ def pull_clonal_families(args, t):
             )
         )
     else:
-        print("processed {} clonal families successfully".format(len(result)))
+        vprint.status("processed {} clonal families successfully".format(len(result)))
     return good_families
 
 
@@ -487,7 +492,7 @@ def main():
     datasets, clonal_families_dict, all_trees = [], {}, []
     full_schema_datasets = []
     for infile in args.inputs:
-        print("\nProcessing infile: " + str(infile))
+        vprint.status("\nProcessing infile: " + str(infile))
         t = tripl.TripleStore.loads([args.schema, infile])
         try:
             if args.data_outdir:

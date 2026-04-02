@@ -433,3 +433,157 @@ class TestGenerateFieldMetadata:
         meta = generate_field_metadata(pcp_clones, trees_with_nodes, custom_fields=custom)
         assert "my_clone_field" in meta["clone"]
         assert "my_node_field" in meta["node"]
+
+
+# =============================================================================
+# Tests: demoted fields excluded from node metadata
+# =============================================================================
+
+
+class TestDemotedFieldsExcludedFromNodeMetadata:
+    """When a node field is demoted to mutation level via encoding in custom_fields,
+    it must not appear in node-level field_metadata."""
+
+    def _make_trees_with_records_source(self):
+        """Trees where nodes have a records-style field (e.g. surprise_mutations)."""
+        return [
+            {
+                "ident": "tree-1",
+                "clone_id": "family-1",
+                "nodes": [
+                    {
+                        "sequence_id": "a",
+                        "parent": "root",
+                        "type": "leaf",
+                        "sequence_alignment_aa": "MKVL",
+                        "distance": 0.1,
+                        "length": 0.1,
+                        "multiplicity": 3,
+                        "surprise_mutations": [
+                            {"site": 0, "score": 2.5, "region": "FWR1"},
+                            {"site": 2, "score": 4.1, "region": "CDR1"},
+                        ],
+                    },
+                ],
+            }
+        ]
+
+    def _make_trees_with_list_source(self):
+        """Trees where nodes have a list-encoded field."""
+        return [
+            {
+                "ident": "tree-1",
+                "clone_id": "family-1",
+                "nodes": [
+                    {
+                        "sequence_id": "a",
+                        "parent": "root",
+                        "type": "leaf",
+                        "sequence_alignment_aa": "MKVL",
+                        "distance": 0.1,
+                        "length": 0.1,
+                        "multiplicity": 3,
+                        "per_site_scores": [0.1, 0.2, 0.3, 0.4],
+                    },
+                ],
+            }
+        ]
+
+    def test_records_source_excluded_from_node_metadata(self):
+        """Records-encoded source field must not appear at node level."""
+        trees = self._make_trees_with_records_source()
+        custom_fields = [
+            {"name": "score", "level": "mutation", "encoding": "records",
+             "source": "surprise_mutations", "type": "continuous", "label": "Score"},
+            {"name": "region", "level": "mutation", "encoding": "records",
+             "source": "surprise_mutations", "type": "categorical", "label": "Region"},
+        ]
+        meta = generate_node_metadata(trees, custom_fields=custom_fields)
+        assert "surprise_mutations" not in meta
+
+    def test_list_source_excluded_from_node_metadata(self):
+        """List-encoded source field must not appear at node level."""
+        trees = self._make_trees_with_list_source()
+        custom_fields = [
+            {"name": "per_site_scores", "level": "mutation", "encoding": "list",
+             "type": "continuous", "label": "Per-Site Scores"},
+        ]
+        meta = generate_node_metadata(trees, custom_fields=custom_fields)
+        assert "per_site_scores" not in meta
+
+    def test_json_source_excluded_from_node_metadata(self):
+        """JSON-encoded source field must not appear at node level."""
+        trees = [
+            {
+                "ident": "tree-1",
+                "clone_id": "family-1",
+                "nodes": [
+                    {
+                        "sequence_id": "a",
+                        "parent": "root",
+                        "type": "leaf",
+                        "sequence_alignment_aa": "MKVL",
+                        "distance": 0.1,
+                        "length": 0.1,
+                        "multiplicity": 3,
+                        "sparse_scores": {"0": 0.5, "3": 0.8},
+                    },
+                ],
+            }
+        ]
+        custom_fields = [
+            {"name": "sparse_scores", "level": "mutation", "encoding": "json",
+             "type": "continuous", "label": "Sparse Scores"},
+        ]
+        meta = generate_node_metadata(trees, custom_fields=custom_fields)
+        assert "sparse_scores" not in meta
+
+    def test_demoted_source_included_when_node_config_overrides(self):
+        """If user explicitly includes the source field at node level (not skipped),
+        it should appear in node metadata."""
+        trees = self._make_trees_with_records_source()
+        custom_fields = [
+            # Demote to mutation level
+            {"name": "score", "level": "mutation", "encoding": "records",
+             "source": "surprise_mutations", "type": "continuous", "label": "Score"},
+            # But also explicitly include at node level
+            {"name": "surprise_mutations", "level": "node",
+             "type": "json", "label": "Surprise Mutations"},
+        ]
+        meta = generate_node_metadata(trees, custom_fields=custom_fields)
+        assert "surprise_mutations" in meta
+
+    def test_demoted_source_excluded_when_node_config_skipped(self):
+        """If user includes the source field at node level with skip: true,
+        it should NOT appear in node metadata."""
+        trees = self._make_trees_with_records_source()
+        custom_fields = [
+            {"name": "score", "level": "mutation", "encoding": "records",
+             "source": "surprise_mutations", "type": "continuous", "label": "Score"},
+            {"name": "surprise_mutations", "level": "node", "skip": True,
+             "type": "json", "label": "Surprise Mutations"},
+        ]
+        meta = generate_node_metadata(trees, custom_fields=custom_fields)
+        assert "surprise_mutations" not in meta
+
+    def test_without_custom_fields_source_still_in_node(self):
+        """Without custom_fields, records-style fields are normal node fields."""
+        trees = self._make_trees_with_records_source()
+        meta = generate_node_metadata(trees)
+        assert "surprise_mutations" in meta
+
+    def test_full_pipeline_demoted_not_in_node(self):
+        """End-to-end: generate_field_metadata excludes demoted source from node level."""
+        trees = self._make_trees_with_records_source()
+        clones = [{"clone_id": "c1", "dataset_id": "ds1", "unique_seqs_count": 10}]
+        custom_fields = [
+            {"name": "score", "level": "mutation", "encoding": "records",
+             "source": "surprise_mutations", "type": "continuous", "label": "Score"},
+            {"name": "region", "level": "mutation", "encoding": "records",
+             "source": "surprise_mutations", "type": "categorical", "label": "Region"},
+        ]
+        meta = generate_field_metadata(clones, trees, custom_fields=custom_fields)
+        if "node" in meta:
+            assert "surprise_mutations" not in meta["node"]
+        # Mutation level should have the demoted fields
+        assert "mutation" in meta
