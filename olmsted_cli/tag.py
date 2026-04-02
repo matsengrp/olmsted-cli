@@ -16,6 +16,9 @@ import json
 import sys
 from pathlib import Path
 
+# Config keys that tag reads from YAML (beyond custom_fields)
+_TAG_CONFIG_KEYS = {"input", "output", "mode"}
+
 from .process_data import load_config
 from .process_utils import (
     VerbosePrinter,
@@ -87,8 +90,6 @@ Examples:
     custom_fields = None
     if args.config:
         config_dict, custom_fields = load_config(args.config)
-        # Apply config values for tag-specific keys
-        _TAG_CONFIG_KEYS = {"input", "output", "mode"}
         for key in _TAG_CONFIG_KEYS:
             if key in config_dict and getattr(args, key, None) is None:
                 setattr(args, key, config_dict[key])

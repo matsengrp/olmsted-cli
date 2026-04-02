@@ -1,16 +1,19 @@
-"""General-purpose utilities with no project dependencies.
+"""General-purpose utilities with minimal project dependencies.
 
 This module contains pure utility functions and classes that depend only on
-the standard library (and tqdm for progress bars).  Any module in the
-project can import from here without creating circular dependencies.
+the standard library, tqdm, and ``constants.py``.  Any module in the project
+can import from here without creating circular dependencies.
 
 Higher-level utilities that depend on other project modules (schemas,
 field_metadata, build_config) live in ``process_utils.py``.
 """
 
+import argparse
 import uuid
 
 from tqdm import tqdm
+
+from .constants import VERBOSITY_HELP
 
 
 # Constants for infinity handling
@@ -133,8 +136,6 @@ def add_verbosity_args(parser):
         args = parser.parse_args()
         vprint = VerbosePrinter(args.verbose)
     """
-    from .constants import VERBOSITY_HELP
-
     parser.add_argument(
         "-v", "--verbose",
         type=int,
@@ -240,21 +241,6 @@ def clean_record(d):
         return None
     else:
         return d
-
-
-def spy(x):
-    print("debugging:", x)
-    return x
-
-
-def lspy(xs):
-    xs_ = list(xs)
-    print("debugging listable:", xs_)
-    return xs_
-
-
-def nospy(xs):
-    return xs
 
 
 def translate_dna_to_aa(dna_sequence):

@@ -46,13 +46,17 @@ from .process_utils import (
     listof,
     listofint,
     neginf,
-    nospy,
     remap_dict_values,
     remap_list,
     rename_keys,
     try_del,
     write_out,
 )
+
+
+def nospy(xs):
+    """Identity function (debug stub, can be replaced with spy() during development)."""
+    return xs
 
 default_schema_path = os.path.join(os.path.dirname(__file__), "..", "cft_schema.json")
 

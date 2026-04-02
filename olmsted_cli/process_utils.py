@@ -33,16 +33,13 @@ from .utils import (  # noqa: F401 — re-exported for backward compatibility
     json_rep,
     listof,
     listofint,
-    lspy,
     merge,
     natural_number,
     neginf,
-    nospy,
     remap_dict_values,
     remap_list,
     rename_keys,
     resolve_verbosity,
-    spy,
     strip_ns,
     translate_dna_to_aa,
     try_del,
@@ -519,13 +516,13 @@ def validate_output_data(datasets, clones_dict, trees, args):
         for i, dataset in enumerate(datasets):
             errors = validate_dataset(dataset, verbose=getattr(args, "verbose", False))
             if errors:
-                print(f"❌ Dataset {i} validation failed:")
+                print(f"FAIL: Dataset {i} validation failed:")
                 for error in errors:
                     print(f"  - {error}")
                 validation_passed = False
                 total_errors += len(errors)
             elif getattr(args, "verbose", False):
-                print(f"✓ Dataset {i} validation passed")
+                print(f"PASS: Dataset {i} validation passed")
 
         # Validate clones
         clone_count = 0
@@ -546,7 +543,7 @@ def validate_output_data(datasets, clones_dict, trees, args):
                         clone_failures += 1
                         if getattr(args, "verbose", False):
                             print(
-                                f"❌ Clone {clone_id} validation failed:"
+                                f"FAIL: Clone {clone_id} validation failed:"
                             )
                             for error in errors:
                                 print(f"  - {error}")
@@ -556,9 +553,9 @@ def validate_output_data(datasets, clones_dict, trees, args):
                     pbar.update(1)
 
         if clone_failures == 0:
-            print(f"✓ Clone validation passed ({clone_count} clones)")
+            print(f"PASS: Clone validation passed ({clone_count} clones)")
         else:
-            print(f"❌ Clone validation: {clone_failures}/{clone_count} failed")
+            print(f"FAIL: Clone validation: {clone_failures}/{clone_count} failed")
 
         # Validate trees
         tree_count = 0
@@ -576,16 +573,16 @@ def validate_output_data(datasets, clones_dict, trees, args):
                 if errors:
                     tree_failures += 1
                     if getattr(args, "verbose", False):
-                        print(f"❌ Tree {tree_id} validation failed:")
+                        print(f"FAIL: Tree {tree_id} validation failed:")
                         for error in errors:
                             print(f"  - {error}")
                     validation_passed = False
                     total_errors += len(errors)
 
         if tree_failures == 0:
-            print(f"✓ Tree validation passed ({tree_count} trees)")
+            print(f"PASS: Tree validation passed ({tree_count} trees)")
         else:
-            print(f"❌ Tree validation: {tree_failures}/{tree_count} failed")
+            print(f"FAIL: Tree validation: {tree_failures}/{tree_count} failed")
 
         if total_errors > 0:
             print(f"\nTotal validation errors: {total_errors}")

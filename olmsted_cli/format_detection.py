@@ -8,9 +8,23 @@ other module without creating circular dependencies.
 
 import gzip
 import json
+from contextlib import contextmanager
 from pathlib import Path
 
 from .constants import FORMAT_AIRR, FORMAT_OLMSTED, FORMAT_PCP, FORMAT_UNKNOWN
+
+
+@contextmanager
+def _open_file(file_path):
+    """Open a file for reading, transparently handling gzip."""
+    if str(file_path).endswith(".gz"):
+        fh = gzip.open(file_path, "rt")
+    else:
+        fh = open(file_path, "r")
+    try:
+        yield fh
+    finally:
+        fh.close()
 
 
 def detect_file_format(file_path):
@@ -36,13 +50,8 @@ def detect_file_format(file_path):
         file_path.suffix.lower() == ".gz" and file_path.stem.endswith(".json")
     ):
         try:
-            if str(file_path).endswith(".gz"):
-                file_handle = gzip.open(file_path, "rt")
-            else:
-                file_handle = open(file_path, "r")
-
-            with file_handle:
-                data = json.load(file_handle)
+            with _open_file(file_path) as fh:
+                data = json.load(fh)
 
             if isinstance(data, dict):
                 # Explicit format tag in metadata
@@ -63,14 +72,9 @@ def detect_file_format(file_path):
 
     # If extension doesn't help, try to peek at content for CSV
     try:
-        if str(file_path).endswith(".gz"):
-            file_handle = gzip.open(file_path, "rt")
-        else:
-            file_handle = open(file_path, "r")
-
-        with file_handle:
+        with _open_file(file_path) as fh:
             first_lines = []
-            for i, line in enumerate(file_handle):
+            for i, line in enumerate(fh):
                 first_lines.append(line.strip())
                 if i >= 2:
                     break

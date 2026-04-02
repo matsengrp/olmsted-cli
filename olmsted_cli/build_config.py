@@ -152,6 +152,7 @@ def _load_olmsted(input_path):
 
 def _load_pcp(input_path, trees_path, seed, compute_metrics):
     """Process PCP data and return clones and trees."""
+    # Deferred: process_pcp_data pulls in ete3 and other heavy dependencies
     from .process_pcp_data import (
         deterministic_uuid,
         parse_newick_csv,
@@ -191,6 +192,7 @@ def _load_airr(input_path):
     """Process AIRR data and return clones and trees."""
     from argparse import Namespace
 
+    # Deferred: process_airr_data pulls in heavy processing dependencies
     from .process_airr_data import process_dataset
 
     with open(input_path) as f:
@@ -395,7 +397,10 @@ def _make_field_entry(name, level, entry, skip=False, encoding=None, source=None
     return d
 
 
-def generate_default_config(clones, trees, *, no_skip=False, skip_all=False):
+def generate_default_config(
+    clones, trees, *, no_skip=False, skip_all=False,
+    _nodes=None, _mutations=None,
+):
     """Generate default field declarations by introspecting data.
 
     Discovers fields at each level (clone, node, branch, mutation), infers
@@ -411,14 +416,17 @@ def generate_default_config(clones, trees, *, no_skip=False, skip_all=False):
         trees: List of tree dicts.
         no_skip: If True, no fields are suggested as skip.
         skip_all: If True, all fields are suggested as skip.
+        _nodes: Pre-collected node dicts (internal optimization to avoid
+            redundant tree traversal when caller already has them).
+        _mutations: Pre-collected mutation dicts (same optimization).
 
     Returns:
         List of custom_field dicts in the same format as ``load_config()``.
         Each dict has keys: name, level, type, label, and optionally
         skip, display, encoding, source.
     """
-    all_nodes = collect_nodes(trees, max_nodes=MAX_NODES_SAMPLE)
-    all_mutations = collect_mutations(trees)
+    all_nodes = _nodes if _nodes is not None else collect_nodes(trees, max_nodes=MAX_NODES_SAMPLE)
+    all_mutations = _mutations if _mutations is not None else collect_mutations(trees)
     fields = []
 
     # --- Clone level ---
@@ -600,9 +608,10 @@ def _build_yaml(
     all_nodes = collect_nodes(all_trees, max_nodes=MAX_NODES_SAMPLE)
     all_mutations = collect_mutations(all_trees)
 
-    # Generate structured config (single source of truth for field discovery)
+    # Generate structured config, reusing already-collected nodes/mutations
     config_fields = generate_default_config(
         all_clones, all_trees, no_skip=no_skip, skip_all=skip_all,
+        _nodes=all_nodes, _mutations=all_mutations,
     )
 
     input_str = str(input_path) if input_path else input_name
