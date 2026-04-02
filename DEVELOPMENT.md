@@ -99,8 +99,10 @@ olmsted-cli/
 │   ├── process_data.py       # Unified processor + YAML config
 │   ├── process_pcp_data.py   # PCP CSV parsing and conversion
 │   ├── process_airr_data.py  # AIRR JSON processing
-│   ├── process_utils.py      # Shared utilities, output writing
-│   ├── build_config.py       # build-config command
+│   ├── utils.py              # General-purpose utilities (no project deps)
+│   ├── format_detection.py   # File format detection
+│   ├── process_utils.py      # Processing utilities, output writing, validation
+│   ├── build_config.py       # build-config command, generate_default_config()
 │   ├── tag.py                # tag command
 │   ├── api.py                # Programmatic API
 │   └── configs/              # Default YAML configs
