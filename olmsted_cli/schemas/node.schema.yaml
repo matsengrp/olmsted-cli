@@ -1,0 +1,214 @@
+# Olmsted Node Schema
+# JSON Schema (draft-07) for a single node in a phylogenetic tree.
+#
+# AIRR extensions: Fields marked [Olmsted extension] are added beyond AIRR 2.0.
+# Fields marked [AIRR] follow the AIRR Schema 2.0 specification.
+# Fields marked [AIRR: changed] differ from AIRR 2.0 conventions.
+#
+# URL: https://olmstedviz.org/schemas/v1/node.schema.json
+
+$schema: "http://json-schema.org/draft-07/schema#"
+$id: "https://olmstedviz.org/schemas/v1/node.schema.json"
+title: Node
+description: >
+  Node in a phylogenetic tree. Extends the AIRR 2.0 Rearrangement object with
+  fields required for tree visualization (parent, distance, type enum) and
+  makes sequence_alignment_aa required (optional in AIRR 2.0).
+
+type: object
+required:
+  - sequence_id
+  - sequence_alignment
+  - sequence_alignment_aa
+additionalProperties: true
+
+definitions:
+  timepoint_multiplicity:
+    # [Olmsted extension] Multiplicity of a sequence at a given timepoint.
+    title: Timepoint multiplicity
+    description: Multiplicity at a specific time
+    type: object
+    required:
+      - multiplicity
+      - timepoint_id
+    properties:
+      multiplicity:
+        description: Number of times sequence was observed at the given timepoint
+        type: integer
+        minimum: 0
+      timepoint_id:
+        description: Id associated with the timepoint in question
+        type: ["string", "null"]
+    additionalProperties: false
+
+properties:
+  sequence_id:
+    # [AIRR] Primary identifier, must match the node label in the Newick string.
+    description: Identifier for this node that matches the id in the newick string
+    type: string
+
+  node_id:
+    # [Olmsted extension] Alternative identifier used internally.
+    description: Alternative identifier for this node
+    type: string
+
+  parent:
+    # [Olmsted extension] Parent node sequence_id; null for the root.
+    # Not present in AIRR 2.0 Rearrangement; required for tree traversal in Olmsted.
+    description: Parent node ID
+    type: ["string", "null"]
+
+  branch_length:
+    # [AIRR: changed] AIRR uses v_score/d_score etc.; this is the Newick branch length.
+    description: Branch length to parent
+    type: ["number", "null"]
+
+  length:
+    # [Olmsted extension] Alias for branch_length used by some upstream tools.
+    description: Branch length (alias for branch_length)
+    type: ["number", "null"]
+
+  distance:
+    # [Olmsted extension] Cumulative distance from root; used for timeline-style trees.
+    # Computed as the sum of branch_length values along the path from root to this node.
+    description: Distance from root
+    type: ["number", "null"]
+
+  sequence_alignment:
+    # [AIRR] Nucleotide sequence aligned to the V(D)J germline.
+    description: Nucleotide sequence alignment, including any indel corrections or spacers
+    type: string
+
+  sequence_alignment_aa:
+    # [AIRR: changed] In AIRR 2.0 this field is optional; Olmsted requires it.
+    # Amino acid translation of sequence_alignment.
+    description: Amino acid sequence alignment, including any indel corrections or spacers
+    type: ["string", "null"]
+
+  sample_id:
+    # [AIRR] Sample identifier.
+    description: Sample identifier
+    type: ["string", "null"]
+
+  type:
+    # [Olmsted extension] Node role in the tree topology.
+    # Values: leaf (observed sequence), internal (inferred ancestor), root (tree root),
+    # node (generic; used when leaf/internal distinction is not needed).
+    # null is allowed for nodes where type was not determined.
+    description: Type of node (leaf, internal, node, or root)
+    type: ["string", "null"]
+    enum: [leaf, node, internal, root, null]
+
+  is_root:
+    # [Olmsted extension] Boolean flag; true for the root node only.
+    description: Whether this node is the root
+    type: ["boolean", "null"]
+
+  subtree_size:
+    # [Olmsted extension] Number of descendants (leaves + internal nodes).
+    description: Number of descendants
+    type: ["integer", "null"]
+
+  timepoint:
+    # [AIRR] Timepoint label for this sequence.
+    description: Timepoint identifier
+    type: ["string", "null"]
+
+  timepoint_id:
+    # [AIRR] Alternative timepoint field name used by some upstream tools.
+    description: Timepoint identifier (alternative field name)
+    type: ["string", "null"]
+
+  lbi:
+    # [Olmsted extension] Local branching index; measures recent clade expansion.
+    description: Local branching index
+    type: ["number", "null"]
+
+  lbr:
+    # [Olmsted extension] Local branching ratio.
+    description: Local branching ratio
+    type: ["number", "null"]
+
+  affinity:
+    # [Olmsted extension] Experimentally measured binding affinity.
+    description: Binding affinity
+    type: ["number", "null"]
+
+  relative_affinity:
+    # [Olmsted extension] Affinity normalized relative to some reference (e.g., germline).
+    description: Relative binding affinity
+    type: ["number", "null"]
+
+  affinity_class:
+    # [Olmsted extension] Categorical classification of binding affinity.
+    description: Affinity classification
+    type: ["string", "null"]
+
+  aa_sequence:
+    # [Olmsted extension] Full amino acid sequence (not just the aligned region).
+    description: Full amino acid sequence
+    type: ["string", "null"]
+
+  junction:
+    # [AIRR] CDR3 junction nucleotide sequence (includes conserved residues).
+    description: CDR3 junction nucleotide sequence
+    type: ["string", "null"]
+
+  junction_aa:
+    # [AIRR] CDR3 junction amino acid sequence.
+    description: CDR3 junction amino acid sequence
+    type: ["string", "null"]
+
+  v_call:
+    # [AIRR] V gene assignment (e.g., IGHV1-2*02).
+    description: V gene assignment
+    type: ["string", "null"]
+
+  d_call:
+    # [AIRR] D gene assignment.
+    description: D gene assignment
+    type: ["string", "null"]
+
+  j_call:
+    # [AIRR] J gene assignment.
+    description: J gene assignment
+    type: ["string", "null"]
+
+  count:
+    # [Olmsted extension] Observed sequence count (may differ from multiplicity if clustered).
+    description: Sequence count
+    type: ["integer", "null"]
+
+  confidence:
+    # [Olmsted extension] Confidence score or bootstrap support value for this node.
+    description: Confidence score or bootstrap value
+    type: ["number", "null"]
+
+  multiplicity:
+    # [Olmsted extension] Number of times this sequence was observed in the sample.
+    description: Number of times sequence was observed
+    type: ["integer", "null"]
+
+  cluster_multiplicity:
+    # [Olmsted extension] Cumulative count when sequences were clustered before tree building.
+    description: Cumulative count if sequences were clustered
+    type: ["integer", "null"]
+
+  timepoint_multiplicities:
+    # [Olmsted extension] Per-timepoint breakdown of multiplicity; used for longitudinal data.
+    description: Multiplicities per timepoint
+    type: ["array", "null"]
+    items:
+      $ref: "#/definitions/timepoint_multiplicity"
+
+  cluster_timepoint_multiplicities:
+    # [Olmsted extension] Per-timepoint cluster multiplicities.
+    description: Cluster multiplicities per timepoint
+    type: ["array", "null"]
+    items:
+      $ref: "#/definitions/timepoint_multiplicity"
+
+  scaled_affinity:
+    # [Olmsted extension] Min-max normalized affinity; used for color scales.
+    description: Scaled binding affinity (min-max normalized)
+    type: ["number", "null"]

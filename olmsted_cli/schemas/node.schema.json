@@ -1,0 +1,269 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://olmstedviz.org/schemas/v1/node.schema.json",
+  "title": "Node",
+  "description": "Node in a phylogenetic tree. Extends the AIRR 2.0 Rearrangement object with fields required for tree visualization (parent, distance, type enum) and makes sequence_alignment_aa required (optional in AIRR 2.0).\n",
+  "type": "object",
+  "required": [
+    "sequence_id",
+    "sequence_alignment",
+    "sequence_alignment_aa"
+  ],
+  "additionalProperties": true,
+  "definitions": {
+    "timepoint_multiplicity": {
+      "title": "Timepoint multiplicity",
+      "description": "Multiplicity at a specific time",
+      "type": "object",
+      "required": [
+        "multiplicity",
+        "timepoint_id"
+      ],
+      "properties": {
+        "multiplicity": {
+          "description": "Number of times sequence was observed at the given timepoint",
+          "type": "integer",
+          "minimum": 0
+        },
+        "timepoint_id": {
+          "description": "Id associated with the timepoint in question",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "sequence_id": {
+      "description": "Identifier for this node that matches the id in the newick string",
+      "type": "string"
+    },
+    "node_id": {
+      "description": "Alternative identifier for this node",
+      "type": "string"
+    },
+    "parent": {
+      "description": "Parent node ID",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "branch_length": {
+      "description": "Branch length to parent",
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "length": {
+      "description": "Branch length (alias for branch_length)",
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "distance": {
+      "description": "Distance from root",
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "sequence_alignment": {
+      "description": "Nucleotide sequence alignment, including any indel corrections or spacers",
+      "type": "string"
+    },
+    "sequence_alignment_aa": {
+      "description": "Amino acid sequence alignment, including any indel corrections or spacers",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sample_id": {
+      "description": "Sample identifier",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "type": {
+      "description": "Type of node (leaf, internal, node, or root)",
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "leaf",
+        "node",
+        "internal",
+        "root",
+        null
+      ]
+    },
+    "is_root": {
+      "description": "Whether this node is the root",
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "subtree_size": {
+      "description": "Number of descendants",
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "timepoint": {
+      "description": "Timepoint identifier",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "timepoint_id": {
+      "description": "Timepoint identifier (alternative field name)",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lbi": {
+      "description": "Local branching index",
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lbr": {
+      "description": "Local branching ratio",
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "affinity": {
+      "description": "Binding affinity",
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "relative_affinity": {
+      "description": "Relative binding affinity",
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "affinity_class": {
+      "description": "Affinity classification",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "aa_sequence": {
+      "description": "Full amino acid sequence",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "junction": {
+      "description": "CDR3 junction nucleotide sequence",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "junction_aa": {
+      "description": "CDR3 junction amino acid sequence",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "v_call": {
+      "description": "V gene assignment",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "d_call": {
+      "description": "D gene assignment",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "j_call": {
+      "description": "J gene assignment",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "count": {
+      "description": "Sequence count",
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "confidence": {
+      "description": "Confidence score or bootstrap value",
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "multiplicity": {
+      "description": "Number of times sequence was observed",
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "cluster_multiplicity": {
+      "description": "Cumulative count if sequences were clustered",
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "timepoint_multiplicities": {
+      "description": "Multiplicities per timepoint",
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/definitions/timepoint_multiplicity"
+      }
+    },
+    "cluster_timepoint_multiplicities": {
+      "description": "Cluster multiplicities per timepoint",
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/definitions/timepoint_multiplicity"
+      }
+    },
+    "scaled_affinity": {
+      "description": "Scaled binding affinity (min-max normalized)",
+      "type": [
+        "number",
+        "null"
+      ]
+    }
+  }
+}
