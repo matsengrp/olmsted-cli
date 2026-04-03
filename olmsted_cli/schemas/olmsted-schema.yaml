@@ -153,8 +153,8 @@ Node:
       description: Sample identifier
       type: ["string", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     type:
       description: >
@@ -186,8 +186,8 @@ Node:
       description: Timepoint label for this sequence
       type: ["string", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     timepoint_id:
       description: Timepoint identifier (alternative field name used by some upstream tools)
@@ -349,15 +349,15 @@ Tree:
       description: Unique identifier for the tree
       type: ["string", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     clone_id:
       description: Identifier for the clonal family this tree belongs to
       type: ["string", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     timepoint_ids:
       description: Timepoints represented in this tree
@@ -400,8 +400,8 @@ Tree:
       description: Sample identifier for associated sequences
       type: ["string", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     newick:
       description: >
@@ -465,15 +465,15 @@ Clone:
       description: Sample identifier
       type: ["string", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     subject_id:
       description: Subject/participant identifier
       type: ["string", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     unique_seqs_count:
       description: >
@@ -525,22 +525,22 @@ Clone:
       description: V gene assignment with allele (e.g., IGHV1-2*02)
       type: ["string", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     d_call:
       description: D gene assignment with allele
       type: ["string", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     j_call:
       description: J gene assignment with allele
       type: ["string", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     v_sequence_start:
       description: >
@@ -548,29 +548,29 @@ Clone:
         AIRR uses 1-based, closed intervals for sequence coordinates.
       type: ["integer", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     v_sequence_end:
       description: End position of V gene alignment in query sequence
       type: ["integer", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     v_germline_start:
       description: Start position of V gene alignment in germline sequence
       type: ["integer", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     v_germline_end:
       description: End position of V gene alignment in germline sequence
       type: ["integer", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     v_alignment_start:
       description: >
@@ -596,29 +596,29 @@ Clone:
       description: Start position of D gene alignment in query sequence
       type: ["integer", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     d_sequence_end:
       description: End position of D gene alignment in query sequence
       type: ["integer", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     d_germline_start:
       description: Start position of D gene alignment in germline sequence
       type: ["integer", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     d_germline_end:
       description: End position of D gene alignment in germline sequence
       type: ["integer", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     d_alignment_start:
       description: Start position in the D gene alignment
@@ -638,29 +638,29 @@ Clone:
       description: Start position of J gene alignment in query sequence
       type: ["integer", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     j_sequence_end:
       description: End position of J gene alignment in query sequence
       type: ["integer", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     j_germline_start:
       description: Start position of J gene alignment in germline sequence
       type: ["integer", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     j_germline_end:
       description: End position of J gene alignment in germline sequence
       type: ["integer", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     j_alignment_start:
       description: Start position in the J gene alignment (0-based)
@@ -682,29 +682,29 @@ Clone:
       description: Start position of the CDR3 junction
       type: ["integer", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     junction_end:
       description: End position of the CDR3 junction
       type: ["integer", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     junction_length:
       description: Length of the CDR3 junction in nucleotides
       type: ["integer", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     germline_alignment:
       description: Assembled germline sequence aligned to the query
       type: ["string", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
 
     germline_sequence:
       description: Full germline sequence (not alignment-trimmed)
@@ -733,8 +733,11 @@ Clone:
       items:
         $ref: "#/Tree"
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
+        changed_from_airr: >
+          AIRR 2.0 Clone has a single 'tree' field (Newick string). Olmsted uses
+          'trees' (plural, array of Tree objects) to support multiple trees per clone.
 
     unique_ids:
       description: List of sequence_id values for all members of this clone
@@ -961,8 +964,11 @@ Dataset:
           strain_name:
             type: string
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
+        changed_from_airr: >
+          AIRR 2.0 has a Subject object but no 'subjects' array at Dataset level.
+          Olmsted embeds a flattened array of subject records directly on the Dataset.
 
     subject_id:
       description: Subject/participant identifier (single subject datasets)
@@ -975,8 +981,11 @@ Dataset:
       description: Subject species
       type: ["string", "null"]
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
+        changed_from_airr: >
+          AIRR 2.0 Subject uses 'species' (not 'subject_species'). Olmsted renames
+          the field to avoid ambiguity when flattened onto the Dataset object.
 
     sex:
       description: Subject sex
@@ -1054,8 +1063,12 @@ Dataset:
           subject_id:
             type: string
       x-olmsted:
-        airr_field: true
-        extension: false
+        airr_field: false
+        extension: true
+        changed_from_airr: >
+          AIRR 2.0 has a Sample object nested within Repertoire (as 'sample'), not
+          a top-level 'samples' array on a Dataset. Olmsted flattens sample records
+          directly onto the Dataset object.
 
     timepoints:
       description: Time point information

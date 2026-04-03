@@ -169,8 +169,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "type": {
@@ -220,8 +220,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "timepoint_id": {
@@ -468,8 +468,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "clone_id": {
@@ -479,8 +479,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "timepoint_ids": {
@@ -548,8 +548,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "newick": {
@@ -633,8 +633,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "subject_id": {
@@ -644,8 +644,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "unique_seqs_count": {
@@ -715,8 +715,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "d_call": {
@@ -726,8 +726,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "j_call": {
@@ -737,8 +737,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "v_sequence_start": {
@@ -748,8 +748,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "v_sequence_end": {
@@ -759,8 +759,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "v_germline_start": {
@@ -770,8 +770,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "v_germline_end": {
@@ -781,8 +781,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "v_alignment_start": {
@@ -810,8 +810,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "d_sequence_end": {
@@ -821,8 +821,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "d_germline_start": {
@@ -832,8 +832,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "d_germline_end": {
@@ -843,8 +843,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "d_alignment_start": {
@@ -876,8 +876,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "j_sequence_end": {
@@ -887,8 +887,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "j_germline_start": {
@@ -898,8 +898,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "j_germline_end": {
@@ -909,8 +909,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "j_alignment_start": {
@@ -938,8 +938,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "junction_end": {
@@ -949,8 +949,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "junction_length": {
@@ -960,8 +960,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "germline_alignment": {
@@ -971,8 +971,8 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true
         }
       },
       "germline_sequence": {
@@ -1018,8 +1018,9 @@
           "$ref": "#/Tree"
         },
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true,
+          "changed_from_airr": "AIRR 2.0 Clone has a single 'tree' field (Newick string). Olmsted uses 'trees' (plural, array of Tree objects) to support multiple trees per clone.\n"
         }
       },
       "unique_ids": {
@@ -1361,8 +1362,9 @@
           }
         },
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true,
+          "changed_from_airr": "AIRR 2.0 has a Subject object but no 'subjects' array at Dataset level. Olmsted embeds a flattened array of subject records directly on the Dataset.\n"
         }
       },
       "subject_id": {
@@ -1383,8 +1385,9 @@
           "null"
         ],
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true,
+          "changed_from_airr": "AIRR 2.0 Subject uses 'species' (not 'subject_species'). Olmsted renames the field to avoid ambiguity when flattened onto the Dataset object.\n"
         }
       },
       "sex": {
@@ -1507,8 +1510,9 @@
           }
         },
         "x-olmsted": {
-          "airr_field": true,
-          "extension": false
+          "airr_field": false,
+          "extension": true,
+          "changed_from_airr": "AIRR 2.0 has a Sample object nested within Repertoire (as 'sample'), not a top-level 'samples' array on a Dataset. Olmsted flattens sample records directly onto the Dataset object.\n"
         }
       },
       "timepoints": {
