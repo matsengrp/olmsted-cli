@@ -1,0 +1,1582 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://olmstedviz.org/schemas/v1/olmsted-schema.json",
+  "title": "Olmsted Schema",
+  "description": "Unified schema for the Olmsted phylogenetic visualization platform. Follows AIRR schema conventions: root-level objects cross-referenced via $ref. Extensions to AIRR 2.0 are annotated with x-olmsted blocks.\n",
+  "definitions": {
+    "TimepointMultiplicity": {
+      "title": "Timepoint multiplicity",
+      "description": "Multiplicity of a sequence at a given timepoint",
+      "type": "object",
+      "required": [
+        "multiplicity",
+        "timepoint_id"
+      ],
+      "properties": {
+        "multiplicity": {
+          "description": "Number of times sequence was observed at the given timepoint",
+          "type": "integer",
+          "minimum": 0,
+          "x-olmsted": {
+            "airr_field": false,
+            "extension": true
+          }
+        },
+        "timepoint_id": {
+          "description": "Id associated with the timepoint in question",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-olmsted": {
+            "airr_field": false,
+            "extension": true
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "PerGeneSupportItem": {
+      "description": "Per-gene assignment probability from IgBLAST or similar caller",
+      "type": "object",
+      "required": [
+        "gene",
+        "ident",
+        "prob"
+      ],
+      "properties": {
+        "gene": {
+          "type": "string",
+          "x-olmsted": {
+            "airr_field": false,
+            "extension": true
+          }
+        },
+        "ident": {
+          "type": "string",
+          "x-olmsted": {
+            "airr_field": false,
+            "extension": true
+          }
+        },
+        "prob": {
+          "type": "number",
+          "x-olmsted": {
+            "airr_field": false,
+            "extension": true
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "Node": {
+    "title": "Node",
+    "description": "Node in a phylogenetic tree. Extends the AIRR 2.0 Rearrangement object with fields required for tree visualization (parent, distance, type enum) and promotes sequence_alignment_aa from optional to required.\n",
+    "type": "object",
+    "required": [
+      "sequence_id",
+      "sequence_alignment",
+      "sequence_alignment_aa"
+    ],
+    "additionalProperties": true,
+    "properties": {
+      "sequence_id": {
+        "description": "Identifier for this node that matches the id in the newick string",
+        "type": "string",
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "node_id": {
+        "description": "Alternative identifier for this node",
+        "type": "string",
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "parent": {
+        "description": "Parent node ID; null for the root",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "branch_length": {
+        "description": "Branch length to parent (Newick branch length)",
+        "type": [
+          "number",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "length": {
+        "description": "Branch length (alias for branch_length used by some upstream tools)",
+        "type": [
+          "number",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "distance": {
+        "description": "Cumulative distance from root, computed as the sum of branch_length values along the path from root to this node. Used for timeline-style trees.\n",
+        "type": [
+          "number",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "sequence_alignment": {
+        "description": "Nucleotide sequence alignment, including any indel corrections or spacers",
+        "type": "string",
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "sequence_alignment_aa": {
+        "description": "Amino acid sequence alignment, including any indel corrections or spacers",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false,
+          "required_by_olmsted": true,
+          "changed_from_airr": "In AIRR 2.0 Rearrangement this field is optional. Olmsted promotes it to required because amino acid alignment is needed for tree visualization.\n"
+        }
+      },
+      "sample_id": {
+        "description": "Sample identifier",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "type": {
+        "description": "Role of this node in the tree topology. leaf = observed sequence; internal = inferred ancestor; root = tree root; node = generic (used when leaf/internal distinction is not needed). null is allowed for nodes where type was not determined.\n",
+        "type": [
+          "string",
+          "null"
+        ],
+        "enum": [
+          "leaf",
+          "node",
+          "internal",
+          "root",
+          null
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "is_root": {
+        "description": "Boolean flag; true for the root node only",
+        "type": [
+          "boolean",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "subtree_size": {
+        "description": "Number of descendants (leaves + internal nodes)",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "timepoint": {
+        "description": "Timepoint label for this sequence",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "timepoint_id": {
+        "description": "Timepoint identifier (alternative field name used by some upstream tools)",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "lbi": {
+        "description": "Local branching index; measures recent clade expansion",
+        "type": [
+          "number",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "lbr": {
+        "description": "Local branching ratio",
+        "type": [
+          "number",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "affinity": {
+        "description": "Experimentally measured binding affinity",
+        "type": [
+          "number",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "relative_affinity": {
+        "description": "Affinity normalized relative to some reference (e.g., germline)",
+        "type": [
+          "number",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "affinity_class": {
+        "description": "Categorical classification of binding affinity",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "aa_sequence": {
+        "description": "Full amino acid sequence (not just the aligned region)",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "junction": {
+        "description": "CDR3 junction nucleotide sequence (includes conserved residues)",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "junction_aa": {
+        "description": "CDR3 junction amino acid sequence",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "v_call": {
+        "description": "V gene assignment (e.g., IGHV1-2*02)",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "d_call": {
+        "description": "D gene assignment",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "j_call": {
+        "description": "J gene assignment",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "count": {
+        "description": "Observed sequence count (may differ from multiplicity if clustered)",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "confidence": {
+        "description": "Confidence score or bootstrap support value for this node",
+        "type": [
+          "number",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "multiplicity": {
+        "description": "Number of times this sequence was observed in the sample",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "cluster_multiplicity": {
+        "description": "Cumulative count when sequences were clustered before tree building",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "timepoint_multiplicities": {
+        "description": "Per-timepoint breakdown of multiplicity; used for longitudinal data",
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "$ref": "#/definitions/TimepointMultiplicity"
+        },
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "cluster_timepoint_multiplicities": {
+        "description": "Per-timepoint cluster multiplicities",
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "$ref": "#/definitions/TimepointMultiplicity"
+        },
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "scaled_affinity": {
+        "description": "Min-max normalized affinity; used for color scales",
+        "type": [
+          "number",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      }
+    }
+  },
+  "Tree": {
+    "title": "Tree",
+    "description": "Phylogenetic tree and possibly ancestral state reconstruction of sequences in a clonal family. Extends AIRR 2.0 with newick, per-node data, and longitudinal summary statistics.\n",
+    "type": "object",
+    "required": [
+      "newick"
+    ],
+    "additionalProperties": true,
+    "properties": {
+      "ident": {
+        "description": "Internal UUID for the tree object",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "tree_id": {
+        "description": "Unique identifier for the tree",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "clone_id": {
+        "description": "Identifier for the clonal family this tree belongs to",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "timepoint_ids": {
+        "description": "Timepoints represented in this tree",
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "downsampling_strategy": {
+        "description": "Method used to select sequences before tree inference",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "diversity": {
+        "description": "Mean pairwise distance from all nodes to their most recent common ancestor",
+        "type": [
+          "number",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "min_junction_length": {
+        "description": "Minimum CDR3 junction nucleotide length across all nodes",
+        "type": [
+          "number",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "max_junction_length": {
+        "description": "Maximum CDR3 junction nucleotide length across all nodes",
+        "type": [
+          "number",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "sample_id": {
+        "description": "Sample identifier for associated sequences",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "newick": {
+        "description": "Tree topology in Newick format. Node labels in the Newick string must match sequence_id values in the nodes property.\n",
+        "type": "string",
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "nodes": {
+        "description": "Per-node data. May be an array of node objects or a dict keyed by sequence_id. Both forms are valid Olmsted input.\n",
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        },
+        "oneOf": [
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/Node"
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/Node"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "Clone": {
+    "title": "Clone",
+    "description": "Clonal family of sequences deriving from a particular rearrangement event. Extends the AIRR 2.0 Clone object with Olmsted-specific fields for tree attachment, longitudinal data, and paired heavy/light chain analysis.\n",
+    "type": "object",
+    "required": [
+      "unique_seqs_count",
+      "mean_mut_freq"
+    ],
+    "additionalProperties": true,
+    "properties": {
+      "ident": {
+        "description": "Internal UUID for the clone object",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "clone_id": {
+        "description": "Unique identifier of the clonal family",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "dataset_id": {
+        "description": "Dataset this clone belongs to",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "sample_id": {
+        "description": "Sample identifier",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "subject_id": {
+        "description": "Subject/participant identifier",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "unique_seqs_count": {
+        "description": "Number of unique sequences in the clonal family. Required for Olmsted visualization size encoding.\n",
+        "type": "integer",
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "total_read_count": {
+        "description": "Total reads (sum of multiplicities across all members)",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "clone_count": {
+        "description": "Total number of sequences within the clone",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "mean_mut_freq": {
+        "description": "Mean somatic hypermutation frequency across all members. Required for Olmsted visualization (scatterplot axis default).\n",
+        "type": "number",
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "naive_sequence": {
+        "description": "Inferred unmutated common ancestor (UCA) sequence",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "cdr3_sequence": {
+        "description": "CDR3 nucleotide sequence representative for this clone",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "v_call": {
+        "description": "V gene assignment with allele (e.g., IGHV1-2*02)",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "d_call": {
+        "description": "D gene assignment with allele",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "j_call": {
+        "description": "J gene assignment with allele",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "v_sequence_start": {
+        "description": "Start position of V gene alignment in query sequence. AIRR uses 1-based, closed intervals for sequence coordinates.\n",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "v_sequence_end": {
+        "description": "End position of V gene alignment in query sequence",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "v_germline_start": {
+        "description": "Start position of V gene alignment in germline sequence",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "v_germline_end": {
+        "description": "End position of V gene alignment in germline sequence",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "v_alignment_start": {
+        "description": "Start position in the V gene alignment. Note: Olmsted uses 0-based positions internally (unlike AIRR's 1-based convention).\n",
+        "type": "integer",
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true,
+          "changed_from_airr": "Olmsted uses 0-based indexing; AIRR 2.0 uses 1-based. This field is an Olmsted-internal coordinate, not a direct mapping of any AIRR field.\n"
+        }
+      },
+      "v_alignment_end": {
+        "description": "End position in the V gene alignment (0-based)",
+        "type": "integer",
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true,
+          "changed_from_airr": "Same 0-based convention as v_alignment_start."
+        }
+      },
+      "d_sequence_start": {
+        "description": "Start position of D gene alignment in query sequence",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "d_sequence_end": {
+        "description": "End position of D gene alignment in query sequence",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "d_germline_start": {
+        "description": "Start position of D gene alignment in germline sequence",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "d_germline_end": {
+        "description": "End position of D gene alignment in germline sequence",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "d_alignment_start": {
+        "description": "Start position in the D gene alignment",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "d_alignment_end": {
+        "description": "End position in the D gene alignment",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "j_sequence_start": {
+        "description": "Start position of J gene alignment in query sequence",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "j_sequence_end": {
+        "description": "End position of J gene alignment in query sequence",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "j_germline_start": {
+        "description": "Start position of J gene alignment in germline sequence",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "j_germline_end": {
+        "description": "End position of J gene alignment in germline sequence",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "j_alignment_start": {
+        "description": "Start position in the J gene alignment (0-based)",
+        "type": "integer",
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true,
+          "changed_from_airr": "Same 0-based convention as v_alignment_start."
+        }
+      },
+      "j_alignment_end": {
+        "description": "End position in the J gene alignment (0-based)",
+        "type": "integer",
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true,
+          "changed_from_airr": "Same 0-based convention as v_alignment_start."
+        }
+      },
+      "junction_start": {
+        "description": "Start position of the CDR3 junction",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "junction_end": {
+        "description": "End position of the CDR3 junction",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "junction_length": {
+        "description": "Length of the CDR3 junction in nucleotides",
+        "type": [
+          "integer",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "germline_alignment": {
+        "description": "Assembled germline sequence aligned to the query",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "germline_sequence": {
+        "description": "Full germline sequence (not alignment-trimmed)",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "has_seed": {
+        "description": "Whether a seed sequence was used for clonal family assignment",
+        "type": [
+          "boolean",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "seed_id": {
+        "description": "Seed sequence identifier",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "trees": {
+        "description": "Phylogenetic tree(s) built from this clonal family",
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "$ref": "#/Tree"
+        },
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "unique_ids": {
+        "description": "List of sequence_id values for all members of this clone",
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "timepoint_ids": {
+        "description": "Timepoints represented in this clonal family",
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "v_per_gene_support": {
+        "description": "Per-gene V assignment probabilities from the gene caller",
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "$ref": "#/definitions/PerGeneSupportItem"
+        },
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "j_per_gene_support": {
+        "description": "Per-gene J assignment probabilities",
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "$ref": "#/definitions/PerGeneSupportItem"
+        },
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "d_per_gene_support": {
+        "description": "Per-gene D assignment probabilities",
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "$ref": "#/definitions/PerGeneSupportItem"
+        },
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "is_paired": {
+        "description": "True if this clone is part of a paired heavy/light chain dataset",
+        "type": [
+          "boolean",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "pair_id": {
+        "description": "Identifier linking paired heavy and light chain clones",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      }
+    }
+  },
+  "Dataset": {
+    "title": "Olmsted Dataset",
+    "description": "Olmsted dataset input file. Contains one or more clonal families (clones), each optionally containing one or more phylogenetic trees with per-node data. The field_metadata property drives the Olmsted web application's dynamic dropdown controls for scatterplot axes, color, and faceting.\n",
+    "type": "object",
+    "required": [
+      "dataset_id"
+    ],
+    "additionalProperties": true,
+    "properties": {
+      "schema_version": {
+        "description": "Schema version",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "ident": {
+        "description": "Dataset identifier (internal UUID)",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "dataset_id": {
+        "description": "Unique identifier for the dataset",
+        "type": "string",
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "type": {
+        "description": "Dataset type",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "build": {
+        "description": "Build information",
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {
+          "commit": {
+            "type": "string"
+          },
+          "time": {
+            "type": "string"
+          }
+        },
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "study_id": {
+        "description": "Study identifier",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "study_title": {
+        "description": "Study title",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "study_description": {
+        "description": "Study description",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "study_contact": {
+        "description": "Study contact information",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "inclusion_exclusion_criteria": {
+        "description": "Inclusion/exclusion criteria",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "contributors": {
+        "description": "List of contributors",
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "object",
+          "properties": {
+            "contributor_id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "orcid_id": {
+              "type": "string"
+            },
+            "affiliation": {
+              "type": "string"
+            },
+            "affiliation_ror_id": {
+              "type": "string"
+            }
+          }
+        },
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "pub_ids": {
+        "description": "Publication identifiers",
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "grants": {
+        "description": "Grant information",
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "keywords_study": {
+        "description": "Study keywords",
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "subjects": {
+        "description": "Subject information",
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "object",
+          "properties": {
+            "ident": {
+              "type": "string"
+            },
+            "subject_id": {
+              "type": "string"
+            },
+            "subject_species": {
+              "type": "string"
+            },
+            "sex": {
+              "type": "string"
+            },
+            "age_min": {
+              "type": "number"
+            },
+            "age_max": {
+              "type": "number"
+            },
+            "age_unit": {
+              "type": "string"
+            },
+            "age_event": {
+              "type": "string"
+            },
+            "ancestry_population": {
+              "type": "string"
+            },
+            "ethnicity": {
+              "type": "string"
+            },
+            "race": {
+              "type": "string"
+            },
+            "strain_name": {
+              "type": "string"
+            }
+          }
+        },
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "subject_id": {
+        "description": "Subject/participant identifier (single subject datasets)",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "subject_species": {
+        "description": "Subject species",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "sex": {
+        "description": "Subject sex",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "age_min": {
+        "description": "Minimum age",
+        "type": [
+          "number",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "age_max": {
+        "description": "Maximum age",
+        "type": [
+          "number",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "age_unit": {
+        "description": "Age unit",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "age_event": {
+        "description": "Age event",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "ancestry_population": {
+        "description": "Ancestry population",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "ethnicity": {
+        "description": "Ethnicity",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "race": {
+        "description": "Race",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "strain_name": {
+        "description": "Strain name",
+        "type": [
+          "string",
+          "null"
+        ],
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "samples": {
+        "description": "Sample information",
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "object",
+          "properties": {
+            "ident": {
+              "type": "string"
+            },
+            "sample_id": {
+              "type": "string"
+            },
+            "subject_id": {
+              "type": "string"
+            }
+          }
+        },
+        "x-olmsted": {
+          "airr_field": true,
+          "extension": false
+        }
+      },
+      "timepoints": {
+        "description": "Time point information",
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "type": "object",
+          "properties": {
+            "timepoint_id": {
+              "type": "string"
+            },
+            "label": {
+              "type": "string"
+            },
+            "sample_id": {
+              "type": "string"
+            }
+          }
+        },
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "field_metadata": {
+        "description": "Metadata describing available data fields at each level. The properties sub-object is populated dynamically at Python import time from FIELD_LEVELS in constants.py; the stub below is replaced by Python.\n",
+        "type": [
+          "object",
+          "null"
+        ],
+        "properties": {},
+        "additionalProperties": false,
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "clones": {
+        "description": "Clonal families in the dataset",
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "$ref": "#/Clone"
+        },
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      },
+      "trees": {
+        "description": "Phylogenetic trees in the dataset (top-level, outside clones)",
+        "type": [
+          "array",
+          "null"
+        ],
+        "items": {
+          "$ref": "#/Tree"
+        },
+        "x-olmsted": {
+          "airr_field": false,
+          "extension": true
+        }
+      }
+    }
+  }
+}

@@ -1,32 +1,30 @@
 """
-Test that committed JSON schema files match their YAML sources.
+Test that the committed JSON schema file matches its YAML source.
 
-Run `make schemas` to regenerate JSON files after editing YAML.
+Run `make schemas` to regenerate the JSON file after editing the YAML.
 """
 
 import json
 from pathlib import Path
 
-import pytest
 import yaml
 
 SCHEMA_DIR = Path(__file__).parent.parent / "olmsted_cli" / "schemas"
-YAML_FILES = sorted(SCHEMA_DIR.glob("*.schema.yaml"))
-assert YAML_FILES, f"No *.schema.yaml files found in {SCHEMA_DIR} — check path"
+YAML_PATH = SCHEMA_DIR / "olmsted-schema.yaml"
+JSON_PATH = SCHEMA_DIR / "olmsted-schema.json"
 
 
-@pytest.mark.parametrize("yaml_path", YAML_FILES, ids=lambda p: p.name)
-def test_json_matches_yaml(yaml_path):
-    """Committed JSON must match what would be generated from the YAML source."""
-    json_path = yaml_path.with_suffix(".json")
-    assert json_path.exists(), (
-        f"Missing JSON schema: {json_path.name}. Run `make schemas` to generate it."
+def test_json_matches_yaml():
+    """Committed olmsted-schema.json must match what would be generated from the YAML source."""
+    assert YAML_PATH.exists(), f"Missing YAML schema: {YAML_PATH}"
+    assert JSON_PATH.exists(), (
+        f"Missing JSON schema: {JSON_PATH.name}. Run `make schemas` to generate it."
     )
 
-    yaml_data = yaml.safe_load(yaml_path.read_text())
-    json_data = json.loads(json_path.read_text())
+    yaml_data = yaml.safe_load(YAML_PATH.read_text())
+    json_data = json.loads(JSON_PATH.read_text())
 
     assert yaml_data == json_data, (
-        f"{json_path.name} is stale. Run `make schemas` to regenerate it from "
-        f"{yaml_path.name}."
+        f"{JSON_PATH.name} is stale. Run `make schemas` to regenerate it from "
+        f"{YAML_PATH.name}."
     )

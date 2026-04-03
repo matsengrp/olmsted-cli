@@ -3,12 +3,16 @@
 Unified schema definitions for Olmsted data structures.
 
 The four main schemas (node_spec, tree_spec, clone_spec, dataset_spec) are
-authored in YAML files under olmsted_cli/schemas/ and loaded at import time.
-The Python dicts used for validation are therefore identical to the published
-JSON artifacts — there is no separate Python representation to drift.
+extracted from a single authoritative source file: olmsted_cli/schemas/olmsted-schema.yaml.
+This monolithic format follows AIRR schema conventions (one file, root-level objects,
+cross-references via $ref: '#/ObjectName').
+
+A jsonschema RefResolver built from the full schema is exported as _resolver so
+that $ref cross-references (e.g., '#/Node' inside Tree) resolve correctly when
+validators are constructed from the extracted sub-specs.
 
 Dynamic fragments derived from constants.py (field_metadata.properties,
-field type/display enums) are patched in after YAML loading.
+field type/display enums) are patched into dataset_spec after YAML loading.
 
 Legacy AIRR-specific schemas (ident_spec, build_spec, timepoint_multiplicity_spec,
 sample_spec, subject_spec, seed_spec) remain as inline Python dicts used by
@@ -19,8 +23,10 @@ airr-standards/specs/airr-schema.yaml. The SCHEMA_VERSION constant corresponds
 to the 'version' field in the Info section of that schema.
 """
 
+import warnings
 from pathlib import Path
 
+import jsonschema
 import yaml
 
 from .constants import DISPLAY_MODES, FIELD_LEVELS, FIELD_TYPES
@@ -59,15 +65,31 @@ _FIELD_ENTRY_SCHEMA = {
 _SCHEMA_DIR = Path(__file__).parent / "schemas"
 
 
-def _load_yaml_schema(name):
-    """Load a YAML schema file from the schemas directory."""
-    return yaml.safe_load((_SCHEMA_DIR / name).read_text())
+def _load_olmsted_schema():
+    """Load the monolithic olmsted-schema.yaml and return the full dict."""
+    return yaml.safe_load((_SCHEMA_DIR / "olmsted-schema.yaml").read_text())
 
 
-node_spec = _load_yaml_schema("node.schema.yaml")
-tree_spec = _load_yaml_schema("tree.schema.yaml")
-clone_spec = _load_yaml_schema("clone.schema.yaml")
-dataset_spec = _load_yaml_schema("dataset.schema.yaml")
+# Load once at module import
+_olmsted_schema = _load_olmsted_schema()
+
+# Build a RefResolver from the full schema so that $ref: '#/Node' (and similar
+# cross-object references) resolve correctly when validating against an extracted
+# sub-spec (e.g., tree_spec) rather than the full document.
+# RefResolver is deprecated in jsonschema>=4.18 but remains functional; suppress
+# the warning until the project upgrades to the referencing library.
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", message=".*RefResolver.*", category=DeprecationWarning)
+    _resolver = jsonschema.RefResolver(
+        base_uri=_olmsted_schema["$id"],
+        referrer=_olmsted_schema,
+    )
+
+# Extract individual object specs from the root-level keys
+node_spec = _olmsted_schema["Node"]
+tree_spec = _olmsted_schema["Tree"]
+clone_spec = _olmsted_schema["Clone"]
+dataset_spec = _olmsted_schema["Dataset"]
 
 # Patch field_metadata.properties dynamically from FIELD_LEVELS so that adding
 # a new level in constants.py automatically extends the schema.
@@ -209,6 +231,8 @@ __all__ = [
     "tree_spec",
     "clone_spec",
     "dataset_spec",
+    # RefResolver for cross-object $ref resolution
+    "_resolver",
     # AIRR-specific schemas
     "ident_spec",
     "build_spec",

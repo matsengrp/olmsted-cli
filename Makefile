@@ -3,13 +3,13 @@
 .PHONY: test schemas clean clean-test clean-pyc clean-build help
 
 SCHEMA_DIR = olmsted_cli/schemas
-YAML_SCHEMAS = $(wildcard $(SCHEMA_DIR)/*.schema.yaml)
-JSON_SCHEMAS = $(patsubst %.schema.yaml,%.schema.json,$(YAML_SCHEMAS))
+YAML_SCHEMA = $(SCHEMA_DIR)/olmsted-schema.yaml
+JSON_SCHEMA = $(SCHEMA_DIR)/olmsted-schema.json
 
 help:
 	@echo "Available commands:"
 	@echo "  make test        - Run pytest"
-	@echo "  make schemas     - Regenerate JSON schemas from YAML sources"
+	@echo "  make schemas     - Regenerate olmsted-schema.json from olmsted-schema.yaml"
 	@echo "  make clean       - Remove all build, test, and Python artifacts"
 	@echo "  make clean-test  - Remove test artifacts"
 	@echo "  make clean-pyc   - Remove Python cache files"
@@ -18,12 +18,12 @@ help:
 test:
 	pytest
 
-# Regenerate published JSON schemas from YAML source files.
-# Run this after editing any *.schema.yaml file.
-schemas: $(JSON_SCHEMAS)
+# Regenerate the published JSON schema from the YAML source.
+# Run this after editing olmsted-schema.yaml.
+schemas: $(JSON_SCHEMA)
 
-$(SCHEMA_DIR)/%.schema.json: $(SCHEMA_DIR)/%.schema.yaml
-	python3 -c "import yaml, json, sys; data = yaml.safe_load(open('$<')); open('$@', 'w').write(json.dumps(data, indent=2) + '\n'); print('Generated $@')"
+$(JSON_SCHEMA): $(YAML_SCHEMA)
+	python3 -c "import yaml, json; data = yaml.safe_load(open('$<')); open('$@', 'w').write(json.dumps(data, indent=2) + '\n'); print('Generated $@')"
 
 clean: clean-build clean-pyc clean-test
 
