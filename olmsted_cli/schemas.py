@@ -2,12 +2,17 @@
 """
 Unified schema definitions for Olmsted data structures.
 
-Schemas are authored in YAML files under olmsted_cli/schemas/ and loaded at
-import time. This makes the YAML the single authoritative source: the Python
-dicts used for validation are identical to the published JSON artifacts.
+The four main schemas (node_spec, tree_spec, clone_spec, dataset_spec) are
+authored in YAML files under olmsted_cli/schemas/ and loaded at import time.
+The Python dicts used for validation are therefore identical to the published
+JSON artifacts — there is no separate Python representation to drift.
 
-Dynamic fragments (field_metadata.properties, field type/display enums) are
-patched in after YAML loading because they are derived from constants.py.
+Dynamic fragments derived from constants.py (field_metadata.properties,
+field type/display enums) are patched in after YAML loading.
+
+Legacy AIRR-specific schemas (ident_spec, build_spec, timepoint_multiplicity_spec,
+sample_spec, subject_spec, seed_spec) remain as inline Python dicts used by
+narrow legacy code paths and have not been migrated to YAML.
 
 NOTE: The AIRR schema components reference the official AIRR schema from
 airr-standards/specs/airr-schema.yaml. The SCHEMA_VERSION constant corresponds
@@ -54,15 +59,15 @@ _FIELD_ENTRY_SCHEMA = {
 _SCHEMA_DIR = Path(__file__).parent / "schemas"
 
 
-def _load(name):
+def _load_yaml_schema(name):
     """Load a YAML schema file from the schemas directory."""
     return yaml.safe_load((_SCHEMA_DIR / name).read_text())
 
 
-node_spec = _load("node.schema.yaml")
-tree_spec = _load("tree.schema.yaml")
-clone_spec = _load("clone.schema.yaml")
-dataset_spec = _load("dataset.schema.yaml")
+node_spec = _load_yaml_schema("node.schema.yaml")
+tree_spec = _load_yaml_schema("tree.schema.yaml")
+clone_spec = _load_yaml_schema("clone.schema.yaml")
+dataset_spec = _load_yaml_schema("dataset.schema.yaml")
 
 # Patch field_metadata.properties dynamically from FIELD_LEVELS so that adding
 # a new level in constants.py automatically extends the schema.
