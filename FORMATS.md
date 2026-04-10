@@ -14,6 +14,7 @@ See also:
 
 - [PCP Input Format](#pcp-input-format)
 - [AIRR Input Format](#airr-input-format)
+- [Mutations CSV Format](#mutations-csv-format)
 - [Olmsted JSON Output Format](#olmsted-json-output-format)
 - [Field Metadata](#field-metadata)
 - [Validation](#validation)
@@ -176,6 +177,69 @@ AIRR (Adaptive Immune Receptor Repertoire) format is a single JSON file followin
 ### AIRR Position Convention
 
 AIRR uses 1-based closed intervals. olmsted-cli converts `*_start` positions to 0-based (subtracting 1) during processing. Missing positions are skipped gracefully.
+
+---
+
+## Mutations CSV Format
+
+External mutation-level annotations consumed by the `merge` command and the `process --mutations` flag. Each row describes one substitution.
+
+### Required columns
+
+| Column | Description |
+|--------|-------------|
+| `family` | Clonal family identifier — joined against `clone_id` in the Olmsted JSON |
+| `site` | Integer amino acid position (0-based, matching the `sequence_alignment_aa` index) |
+| `parent_aa` | Single-character parent amino acid |
+| `child_aa` | Single-character child amino acid |
+
+If `site` is non-numeric, parsing fails with a clear `ValueError` pointing at the offending row.
+
+### Recognized structural columns
+
+These are read for context but **not** added as mutation-level fields on the output:
+
+| Column | Purpose |
+|--------|---------|
+| `sample_id` | Optional sample identifier for cross-checking (not enforced) |
+| `pcp_index` | Optional integer index into the source PCP CSV |
+| `depth` | Optional tree depth where the mutation occurs |
+
+### Score columns
+
+Any column not listed above becomes a mutation-level field on matching nodes. Common examples produced by upstream pipelines:
+
+| Column | Output type | Auto-detected label |
+|--------|-------------|---------------------|
+| `surprise_mutsel` | continuous | Surprise (MutSel) |
+| `surprise_neutral` | continuous | Surprise (Neutral) |
+| `surprise_mutsel_theoretical` | continuous | Surprise (MutSel, Theoretical) |
+| `selection_contribution` | continuous | Selection Contribution |
+| `log_selection_factor` | continuous | Log Selection Factor |
+| `num_codon_changes` | continuous | Number of Codon Changes |
+
+These are pre-registered in `KNOWN_MUTATION_FIELDS`. Any other score column will be auto-detected (continuous if numeric, categorical if string) and appear in `field_metadata.mutation` with a generated label.
+
+### Matching semantics
+
+For each tree whose `clone_id` matches a CSV `family`:
+
+1. The CSV rows for that family are indexed by `(site, parent_aa, child_aa)`.
+2. For each tree node, mutations are derived by diffing `node.sequence_alignment_aa` against its parent's (or read directly if a `mutations` array already exists). Gap characters (`-`, `.`, `X`, `*`, `?`) are skipped.
+3. Each derived mutation is looked up in the CSV index. On match, the score columns are merged onto the mutation dict.
+
+### Unmatched rows
+
+Rows whose `family` doesn't appear in the JSON, or whose `(site, parent_aa, child_aa)` doesn't appear on any node in the matched tree, are reported as warnings. The merge still completes; warnings include counts at normal verbosity and per-family detail at `-v 2`.
+
+### Example
+
+```csv
+family,site,parent_aa,child_aa,surprise_mutsel,selection_contribution,sample_id,depth
+clone-abc,12,K,R,4.21,0.77,s1,3
+clone-abc,57,A,T,3.06,1.31,s1,3
+clone-xyz,9,G,D,5.21,0.94,s1,4
+```
 
 ---
 
@@ -395,4 +459,4 @@ AIRR fields are mostly passed through directly. Key transformations:
 
 ---
 
-_Last updated: 2026-03-31_
+_Last updated: 2026-04-10_

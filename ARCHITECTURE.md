@@ -11,6 +11,7 @@ See also:
 - [Overview](#overview)
 - [Module Dependency Hierarchy](#module-dependency-hierarchy)
 - [Processing Pipelines](#processing-pipelines)
+- [Mutations CSV Merge](#mutations-csv-merge)
 - [Field Metadata System](#field-metadata-system)
 - [YAML Config System](#yaml-config-system)
 - [PCP Column Handling](#pcp-column-handling)
@@ -52,9 +53,12 @@ utils.py                (no project imports — general-purpose utilities)
     ├── process_pcp_data.py (imports constants, metrics, process_utils)
     ├── process_airr_data.py(imports constants, metrics, process_utils)
     │
-    ├── process_data.py     (imports constants, format_detection, process_utils,
-    │                         process_pcp_data, process_airr_data)
+    ├── merge_mutations.py  (imports constants, process_utils, utils)
+    │
+    ├── process_data.py     (imports constants, format_detection, merge_mutations,
+    │                         process_utils, process_pcp_data, process_airr_data)
     ├── tag.py              (imports process_data, process_utils)
+    ├── merge.py            (imports merge_mutations, process_data, process_utils)
     │
     └── cli.py              (imports all command modules)
 ```
@@ -63,6 +67,7 @@ utils.py                (no project imports — general-purpose utilities)
 - `process_pcp_data.py` and `process_airr_data.py` never import from each other. Shared logic lives in `metrics.py` or `process_utils.py`.
 - `utils.py`, `constants.py`, and `types.py` have **no project dependencies** — any module can import from them without creating cycles.
 - `format_detection.py` is a leaf module (depends only on constants) so it can be imported by both `build_config.py` and `process_data.py` without cycles.
+- `merge_mutations.py` is the single source of truth for the mutations-CSV merge logic. Both the `merge` command and `process --mutations` flag call into `apply_mutations_csv()` so behavior is identical regardless of entry point.
 
 ---
 
@@ -123,13 +128,36 @@ Load JSON → validate structure
 Ensure metadata.format = "olmsted"
     │
     ▼
-For each dataset:
-    ├── Collect clones and matching trees
-    ├── tag_field_metadata(clones, trees, custom_fields)
-    │       ├── generate_default_config() if no custom_fields
-    │       ├── unpack_encoded_mutations()
-    │       └── generate_field_metadata()
-    └── Merge with existing field_metadata (add mode) or replace (overwrite mode)
+retag_datasets_field_metadata(datasets, clones_dict, trees, custom_fields, mode)
+    ├── For each dataset:
+    │   ├── Collect clones and matching trees
+    │   ├── tag_field_metadata(clones, trees, custom_fields)
+    │   │       ├── generate_default_config() if no custom_fields
+    │   │       ├── unpack_encoded_mutations()
+    │   │       └── generate_field_metadata()
+    │   └── Merge with existing field_metadata (add) or replace (overwrite)
+    │
+    ▼
+Write output
+```
+
+### `merge` Command
+
+```
+Input Olmsted JSON + mutations CSV
+    │
+    ▼
+Load JSON → validate structure
+    │
+    ▼
+apply_mutations_csv(path, datasets, clones_dict, trees, custom_fields)
+    ├── load_mutations_csv()             (parse CSV, group by family, force site→int)
+    ├── merge_mutations_into_trees()     (derive mutations from AA diffs, match, merge)
+    ├── Print warnings for unmatched families / unmatched mutations
+    └── retag_datasets_field_metadata()  (regenerate field_metadata with merge=add)
+    │
+    ▼
+Refuse to overwrite if --in-place and zero trees matched
     │
     ▼
 Write output
@@ -160,6 +188,50 @@ _build_yaml()
     │
     └── Skipped fields section (from SUGGESTED_SKIP_FIELDS)
 ```
+
+---
+
+## Mutations CSV Merge
+
+The `merge` command and `process --mutations` flag share a single implementation in `merge_mutations.py`. By the time the merge runs, the input data — whether it started as PCP CSV, AIRR JSON, or pre-built Olmsted JSON — has already been converted to the internal `(datasets, clones_dict, trees)` representation. The merge operates on that representation, so behavior is identical across all three entry points.
+
+### Matching Strategy
+
+For each tree node:
+
+1. If the node already has a `mutations` array, use it as-is.
+2. Otherwise, derive mutations by diffing `node.sequence_alignment_aa` against its parent's. Each differing position becomes `{site, parent_aa, child_aa}`. Gap characters (`-`, `.`, `X`, `*`, `?`) are skipped.
+3. For each derived (or pre-existing) mutation, look up `(site, parent_aa, child_aa)` in the CSV index for that tree's `clone_id`. On match, merge the CSV's score columns onto the mutation dict.
+
+The CSV's `family` column is the join key against `tree.clone_id`. Within a family, mutations are matched per-node, so a substitution that occurs convergently on multiple branches gets the same scores applied to each occurrence.
+
+### Excluded CSV Columns
+
+These columns are recognized as structural/join keys and are **not** included in the merged output (see `MUTATIONS_CSV_KEY_COLUMNS` in `constants.py`):
+
+```
+family, sample_id, site, parent_aa, child_aa, pcp_index, depth
+```
+
+`site`, `parent_aa`, and `child_aa` are excluded from the *merged extras dict* but are still kept on the mutation record (they identify the substitution).
+
+### Unmatched Reporting
+
+`merge_mutations_into_trees()` returns a `MergeStats` dataclass with:
+
+| Field | Meaning |
+|-------|---------|
+| `trees_matched` | Number of trees whose `clone_id` appeared in the CSV |
+| `nodes_with_mutations` | Number of nodes that ended up with a non-empty mutations array |
+| `mutations_merged` | Number of individual mutation records that received CSV data |
+| `unmatched_families` | Sorted list of CSV families that had no matching tree |
+| `unmatched_mutations` | Total CSV rows in matched families that had no corresponding derived mutation |
+
+`apply_mutations_csv()` surfaces both `unmatched_families` and `unmatched_mutations` as warnings at normal verbosity. Per-family detail (`{clone_id}: N CSV mutations had no matching node`) is logged at `-v 2`.
+
+### Safety: `--in-place` Guard
+
+If `--in-place` is requested and `stats.trees_matched == 0`, the `merge` command exits with an error rather than overwriting the input file. This prevents a typo in the CSV's `family` column from silently destroying the input.
 
 ---
 
@@ -361,7 +433,7 @@ These work on any tree with branch lengths — both PCP and AIRR data.
 
 | File | Purpose |
 |------|---------|
-| `constants.py` | All enums, registries, exclusion sets, alias tables |
+| `constants.py` | All enums, registries, exclusion sets, alias tables, `MUTATIONS_CSV_KEY_COLUMNS` |
 | `types.py` | TypedDict definitions for OlmstedNode, OlmstedClone, etc. |
 | `schemas.py` | JSON Schema for validation (auto-generated from constants) |
 | `metrics.py` | LBI, LBR, scaled_affinity computation |
@@ -371,11 +443,13 @@ These work on any tree with branch lengths — both PCP and AIRR data.
 | `process_data.py` | CLI entry for process, YAML config loading |
 | `process_pcp_data.py` | PCP CSV parsing, column handling, clone assembly |
 | `process_airr_data.py` | AIRR JSON processing |
-| `process_utils.py` | tag_field_metadata(), create_consolidated_data(), write_out(), validation |
+| `process_utils.py` | tag_field_metadata(), retag_datasets_field_metadata(), coerce_csv_value(), create_consolidated_data(), write_out(), validation |
+| `merge_mutations.py` | load_mutations_csv(), derive_node_mutations(), merge_mutations_into_trees(), apply_mutations_csv(), MergeStats |
 | `build_config.py` | build-config command, generate_default_config() |
 | `tag.py` | tag command |
+| `merge.py` | merge command |
 | `cli.py` | Subcommand routing |
 
 ---
 
-_Last updated: 2026-04-02_
+_Last updated: 2026-04-10_

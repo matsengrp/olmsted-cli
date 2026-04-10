@@ -66,6 +66,7 @@ pytest --cov=olmsted_cli
 | `test_build_config.py` | Config generation from all formats, alias suggestions, skip section |
 | `test_config.py` | YAML config loading, custom_fields validation, path resolution |
 | `test_tag.py` | Tag command (add metadata, preserve data, in-place, custom fields) |
+| `test_merge.py` | Merge command + mutations CSV utility (sequence diff derivation, CSV loading, end-to-end merge, unmatched reporting) |
 | `test_pcp_extras.py` | Extra CSV columns, chain partitioning, column aliases, coercion |
 | `test_format_detection.py` | Olmsted/AIRR/PCP format detection |
 | `test_validation.py` | Schema validation for datasets, clones, trees |
@@ -102,8 +103,10 @@ olmsted-cli/
 │   ├── utils.py              # General-purpose utilities (no project deps)
 │   ├── format_detection.py   # File format detection
 │   ├── process_utils.py      # Processing utilities, output writing, validation
+│   ├── merge_mutations.py    # Mutations CSV merge logic (shared by merge and process --mutations)
 │   ├── build_config.py       # build-config command, generate_default_config()
 │   ├── tag.py                # tag command
+│   ├── merge.py              # merge command
 │   ├── api.py                # Programmatic API
 │   └── configs/              # Default YAML configs
 ├── tests/                    # Test suite
@@ -172,4 +175,4 @@ twine upload dist/*
 
 ---
 
-_Last updated: 2026-04-02_
+_Last updated: 2026-04-10_
