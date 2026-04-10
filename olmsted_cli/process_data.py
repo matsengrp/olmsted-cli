@@ -51,17 +51,64 @@ from .process_pcp_data import (
     process_pcp_to_olmsted,
 )
 from .format_detection import detect_file_format
+from .merge_mutations import load_mutations_csv, merge_mutations_into_trees
 from .process_utils import (
     VerbosePrinter,
     add_verbosity_args,
     create_consolidated_data,
     resolve_verbosity,
+    tag_field_metadata,
     validate_dataset,
     validate_output_data,
     write_out,
 )
 from .utils import set_verbosity, vprint
 
+
+def _apply_mutations_csv(args, datasets, clones_dict, trees, custom_fields=None):
+    """If --mutations was specified, merge the CSV into trees and re-tag field_metadata.
+
+    Modifies datasets and trees in place. Safe to call when args.mutations is None
+    (no-op).
+    """
+    mutations_path = getattr(args, "mutations", None)
+    if not mutations_path:
+        return
+
+    vprint.status(f"Loading mutations CSV: {mutations_path}")
+    mutations_by_family = load_mutations_csv(mutations_path)
+    total = sum(len(rows) for rows in mutations_by_family.values())
+    vprint.status(
+        f"Loaded {total} mutation records across {len(mutations_by_family)} families"
+    )
+
+    trees_matched, nodes_with_mutations, mutations_merged = merge_mutations_into_trees(
+        trees, mutations_by_family
+    )
+    vprint.status(
+        f"Merged {mutations_merged} mutation records into {nodes_with_mutations} "
+        f"nodes across {trees_matched} trees"
+    )
+
+    # Re-tag field_metadata for each dataset so newly added mutation fields appear
+    trees_by_clone_id = {}
+    for tree in trees:
+        clone_id = tree.get("clone_id")
+        if clone_id:
+            trees_by_clone_id.setdefault(clone_id, []).append(tree)
+
+    for dataset in datasets:
+        dataset_id = dataset.get("dataset_id")
+        if not dataset_id:
+            continue
+        dataset_clones = clones_dict.get(dataset_id, [])
+        dataset_trees = []
+        clone_ids = {c.get("clone_id") for c in dataset_clones if c.get("clone_id")}
+        for clone_id in clone_ids:
+            dataset_trees.extend(trees_by_clone_id.get(clone_id, []))
+        dataset["field_metadata"] = tag_field_metadata(
+            dataset_clones, dataset_trees, custom_fields
+        )
 
 
 def validate_airr_file(file_path):
@@ -225,6 +272,12 @@ def process_airr_format(args):
                     vprint.error("Please rerun with `-v` for detailed errors.")
                 sys.exit(1)
 
+    # Merge mutations CSV if --mutations was specified
+    _apply_mutations_csv(
+        args, datasets, clones_dict, trees,
+        custom_fields=getattr(args, 'custom_fields', None),
+    )
+
     # Validate data before writing if requested
     if airr_args.validate and not validate_output_data(
         datasets, clones_dict, trees, airr_args
@@ -351,6 +404,12 @@ def process_pcp_format(args):
             custom_fields=getattr(args, 'custom_fields', None),
         )
 
+        # Merge mutations CSV if --mutations was specified
+        _apply_mutations_csv(
+            args, datasets, clones_dict, trees,
+            custom_fields=getattr(args, 'custom_fields', None),
+        )
+
         # Validate data if requested
         if args.validate:
             if not validate_output_data(datasets, clones_dict, trees, args):
@@ -423,6 +482,11 @@ Examples:
     parser.add_argument(
         "-t", "--tree",
         help="Companion tree CSV file (PCP format)",
+    )
+    parser.add_argument(
+        "--mutations",
+        help="Mutations CSV file (columns: family, site, parent_aa, child_aa, ...). "
+             "Mutation-level scores are merged into tree nodes after processing.",
     )
     parser.add_argument(
         "-o", "--output",
@@ -539,6 +603,7 @@ _CONFIG_KEY_MAP = {
     "seed": "seed",
     "warnings": "warnings",
     "tree": "tree",
+    "mutations": "mutations",
     "root": "root",
     "compute_metrics": "compute_metrics",
     "lbi_tau": "lbi_tau",

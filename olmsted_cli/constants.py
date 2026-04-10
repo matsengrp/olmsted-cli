@@ -171,15 +171,39 @@ KNOWN_BRANCH_FIELDS = {
 KNOWN_MUTATION_FIELDS = {
     "surprise_mutsel": {"type": "continuous", "label": "Surprise (MutSel)"},
     "surprise_neutral": {"type": "continuous", "label": "Surprise (Neutral)"},
+    "surprise_mutsel_theoretical": {
+        "type": "continuous",
+        "label": "Surprise (MutSel, Theoretical)",
+    },
     "selection_contribution": {
         "type": "continuous",
         "label": "Selection Contribution",
+    },
+    "log_selection_factor": {
+        "type": "continuous",
+        "label": "Log Selection Factor",
+    },
+    "num_codon_changes": {
+        "type": "continuous",
+        "label": "Number of Codon Changes",
     },
     "region": {"type": "categorical", "label": "Region"},
     "parent_aa": {"type": "aa", "display": "tooltip", "label": "Parent Amino Acid"},
     "child_aa": {"type": "aa", "label": "Child Amino Acid"},
     "parent_nt": {"type": "dna", "display": "tooltip", "label": "Parent Nucleotide"},
     "child_nt": {"type": "dna", "label": "Child Nucleotide"},
+}
+
+# CSV columns that act as join/structural keys when merging mutations CSVs.
+# These are excluded from the mutation field dicts that get attached to nodes.
+MUTATIONS_CSV_KEY_COLUMNS = {
+    "family",
+    "sample_id",
+    "site",
+    "parent_aa",
+    "child_aa",
+    "pcp_index",
+    "depth",
 }
 
 #: Mapping from level name to its known fields registry.
