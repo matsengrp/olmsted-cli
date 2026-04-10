@@ -140,10 +140,14 @@ def test_merge_mutations_into_trees(sample_olmsted_json, sample_csv, tmp_path):
     by_family = load_mutations_csv(str(csv_path))
 
     trees = sample_olmsted_json["trees"]
-    matched, nodes_with, merged = merge_mutations_into_trees(trees, by_family)
+    stats = merge_mutations_into_trees(trees, by_family)
 
-    assert matched == 1  # Only fam1 has nodes that produce mutations
-    assert merged == 1  # Only one (site=1, K, R) actually matched a derived mutation
+    assert stats.trees_matched == 1  # Only fam1 has nodes that produce mutations
+    assert stats.mutations_merged == 1  # Only (site=1, K, R) matched a derived mutation
+    # fam99 is in the CSV but not in the JSON → unmatched family
+    assert stats.unmatched_families == ["fam99"]
+    # (site=99, X, Y) is in the CSV for fam1 but no matching derived mutation
+    assert stats.unmatched_mutations == 1
 
     # Verify the child node now has the enriched mutation
     child_node = next(n for n in trees[0]["nodes"] if n["sequence_id"] == "child")
@@ -155,6 +159,37 @@ def test_merge_mutations_into_trees(sample_olmsted_json, sample_csv, tmp_path):
     assert mut["child_aa"] == "R"
     assert mut["surprise_mutsel"] == 4.2
     assert mut["log_selection_factor"] == -0.5
+
+
+def test_merge_command_reports_unmatched(sample_olmsted_json, sample_csv, tmp_path):
+    """The merge command should surface unmatched families/mutations as errors."""
+    json_path = tmp_path / "input.json"
+    csv_path = tmp_path / "muts.csv"
+    out_path = tmp_path / "output.json"
+
+    json_path.write_text(json.dumps(sample_olmsted_json))
+    csv_path.write_text(sample_csv)
+
+    result = subprocess.run(
+        [
+            "olmsted",
+            "merge",
+            "-i",
+            str(json_path),
+            "--mutations",
+            str(csv_path),
+            "-o",
+            str(out_path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    # Combined output (status goes to stderr in VerbosePrinter)
+    combined = result.stdout + result.stderr
+    assert "1 families in the mutations CSV had no matching clone" in combined
+    assert "fam99" in combined
+    assert "1 CSV mutation records" in combined
 
 
 def test_merge_command_end_to_end(sample_olmsted_json, sample_csv, tmp_path):

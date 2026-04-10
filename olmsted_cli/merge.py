@@ -122,19 +122,31 @@ def main():
     # Merge into trees
     vprint.status("Merging mutations into tree nodes...")
     trees = data["trees"]
-    trees_matched, nodes_with_mutations, mutations_merged = merge_mutations_into_trees(
-        trees, mutations_by_family
-    )
+    stats = merge_mutations_into_trees(trees, mutations_by_family)
     vprint.status(
-        f"Matched {trees_matched} trees, "
-        f"merged {mutations_merged} mutation records "
-        f"across {nodes_with_mutations} nodes"
+        f"Matched {stats.trees_matched} trees, "
+        f"merged {stats.mutations_merged} mutation records "
+        f"across {stats.nodes_with_mutations} nodes"
     )
 
-    if trees_matched == 0:
+    if stats.trees_matched == 0:
         vprint.error(
             "Warning: No trees matched the families in the mutations CSV. "
             "Check that the CSV 'family' column matches clone_id values."
+        )
+
+    if stats.unmatched_families:
+        sample = stats.unmatched_families[:5]
+        vprint.error(
+            f"Error: {len(stats.unmatched_families)} families in the mutations CSV "
+            f"had no matching clone in the Olmsted JSON (e.g., {sample})"
+        )
+
+    if stats.unmatched_mutations:
+        vprint.error(
+            f"Error: {stats.unmatched_mutations} CSV mutation records in matched "
+            f"families had no corresponding derived mutation in any node. "
+            f"Run with -v 2 to see per-family details."
         )
 
     # Regenerate field_metadata for each dataset

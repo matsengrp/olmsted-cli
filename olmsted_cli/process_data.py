@@ -82,13 +82,29 @@ def _apply_mutations_csv(args, datasets, clones_dict, trees, custom_fields=None)
         f"Loaded {total} mutation records across {len(mutations_by_family)} families"
     )
 
-    trees_matched, nodes_with_mutations, mutations_merged = merge_mutations_into_trees(
-        trees, mutations_by_family
-    )
+    stats = merge_mutations_into_trees(trees, mutations_by_family)
     vprint.status(
-        f"Merged {mutations_merged} mutation records into {nodes_with_mutations} "
-        f"nodes across {trees_matched} trees"
+        f"Merged {stats.mutations_merged} mutation records into "
+        f"{stats.nodes_with_mutations} nodes across {stats.trees_matched} trees"
     )
+
+    if stats.trees_matched == 0:
+        vprint.error(
+            "Warning: No trees matched the families in the mutations CSV. "
+            "Check that the CSV 'family' column matches clone_id values."
+        )
+    if stats.unmatched_families:
+        sample = stats.unmatched_families[:5]
+        vprint.error(
+            f"Error: {len(stats.unmatched_families)} families in the mutations CSV "
+            f"had no matching clone (e.g., {sample})"
+        )
+    if stats.unmatched_mutations:
+        vprint.error(
+            f"Error: {stats.unmatched_mutations} CSV mutation records in matched "
+            f"families had no corresponding derived mutation in any node. "
+            f"Run with -v 2 to see per-family details."
+        )
 
     # Re-tag field_metadata for each dataset so newly added mutation fields appear
     trees_by_clone_id = {}
@@ -219,7 +235,12 @@ def process_airr_format(args):
 
     # Process input files with progress bar
     input_files = airr_args.inputs or []
-    with tqdm(input_files, desc="Processing AIRR files", unit="file", disable=len(input_files) == 1) as pbar:
+    with tqdm(
+        input_files,
+        desc="Processing AIRR files",
+        unit="file",
+        disable=len(input_files) == 1,
+    ) as pbar:
         for infile in pbar:
             pbar.set_description(f"Processing {Path(infile).name}")
 
@@ -274,8 +295,11 @@ def process_airr_format(args):
 
     # Merge mutations CSV if --mutations was specified
     _apply_mutations_csv(
-        args, datasets, clones_dict, trees,
-        custom_fields=getattr(args, 'custom_fields', None),
+        args,
+        datasets,
+        clones_dict,
+        trees,
+        custom_fields=getattr(args, "custom_fields", None),
     )
 
     # Validate data before writing if requested
@@ -283,7 +307,9 @@ def process_airr_format(args):
         datasets, clones_dict, trees, airr_args
     ):
         if airr_args.strict_validation:
-            vprint.error("\nExiting due to validation errors (--strict-validation enabled)")
+            vprint.error(
+                "\nExiting due to validation errors (--strict-validation enabled)"
+            )
             sys.exit(1)
 
     # Write output
@@ -332,23 +358,23 @@ def process_pcp_format(args):
     # Print command arguments at verbosity level 2
     vprint.verbose("=== Command Arguments ===")
     vprint.verbose(f"  Input PCP file: {args.inputs[0]}")
-    if hasattr(args, 'tree') and args.tree:
+    if hasattr(args, "tree") and args.tree:
         vprint.verbose(f"  Input trees file: {args.tree}")
     if args.output:
         vprint.verbose(f"  Output file: {args.output}")
     if args.split_files:
         vprint.verbose(f"  Output directory: {args.split_files}")
-    if hasattr(args, 'name') and args.name:
+    if hasattr(args, "name") and args.name:
         vprint.verbose(f"  Dataset name: {args.name}")
     vprint.verbose(f"  Verbosity level: {args.verbose}")
     vprint.verbose(f"  Validation: {args.validate}")
     if args.validate:
         vprint.verbose(f"  Strict validation: {args.strict_validation}")
-    if hasattr(args, 'seed') and args.seed is not None:
+    if hasattr(args, "seed") and args.seed is not None:
         vprint.verbose(f"  Random seed: {args.seed}")
     vprint.verbose(f"  Show disagreement warnings: {args.warnings}")
     vprint.verbose(f"  Compute metrics: {getattr(args, 'compute_metrics', False)}")
-    if getattr(args, 'compute_metrics', False):
+    if getattr(args, "compute_metrics", False):
         vprint.verbose(f"    LBI tau: {getattr(args, 'lbi_tau', 0.0125)}")
     vprint.verbose(f"  Standardize names: {getattr(args, 'standardize_names', False)}")
     vprint.verbose("=" * 25)
@@ -371,7 +397,7 @@ def process_pcp_format(args):
         pcp_file = args.inputs[0]
 
         # Get trees file from --tree argument if provided
-        trees_file = args.tree if hasattr(args, 'tree') else None
+        trees_file = args.tree if hasattr(args, "tree") else None
 
         vprint.status(f"Processing PCP CSV: {pcp_file}")
         if hasattr(args, "seed") and args.seed is not None:
@@ -396,18 +422,21 @@ def process_pcp_format(args):
             newick_trees,
             get_uuid,
             args.warnings,
-            compute_metrics=getattr(args, 'compute_metrics', False),
-            lbi_tau=getattr(args, 'lbi_tau', 0.0125),
-            standardize_names=getattr(args, 'standardize_names', False),
-            name=getattr(args, 'name', None),
+            compute_metrics=getattr(args, "compute_metrics", False),
+            lbi_tau=getattr(args, "lbi_tau", 0.0125),
+            standardize_names=getattr(args, "standardize_names", False),
+            name=getattr(args, "name", None),
             verbosity=args.verbose,
-            custom_fields=getattr(args, 'custom_fields', None),
+            custom_fields=getattr(args, "custom_fields", None),
         )
 
         # Merge mutations CSV if --mutations was specified
         _apply_mutations_csv(
-            args, datasets, clones_dict, trees,
-            custom_fields=getattr(args, 'custom_fields', None),
+            args,
+            datasets,
+            clones_dict,
+            trees,
+            custom_fields=getattr(args, "custom_fields", None),
         )
 
         # Validate data if requested
@@ -474,30 +503,36 @@ Examples:
 
     # --- Core arguments ---
     parser.add_argument(
-        "-i", "--input", "--inputs",
+        "-i",
+        "--input",
+        "--inputs",
         dest="inputs",
         nargs="+",
         help="Input file(s). AIRR: JSON file(s). PCP: CSV file",
     )
     parser.add_argument(
-        "-t", "--tree",
+        "-t",
+        "--tree",
         help="Companion tree CSV file (PCP format)",
     )
     parser.add_argument(
         "--mutations",
         help="Mutations CSV file (columns: family, site, parent_aa, child_aa, ...). "
-             "Mutation-level scores are merged into tree nodes after processing.",
+        "Mutation-level scores are merged into tree nodes after processing.",
     )
     parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         help="Output Olmsted JSON file path",
     )
     parser.add_argument(
-        "-c", "--config",
+        "-c",
+        "--config",
         help="YAML configuration file (CLI arguments override config values)",
     )
     parser.add_argument(
-        "-f", "--format",
+        "-f",
+        "--format",
         choices=[FORMAT_AIRR, FORMAT_PCP, FORMAT_AUTO],
         default=FORMAT_AUTO,
         help="Input format (default: auto-detect)",
@@ -505,7 +540,8 @@ Examples:
 
     # --- Dataset metadata ---
     parser.add_argument(
-        "-n", "--name",
+        "-n",
+        "--name",
         help="Dataset name (stored in output metadata)",
     )
     parser.add_argument(
@@ -526,7 +562,8 @@ Examples:
         help="Time scale parameter for LBI calculation (default: 0.0125)",
     )
     parser.add_argument(
-        "-r", "--root",
+        "-r",
+        "--root",
         nargs="?",
         const="naive",
         default=None,
@@ -569,7 +606,8 @@ Examples:
         help="Exit with error if validation fails",
     )
     parser.add_argument(
-        "-w", "--warnings",
+        "-w",
+        "--warnings",
         action="store_true",
         help="Show warnings when tree and PCP data disagree",
     )
@@ -676,9 +714,7 @@ def load_config(config_path):
         if isinstance(raw_fields, list):
             for i, entry in enumerate(raw_fields):
                 if not isinstance(entry, dict):
-                    vprint.error(
-                        f"Warning: custom_fields[{i}] is not a dict (ignored)"
-                    )
+                    vprint.error(f"Warning: custom_fields[{i}] is not a dict (ignored)")
                     continue
                 # Skip entries only need name and level
                 is_skip = entry.get("skip", False)
@@ -783,7 +819,9 @@ def get_args():
 
     # Inputs is required (either from CLI or config)
     if not args.inputs:
-        parser.error("the following arguments are required: -i/--inputs (or provide in config)")
+        parser.error(
+            "the following arguments are required: -i/--inputs (or provide in config)"
+        )
 
     return args
 

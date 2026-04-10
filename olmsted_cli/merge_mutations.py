@@ -16,6 +16,7 @@ from its AA sequence diff against its parent, then matching CSV rows by
 
 import csv
 import gzip
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -25,6 +26,20 @@ from .utils import vprint
 
 # Characters in AA sequences that should not be treated as a mutation event.
 _GAP_AA_CHARS = {"-", ".", "X", "*", "?"}
+
+
+@dataclass
+class MergeStats:
+    """Stats from merging a mutations CSV into a set of trees."""
+
+    trees_matched: int = 0
+    nodes_with_mutations: int = 0
+    mutations_merged: int = 0
+    # Families present in the CSV that have no matching tree clone_id.
+    unmatched_families: List[str] = field(default_factory=list)
+    # Count of CSV rows whose (family, site, parent_aa, child_aa) key had no
+    # matching derived mutation in the corresponding tree.
+    unmatched_mutations: int = 0
 
 
 def load_mutations_csv(csv_path: str) -> Dict[str, List[Dict[str, Any]]]:
@@ -138,7 +153,7 @@ def _normalize_nodes(tree: Dict[str, Any]) -> List[Dict[str, Any]]:
 def merge_mutations_into_trees(
     trees: List[Dict[str, Any]],
     mutations_by_family: Dict[str, List[Dict[str, Any]]],
-) -> Tuple[int, int, int]:
+) -> MergeStats:
     """Merge mutation-level CSV data into tree nodes (in place).
 
     For each tree whose ``clone_id`` matches a family in the CSV:
@@ -151,21 +166,18 @@ def merge_mutations_into_trees(
         mutations_by_family: Output of ``load_mutations_csv``.
 
     Returns:
-        Tuple of (trees_matched, nodes_with_mutations, mutations_merged).
+        A ``MergeStats`` describing what was merged and what went unmatched.
     """
-    trees_matched = 0
-    nodes_with_mutations = 0
-    mutations_merged = 0
-
-    unmatched_families = set(mutations_by_family.keys())
+    stats = MergeStats()
+    unmatched_family_set = set(mutations_by_family.keys())
 
     for tree in trees:
         clone_id = tree.get("clone_id")
         if not clone_id or clone_id not in mutations_by_family:
             continue
 
-        unmatched_families.discard(clone_id)
-        trees_matched += 1
+        unmatched_family_set.discard(clone_id)
+        stats.trees_matched += 1
 
         # Build CSV index keyed by (site, parent_aa, child_aa)
         csv_index: Dict[Tuple[Any, str, str], Dict[str, Any]] = {}
@@ -181,6 +193,10 @@ def merge_mutations_into_trees(
                 if k not in ("site", "parent_aa", "child_aa")
             }
             csv_index[(site, paa, caa)] = extras
+
+        # Track which CSV keys were actually used — remaining keys are
+        # unmatched mutations for this family.
+        matched_keys: set = set()
 
         nodes = _normalize_nodes(tree)
         parent_lookup = _build_parent_lookup(nodes)
@@ -205,18 +221,24 @@ def merge_mutations_into_trees(
                 extras = csv_index.get(key)
                 if extras:
                     mut.update(extras)
-                    mutations_merged += 1
+                    stats.mutations_merged += 1
+                    matched_keys.add(key)
                     any_merged = True
 
             # Write back if we derived (or already had) mutations
             node["mutations"] = sorted(node_mutations, key=lambda m: m.get("site", 0))
             if any_merged or existing:
-                nodes_with_mutations += 1
+                stats.nodes_with_mutations += 1
 
-    if unmatched_families:
-        vprint.verbose(
-            f"  Mutations CSV had {len(unmatched_families)} families with no matching clone "
-            f"(e.g., {sorted(unmatched_families)[:3]})"
-        )
+        # Account for CSV rows that never matched a derived mutation in this tree
+        unmatched_in_family = [k for k in csv_index if k not in matched_keys]
+        if unmatched_in_family:
+            stats.unmatched_mutations += len(unmatched_in_family)
+            sample = unmatched_in_family[:3]
+            vprint.verbose(
+                f"  {clone_id}: {len(unmatched_in_family)} CSV mutations had no "
+                f"matching node (e.g., {sample})"
+            )
 
-    return trees_matched, nodes_with_mutations, mutations_merged
+    stats.unmatched_families = sorted(unmatched_family_set)
+    return stats
