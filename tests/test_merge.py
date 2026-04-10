@@ -143,9 +143,11 @@ def test_merge_mutations_into_trees(sample_olmsted_json, sample_csv, tmp_path):
     stats = merge_mutations_into_trees(trees, by_family)
 
     assert stats.trees_matched == 1  # Only fam1 has nodes that produce mutations
-    assert stats.mutations_merged == 1  # Only (site=1, K, R) matched a derived mutation
+    assert stats.mutations_enriched == 1  # Only (site=1, K, R) matched a derived mutation
+    assert stats.nodes_enriched == 1  # Only the child node received the merge
     # fam99 is in the CSV but not in the JSON → unmatched family
     assert stats.unmatched_families == ["fam99"]
+    assert stats.unmatched_family_rows == 1  # one row in fam99
     # (site=99, X, Y) is in the CSV for fam1 but no matching derived mutation
     assert stats.unmatched_mutations == 1
 

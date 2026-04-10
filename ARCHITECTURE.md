@@ -222,12 +222,15 @@ family, sample_id, site, parent_aa, child_aa, pcp_index, depth
 | Field | Meaning |
 |-------|---------|
 | `trees_matched` | Number of trees whose `clone_id` appeared in the CSV |
-| `nodes_with_mutations` | Number of nodes that ended up with a non-empty mutations array |
-| `mutations_merged` | Number of individual mutation records that received CSV data |
+| `nodes_enriched` | Number of nodes that received at least one CSV-sourced field on this run |
+| `mutations_enriched` | Number of individual `(node, mutation)` pairs that received CSV data |
 | `unmatched_families` | Sorted list of CSV families that had no matching tree |
-| `unmatched_mutations` | Total CSV rows in matched families that had no corresponding derived mutation |
+| `unmatched_family_rows` | Total CSV rows belonging to those unmatched families |
+| `unmatched_mutations` | CSV rows in matched families whose `(site, parent_aa, child_aa)` didn't match any derived mutation |
 
-`apply_mutations_csv()` surfaces both `unmatched_families` and `unmatched_mutations` as warnings at normal verbosity. Per-family detail (`{clone_id}: N CSV mutations had no matching node`) is logged at `-v 2`.
+Counts are scoped to the current run: `nodes_enriched` and `mutations_enriched` exclude pre-existing mutation arrays from upstream pipelines. A single CSV row can fan out to many `(node, mutation)` enrichment events because the CSV index is keyed only by `(site, parent_aa, child_aa)` — any node whose parent→child diff produces that exact substitution at that exact site is a match.
+
+`apply_mutations_csv()` reports three lines at normal verbosity: total CSV rows loaded, enrichment counts, and an unmatched-rows breakdown (`{unmatched_total}/{loaded_total} CSV rows ({N} in unmatched families, {M} with no node match)`). Per-family detail (`{clone_id}: N CSV mutations had no matching node`) is logged at `-v 2`.
 
 ### Safety: `--in-place` Guard
 

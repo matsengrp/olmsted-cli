@@ -30,15 +30,25 @@ _GAP_AA_CHARS = {"-", ".", "X", "*", "?"}
 
 @dataclass
 class MergeStats:
-    """Stats from merging a mutations CSV into a set of trees."""
+    """Stats from merging a mutations CSV into a set of trees.
 
+    Counts are per-merge-run: ``nodes_enriched`` and ``mutations_enriched``
+    only count nodes/mutations that received CSV-sourced data on this run.
+    Pre-existing mutation arrays from upstream pipelines are *not* counted.
+    """
+
+    # Tree-side counts: what was actually changed in the JSON this run.
     trees_matched: int = 0
-    nodes_with_mutations: int = 0
-    mutations_merged: int = 0
+    nodes_enriched: int = 0
+    mutations_enriched: int = 0
+
+    # CSV-side counts: what didn't make it through.
     # Families present in the CSV that have no matching tree clone_id.
     unmatched_families: List[str] = field(default_factory=list)
-    # Count of CSV rows whose (family, site, parent_aa, child_aa) key had no
-    # matching derived mutation in the corresponding tree.
+    # Total CSV rows belonging to unmatched families.
+    unmatched_family_rows: int = 0
+    # Count of CSV rows whose (site, parent_aa, child_aa) key had no
+    # matching derived mutation in the corresponding tree (in matched families).
     unmatched_mutations: int = 0
 
 
@@ -227,14 +237,14 @@ def merge_mutations_into_trees(
                 extras = csv_index.get(key)
                 if extras:
                     mut.update(extras)
-                    stats.mutations_merged += 1
+                    stats.mutations_enriched += 1
                     matched_keys.add(key)
                     any_merged = True
 
             # Write back if we derived (or already had) mutations
             node["mutations"] = sorted(node_mutations, key=lambda m: m.get("site", 0))
-            if any_merged or existing:
-                stats.nodes_with_mutations += 1
+            if any_merged:
+                stats.nodes_enriched += 1
 
         # Account for CSV rows that never matched a derived mutation in this tree
         unmatched_in_family = [k for k in csv_index if k not in matched_keys]
@@ -247,6 +257,9 @@ def merge_mutations_into_trees(
             )
 
     stats.unmatched_families = sorted(unmatched_family_set)
+    stats.unmatched_family_rows = sum(
+        len(mutations_by_family[fam]) for fam in unmatched_family_set
+    )
     return stats
 
 
@@ -275,16 +288,24 @@ def apply_mutations_csv(
 
     vprint.status(f"Loading mutations CSV: {mutations_path}")
     mutations_by_family = load_mutations_csv(mutations_path)
-    total = sum(len(rows) for rows in mutations_by_family.values())
+    total_csv_rows = sum(len(rows) for rows in mutations_by_family.values())
     vprint.status(
-        f"Loaded {total} mutation records across {len(mutations_by_family)} families"
+        f"Loaded {total_csv_rows} CSV rows across {len(mutations_by_family)} families"
     )
 
     stats = merge_mutations_into_trees(trees, mutations_by_family)
     vprint.status(
-        f"Merged {stats.mutations_merged} mutation records into "
-        f"{stats.nodes_with_mutations} nodes across {stats.trees_matched} trees"
+        f"Enriched {stats.mutations_enriched} mutations across "
+        f"{stats.nodes_enriched} nodes in {stats.trees_matched} trees"
     )
+
+    total_unmatched_rows = stats.unmatched_family_rows + stats.unmatched_mutations
+    if total_unmatched_rows or stats.unmatched_families:
+        vprint.status(
+            f"Unmatched: {total_unmatched_rows}/{total_csv_rows} CSV rows "
+            f"({stats.unmatched_family_rows} in {len(stats.unmatched_families)} "
+            f"unmatched families, {stats.unmatched_mutations} with no node match)"
+        )
 
     if stats.trees_matched == 0:
         vprint.error(
