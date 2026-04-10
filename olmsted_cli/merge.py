@@ -9,6 +9,7 @@ regenerated field_metadata.
 Usage:
     olmsted merge -i base.json --mutations scores.csv -o output.json
     olmsted merge -i base.json --mutations scores.csv --in-place
+    olmsted merge -i base.json --mutations scores.csv -c config.yaml -o out.json
 """
 
 import argparse
@@ -16,13 +17,12 @@ import json
 import sys
 from pathlib import Path
 
-from .merge_mutations import load_mutations_csv, merge_mutations_into_trees
-from .process_utils import (
-    add_verbosity_args,
-    resolve_verbosity,
-    tag_field_metadata,
-)
+from .merge_mutations import apply_mutations_csv
+from .process_utils import add_verbosity_args, resolve_verbosity
 from .utils import set_verbosity, vprint
+
+# Config keys merge reads from YAML (beyond custom_fields)
+_MERGE_CONFIG_KEYS = {"input", "mutations", "output"}
 
 
 def get_args():
@@ -37,18 +37,19 @@ Examples:
 
     # In-place modification
     olmsted merge -i base.json --mutations scores.csv --in-place
+
+    # With custom field declarations from a YAML config
+    olmsted merge -i base.json --mutations scores.csv -c config.yaml -o out.json
         """,
     )
 
     parser.add_argument(
         "-i",
         "--input",
-        required=True,
-        help="Input Olmsted JSON file",
+        help="Input Olmsted JSON file (required, or provide in config)",
     )
     parser.add_argument(
         "--mutations",
-        required=True,
         help="Mutations CSV file to merge (columns: family, site, parent_aa, child_aa, ...)",
     )
     parser.add_argument(
@@ -62,6 +63,11 @@ Examples:
         help="Modify the input file in place",
     )
     parser.add_argument(
+        "-c",
+        "--config",
+        help="YAML configuration file with custom field declarations",
+    )
+    parser.add_argument(
         "--json-format",
         choices=["pretty", "compact"],
         default="pretty",
@@ -72,6 +78,26 @@ Examples:
     args = parser.parse_args()
     resolve_verbosity(args)
 
+    # Load config and apply values where CLI didn't explicitly set them.
+    # Imported here to avoid a circular import at module load time.
+    from .process_data import load_config
+
+    custom_fields = None
+    if args.config:
+        config_dict, custom_fields = load_config(args.config)
+        for key in _MERGE_CONFIG_KEYS:
+            if key in config_dict and getattr(args, key, None) is None:
+                setattr(args, key, config_dict[key])
+    args.custom_fields = custom_fields
+
+    if not args.input:
+        parser.error(
+            "the following arguments are required: -i/--input (or provide in config)"
+        )
+    if not args.mutations:
+        parser.error(
+            "the following arguments are required: --mutations (or provide in config)"
+        )
     if not args.output and not args.in_place:
         parser.error("Either -o/--output or --in-place must be specified")
     if args.output and args.in_place:
@@ -85,7 +111,6 @@ def main():
     args = get_args()
     set_verbosity(args.verbose)
 
-    # Load input Olmsted JSON
     input_path = Path(args.input)
     if not input_path.exists():
         vprint.error(f"Error: Input file not found: {input_path}")
@@ -105,88 +130,27 @@ def main():
         )
         sys.exit(1)
 
-    # Load mutations CSV
-    vprint.status(f"Loading mutations CSV: {args.mutations}")
     try:
-        mutations_by_family = load_mutations_csv(args.mutations)
+        stats = apply_mutations_csv(
+            args.mutations,
+            data["datasets"],
+            data.get("clones", {}),
+            data["trees"],
+            custom_fields=args.custom_fields,
+        )
     except (FileNotFoundError, ValueError) as e:
         vprint.error(f"Error: {e}")
         sys.exit(1)
 
-    total_csv_rows = sum(len(rows) for rows in mutations_by_family.values())
-    vprint.status(
-        f"Loaded {total_csv_rows} mutation records across "
-        f"{len(mutations_by_family)} families"
-    )
-
-    # Merge into trees
-    vprint.status("Merging mutations into tree nodes...")
-    trees = data["trees"]
-    stats = merge_mutations_into_trees(trees, mutations_by_family)
-    vprint.status(
-        f"Matched {stats.trees_matched} trees, "
-        f"merged {stats.mutations_merged} mutation records "
-        f"across {stats.nodes_with_mutations} nodes"
-    )
-
-    if stats.trees_matched == 0:
+    # Refuse to overwrite the input file in place when nothing matched.
+    if args.in_place and stats is not None and stats.trees_matched == 0:
         vprint.error(
-            "Warning: No trees matched the families in the mutations CSV. "
-            "Check that the CSV 'family' column matches clone_id values."
+            "Error: Refusing to --in-place overwrite when zero trees matched. "
+            "Re-run without --in-place to write to a new file, or verify the "
+            "mutations CSV 'family' column matches your clone_id values."
         )
+        sys.exit(1)
 
-    if stats.unmatched_families:
-        sample = stats.unmatched_families[:5]
-        vprint.error(
-            f"Error: {len(stats.unmatched_families)} families in the mutations CSV "
-            f"had no matching clone in the Olmsted JSON (e.g., {sample})"
-        )
-
-    if stats.unmatched_mutations:
-        vprint.error(
-            f"Error: {stats.unmatched_mutations} CSV mutation records in matched "
-            f"families had no corresponding derived mutation in any node. "
-            f"Run with -v 2 to see per-family details."
-        )
-
-    # Regenerate field_metadata for each dataset
-    datasets = data.get("datasets", [])
-    clones_dict = data.get("clones", {})
-
-    trees_by_clone_id = {}
-    for tree in trees:
-        clone_id = tree.get("clone_id")
-        if clone_id:
-            trees_by_clone_id.setdefault(clone_id, []).append(tree)
-
-    for dataset in datasets:
-        dataset_id = dataset.get("dataset_id")
-        if not dataset_id:
-            continue
-        dataset_clones = clones_dict.get(dataset_id, [])
-        dataset_trees = []
-        clone_ids = {c.get("clone_id") for c in dataset_clones if c.get("clone_id")}
-        for clone_id in clone_ids:
-            dataset_trees.extend(trees_by_clone_id.get(clone_id, []))
-
-        new_field_metadata = tag_field_metadata(dataset_clones, dataset_trees)
-
-        # Merge with existing field_metadata (preserve unrelated entries)
-        existing_metadata = dataset.get("field_metadata", {})
-        merged = {}
-        all_levels = set(
-            list(existing_metadata.keys()) + list(new_field_metadata.keys())
-        )
-        for level in all_levels:
-            existing_level = existing_metadata.get(level, {})
-            new_level = new_field_metadata.get(level, {})
-            merged_level = dict(existing_level)
-            merged_level.update(new_level)
-            if merged_level:
-                merged[level] = merged_level
-        dataset["field_metadata"] = merged
-
-    # Write output
     output_path = input_path if args.in_place else Path(args.output)
     indent = 2 if args.json_format == "pretty" else None
     separators = None if args.json_format == "pretty" else (",", ":")

@@ -9,12 +9,12 @@ import tempfile
 import pytest
 
 from olmsted_cli.process_pcp_data import (
-    _coerce_csv_value,
     _normalize_column_names,
     _partition_chain_fields,
     parse_pcp_csv,
     parse_newick_csv,
 )
+from olmsted_cli.process_utils import coerce_csv_value as _coerce_csv_value
 
 
 # =============================================================================

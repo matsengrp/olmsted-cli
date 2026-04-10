@@ -51,80 +51,17 @@ from .process_pcp_data import (
     process_pcp_to_olmsted,
 )
 from .format_detection import detect_file_format
-from .merge_mutations import load_mutations_csv, merge_mutations_into_trees
+from .merge_mutations import apply_mutations_csv
 from .process_utils import (
     VerbosePrinter,
     add_verbosity_args,
     create_consolidated_data,
     resolve_verbosity,
-    tag_field_metadata,
     validate_dataset,
     validate_output_data,
     write_out,
 )
 from .utils import set_verbosity, vprint
-
-
-def _apply_mutations_csv(args, datasets, clones_dict, trees, custom_fields=None):
-    """If --mutations was specified, merge the CSV into trees and re-tag field_metadata.
-
-    Modifies datasets and trees in place. Safe to call when args.mutations is None
-    (no-op).
-    """
-    mutations_path = getattr(args, "mutations", None)
-    if not mutations_path:
-        return
-
-    vprint.status(f"Loading mutations CSV: {mutations_path}")
-    mutations_by_family = load_mutations_csv(mutations_path)
-    total = sum(len(rows) for rows in mutations_by_family.values())
-    vprint.status(
-        f"Loaded {total} mutation records across {len(mutations_by_family)} families"
-    )
-
-    stats = merge_mutations_into_trees(trees, mutations_by_family)
-    vprint.status(
-        f"Merged {stats.mutations_merged} mutation records into "
-        f"{stats.nodes_with_mutations} nodes across {stats.trees_matched} trees"
-    )
-
-    if stats.trees_matched == 0:
-        vprint.error(
-            "Warning: No trees matched the families in the mutations CSV. "
-            "Check that the CSV 'family' column matches clone_id values."
-        )
-    if stats.unmatched_families:
-        sample = stats.unmatched_families[:5]
-        vprint.error(
-            f"Error: {len(stats.unmatched_families)} families in the mutations CSV "
-            f"had no matching clone (e.g., {sample})"
-        )
-    if stats.unmatched_mutations:
-        vprint.error(
-            f"Error: {stats.unmatched_mutations} CSV mutation records in matched "
-            f"families had no corresponding derived mutation in any node. "
-            f"Run with -v 2 to see per-family details."
-        )
-
-    # Re-tag field_metadata for each dataset so newly added mutation fields appear
-    trees_by_clone_id = {}
-    for tree in trees:
-        clone_id = tree.get("clone_id")
-        if clone_id:
-            trees_by_clone_id.setdefault(clone_id, []).append(tree)
-
-    for dataset in datasets:
-        dataset_id = dataset.get("dataset_id")
-        if not dataset_id:
-            continue
-        dataset_clones = clones_dict.get(dataset_id, [])
-        dataset_trees = []
-        clone_ids = {c.get("clone_id") for c in dataset_clones if c.get("clone_id")}
-        for clone_id in clone_ids:
-            dataset_trees.extend(trees_by_clone_id.get(clone_id, []))
-        dataset["field_metadata"] = tag_field_metadata(
-            dataset_clones, dataset_trees, custom_fields
-        )
 
 
 def validate_airr_file(file_path):
@@ -294,8 +231,8 @@ def process_airr_format(args):
                 sys.exit(1)
 
     # Merge mutations CSV if --mutations was specified
-    _apply_mutations_csv(
-        args,
+    apply_mutations_csv(
+        getattr(args, "mutations", None),
         datasets,
         clones_dict,
         trees,
@@ -431,8 +368,8 @@ def process_pcp_format(args):
         )
 
         # Merge mutations CSV if --mutations was specified
-        _apply_mutations_csv(
-            args,
+        apply_mutations_csv(
+            getattr(args, "mutations", None),
             datasets,
             clones_dict,
             trees,

@@ -24,7 +24,7 @@ from .process_utils import (
     VerbosePrinter,
     add_verbosity_args,
     resolve_verbosity,
-    tag_field_metadata,
+    retag_datasets_field_metadata,
 )
 from .utils import set_verbosity, vprint
 
@@ -145,62 +145,20 @@ def main():
     if isinstance(data["metadata"], dict) and "format" not in data["metadata"]:
         data["metadata"]["format"] = "olmsted"
 
-    # Collect all trees indexed by clone_id for efficient lookup
-    all_trees = data.get("trees", [])
-    trees_by_clone_id = {}
-    for tree in all_trees:
-        clone_id = tree.get("clone_id")
-        if clone_id:
-            trees_by_clone_id.setdefault(clone_id, []).append(tree)
-
-    # Tag each dataset with field_metadata
     datasets = data.get("datasets", [])
     clones_dict = data.get("clones", {})
+    all_trees = data.get("trees", [])
+
+    retag_datasets_field_metadata(
+        datasets, clones_dict, all_trees, custom_fields=custom_fields, mode=args.mode
+    )
 
     for dataset in datasets:
         dataset_id = dataset.get("dataset_id")
         if not dataset_id:
             continue
-
-        # Get clones for this dataset
-        dataset_clones = clones_dict.get(dataset_id, [])
-
-        # Get trees for this dataset's clones
-        dataset_trees = []
-        clone_ids = {c.get("clone_id") for c in dataset_clones if c.get("clone_id")}
-        for clone_id in clone_ids:
-            dataset_trees.extend(trees_by_clone_id.get(clone_id, []))
-
-        # Generate field_metadata (uses generate_default_config when no config provided)
-        new_field_metadata = tag_field_metadata(
-            dataset_clones, dataset_trees, custom_fields
-        )
-
-        if args.mode == "overwrite":
-            dataset["field_metadata"] = new_field_metadata
-        else:
-            # Add mode: merge with existing. New auto-detected fields are added.
-            # For fields that exist in both, new values overwrite existing
-            # (auto-detection picks up current data state; config overrides apply).
-            existing_metadata = dataset.get("field_metadata", {})
-            merged = {}
-            all_levels = set(
-                list(existing_metadata.keys()) + list(new_field_metadata.keys())
-            )
-            for level in all_levels:
-                existing_level = existing_metadata.get(level, {})
-                new_level = new_field_metadata.get(level, {})
-                # Start with existing, then update with new
-                # (new overwrites existing for same field name — no dupes)
-                merged_level = dict(existing_level)
-                merged_level.update(new_level)
-                if merged_level:
-                    merged[level] = merged_level
-
-            dataset["field_metadata"] = merged
-
-        levels = list(dataset["field_metadata"].keys())
-        total_fields = sum(len(v) for v in dataset["field_metadata"].values())
+        levels = list(dataset.get("field_metadata", {}).keys())
+        total_fields = sum(len(v) for v in dataset.get("field_metadata", {}).values())
         vprint.verbose(
             f"Dataset '{dataset_id}': {total_fields} fields across levels: {levels}"
         )

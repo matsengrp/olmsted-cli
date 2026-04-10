@@ -53,6 +53,29 @@ from .version import __version__, get_git_hash
 # They are re-exported above for backward compatibility.
 
 
+def coerce_csv_value(val: str):
+    """Coerce a CSV string value to the most appropriate Python type.
+
+    Attempts in order: int → float → JSON (list/dict) → bool → string.
+    """
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        pass
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        pass
+    if val.startswith(("[", "{")):
+        try:
+            return json.loads(val)
+        except (json.JSONDecodeError, ValueError):
+            pass
+    if val.lower() in ("true", "false"):
+        return val.lower() == "true"
+    return val
+
+
 def write_out(data, dirname, filename, args):
     """
     Write data to JSON or CSV file with proper formatting and UUID handling.
@@ -273,6 +296,67 @@ def tag_field_metadata(clones, trees, custom_fields=None):
     unpack_encoded_mutations(trees, custom_fields)
 
     return generate_field_metadata(clones, trees, custom_fields=custom_fields)
+
+
+def retag_datasets_field_metadata(
+    datasets, clones_dict, trees, custom_fields=None, mode="add"
+):
+    """Recompute and attach ``field_metadata`` to every dataset in place.
+
+    For each dataset this:
+      1. Collects its clones (from ``clones_dict``) and the trees whose
+         ``clone_id`` matches one of those clones.
+      2. Calls ``tag_field_metadata`` to regenerate the metadata.
+      3. Either overwrites the existing ``field_metadata`` (``mode="overwrite"``)
+         or merges new entries on top of existing ones (``mode="add"``, the
+         default) so that pre-existing per-level entries are preserved.
+
+    Args:
+        datasets: List of dataset dicts (modified in place).
+        clones_dict: Mapping of ``dataset_id -> list of clone dicts``.
+        trees: Flat list of tree dicts across all datasets.
+        custom_fields: Optional list of custom field declarations.
+        mode: ``"add"`` merges with existing metadata, ``"overwrite"`` replaces.
+    """
+    if mode not in ("add", "overwrite"):
+        raise ValueError(f"mode must be 'add' or 'overwrite', got {mode!r}")
+
+    trees_by_clone_id = {}
+    for tree in trees:
+        clone_id = tree.get("clone_id")
+        if clone_id:
+            trees_by_clone_id.setdefault(clone_id, []).append(tree)
+
+    for dataset in datasets:
+        dataset_id = dataset.get("dataset_id")
+        if not dataset_id:
+            continue
+
+        dataset_clones = clones_dict.get(dataset_id, [])
+        clone_ids = {c.get("clone_id") for c in dataset_clones if c.get("clone_id")}
+        dataset_trees = [
+            t for cid in clone_ids for t in trees_by_clone_id.get(cid, [])
+        ]
+
+        new_field_metadata = tag_field_metadata(
+            dataset_clones, dataset_trees, custom_fields
+        )
+
+        if mode == "overwrite":
+            dataset["field_metadata"] = new_field_metadata
+            continue
+
+        # Add mode: merge with existing. New entries overwrite same-named fields;
+        # untouched levels/fields are preserved.
+        existing_metadata = dataset.get("field_metadata", {})
+        merged = {}
+        all_levels = set(existing_metadata.keys()) | set(new_field_metadata.keys())
+        for level in all_levels:
+            merged_level = dict(existing_metadata.get(level, {}))
+            merged_level.update(new_field_metadata.get(level, {}))
+            if merged_level:
+                merged[level] = merged_level
+        dataset["field_metadata"] = merged
 
 
 def create_consolidated_data(

@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from .constants import MUTATIONS_CSV_KEY_COLUMNS
-from .process_pcp_data import _coerce_csv_value
+from .process_utils import coerce_csv_value
 from .utils import vprint
 
 # Characters in AA sequences that should not be treated as a mutation event.
@@ -86,16 +86,22 @@ def load_mutations_csv(csv_path: str) -> Dict[str, List[Dict[str, Any]]]:
             for key, val in row.items():
                 if key is None or val == "" or val is None:
                     continue
-                # Always coerce site/parent_aa/child_aa for matching
                 if key == "site":
-                    mutation["site"] = _coerce_csv_value(val)
+                    # site must be an integer index to match derived mutations
+                    try:
+                        mutation["site"] = int(val)
+                    except (ValueError, TypeError) as e:
+                        raise ValueError(
+                            f"Mutations CSV row {reader.line_num}: 'site' must be "
+                            f"an integer, got {val!r}"
+                        ) from e
                 elif key in ("parent_aa", "child_aa"):
                     mutation[key] = val
                 elif key in MUTATIONS_CSV_KEY_COLUMNS:
-                    # Skip other key/structural columns
+                    # Skip other key/structural columns (family, sample_id, pcp_index, depth)
                     continue
                 else:
-                    mutation[key] = _coerce_csv_value(val)
+                    mutation[key] = coerce_csv_value(val)
 
             mutations_by_family.setdefault(family, []).append(mutation)
 
@@ -241,4 +247,64 @@ def merge_mutations_into_trees(
             )
 
     stats.unmatched_families = sorted(unmatched_family_set)
+    return stats
+
+
+def apply_mutations_csv(
+    mutations_path: Optional[str],
+    datasets: List[Dict[str, Any]],
+    clones_dict: Dict[str, List[Dict[str, Any]]],
+    trees: List[Dict[str, Any]],
+    custom_fields: Optional[List[Dict[str, Any]]] = None,
+) -> Optional[MergeStats]:
+    """High-level entry point: load a mutations CSV, merge, warn, retag.
+
+    Used by both the ``merge`` command and ``process --mutations``. Modifies
+    ``datasets`` and ``trees`` in place. Returns ``None`` if ``mutations_path``
+    is falsy (no-op), otherwise the ``MergeStats``.
+
+    Warnings for unmatched families and unmatched mutations are emitted via
+    ``vprint.error`` at normal verbosity. Per-family detail is at -v 2.
+    """
+    if not mutations_path:
+        return None
+
+    # Import here to avoid a circular import: process_utils imports from
+    # field_metadata which is pulled in via tag_field_metadata.
+    from .process_utils import retag_datasets_field_metadata
+
+    vprint.status(f"Loading mutations CSV: {mutations_path}")
+    mutations_by_family = load_mutations_csv(mutations_path)
+    total = sum(len(rows) for rows in mutations_by_family.values())
+    vprint.status(
+        f"Loaded {total} mutation records across {len(mutations_by_family)} families"
+    )
+
+    stats = merge_mutations_into_trees(trees, mutations_by_family)
+    vprint.status(
+        f"Merged {stats.mutations_merged} mutation records into "
+        f"{stats.nodes_with_mutations} nodes across {stats.trees_matched} trees"
+    )
+
+    if stats.trees_matched == 0:
+        vprint.error(
+            "Warning: No trees matched the families in the mutations CSV. "
+            "Check that the CSV 'family' column matches clone_id values."
+        )
+    if stats.unmatched_families:
+        sample = stats.unmatched_families[:5]
+        vprint.error(
+            f"Warning: {len(stats.unmatched_families)} families in the mutations CSV "
+            f"had no matching clone (e.g., {sample})"
+        )
+    if stats.unmatched_mutations:
+        vprint.error(
+            f"Warning: {stats.unmatched_mutations} CSV mutation records in matched "
+            f"families had no corresponding derived mutation in any node. "
+            f"Run with -v 2 to see per-family details."
+        )
+
+    retag_datasets_field_metadata(
+        datasets, clones_dict, trees, custom_fields=custom_fields
+    )
     return stats
