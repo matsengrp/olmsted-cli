@@ -49,12 +49,17 @@ def test_merge_fixture_end_to_end(fixture_files_exist, tmp_path):
 
     # CSV load: 37 rows across 2 families
     assert "Loaded 37 CSV rows across 2 families" in combined
-    # Merge: 193 mutation enrichments across 111 nodes in 2 trees
-    assert "Enriched 193 mutations across 111 nodes in 2 trees" in combined
-    # Unmatched line: 2 of 37 rows didn't match
-    assert "Unmatched: 2/37 CSV rows" in combined
-    # And the warning for the matched-family-no-node case
+    # The fixture's CSV has a `depth` column → disambiguation is active
+    assert "Disambiguation columns in CSV: depth" in combined
+    # With depth disambiguation: 40 enrichments across 12 nodes in 2 trees
+    assert "Enriched 40 mutations across 12 nodes in 2 trees" in combined
+    # 9 of 37 rows have no node-mutation match at the matching depth
+    assert "Unmatched: 9/37 CSV rows" in combined
+    # 9 CSV rows broadcast to multiple nodes (convergent mutations at same depth)
+    assert "Broadcast: 9 CSV rows matched multiple nodes" in combined
+    # And the corresponding warnings
     assert "had no corresponding derived mutation" in combined
+    assert "broadcast to multiple node-mutations" in combined
 
 
 def test_merge_fixture_output_structure(fixture_files_exist, tmp_path):
@@ -108,8 +113,8 @@ def test_merge_fixture_output_structure(fixture_files_exist, tmp_path):
                     assert "parent_aa" in mut
                     assert "child_aa" in mut
                     assert isinstance(mut["surprise_mutsel"], (int, float))
-    assert enriched_count == 193, (
-        f"Expected 193 enriched mutation records, found {enriched_count}"
+    assert enriched_count == 40, (
+        f"Expected 40 enriched mutation records, found {enriched_count}"
     )
 
 

@@ -16,6 +16,7 @@ from its AA sequence diff against its parent, then matching CSV rows by
 
 import csv
 import gzip
+from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -26,6 +27,11 @@ from .utils import vprint
 
 # Characters in AA sequences that should not be treated as a mutation event.
 _GAP_AA_CHARS = {"-", ".", "X", "*", "?"}
+
+# Optional CSV columns that, when present, narrow node-mutation matching beyond
+# the (site, parent_aa, child_aa) base key. Each column also has to be derivable
+# (or already present) on tree nodes for the disambiguation to work.
+_DISAMBIGUATION_COLUMNS = ("depth",)
 
 
 @dataclass
@@ -47,9 +53,17 @@ class MergeStats:
     unmatched_families: List[str] = field(default_factory=list)
     # Total CSV rows belonging to unmatched families.
     unmatched_family_rows: int = 0
-    # Count of CSV rows whose (site, parent_aa, child_aa) key had no
-    # matching derived mutation in the corresponding tree (in matched families).
+    # Count of CSV rows whose match key had no corresponding derived mutation
+    # in the matched tree (within families that did match a tree).
     unmatched_mutations: int = 0
+    # Count of CSV rows that matched more than one node-mutation pair. This
+    # indicates a potentially-ambiguous join: the same residue substitution
+    # at the same site (and depth, if present) occurred on multiple lineages.
+    # The same enrichment data is broadcast to every matching node.
+    broadcast_csv_rows: int = 0
+    # Names of optional disambiguation columns that were present in the CSV
+    # and used as part of the match key.
+    disambiguation_columns_used: List[str] = field(default_factory=list)
 
 
 def load_mutations_csv(csv_path: str) -> Dict[str, List[Dict[str, Any]]]:
@@ -105,10 +119,20 @@ def load_mutations_csv(csv_path: str) -> Dict[str, List[Dict[str, Any]]]:
                             f"Mutations CSV row {reader.line_num}: 'site' must be "
                             f"an integer, got {val!r}"
                         ) from e
+                elif key == "depth":
+                    # depth, when present, is used as a disambiguation key —
+                    # must be an integer (edges from root)
+                    try:
+                        mutation["depth"] = int(val)
+                    except (ValueError, TypeError) as e:
+                        raise ValueError(
+                            f"Mutations CSV row {reader.line_num}: 'depth' must "
+                            f"be an integer, got {val!r}"
+                        ) from e
                 elif key in ("parent_aa", "child_aa"):
                     mutation[key] = val
                 elif key in MUTATIONS_CSV_KEY_COLUMNS:
-                    # Skip other key/structural columns (family, sample_id, pcp_index, depth)
+                    # Skip other key/structural columns (family, sample_id, pcp_index)
                     continue
                 else:
                     mutation[key] = coerce_csv_value(val)
@@ -166,6 +190,66 @@ def _normalize_nodes(tree: Dict[str, Any]) -> List[Dict[str, Any]]:
     return nodes
 
 
+def _compute_node_depths(nodes: List[Dict[str, Any]]) -> Dict[str, int]:
+    """Compute each node's depth (edges from the nearest root) via BFS.
+
+    A node is treated as a root if its ``parent`` field is missing/None or
+    refers to a sequence_id not in the tree.
+    """
+    sid_set = {n["sequence_id"] for n in nodes if isinstance(n, dict) and "sequence_id" in n}
+    children_by_parent: Dict[str, List[str]] = {}
+    for n in nodes:
+        if not isinstance(n, dict):
+            continue
+        sid = n.get("sequence_id")
+        if not sid:
+            continue
+        parent = n.get("parent")
+        if parent and parent in sid_set:
+            children_by_parent.setdefault(parent, []).append(sid)
+
+    depths: Dict[str, int] = {}
+    queue: deque = deque()
+    for n in nodes:
+        if not isinstance(n, dict):
+            continue
+        sid = n.get("sequence_id")
+        if not sid:
+            continue
+        parent = n.get("parent")
+        if not parent or parent not in sid_set:
+            depths[sid] = 0
+            queue.append(sid)
+
+    while queue:
+        sid = queue.popleft()
+        for child_sid in children_by_parent.get(sid, []):
+            if child_sid not in depths:
+                depths[child_sid] = depths[sid] + 1
+                queue.append(child_sid)
+    return depths
+
+
+def _detect_disambiguation_columns(
+    mutations_by_family: Dict[str, List[Dict[str, Any]]],
+) -> List[str]:
+    """Return the list of optional disambiguation columns present in the CSV.
+
+    A column counts as "present" if at least one loaded row carries it. We
+    take the union across families because the loader populates fields
+    sparsely (empty cells are skipped).
+    """
+    present = set()
+    for rows in mutations_by_family.values():
+        for row in rows:
+            for col in _DISAMBIGUATION_COLUMNS:
+                if col in row:
+                    present.add(col)
+        if len(present) == len(_DISAMBIGUATION_COLUMNS):
+            break
+    return [c for c in _DISAMBIGUATION_COLUMNS if c in present]
+
+
 def merge_mutations_into_trees(
     trees: List[Dict[str, Any]],
     mutations_by_family: Dict[str, List[Dict[str, Any]]],
@@ -173,9 +257,14 @@ def merge_mutations_into_trees(
     """Merge mutation-level CSV data into tree nodes (in place).
 
     For each tree whose ``clone_id`` matches a family in the CSV:
-      1. Index the family's CSV rows by (site, parent_aa, child_aa)
-      2. For each node, derive (or read existing) mutation records
-      3. Match each mutation against the CSV index and merge any extra fields
+      1. Detect optional disambiguation columns (e.g. ``depth``) in the CSV
+      2. Index the family's CSV rows by (site, parent_aa, child_aa[, depth])
+      3. For each node, derive (or read existing) mutation records
+      4. Match each mutation against the CSV index and merge any extra fields
+
+    When optional disambiguation columns are present, they tighten the join
+    key and reduce false fan-out. The number of CSV rows that still match
+    multiple nodes is tracked in ``stats.broadcast_csv_rows``.
 
     Args:
         trees: List of tree dicts (modified in place).
@@ -185,7 +274,13 @@ def merge_mutations_into_trees(
         A ``MergeStats`` describing what was merged and what went unmatched.
     """
     stats = MergeStats()
+    stats.disambiguation_columns_used = _detect_disambiguation_columns(mutations_by_family)
+    use_depth = "depth" in stats.disambiguation_columns_used
     unmatched_family_set = set(mutations_by_family.keys())
+
+    # Columns that are part of the join key and should NOT be enriched onto
+    # the output mutation record.
+    extras_excluded = {"site", "parent_aa", "child_aa", *stats.disambiguation_columns_used}
 
     for tree in trees:
         clone_id = tree.get("clone_id")
@@ -195,27 +290,30 @@ def merge_mutations_into_trees(
         unmatched_family_set.discard(clone_id)
         stats.trees_matched += 1
 
-        # Build CSV index keyed by (site, parent_aa, child_aa)
-        csv_index: Dict[Tuple[Any, str, str], Dict[str, Any]] = {}
+        nodes = _normalize_nodes(tree)
+        parent_lookup = _build_parent_lookup(nodes)
+        node_depths = _compute_node_depths(nodes) if use_depth else {}
+
+        # Build CSV index keyed by (site, parent_aa, child_aa[, depth])
+        csv_index: Dict[Tuple, Dict[str, Any]] = {}
+        csv_match_counts: Dict[Tuple, int] = {}
         for row in mutations_by_family[clone_id]:
             site = row.get("site")
             paa = row.get("parent_aa")
             caa = row.get("child_aa")
             if site is None or paa is None or caa is None:
                 continue
-            extras = {
-                k: v
-                for k, v in row.items()
-                if k not in ("site", "parent_aa", "child_aa")
-            }
-            csv_index[(site, paa, caa)] = extras
-
-        # Track which CSV keys were actually used — remaining keys are
-        # unmatched mutations for this family.
-        matched_keys: set = set()
-
-        nodes = _normalize_nodes(tree)
-        parent_lookup = _build_parent_lookup(nodes)
+            if use_depth:
+                depth = row.get("depth")
+                if depth is None:
+                    # CSV declares depth but this row is missing it; skip.
+                    continue
+                key: Tuple = (site, paa, caa, depth)
+            else:
+                key = (site, paa, caa)
+            extras = {k: v for k, v in row.items() if k not in extras_excluded}
+            csv_index[key] = extras
+            csv_match_counts[key] = 0
 
         for node in nodes:
             if not isinstance(node, dict):
@@ -231,14 +329,24 @@ def merge_mutations_into_trees(
                 if not node_mutations:
                     continue
 
+            node_depth = node_depths.get(node.get("sequence_id")) if use_depth else None
+
             any_merged = False
             for mut in node_mutations:
-                key = (mut.get("site"), mut.get("parent_aa"), mut.get("child_aa"))
+                if use_depth:
+                    key = (
+                        mut.get("site"),
+                        mut.get("parent_aa"),
+                        mut.get("child_aa"),
+                        node_depth,
+                    )
+                else:
+                    key = (mut.get("site"), mut.get("parent_aa"), mut.get("child_aa"))
                 extras = csv_index.get(key)
                 if extras:
                     mut.update(extras)
                     stats.mutations_enriched += 1
-                    matched_keys.add(key)
+                    csv_match_counts[key] = csv_match_counts.get(key, 0) + 1
                     any_merged = True
 
             # Write back if we derived (or already had) mutations
@@ -247,13 +355,23 @@ def merge_mutations_into_trees(
                 stats.nodes_enriched += 1
 
         # Account for CSV rows that never matched a derived mutation in this tree
-        unmatched_in_family = [k for k in csv_index if k not in matched_keys]
+        unmatched_in_family = [k for k, c in csv_match_counts.items() if c == 0]
         if unmatched_in_family:
             stats.unmatched_mutations += len(unmatched_in_family)
             sample = unmatched_in_family[:3]
             vprint.verbose(
                 f"  {clone_id}: {len(unmatched_in_family)} CSV mutations had no "
                 f"matching node (e.g., {sample})"
+            )
+
+        # Account for CSV rows that broadcast to multiple nodes (ambiguous join)
+        broadcast_in_family = [(k, c) for k, c in csv_match_counts.items() if c > 1]
+        if broadcast_in_family:
+            stats.broadcast_csv_rows += len(broadcast_in_family)
+            sample = broadcast_in_family[:3]
+            vprint.verbose(
+                f"  {clone_id}: {len(broadcast_in_family)} CSV rows broadcast to "
+                f"multiple nodes (e.g., {sample})"
             )
 
     stats.unmatched_families = sorted(unmatched_family_set)
@@ -294,6 +412,13 @@ def apply_mutations_csv(
     )
 
     stats = merge_mutations_into_trees(trees, mutations_by_family)
+
+    if stats.disambiguation_columns_used:
+        vprint.status(
+            f"Disambiguation columns in CSV: "
+            f"{', '.join(stats.disambiguation_columns_used)}"
+        )
+
     vprint.status(
         f"Enriched {stats.mutations_enriched} mutations across "
         f"{stats.nodes_enriched} nodes in {stats.trees_matched} trees"
@@ -305,6 +430,11 @@ def apply_mutations_csv(
             f"Unmatched: {total_unmatched_rows}/{total_csv_rows} CSV rows "
             f"({stats.unmatched_family_rows} in {len(stats.unmatched_families)} "
             f"unmatched families, {stats.unmatched_mutations} with no node match)"
+        )
+    if stats.broadcast_csv_rows:
+        vprint.status(
+            f"Broadcast: {stats.broadcast_csv_rows} CSV rows matched multiple nodes "
+            f"(ambiguous join — same data applied to every match)"
         )
 
     if stats.trees_matched == 0:
@@ -323,6 +453,13 @@ def apply_mutations_csv(
             f"Warning: {stats.unmatched_mutations} CSV mutation records in matched "
             f"families had no corresponding derived mutation in any node. "
             f"Run with -v 2 to see per-family details."
+        )
+    if stats.broadcast_csv_rows:
+        vprint.error(
+            f"Warning: {stats.broadcast_csv_rows} CSV rows broadcast to multiple "
+            f"node-mutations. The same enrichment data was applied to every "
+            f"matching node, which may not be correct if the upstream pipeline "
+            f"computed per-event scores. Run with -v 2 to see per-family details."
         )
 
     retag_datasets_field_metadata(

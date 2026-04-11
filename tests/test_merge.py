@@ -115,15 +115,17 @@ def test_load_mutations_csv(tmp_path, sample_csv):
     assert set(by_family.keys()) == {"fam1", "fam99"}
     assert len(by_family["fam1"]) == 2
 
-    # Key columns (sample_id, depth, family) should be stripped
+    # Structural columns (sample_id, family) should be stripped from loaded rows.
+    # depth is now retained as a join key (parsed to int) — it's excluded from
+    # the *enriched output* in merge_mutations_into_trees, not at load time.
     row = by_family["fam1"][0]
     assert row["site"] == 1
     assert row["parent_aa"] == "K"
     assert row["child_aa"] == "R"
     assert row["surprise_mutsel"] == 4.2
     assert row["log_selection_factor"] == -0.5
+    assert row["depth"] == 1  # parsed as int, used as disambiguation key
     assert "sample_id" not in row
-    assert "depth" not in row
     assert "family" not in row
 
 
@@ -233,6 +235,188 @@ def test_merge_command_end_to_end(sample_olmsted_json, sample_csv, tmp_path):
     child = next(n for n in fam1_tree["nodes"] if n["sequence_id"] == "child")
     assert child["mutations"][0]["surprise_mutsel"] == 4.2
     assert child["mutations"][0]["log_selection_factor"] == -0.5
+
+
+def test_merge_depth_disambiguation(tmp_path):
+    """When the CSV has a `depth` column, the join key includes node depth.
+
+    Build a tree with two independent K→R substitutions at site 1, one at
+    depth 1 and one at depth 2. Without depth, both would receive the same
+    CSV row's data (broadcast). With depth, each receives the matching row.
+    """
+    olmsted = {
+        "metadata": {"format": "olmsted", "format_version": "1.0"},
+        "datasets": [{"dataset_id": "ds", "name": "Depth Test"}],
+        "clones": {
+            "ds": [
+                {
+                    "clone_id": "fam1",
+                    "dataset_id": "ds",
+                    "unique_seqs_count": 3,
+                    "mean_mut_freq": 0.0,
+                    "sample_id": "s1",
+                }
+            ]
+        },
+        "trees": [
+            {
+                "ident": "tree-1",
+                "clone_id": "fam1",
+                "newick": "((leaf:0.1)inner:0.1)root;",
+                "nodes": [
+                    {
+                        "sequence_id": "root",
+                        "parent": None,
+                        "type": "root",
+                        "sequence_alignment_aa": "MKT",
+                    },
+                    {
+                        # depth 1: K→R at site 1
+                        "sequence_id": "inner",
+                        "parent": "root",
+                        "type": "internal",
+                        "sequence_alignment_aa": "MRT",
+                    },
+                    {
+                        # depth 2: same K→R at site 1 (back-mutation R→K then K→R)
+                        # We construct this by setting parent residue back to K so
+                        # the diff produces another K→R event.
+                        "sequence_id": "leaf",
+                        "parent": "back",
+                        "type": "leaf",
+                        "sequence_alignment_aa": "MRT",
+                    },
+                    {
+                        # depth 2 intermediate that puts K back so the leaf shows K→R again
+                        "sequence_id": "back",
+                        "parent": "inner",
+                        "type": "internal",
+                        "sequence_alignment_aa": "MKT",
+                    },
+                ],
+            }
+        ],
+    }
+    # back is at depth 2, leaf is at depth 3 — derived diff: leaf's parent (back, MKT) → leaf (MRT) = K→R at depth 3
+    # inner is at depth 1 — derived diff: root (MKT) → inner (MRT) = K→R at depth 1
+    csv_text = (
+        "family,site,parent_aa,child_aa,depth,score\n"
+        "fam1,1,K,R,1,11.1\n"  # matches inner only
+        "fam1,1,K,R,3,33.3\n"  # matches leaf only
+    )
+    json_path = tmp_path / "input.json"
+    csv_path = tmp_path / "muts.csv"
+    out_path = tmp_path / "out.json"
+    json_path.write_text(json.dumps(olmsted))
+    csv_path.write_text(csv_text)
+
+    result = subprocess.run(
+        [
+            "olmsted",
+            "merge",
+            "-i",
+            str(json_path),
+            "--mutations",
+            str(csv_path),
+            "-o",
+            str(out_path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"merge failed: {result.stderr}"
+    combined = result.stdout + result.stderr
+    assert "Disambiguation columns in CSV: depth" in combined
+    # Each CSV row matches exactly one node-mutation → no broadcasts
+    assert "Enriched 2 mutations across 2 nodes" in combined
+    assert "Broadcast" not in combined
+
+    out = json.loads(out_path.read_text())
+    tree = out["trees"][0]
+    by_id = {n["sequence_id"]: n for n in tree["nodes"]}
+    inner_mut = next(m for m in by_id["inner"]["mutations"] if m["site"] == 1)
+    leaf_mut = next(m for m in by_id["leaf"]["mutations"] if m["site"] == 1)
+    assert inner_mut["score"] == 11.1
+    assert leaf_mut["score"] == 33.3
+    # depth itself should NOT be in the enriched mutation record
+    assert "depth" not in inner_mut
+    assert "depth" not in leaf_mut
+
+
+def test_merge_broadcast_detection(tmp_path):
+    """Without depth disambiguation, identical substitutions broadcast and are flagged."""
+    olmsted = {
+        "metadata": {"format": "olmsted", "format_version": "1.0"},
+        "datasets": [{"dataset_id": "ds", "name": "Broadcast Test"}],
+        "clones": {
+            "ds": [
+                {
+                    "clone_id": "fam1",
+                    "dataset_id": "ds",
+                    "unique_seqs_count": 2,
+                    "mean_mut_freq": 0.0,
+                    "sample_id": "s1",
+                }
+            ]
+        },
+        "trees": [
+            {
+                "ident": "tree-1",
+                "clone_id": "fam1",
+                "newick": "(a,b)root;",
+                "nodes": [
+                    {
+                        "sequence_id": "root",
+                        "parent": None,
+                        "type": "root",
+                        "sequence_alignment_aa": "MKT",
+                    },
+                    {
+                        "sequence_id": "a",
+                        "parent": "root",
+                        "type": "leaf",
+                        "sequence_alignment_aa": "MRT",
+                    },
+                    {
+                        "sequence_id": "b",
+                        "parent": "root",
+                        "type": "leaf",
+                        "sequence_alignment_aa": "MRT",
+                    },
+                ],
+            }
+        ],
+    }
+    # No `depth` column → fall back to (site, parent_aa, child_aa) only
+    csv_text = "family,site,parent_aa,child_aa,score\nfam1,1,K,R,5.5\n"
+    json_path = tmp_path / "input.json"
+    csv_path = tmp_path / "muts.csv"
+    out_path = tmp_path / "out.json"
+    json_path.write_text(json.dumps(olmsted))
+    csv_path.write_text(csv_text)
+
+    result = subprocess.run(
+        [
+            "olmsted",
+            "merge",
+            "-i",
+            str(json_path),
+            "--mutations",
+            str(csv_path),
+            "-o",
+            str(out_path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    combined = result.stdout + result.stderr
+    # No disambiguation column → not active
+    assert "Disambiguation columns in CSV" not in combined
+    # The single CSV row matches both 'a' and 'b' → 1 broadcast row
+    assert "Enriched 2 mutations across 2 nodes" in combined
+    assert "Broadcast: 1 CSV rows matched multiple nodes" in combined
+    assert "broadcast to multiple node-mutations" in combined
 
 
 def test_merge_command_in_place(sample_olmsted_json, sample_csv, tmp_path):
