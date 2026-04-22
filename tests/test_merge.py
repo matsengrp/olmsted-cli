@@ -318,6 +318,7 @@ def test_merge_depth_disambiguation(tmp_path):
             str(json_path),
             "--mutations",
             str(csv_path),
+            "--mutations-use-depth",
             "-o",
             str(out_path),
         ],
@@ -326,6 +327,7 @@ def test_merge_depth_disambiguation(tmp_path):
     )
     assert result.returncode == 0, f"merge failed: {result.stderr}"
     combined = result.stdout + result.stderr
+    assert "Match mode: site_paa_caa_depth" in combined
     assert "Disambiguation columns in CSV: depth" in combined
     # Each CSV row matches exactly one node-mutation → no broadcasts
     assert "Enriched 2 mutations across 2 nodes" in combined
@@ -445,3 +447,202 @@ def test_merge_command_in_place(sample_olmsted_json, sample_csv, tmp_path):
     fam1_tree = next(t for t in out["trees"] if t["clone_id"] == "fam1")
     child = next(n for n in fam1_tree["nodes"] if n["sequence_id"] == "child")
     assert child["mutations"][0]["surprise_mutsel"] == 4.2
+
+
+def _name_keyed_fixture(tmp_path):
+    """Minimal Olmsted JSON with two nodes that both have a K→R mutation at site 1.
+
+    Without a name column, a CSV keyed on (site, K, R) would broadcast to both.
+    With a name column, each CSV row can target exactly one node.
+    """
+    olmsted = {
+        "metadata": {"format": "olmsted", "format_version": "1.0"},
+        "datasets": [{"dataset_id": "ds", "name": "Name Test"}],
+        "clones": {
+            "ds": [
+                {
+                    "clone_id": "fam1",
+                    "dataset_id": "ds",
+                    "unique_seqs_count": 3,
+                    "mean_mut_freq": 0.0,
+                    "sample_id": "s1",
+                }
+            ]
+        },
+        "trees": [
+            {
+                "ident": "tree-1",
+                "clone_id": "fam1",
+                "newick": "((leaf_a:0.1)inner:0.1)root;",
+                "nodes": [
+                    {
+                        "sequence_id": "root",
+                        "parent": None,
+                        "type": "root",
+                        "sequence_alignment_aa": "MKT",
+                    },
+                    {
+                        "sequence_id": "inner",
+                        "parent": "root",
+                        "type": "internal",
+                        "sequence_alignment_aa": "MRT",  # K→R at site 1
+                    },
+                    {
+                        "sequence_id": "leaf_a",
+                        "parent": "root",
+                        "type": "leaf",
+                        "sequence_alignment_aa": "MRT",  # independent K→R at site 1
+                    },
+                ],
+            }
+        ],
+    }
+    json_path = tmp_path / "input.json"
+    json_path.write_text(json.dumps(olmsted))
+    return json_path
+
+
+def test_merge_name_keyed_disambiguation(tmp_path):
+    """With a `node_name` column, each CSV row targets one specific node."""
+    json_path = _name_keyed_fixture(tmp_path)
+    csv_path = tmp_path / "muts.csv"
+    out_path = tmp_path / "out.json"
+    csv_path.write_text(
+        "family,node_name,site,parent_aa,child_aa,score\n"
+        "fam1,inner,1,K,R,111\n"
+        "fam1,leaf_a,1,K,R,222\n"
+    )
+
+    result = subprocess.run(
+        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
+         "-o", str(out_path)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, f"merge failed: {result.stderr}"
+    combined = result.stdout + result.stderr
+    assert "Match mode: name_site" in combined
+    assert "Enriched 2 mutations across 2 nodes" in combined
+    assert "Broadcast" not in combined
+    assert "Integrity mismatches" not in combined
+
+    out = json.loads(out_path.read_text())
+    by_id = {n["sequence_id"]: n for n in out["trees"][0]["nodes"]}
+    assert next(m for m in by_id["inner"]["mutations"] if m["site"] == 1)["score"] == 111
+    assert next(m for m in by_id["leaf_a"]["mutations"] if m["site"] == 1)["score"] == 222
+    # node_name is structural — must not leak into the enriched record
+    for name in ("inner", "leaf_a"):
+        for mut in by_id[name]["mutations"]:
+            assert "node_name" not in mut
+
+
+def test_merge_child_name_alias(tmp_path):
+    """`child_name` is accepted as an alias for `node_name`."""
+    json_path = _name_keyed_fixture(tmp_path)
+    csv_path = tmp_path / "muts.csv"
+    out_path = tmp_path / "out.json"
+    csv_path.write_text(
+        "family,child_name,site,parent_aa,child_aa,score\n"
+        "fam1,inner,1,K,R,111\n"
+    )
+
+    result = subprocess.run(
+        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
+         "-o", str(out_path)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, f"merge failed: {result.stderr}"
+    assert "Match mode: name_site" in result.stdout + result.stderr
+
+
+def test_merge_integrity_mismatch_warns_and_skips(tmp_path):
+    """Name+site match but parent_aa/child_aa disagreement is warned and skipped."""
+    json_path = _name_keyed_fixture(tmp_path)
+    csv_path = tmp_path / "muts.csv"
+    out_path = tmp_path / "out.json"
+    # Tree has K→R at (inner, site 1); CSV claims K→Q — a mismatch.
+    csv_path.write_text(
+        "family,node_name,site,parent_aa,child_aa,score\n"
+        "fam1,inner,1,K,Q,111\n"
+    )
+
+    result = subprocess.run(
+        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
+         "-o", str(out_path)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, f"merge failed: {result.stderr}"
+    combined = result.stdout + result.stderr
+    assert "Integrity mismatches: 1" in combined
+    assert "Enriched 0 mutations across 0 nodes" in combined
+
+    out = json.loads(out_path.read_text())
+    by_id = {n["sequence_id"]: n for n in out["trees"][0]["nodes"]}
+    inner_mut = next(m for m in by_id["inner"]["mutations"] if m["site"] == 1)
+    assert "score" not in inner_mut, "Enrichment must not attach on integrity mismatch"
+
+
+def test_merge_strict_check_fails_on_mismatch(tmp_path):
+    """--mutations-strict-check turns integrity mismatches into a hard failure."""
+    json_path = _name_keyed_fixture(tmp_path)
+    csv_path = tmp_path / "muts.csv"
+    out_path = tmp_path / "out.json"
+    csv_path.write_text(
+        "family,node_name,site,parent_aa,child_aa,score\n"
+        "fam1,inner,1,K,Q,111\n"
+    )
+
+    result = subprocess.run(
+        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
+         "--mutations-strict-check", "-o", str(out_path)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode != 0
+    combined = result.stdout + result.stderr
+    assert "--mutations-strict-check" in combined
+    assert "integrity mismatches" in combined.lower()
+
+
+def test_merge_depth_ignored_without_flag(tmp_path):
+    """A `depth` column in the CSV is silently ignored unless --mutations-use-depth is passed."""
+    olmsted = {
+        "metadata": {"format": "olmsted", "format_version": "1.0"},
+        "datasets": [{"dataset_id": "ds", "name": "Depth Opt-in Test"}],
+        "clones": {"ds": [{"clone_id": "fam1", "dataset_id": "ds", "unique_seqs_count": 2,
+                           "mean_mut_freq": 0.0, "sample_id": "s1"}]},
+        "trees": [
+            {
+                "ident": "tree-1",
+                "clone_id": "fam1",
+                "newick": "(leaf:0.1)root;",
+                "nodes": [
+                    {"sequence_id": "root", "parent": None, "type": "root",
+                     "sequence_alignment_aa": "MKT"},
+                    {"sequence_id": "leaf", "parent": "root", "type": "leaf",
+                     "sequence_alignment_aa": "MRT"},  # K→R at site 1, depth 1
+                ],
+            }
+        ],
+    }
+    json_path = tmp_path / "input.json"
+    csv_path = tmp_path / "muts.csv"
+    out_path = tmp_path / "out.json"
+    json_path.write_text(json.dumps(olmsted))
+    # CSV row has depth=99 which would not match any node if depth were used
+    csv_path.write_text("family,site,parent_aa,child_aa,depth,score\nfam1,1,K,R,99,111\n")
+
+    result = subprocess.run(
+        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
+         "-o", str(out_path)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, f"merge failed: {result.stderr}"
+    combined = result.stdout + result.stderr
+    # Depth ignored → (site, K, R) matches → enrichment happens
+    assert "Match mode: site_paa_caa" in combined
+    assert "Match mode: site_paa_caa_depth" not in combined
+    assert "Enriched 1 mutations across 1 nodes" in combined
+
+    out = json.loads(out_path.read_text())
+    by_id = {n["sequence_id"]: n for n in out["trees"][0]["nodes"]}
+    leaf_mut = next(m for m in by_id["leaf"]["mutations"] if m["site"] == 1)
+    assert leaf_mut["score"] == 111

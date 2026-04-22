@@ -9,9 +9,16 @@ The CSV is expected to have at minimum these columns:
     family, site, parent_aa, child_aa
 plus any number of score/annotation columns.
 
-Mutations are matched to specific tree nodes by deriving each node's mutations
-from its AA sequence diff against its parent, then matching CSV rows by
-(clone_id, site, parent_aa, child_aa).
+Matching strategy (in order of preference):
+  1. If a node-name column is present (``node_name`` or ``child_name``), the
+     join key is ``(node_name, site)`` — fully disambiguating, no fan-out
+     possible. ``parent_aa``/``child_aa`` become integrity checks against the
+     tree's derived mutation at that (node, site).
+  2. Otherwise the join key is ``(site, parent_aa, child_aa)``, which may
+     fan out to multiple nodes on convergent lineages (counted as broadcast).
+  3. Depth narrowing (``--mutations-use-depth``): extends the fallback key
+     to ``(site, parent_aa, child_aa, depth)``. Opt-in because depth
+     arithmetic depends on upstream rooting conventions the CLI can't infer.
 """
 
 import csv
@@ -21,17 +28,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from .constants import MUTATIONS_CSV_KEY_COLUMNS
+from .constants import MUTATIONS_CSV_KEY_COLUMNS, MUTATIONS_CSV_NAME_ALIASES
 from .process_utils import coerce_csv_value
 from .utils import vprint
 
 # Characters in AA sequences that should not be treated as a mutation event.
 _GAP_AA_CHARS = {"-", ".", "X", "*", "?"}
-
-# Optional CSV columns that, when present, narrow node-mutation matching beyond
-# the (site, parent_aa, child_aa) base key. Each column also has to be derivable
-# (or already present) on tree nodes for the disambiguation to work.
-_DISAMBIGUATION_COLUMNS = ("depth",)
 
 
 @dataclass
@@ -60,10 +62,31 @@ class MergeStats:
     # indicates a potentially-ambiguous join: the same residue substitution
     # at the same site (and depth, if present) occurred on multiple lineages.
     # The same enrichment data is broadcast to every matching node.
+    # Only non-zero when name-based keying is NOT in use.
     broadcast_csv_rows: int = 0
-    # Names of optional disambiguation columns that were present in the CSV
-    # and used as part of the match key.
+    # Count of CSV rows whose (node_name, site) resolved to a real node + site
+    # but where parent_aa/child_aa or depth disagreed with the tree's derived
+    # mutation at that position. The CSV data is NOT attached on mismatch,
+    # and (under --mutations-strict-check) the command exits non-zero.
+    integrity_mismatches: int = 0
+    # Names of optional disambiguation / structural columns that were present
+    # in the CSV and used as part of the match key or as integrity checks.
     disambiguation_columns_used: List[str] = field(default_factory=list)
+    # The chosen matching mode: "name_site" (deterministic) or
+    # "site_paa_caa[_depth]" (may broadcast).
+    match_mode: str = ""
+
+
+def _detect_name_column(fieldnames: List[str]) -> Optional[str]:
+    """Return the first node-name alias present in the CSV header, or None.
+
+    Searches ``MUTATIONS_CSV_NAME_ALIASES`` in order — ``node_name`` wins
+    over ``child_name`` if both are present.
+    """
+    for alias in MUTATIONS_CSV_NAME_ALIASES:
+        if alias in fieldnames:
+            return alias
+    return None
 
 
 def load_mutations_csv(csv_path: str) -> Dict[str, List[Dict[str, Any]]]:
@@ -74,9 +97,11 @@ def load_mutations_csv(csv_path: str) -> Dict[str, List[Dict[str, Any]]]:
 
     Returns:
         Dict mapping family/clone_id -> list of row dicts. Each row dict
-        contains the mutation site keys (site, parent_aa, child_aa) plus all
-        score/annotation columns. Structural join columns (family, sample_id,
-        pcp_index, depth) are stripped.
+        contains the mutation keys (site, parent_aa, child_aa; optionally
+        node_name and/or depth) plus all score/annotation columns.
+        Structural join columns not needed downstream (family, sample_id,
+        pcp_index) are stripped. If the CSV has a ``child_name`` column,
+        values are normalized onto the ``node_name`` key for downstream use.
     """
     path = Path(csv_path)
     if not path.exists():
@@ -101,6 +126,8 @@ def load_mutations_csv(csv_path: str) -> Dict[str, List[Dict[str, Any]]]:
                 f"Mutations CSV missing required columns: {sorted(missing)}"
             )
 
+        name_col = _detect_name_column(list(reader.fieldnames))
+
         for row in reader:
             family = row.get("family")
             if not family:
@@ -120,8 +147,8 @@ def load_mutations_csv(csv_path: str) -> Dict[str, List[Dict[str, Any]]]:
                             f"an integer, got {val!r}"
                         ) from e
                 elif key == "depth":
-                    # depth, when present, is used as a disambiguation key —
-                    # must be an integer (edges from root)
+                    # depth, when present, may be used as a disambiguation key
+                    # or integrity check — must be an integer.
                     try:
                         mutation["depth"] = int(val)
                     except (ValueError, TypeError) as e:
@@ -131,8 +158,13 @@ def load_mutations_csv(csv_path: str) -> Dict[str, List[Dict[str, Any]]]:
                         ) from e
                 elif key in ("parent_aa", "child_aa"):
                     mutation[key] = val
+                elif key == name_col:
+                    # Normalize onto the canonical "node_name" key so downstream
+                    # code doesn't need to care which alias the CSV used.
+                    mutation["node_name"] = val
                 elif key in MUTATIONS_CSV_KEY_COLUMNS:
-                    # Skip other key/structural columns (family, sample_id, pcp_index)
+                    # Skip other key/structural columns (family, sample_id,
+                    # pcp_index, and the losing name alias if both are present).
                     continue
                 else:
                     mutation[key] = coerce_csv_value(val)
@@ -267,58 +299,213 @@ def _compute_node_depths(
     return depths
 
 
-def _detect_disambiguation_columns(
-    mutations_by_family: Dict[str, List[Dict[str, Any]]],
-) -> List[str]:
-    """Return the list of optional disambiguation columns present in the CSV.
-
-    A column counts as "present" if at least one loaded row carries it. We
-    take the union across families because the loader populates fields
-    sparsely (empty cells are skipped).
-    """
-    present = set()
+def _has_name_column(mutations_by_family: Dict[str, List[Dict[str, Any]]]) -> bool:
+    """Return True if any loaded row carries a canonical node_name value."""
     for rows in mutations_by_family.values():
         for row in rows:
-            for col in _DISAMBIGUATION_COLUMNS:
-                if col in row:
-                    present.add(col)
-        if len(present) == len(_DISAMBIGUATION_COLUMNS):
-            break
-    return [c for c in _DISAMBIGUATION_COLUMNS if c in present]
+            if "node_name" in row:
+                return True
+    return False
+
+
+def _has_depth_column(mutations_by_family: Dict[str, List[Dict[str, Any]]]) -> bool:
+    """Return True if any loaded row carries a depth value."""
+    for rows in mutations_by_family.values():
+        for row in rows:
+            if "depth" in row:
+                return True
+    return False
 
 
 def merge_mutations_into_trees(
     trees: List[Dict[str, Any]],
     mutations_by_family: Dict[str, List[Dict[str, Any]]],
+    *,
+    use_depth: bool = False,
 ) -> MergeStats:
     """Merge mutation-level CSV data into tree nodes (in place).
 
     For each tree whose ``clone_id`` matches a family in the CSV:
-      1. Detect optional disambiguation columns (e.g. ``depth``) in the CSV
-      2. Index the family's CSV rows by (site, parent_aa, child_aa[, depth])
-      3. For each node, derive (or read existing) mutation records
-      4. Match each mutation against the CSV index and merge any extra fields
-
-    When optional disambiguation columns are present, they tighten the join
-    key and reduce false fan-out. The number of CSV rows that still match
-    multiple nodes is tracked in ``stats.broadcast_csv_rows``.
+      1. Decide match mode:
+         - ``name_site``: CSV has a node-name column → deterministic
+           ``(node_name, site)`` join with ``parent_aa``/``child_aa``/``depth``
+           (if present) as integrity checks.
+         - ``site_paa_caa``: fallback; ``(site, parent_aa, child_aa)`` +
+           optionally ``depth`` if ``use_depth=True``.
+      2. For each node, derive (or read existing) mutation records and
+         match against the family's CSV rows.
+      3. Attach extra fields to matching mutations. Integrity mismatches
+         (in name_site mode) warn and skip the attachment.
 
     Args:
         trees: List of tree dicts (modified in place).
         mutations_by_family: Output of ``load_mutations_csv``.
+        use_depth: When True, and the CSV has a ``depth`` column, use it to
+            extend the fallback join key. Ignored when a name column is
+            present (depth is an integrity check in that mode).
 
     Returns:
-        A ``MergeStats`` describing what was merged and what went unmatched.
+        A ``MergeStats`` describing what was merged, what was skipped, and
+        the chosen match mode.
     """
     stats = MergeStats()
-    stats.disambiguation_columns_used = _detect_disambiguation_columns(mutations_by_family)
-    use_depth = "depth" in stats.disambiguation_columns_used
+    name_keyed = _has_name_column(mutations_by_family)
+    depth_present = _has_depth_column(mutations_by_family)
+
+    if name_keyed:
+        stats.match_mode = "name_site"
+        extend_with_depth = False  # depth is integrity-only in this mode
+    elif use_depth and depth_present:
+        stats.match_mode = "site_paa_caa_depth"
+        extend_with_depth = True
+    else:
+        stats.match_mode = "site_paa_caa"
+        extend_with_depth = False
+
+    # Columns used for matching or integrity; surface them in stats/logs.
+    disambig = []
+    if name_keyed:
+        disambig.append("node_name")
+    if depth_present and (extend_with_depth or name_keyed):
+        disambig.append("depth")
+    stats.disambiguation_columns_used = disambig
+
     unmatched_family_set = set(mutations_by_family.keys())
 
-    # Columns that are part of the join key and should NOT be enriched onto
-    # the output mutation record.
-    extras_excluded = {"site", "parent_aa", "child_aa", *stats.disambiguation_columns_used}
+    # Columns that are part of the join key / integrity, not payload.
+    extras_excluded = {"site", "parent_aa", "child_aa", "node_name", "depth"}
 
+    if name_keyed:
+        _merge_name_keyed(
+            trees, mutations_by_family, stats, unmatched_family_set, extras_excluded,
+            check_depth=depth_present,
+        )
+    else:
+        _merge_site_keyed(
+            trees, mutations_by_family, stats, unmatched_family_set, extras_excluded,
+            use_depth=extend_with_depth,
+        )
+
+    stats.unmatched_families = sorted(unmatched_family_set)
+    stats.unmatched_family_rows = sum(
+        len(mutations_by_family[fam]) for fam in unmatched_family_set
+    )
+    return stats
+
+
+def _merge_name_keyed(
+    trees: List[Dict[str, Any]],
+    mutations_by_family: Dict[str, List[Dict[str, Any]]],
+    stats: MergeStats,
+    unmatched_family_set: set,
+    extras_excluded: set,
+    check_depth: bool,
+) -> None:
+    """Deterministic ``(node_name, site)`` merge with integrity checks."""
+    for tree in trees:
+        clone_id = tree.get("clone_id")
+        if not clone_id or clone_id not in mutations_by_family:
+            continue
+
+        unmatched_family_set.discard(clone_id)
+        stats.trees_matched += 1
+
+        nodes = _normalize_nodes(tree)
+        nodes_by_id = _build_parent_lookup(nodes)
+        parent_lookup = nodes_by_id  # same dict; different semantic name
+        node_depths = _compute_node_depths(nodes) if check_depth else {}
+
+        unmatched = 0
+        mismatched = 0
+        enriched_nodes: set = set()
+
+        for row in mutations_by_family[clone_id]:
+            site = row.get("site")
+            paa = row.get("parent_aa")
+            caa = row.get("child_aa")
+            name = row.get("node_name")
+            if site is None or paa is None or caa is None or name is None:
+                unmatched += 1
+                continue
+
+            node = nodes_by_id.get(name)
+            if node is None:
+                unmatched += 1
+                continue
+
+            # Derive or read the node's mutations
+            existing = node.get("mutations")
+            if isinstance(existing, list) and existing:
+                node_mutations = existing
+            else:
+                parent_id = node.get("parent")
+                parent_node = parent_lookup.get(parent_id) if parent_id else None
+                node_mutations = derive_node_mutations(node, parent_node)
+                node["mutations"] = node_mutations
+
+            # Locate the mutation at this site
+            target = next((m for m in node_mutations if m.get("site") == site), None)
+            if target is None:
+                unmatched += 1
+                continue
+
+            # Integrity: parent_aa / child_aa must agree with the derived mutation
+            if target.get("parent_aa") != paa or target.get("child_aa") != caa:
+                mismatched += 1
+                vprint.verbose(
+                    f"  {clone_id}: integrity mismatch on ({name}, site {site}): "
+                    f"CSV says {paa}->{caa}, tree has "
+                    f"{target.get('parent_aa')}->{target.get('child_aa')}; skipping"
+                )
+                continue
+
+            # Integrity: depth (when the CSV has it) must agree with the tree
+            if check_depth and "depth" in row:
+                tree_depth = node_depths.get(name)
+                if tree_depth is not None and row["depth"] != tree_depth:
+                    mismatched += 1
+                    vprint.verbose(
+                        f"  {clone_id}: depth mismatch on ({name}, site {site}): "
+                        f"CSV depth {row['depth']}, tree depth {tree_depth}; skipping"
+                    )
+                    continue
+
+            extras = {k: v for k, v in row.items() if k not in extras_excluded}
+            target.update(extras)
+            stats.mutations_enriched += 1
+            enriched_nodes.add(name)
+
+        # Keep mutations arrays sorted where we touched them
+        for name in enriched_nodes:
+            node = nodes_by_id[name]
+            node["mutations"] = sorted(
+                node.get("mutations", []), key=lambda m: m.get("site", 0)
+            )
+
+        stats.nodes_enriched += len(enriched_nodes)
+        stats.unmatched_mutations += unmatched
+        stats.integrity_mismatches += mismatched
+
+        if unmatched:
+            vprint.verbose(
+                f"  {clone_id}: {unmatched} CSV rows had no matching (node, site)"
+            )
+        if mismatched:
+            vprint.verbose(
+                f"  {clone_id}: {mismatched} CSV rows matched (node, site) but "
+                f"failed integrity check"
+            )
+
+
+def _merge_site_keyed(
+    trees: List[Dict[str, Any]],
+    mutations_by_family: Dict[str, List[Dict[str, Any]]],
+    stats: MergeStats,
+    unmatched_family_set: set,
+    extras_excluded: set,
+    use_depth: bool,
+) -> None:
+    """Fallback ``(site, parent_aa, child_aa[, depth])`` merge. May broadcast."""
     for tree in trees:
         clone_id = tree.get("clone_id")
         if not clone_id or clone_id not in mutations_by_family:
@@ -343,8 +530,7 @@ def merge_mutations_into_trees(
             if use_depth:
                 depth = row.get("depth")
                 if depth is None:
-                    # CSV declares depth but this row is missing it; skip.
-                    continue
+                    continue  # CSV declares depth but this row is missing it
                 key: Tuple = (site, paa, caa, depth)
             else:
                 key = (site, paa, caa)
@@ -386,12 +572,10 @@ def merge_mutations_into_trees(
                     csv_match_counts[key] = csv_match_counts.get(key, 0) + 1
                     any_merged = True
 
-            # Write back if we derived (or already had) mutations
             node["mutations"] = sorted(node_mutations, key=lambda m: m.get("site", 0))
             if any_merged:
                 stats.nodes_enriched += 1
 
-        # Account for CSV rows that never matched a derived mutation in this tree
         unmatched_in_family = [k for k, c in csv_match_counts.items() if c == 0]
         if unmatched_in_family:
             stats.unmatched_mutations += len(unmatched_in_family)
@@ -401,7 +585,6 @@ def merge_mutations_into_trees(
                 f"matching node (e.g., {sample})"
             )
 
-        # Account for CSV rows that broadcast to multiple nodes (ambiguous join)
         broadcast_in_family = [(k, c) for k, c in csv_match_counts.items() if c > 1]
         if broadcast_in_family:
             stats.broadcast_csv_rows += len(broadcast_in_family)
@@ -411,12 +594,6 @@ def merge_mutations_into_trees(
                 f"multiple nodes (e.g., {sample})"
             )
 
-    stats.unmatched_families = sorted(unmatched_family_set)
-    stats.unmatched_family_rows = sum(
-        len(mutations_by_family[fam]) for fam in unmatched_family_set
-    )
-    return stats
-
 
 def apply_mutations_csv(
     mutations_path: Optional[str],
@@ -424,6 +601,9 @@ def apply_mutations_csv(
     clones_dict: Dict[str, List[Dict[str, Any]]],
     trees: List[Dict[str, Any]],
     custom_fields: Optional[List[Dict[str, Any]]] = None,
+    *,
+    use_depth: bool = False,
+    strict_check: bool = False,
 ) -> Optional[MergeStats]:
     """High-level entry point: load a mutations CSV, merge, warn, retag.
 
@@ -431,8 +611,21 @@ def apply_mutations_csv(
     ``datasets`` and ``trees`` in place. Returns ``None`` if ``mutations_path``
     is falsy (no-op), otherwise the ``MergeStats``.
 
-    Warnings for unmatched families and unmatched mutations are emitted via
-    ``vprint.error`` at normal verbosity. Per-family detail is at -v 2.
+    Args:
+        use_depth: Enable the optional ``depth`` column as part of the
+            fallback match key. No effect when the CSV has a node-name column.
+        strict_check: Treat integrity mismatches (``parent_aa``/``child_aa``
+            or ``depth`` disagreement when a row matches by ``(node_name,
+            site)``) as a hard error; the caller is responsible for exiting.
+
+    Warnings for unmatched families, unmatched mutations, and integrity
+    mismatches are emitted via ``vprint.error`` at normal verbosity.
+    Per-family detail is at -v 2.
+
+    Raises:
+        ValueError: When ``strict_check=True`` and at least one integrity
+            mismatch was recorded. The merge has still been applied to
+            the rows that matched cleanly.
     """
     if not mutations_path:
         return None
@@ -448,8 +641,11 @@ def apply_mutations_csv(
         f"Loaded {total_csv_rows} CSV rows across {len(mutations_by_family)} families"
     )
 
-    stats = merge_mutations_into_trees(trees, mutations_by_family)
+    stats = merge_mutations_into_trees(
+        trees, mutations_by_family, use_depth=use_depth
+    )
 
+    vprint.status(f"Match mode: {stats.match_mode}")
     if stats.disambiguation_columns_used:
         vprint.status(
             f"Disambiguation columns in CSV: "
@@ -472,6 +668,11 @@ def apply_mutations_csv(
         vprint.status(
             f"Broadcast: {stats.broadcast_csv_rows} CSV rows matched multiple nodes "
             f"(ambiguous join — same data applied to every match)"
+        )
+    if stats.integrity_mismatches:
+        vprint.status(
+            f"Integrity mismatches: {stats.integrity_mismatches} CSV rows matched "
+            f"a (node, site) but disagreed with the tree's derived mutation"
         )
 
     if stats.trees_matched == 0:
@@ -498,8 +699,23 @@ def apply_mutations_csv(
             f"matching node, which may not be correct if the upstream pipeline "
             f"computed per-event scores. Run with -v 2 to see per-family details."
         )
+    if stats.integrity_mismatches:
+        vprint.error(
+            f"Warning: {stats.integrity_mismatches} CSV rows resolved to a real "
+            f"(node, site) but had parent_aa/child_aa/depth that disagreed with "
+            f"the tree's derived mutation. The enrichment data was NOT attached "
+            f"for those rows. Run with -v 2 to see per-family details."
+        )
 
     retag_datasets_field_metadata(
         datasets, clones_dict, trees, custom_fields=custom_fields
     )
+
+    if strict_check and stats.integrity_mismatches:
+        raise ValueError(
+            f"--mutations-strict-check: {stats.integrity_mismatches} integrity "
+            f"mismatches between CSV rows and tree mutations. Re-run without "
+            f"--mutations-strict-check to continue despite the mismatches."
+        )
+
     return stats

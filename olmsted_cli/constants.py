@@ -204,7 +204,16 @@ MUTATIONS_CSV_KEY_COLUMNS = {
     "child_aa",
     "pcp_index",
     "depth",
+    "node_name",
+    "child_name",
 }
+
+#: Aliases for the "node name" column in a mutations CSV. When any of these
+#: columns is present, the mutation row is routed to the specific node whose
+#: ``sequence_id`` equals the value, fully disambiguating the join. The first
+#: alias found (in this order) wins; others are still treated as structural
+#: columns and stripped from the output mutation record.
+MUTATIONS_CSV_NAME_ALIASES = ("node_name", "child_name")
 
 #: Mapping from level name to its known fields registry.
 KNOWN_FIELDS_BY_LEVEL = {

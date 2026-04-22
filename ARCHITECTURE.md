@@ -203,33 +203,39 @@ For each tree node:
 2. Otherwise, derive mutations by diffing `node.sequence_alignment_aa` against its parent's. Each differing position becomes `{site, parent_aa, child_aa}`. Gap characters (`-`, `.`, `X`, `*`, `?`) are skipped.
 3. For each derived (or pre-existing) mutation, look up the join key in the CSV index for that tree's `clone_id`. On match, merge the CSV's score columns onto the mutation dict.
 
-The CSV's `family` column is the join key against `tree.clone_id`. The base join key is `(site, parent_aa, child_aa)`, optionally extended by disambiguation columns (see below).
+The CSV's `family` column is the join key against `tree.clone_id`. What happens next depends on which optional columns are present:
 
-### Disambiguation Columns
+### Match Mode Selection
 
-Naive matching by `(site, parent_aa, child_aa)` alone causes **fan-out**: a single CSV row will match every node in the tree whose parent→child diff produces that exact substitution at that exact site. Convergent mutations on independent lineages, or repeated substitutions at the same site after a back-mutation, all collapse onto the same CSV row and receive identical enrichment data — which is incorrect if the upstream pipeline computed per-event scores.
+The merge picks a match mode based on what the CSV carries. The chosen mode is reported at status verbosity and recorded in `MergeStats.match_mode`.
 
-To narrow matches, optional disambiguation columns extend the join key when present in the CSV:
+| CSV has… | Mode | Join key | Notes |
+|---|---|---|---|
+| `node_name` or `child_name` | `name_site` | `(node_name, site)` | Fully disambiguating; no broadcast possible. `parent_aa`/`child_aa`/`depth` become integrity checks. |
+| `depth` + `--mutations-use-depth` | `site_paa_caa_depth` | `(site, parent_aa, child_aa, depth)` | Narrows fan-out; still allows broadcast on convergent same-depth substitutions. |
+| neither | `site_paa_caa` | `(site, parent_aa, child_aa)` | May broadcast (tracked). |
 
-| Column | What it contributes | How it's matched on the tree |
-|--------|---------------------|------------------------------|
-| `depth` | Edges from the nearest root to the child node | Computed at merge time via BFS in `_compute_node_depths()` |
+`node_name`/`child_name`: When the CSV has a node-name column (either alias — `node_name` wins if both are present), values are the `sequence_id` of the target node. The loader normalizes both aliases onto the canonical `node_name` key.
 
-If `depth` is present in the CSV, the join key becomes `(site, parent_aa, child_aa, depth)` and node-mutations are matched only when their computed depth matches the CSV row's depth. Depth is parsed as an integer at load time and excluded from the *enriched output*.
+`depth`: Edges from the nearest root to the child node, computed at merge time via BFS in `_compute_node_depths()` (prefers naive as origin when connected; falls back to directed root BFS). Depth is **opt-in via `--mutations-use-depth`** because depth arithmetic depends on the upstream pipeline's rooting convention, which the CLI can't infer. Without the flag, a `depth` column in the CSV is ignored for matching (but still used as an integrity check when name-keyed).
 
-Disambiguation is auto-detected: if any loaded row carries a disambiguation column, it's used for the entire run. The active columns are reported at status verbosity and recorded in `MergeStats.disambiguation_columns_used`.
+### Integrity Checks and `--mutations-strict-check`
 
-Even with depth, ambiguity can remain — two convergent substitutions at the same site at the same depth on different lineages will still broadcast. Broadcasts are tracked and warned about (see below).
+In `name_site` mode, `parent_aa`/`child_aa` (and `depth`, when present) aren't part of the join key — they're cross-checked against the tree's derived mutation at the identified `(node, site)`. On disagreement:
+- **Default:** warn at `vprint.error` level, skip the row (no enrichment attached), count in `MergeStats.integrity_mismatches`. Exit 0.
+- **`--mutations-strict-check`:** raise `ValueError` → the command exits non-zero.
+
+Rationale: attaching upstream scores to a mutation whose parent/child residues don't match what the CSV claimed would attach data to the wrong biological event. Skipping is always safer than attributing.
 
 ### Excluded CSV Columns
 
 These columns are recognized as structural/join keys and are **not** included in the merged output (see `MUTATIONS_CSV_KEY_COLUMNS` in `constants.py`):
 
 ```
-family, sample_id, site, parent_aa, child_aa, pcp_index, depth
+family, sample_id, site, parent_aa, child_aa, pcp_index, depth, node_name, child_name
 ```
 
-`site`, `parent_aa`, and `child_aa` are excluded from the *merged extras dict* but are still kept on the mutation record (they identify the substitution). `depth` is excluded entirely from the merged record but is retained on the loaded row dict so it can serve as a join key.
+`site`, `parent_aa`, and `child_aa` are excluded from the *merged extras dict* but are still kept on the mutation record (they identify the substitution). `depth` and `node_name`/`child_name` are excluded entirely from the merged record — they're retained on the loaded row dict only so they can serve as the join key / integrity check.
 
 ### Stats and Reporting
 
@@ -243,8 +249,10 @@ family, sample_id, site, parent_aa, child_aa, pcp_index, depth
 | `unmatched_families` | Sorted list of CSV families that had no matching tree |
 | `unmatched_family_rows` | Total CSV rows belonging to those unmatched families |
 | `unmatched_mutations` | CSV rows in matched families whose join key didn't match any derived mutation |
-| `broadcast_csv_rows` | CSV rows that matched **more than one** node-mutation pair (ambiguous join) |
-| `disambiguation_columns_used` | Optional disambiguation columns active on this run (e.g. `["depth"]`) |
+| `broadcast_csv_rows` | CSV rows that matched **more than one** node-mutation pair (ambiguous join). Only non-zero in `site_paa_caa[_depth]` modes. |
+| `integrity_mismatches` | CSV rows that resolved to a real `(node, site)` in `name_site` mode but whose `parent_aa`/`child_aa`/`depth` disagreed with the tree's derived mutation. Not attached. |
+| `disambiguation_columns_used` | Optional disambiguation / integrity-check columns active on this run (e.g. `["node_name"]` or `["depth"]`) |
+| `match_mode` | Chosen match mode: `name_site`, `site_paa_caa_depth`, or `site_paa_caa` |
 
 Counts are scoped to the current run: `nodes_enriched` and `mutations_enriched` exclude pre-existing mutation arrays from upstream pipelines.
 
@@ -253,17 +261,20 @@ Counts are scoped to the current run: `nodes_enriched` and `mutations_enriched` 
 ```
 Loading mutations CSV: {path}
 Loaded {N} CSV rows across {M} families
-Disambiguation columns in CSV: {cols}             # only if disambiguation active
+Match mode: {mode}
+Disambiguation columns in CSV: {cols}             # only if any disambig/integrity column is present
 Enriched {X} mutations across {Y} nodes in {Z} trees
 Unmatched: {U}/{N} CSV rows ({A} in {B} unmatched families, {C} with no node match)
 Broadcast: {K} CSV rows matched multiple nodes (ambiguous join — same data applied to every match)
+Integrity mismatches: {I} CSV rows matched a (node, site) but disagreed with the tree's derived mutation
 ```
 
-Warnings (at error level, exit 0):
-- **Unmatched mutations** in matched families — the CSV references substitutions that don't appear in any derived diff
+Warnings (at error level, exit 0 unless `--mutations-strict-check`):
+- **Unmatched mutations** in matched families — the CSV references substitutions / nodes that don't appear in any derived diff
 - **Broadcast rows** — the CSV row's enrichment was applied to multiple node-mutations; may not be correct for per-event scores
+- **Integrity mismatches** — in `name_site` mode, the CSV's `parent_aa`/`child_aa`/`depth` disagreed with what the tree derived at that position; the row was skipped. `--mutations-strict-check` upgrades this to exit non-zero.
 
-Per-family detail at `-v 2`: which keys went unmatched and which broadcast to multiple nodes.
+Per-family detail at `-v 2`: which keys went unmatched, which broadcast, and which failed integrity.
 
 ### Safety: `--in-place` Guard
 

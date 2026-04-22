@@ -53,6 +53,22 @@ Examples:
         help="Mutations CSV file to merge (columns: family, site, parent_aa, child_aa, ...)",
     )
     parser.add_argument(
+        "--mutations-use-depth",
+        action="store_true",
+        help="Use an optional 'depth' column in the mutations CSV to extend the "
+        "match key to (site, parent_aa, child_aa, depth). Ignored when the "
+        "CSV has a node-name column (depth becomes an integrity check instead). "
+        "Opt-in because depth arithmetic depends on the upstream rooting "
+        "convention, which the CLI can't infer.",
+    )
+    parser.add_argument(
+        "--mutations-strict-check",
+        action="store_true",
+        help="Fail the command when a CSV row matches a (node, site) but its "
+        "parent_aa/child_aa/depth disagree with the tree's derived mutation. "
+        "Without this flag, mismatches are warned and the row is skipped.",
+    )
+    parser.add_argument(
         "-o",
         "--output",
         help="Output file path (required unless --in-place is used)",
@@ -137,6 +153,8 @@ def main():
             data.get("clones", {}),
             data["trees"],
             custom_fields=args.custom_fields,
+            use_depth=args.mutations_use_depth,
+            strict_check=args.mutations_strict_check,
         )
     except (FileNotFoundError, ValueError) as e:
         vprint.error(f"Error: {e}")

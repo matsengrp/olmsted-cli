@@ -231,13 +231,19 @@ def process_airr_format(args):
                 sys.exit(1)
 
     # Merge mutations CSV if --mutations was specified
-    apply_mutations_csv(
-        getattr(args, "mutations", None),
-        datasets,
-        clones_dict,
-        trees,
-        custom_fields=getattr(args, "custom_fields", None),
-    )
+    try:
+        apply_mutations_csv(
+            getattr(args, "mutations", None),
+            datasets,
+            clones_dict,
+            trees,
+            custom_fields=getattr(args, "custom_fields", None),
+            use_depth=getattr(args, "mutations_use_depth", False),
+            strict_check=getattr(args, "mutations_strict_check", False),
+        )
+    except ValueError as e:
+        vprint.error(f"Error: {e}")
+        sys.exit(1)
 
     # Validate data before writing if requested
     if airr_args.validate and not validate_output_data(
@@ -368,13 +374,19 @@ def process_pcp_format(args):
         )
 
         # Merge mutations CSV if --mutations was specified
-        apply_mutations_csv(
-            getattr(args, "mutations", None),
-            datasets,
-            clones_dict,
-            trees,
-            custom_fields=getattr(args, "custom_fields", None),
-        )
+        try:
+            apply_mutations_csv(
+                getattr(args, "mutations", None),
+                datasets,
+                clones_dict,
+                trees,
+                custom_fields=getattr(args, "custom_fields", None),
+                use_depth=getattr(args, "mutations_use_depth", False),
+                strict_check=getattr(args, "mutations_strict_check", False),
+            )
+        except ValueError as e:
+            vprint.error(f"Error: {e}")
+            sys.exit(1)
 
         # Validate data if requested
         if args.validate:
@@ -456,6 +468,21 @@ Examples:
         "--mutations",
         help="Mutations CSV file (columns: family, site, parent_aa, child_aa, ...). "
         "Mutation-level scores are merged into tree nodes after processing.",
+    )
+    parser.add_argument(
+        "--mutations-use-depth",
+        action="store_true",
+        help="Use an optional 'depth' column in the mutations CSV to extend the "
+        "match key to (site, parent_aa, child_aa, depth). Ignored when the "
+        "CSV has a node-name column. Opt-in because depth arithmetic depends "
+        "on the upstream rooting convention.",
+    )
+    parser.add_argument(
+        "--mutations-strict-check",
+        action="store_true",
+        help="Fail the command on integrity mismatches between CSV rows and "
+        "the tree's derived mutations. Without this flag, mismatches are "
+        "warned and the row is skipped.",
     )
     parser.add_argument(
         "-o",
@@ -758,6 +785,12 @@ def get_args():
     if not args.inputs:
         parser.error(
             "the following arguments are required: -i/--inputs (or provide in config)"
+        )
+
+    # Mutation flags only make sense with --mutations
+    if (args.mutations_use_depth or args.mutations_strict_check) and not args.mutations:
+        parser.error(
+            "--mutations-use-depth / --mutations-strict-check require --mutations"
         )
 
     return args
