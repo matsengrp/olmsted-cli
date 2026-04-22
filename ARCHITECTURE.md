@@ -211,17 +211,17 @@ The merge picks a match mode based on what the CSV carries. The chosen mode is r
 
 | CSV has… | Mode | Join key | Notes |
 |---|---|---|---|
-| `node_name` or `child_name` | `name_site` | `(node_name, site)` | Fully disambiguating; no broadcast possible. `parent_aa`/`child_aa`/`depth` become integrity checks. |
+| `node_name` or `child_name` | `name_site` | `(node_name, site)` | Fully disambiguating; no broadcast possible. `parent_aa`/`child_aa` are integrity checks; `depth` is too when `--mutations-use-depth` is set, otherwise ignored. |
 | `depth` + `--mutations-use-depth` | `site_paa_caa_depth` | `(site, parent_aa, child_aa, depth)` | Narrows fan-out; still allows broadcast on convergent same-depth substitutions. |
 | neither | `site_paa_caa` | `(site, parent_aa, child_aa)` | May broadcast (tracked). |
 
 `node_name`/`child_name`: When the CSV has a node-name column (either alias — `node_name` wins if both are present), values are the `sequence_id` of the target node. The loader normalizes both aliases onto the canonical `node_name` key.
 
-`depth`: Edges from the nearest root to the child node, computed at merge time via BFS in `_compute_node_depths()` (prefers naive as origin when connected; falls back to directed root BFS). Depth is **opt-in via `--mutations-use-depth`** because depth arithmetic depends on the upstream pipeline's rooting convention, which the CLI can't infer. Without the flag, a `depth` column in the CSV is ignored for matching (but still used as an integrity check when name-keyed).
+`depth`: Edges from the nearest root to the child node, computed at merge time via BFS in `_compute_node_depths()` (prefers naive as origin when connected; falls back to directed root BFS). Depth is **opt-in via `--mutations-use-depth`** because depth arithmetic depends on the upstream pipeline's rooting convention, which the CLI can't infer. Without the flag, a `depth` column in the CSV is ignored *entirely* — neither as a match-key participant nor as an integrity check. When the column is seen but the flag is absent, `apply_mutations_csv` logs a verbose note. Conversely, passing `--mutations-use-depth` when the CSV has **no** `depth` column raises `ValueError` — opting in with no data to opt into is a misuse signal.
 
 ### Integrity Checks and `--mutations-strict-check`
 
-In `name_site` mode, `parent_aa`/`child_aa` (and `depth`, when present) aren't part of the join key — they're cross-checked against the tree's derived mutation at the identified `(node, site)`. On disagreement:
+In `name_site` mode, `parent_aa`/`child_aa` (and `depth`, only when `--mutations-use-depth` is set) aren't part of the join key — they're cross-checked against the tree's derived mutation at the identified `(node, site)`. On disagreement:
 - **Default:** warn at `vprint.error` level, skip the row (no enrichment attached), count in `MergeStats.integrity_mismatches`. Exit 0.
 - **`--mutations-strict-check`:** raise `ValueError` → the command exits non-zero.
 

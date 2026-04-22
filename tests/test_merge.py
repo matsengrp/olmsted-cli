@@ -581,6 +581,85 @@ def test_merge_integrity_mismatch_warns_and_skips(tmp_path):
     assert "score" not in inner_mut, "Enrichment must not attach on integrity mismatch"
 
 
+def test_merge_use_depth_flag_without_depth_column_fails(tmp_path):
+    """--mutations-use-depth is a misuse signal when the CSV has no depth column."""
+    json_path = _name_keyed_fixture(tmp_path)
+    csv_path = tmp_path / "muts.csv"
+    out_path = tmp_path / "out.json"
+    # No 'depth' column at all
+    csv_path.write_text(
+        "family,node_name,site,parent_aa,child_aa,score\n"
+        "fam1,inner,1,K,R,111\n"
+    )
+
+    result = subprocess.run(
+        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
+         "--mutations-use-depth", "-o", str(out_path)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode != 0
+    combined = result.stdout + result.stderr
+    assert "--mutations-use-depth" in combined
+    assert "no 'depth' column" in combined.lower()
+
+
+def test_merge_name_keyed_depth_ignored_without_flag(tmp_path):
+    """In name-keyed mode, a wrong `depth` value is ignored unless --mutations-use-depth is passed.
+
+    Depth arithmetic depends on upstream rooting conventions the CLI can't
+    infer with certainty, so depth is opt-in for BOTH match-key and
+    integrity-check use. Without the flag, a CSV depth disagreement should
+    not trigger an integrity mismatch.
+    """
+    json_path = _name_keyed_fixture(tmp_path)
+    csv_path = tmp_path / "muts.csv"
+    out_path = tmp_path / "out.json"
+    # Tree has K→R at (inner, site 1) at depth 1. CSV claims depth=99 — would
+    # be an integrity mismatch if depth were being checked.
+    csv_path.write_text(
+        "family,node_name,site,parent_aa,child_aa,depth,score\n"
+        "fam1,inner,1,K,R,99,111\n"
+    )
+
+    result = subprocess.run(
+        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
+         "-o", str(out_path)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, f"merge failed: {result.stderr}"
+    combined = result.stdout + result.stderr
+    # Without the flag: depth ignored, enrichment proceeds, no integrity mismatch
+    assert "Integrity mismatches" not in combined
+    assert "Enriched 1 mutations across 1 nodes" in combined
+
+    out = json.loads(out_path.read_text())
+    by_id = {n["sequence_id"]: n for n in out["trees"][0]["nodes"]}
+    inner_mut = next(m for m in by_id["inner"]["mutations"] if m["site"] == 1)
+    assert inner_mut["score"] == 111
+
+
+def test_merge_name_keyed_depth_check_with_flag(tmp_path):
+    """With --mutations-use-depth, name-keyed mode checks depth as an integrity field."""
+    json_path = _name_keyed_fixture(tmp_path)
+    csv_path = tmp_path / "muts.csv"
+    out_path = tmp_path / "out.json"
+    csv_path.write_text(
+        "family,node_name,site,parent_aa,child_aa,depth,score\n"
+        "fam1,inner,1,K,R,99,111\n"  # depth=99 disagrees with tree depth 1
+    )
+
+    result = subprocess.run(
+        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
+         "--mutations-use-depth", "-o", str(out_path)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, f"merge failed: {result.stderr}"
+    combined = result.stdout + result.stderr
+    # With the flag: depth checked, mismatch detected, row skipped
+    assert "Integrity mismatches: 1" in combined
+    assert "Enriched 0 mutations across 0 nodes" in combined
+
+
 def test_merge_strict_check_fails_on_mismatch(tmp_path):
     """--mutations-strict-check turns integrity mismatches into a hard failure."""
     json_path = _name_keyed_fixture(tmp_path)

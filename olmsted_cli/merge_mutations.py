@@ -360,8 +360,8 @@ def merge_mutations_into_trees(
     For each tree whose ``clone_id`` matches a family in the CSV:
       1. Decide match mode:
          - ``name_site``: CSV has a node-name column → deterministic
-           ``(node_name, site)`` join with ``parent_aa``/``child_aa``/``depth``
-           (if present) as integrity checks.
+           ``(node_name, site)`` join with ``parent_aa``/``child_aa`` as
+           integrity checks (``depth`` too when ``use_depth=True``).
          - ``site_paa_caa``: fallback; ``(site, parent_aa, child_aa)`` +
            optionally ``depth`` if ``use_depth=True``.
       2. For each node, derive (or read existing) mutation records and
@@ -372,9 +372,13 @@ def merge_mutations_into_trees(
     Args:
         trees: List of tree dicts (modified in place).
         mutations_by_family: Output of ``load_mutations_csv``.
-        use_depth: When True, and the CSV has a ``depth`` column, use it to
-            extend the fallback join key. Ignored when a name column is
-            present (depth is an integrity check in that mode).
+        use_depth: When True, the ``depth`` column (if present in the CSV)
+            is honored — as a match-key participant in site-keyed mode,
+            or as an integrity check in name-keyed mode. When False, a
+            ``depth`` column in the CSV is ignored entirely for both
+            purposes. Opt-in because depth arithmetic depends on the
+            upstream pipeline's rooting convention, which the CLI cannot
+            infer with certainty.
 
     Returns:
         A ``MergeStats`` describing what was merged, what was skipped, and
@@ -384,10 +388,21 @@ def merge_mutations_into_trees(
     name_keyed = _has_name_column(mutations_by_family)
     depth_present = _has_depth_column(mutations_by_family)
 
+    # Fail fast if depth was opted in but the column isn't actually there —
+    # the user's intent (use depth) and the data (no depth) are in conflict.
+    if use_depth and not depth_present:
+        raise ValueError(
+            "--mutations-use-depth was passed but the mutations CSV has no "
+            "'depth' column. Either add depth values to the CSV or drop the flag."
+        )
+
+    # Depth is honored (as match key or integrity check) only when opted in.
+    honor_depth = use_depth and depth_present
+
     if name_keyed:
         stats.match_mode = MATCH_MODE_NAME_SITE
         extend_with_depth = False  # depth is integrity-only in this mode
-    elif use_depth and depth_present:
+    elif honor_depth:
         stats.match_mode = MATCH_MODE_SITE_PAA_CAA_DEPTH
         extend_with_depth = True
     else:
@@ -398,9 +413,17 @@ def merge_mutations_into_trees(
     disambig = []
     if name_keyed:
         disambig.append("node_name")
-    if depth_present and (extend_with_depth or name_keyed):
+    if honor_depth:
         disambig.append("depth")
     stats.disambiguation_columns_used = disambig
+
+    # Note the seen-but-ignored case so the user knows their depth column
+    # isn't silently doing something different than they expect.
+    if depth_present and not use_depth:
+        vprint.verbose(
+            "Mutations CSV has a 'depth' column but --mutations-use-depth was "
+            "not set; ignoring depth for both match-key and integrity checks."
+        )
 
     unmatched_family_set = set(mutations_by_family.keys())
 
@@ -410,7 +433,7 @@ def merge_mutations_into_trees(
     if name_keyed:
         _merge_name_keyed(
             trees, mutations_by_family, stats, unmatched_family_set, extras_excluded,
-            check_depth=depth_present,
+            check_depth=honor_depth,
         )
     else:
         _merge_site_keyed(
