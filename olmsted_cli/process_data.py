@@ -239,7 +239,7 @@ def process_airr_format(args):
                 mutations_path,
                 trees,
                 use_depth=getattr(args, "mutations_use_depth", False),
-                strict_check=getattr(args, "mutations_strict_check", False),
+                allow_mismatch=getattr(args, "mutations_allow_mismatch", False),
             )
         except ValueError as e:
             vprint.error(f"Error: {e}")
@@ -385,7 +385,7 @@ def process_pcp_format(args):
                     mutations_path,
                     trees,
                     use_depth=getattr(args, "mutations_use_depth", False),
-                    strict_check=getattr(args, "mutations_strict_check", False),
+                    allow_mismatch=getattr(args, "mutations_allow_mismatch", False),
                 )
             except ValueError as e:
                 vprint.error(f"Error: {e}")
@@ -485,11 +485,12 @@ Examples:
         "on the upstream rooting convention.",
     )
     parser.add_argument(
-        "--mutations-strict-check",
+        "--mutations-allow-mismatch",
         action="store_true",
-        help="Fail the command on integrity mismatches between CSV rows and "
-        "the tree's derived mutations. Without this flag, mismatches are "
-        "warned and the row is skipped.",
+        help="Proceed past integrity mismatches between the mutations CSV "
+        "and the tree's derived mutations. By default processing fails on "
+        "any such mismatch. Mismatched rows are always skipped; the flag "
+        "only controls whether the command exits non-zero afterwards.",
     )
     parser.add_argument(
         "-o",
@@ -795,9 +796,9 @@ def get_args():
         )
 
     # Mutation flags only make sense with --mutations
-    if (args.mutations_use_depth or args.mutations_strict_check) and not args.mutations:
+    if (args.mutations_use_depth or args.mutations_allow_mismatch) and not args.mutations:
         parser.error(
-            "--mutations-use-depth / --mutations-strict-check require --mutations"
+            "--mutations-use-depth / --mutations-allow-mismatch require --mutations"
         )
 
     return args

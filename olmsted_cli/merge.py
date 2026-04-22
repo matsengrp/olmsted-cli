@@ -67,11 +67,14 @@ Examples:
         "convention, which the CLI can't infer.",
     )
     parser.add_argument(
-        "--mutations-strict-check",
+        "--mutations-allow-mismatch",
         action="store_true",
-        help="Fail the command when a CSV row matches a (node, site) but its "
-        "parent_aa/child_aa/depth disagree with the tree's derived mutation. "
-        "Without this flag, mismatches are warned and the row is skipped.",
+        help="Proceed past integrity mismatches between the mutations CSV "
+        "and the tree's derived mutations. By default the command fails "
+        "when any CSV row matches a (node, site) but its parent_aa, "
+        "child_aa, or depth disagree with what the tree derives at that "
+        "position; mismatched rows are always skipped regardless of this "
+        "flag. Use only after investigating the disagreement.",
     )
     parser.add_argument(
         "-o",
@@ -157,7 +160,7 @@ def main():
             args.mutations,
             data["trees"],
             use_depth=args.mutations_use_depth,
-            strict_check=args.mutations_strict_check,
+            allow_mismatch=args.mutations_allow_mismatch,
         )
     except (FileNotFoundError, ValueError) as e:
         vprint.error(f"Error: {e}")

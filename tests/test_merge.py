@@ -554,8 +554,12 @@ def test_merge_child_name_alias(tmp_path):
     assert "Match mode: name_site" in result.stdout + result.stderr
 
 
-def test_merge_integrity_mismatch_warns_and_skips(tmp_path):
-    """Name+site match but parent_aa/child_aa disagreement is warned and skipped."""
+def test_merge_integrity_mismatch_fails_by_default(tmp_path):
+    """By default, any parent_aa/child_aa disagreement is a hard failure.
+
+    The merge skips the row (never attaches wrong-looking data) AND exits
+    non-zero so callers can't accidentally ship a partially-wrong merge.
+    """
     json_path = _name_keyed_fixture(tmp_path)
     csv_path = tmp_path / "muts.csv"
     out_path = tmp_path / "out.json"
@@ -568,6 +572,31 @@ def test_merge_integrity_mismatch_warns_and_skips(tmp_path):
     result = subprocess.run(
         ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
          "-o", str(out_path)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode != 0
+    combined = result.stdout + result.stderr
+    assert "integrity mismatches" in combined.lower()
+    assert "--mutations-allow-mismatch" in combined
+
+
+def test_merge_allow_mismatch_downgrades_to_warning(tmp_path):
+    """--mutations-allow-mismatch downgrades integrity mismatches to a warning.
+
+    The row is still skipped — the flag never attaches wrong-looking data,
+    it only stops the non-zero exit.
+    """
+    json_path = _name_keyed_fixture(tmp_path)
+    csv_path = tmp_path / "muts.csv"
+    out_path = tmp_path / "out.json"
+    csv_path.write_text(
+        "family,node_name,site,parent_aa,child_aa,score\n"
+        "fam1,inner,1,K,Q,111\n"
+    )
+
+    result = subprocess.run(
+        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
+         "--mutations-allow-mismatch", "-o", str(out_path)],
         capture_output=True, text=True,
     )
     assert result.returncode == 0, f"merge failed: {result.stderr}"
@@ -639,7 +668,11 @@ def test_merge_name_keyed_depth_ignored_without_flag(tmp_path):
 
 
 def test_merge_name_keyed_depth_check_with_flag(tmp_path):
-    """With --mutations-use-depth, name-keyed mode checks depth as an integrity field."""
+    """With --mutations-use-depth, name-keyed mode checks depth as an integrity field.
+
+    A depth disagreement triggers the same default-fail behavior as a
+    parent_aa/child_aa disagreement.
+    """
     json_path = _name_keyed_fixture(tmp_path)
     csv_path = tmp_path / "muts.csv"
     out_path = tmp_path / "out.json"
@@ -653,32 +686,11 @@ def test_merge_name_keyed_depth_check_with_flag(tmp_path):
          "--mutations-use-depth", "-o", str(out_path)],
         capture_output=True, text=True,
     )
-    assert result.returncode == 0, f"merge failed: {result.stderr}"
-    combined = result.stdout + result.stderr
-    # With the flag: depth checked, mismatch detected, row skipped
-    assert "Integrity mismatches: 1" in combined
-    assert "Enriched 0 mutations across 0 nodes" in combined
-
-
-def test_merge_strict_check_fails_on_mismatch(tmp_path):
-    """--mutations-strict-check turns integrity mismatches into a hard failure."""
-    json_path = _name_keyed_fixture(tmp_path)
-    csv_path = tmp_path / "muts.csv"
-    out_path = tmp_path / "out.json"
-    csv_path.write_text(
-        "family,node_name,site,parent_aa,child_aa,score\n"
-        "fam1,inner,1,K,Q,111\n"
-    )
-
-    result = subprocess.run(
-        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
-         "--mutations-strict-check", "-o", str(out_path)],
-        capture_output=True, text=True,
-    )
+    # With the flag: depth checked, mismatch detected → default-fail
     assert result.returncode != 0
     combined = result.stdout + result.stderr
-    assert "--mutations-strict-check" in combined
-    assert "integrity mismatches" in combined.lower()
+    assert "Integrity mismatches: 1" in combined
+    assert "--mutations-allow-mismatch" in combined
 
 
 def test_merge_depth_ignored_without_flag(tmp_path):
@@ -727,7 +739,7 @@ def test_merge_depth_ignored_without_flag(tmp_path):
     assert leaf_mut["score"] == 111
 
 
-@pytest.mark.parametrize("flag", ["--mutations-use-depth", "--mutations-strict-check"])
+@pytest.mark.parametrize("flag", ["--mutations-use-depth", "--mutations-allow-mismatch"])
 def test_process_rejects_mutation_flags_without_mutations(tmp_path, flag):
     """`process` argparse rejects mutation-related flags when --mutations is absent.
 

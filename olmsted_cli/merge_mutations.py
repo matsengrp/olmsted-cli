@@ -73,8 +73,9 @@ class MergeStats:
     broadcast_csv_rows: int = 0
     # Count of CSV rows whose (node_name, site) resolved to a real node + site
     # but where parent_aa/child_aa or depth disagreed with the tree's derived
-    # mutation at that position. The CSV data is NOT attached on mismatch,
-    # and (under --mutations-strict-check) the command exits non-zero.
+    # mutation at that position. The CSV data is NOT attached on mismatch.
+    # By default any non-zero value causes the command to exit non-zero;
+    # --mutations-allow-mismatch downgrades this to a warning.
     integrity_mismatches: int = 0
     # Names of optional disambiguation / structural columns that were present
     # in the CSV and used as part of the match key or as integrity checks.
@@ -638,7 +639,7 @@ def apply_mutations_csv(
     trees: List[Dict[str, Any]],
     *,
     use_depth: bool = False,
-    strict_check: bool = False,
+    allow_mismatch: bool = False,
 ) -> Optional[MergeStats]:
     """Load a mutations CSV and merge it into ``trees`` (in place).
 
@@ -654,18 +655,22 @@ def apply_mutations_csv(
     Args:
         use_depth: Enable the optional ``depth`` column as part of the
             fallback match key. No effect when the CSV has a node-name column.
-        strict_check: Treat integrity mismatches (``parent_aa``/``child_aa``
-            or ``depth`` disagreement when a row matches by ``(node_name,
-            site)``) as a hard error; the caller is responsible for exiting.
+        allow_mismatch: Downgrade integrity mismatches (``parent_aa``/
+            ``child_aa`` or ``depth`` disagreement when a row matches by
+            ``(node_name, site)``) from a hard failure to a warning. Default
+            behavior is to raise ``ValueError`` if any mismatch occurs, so
+            that callers can't accidentally ship a partially-wrong merge.
+            Mismatched rows are never attached regardless of this flag.
 
-    Warnings for unmatched families, unmatched mutations, and integrity
-    mismatches are emitted via ``vprint.error`` at normal verbosity.
+    Warnings for unmatched families, unmatched mutations, and broadcast
+    rows are emitted via ``vprint.error`` at normal verbosity.
     Per-family detail is at -v 2.
 
     Raises:
-        ValueError: When ``strict_check=True`` and at least one integrity
-            mismatch was recorded. The merge has still been applied to
-            the rows that matched cleanly.
+        ValueError: When at least one integrity mismatch was recorded and
+            ``allow_mismatch`` is False (the default). The merge has still
+            been applied to the rows that matched cleanly; mismatched rows
+            are skipped.
     """
     if not mutations_path:
         return None
@@ -743,11 +748,12 @@ def apply_mutations_csv(
             f"for those rows. Run with -v 2 to see per-family details."
         )
 
-    if strict_check and stats.integrity_mismatches:
+    if stats.integrity_mismatches and not allow_mismatch:
         raise ValueError(
-            f"--mutations-strict-check: {stats.integrity_mismatches} integrity "
-            f"mismatches between CSV rows and tree mutations. Re-run without "
-            f"--mutations-strict-check to continue despite the mismatches."
+            f"{stats.integrity_mismatches} integrity mismatches between CSV "
+            f"rows and tree mutations. Mismatched rows were skipped "
+            f"(never attached). Re-run with --mutations-allow-mismatch to "
+            f"proceed anyway — but investigate the CSV/tree disagreement first."
         )
 
     return stats

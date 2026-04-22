@@ -219,13 +219,13 @@ The merge picks a match mode based on what the CSV carries. The chosen mode is r
 
 `depth`: Edges from the nearest root to the child node, computed at merge time via BFS in `_compute_node_depths()` (prefers naive as origin when connected; falls back to directed root BFS). Depth is **opt-in via `--mutations-use-depth`** because depth arithmetic depends on the upstream pipeline's rooting convention, which the CLI can't infer. Without the flag, a `depth` column in the CSV is ignored *entirely* — neither as a match-key participant nor as an integrity check. When the column is seen but the flag is absent, `apply_mutations_csv` logs a verbose note. Conversely, passing `--mutations-use-depth` when the CSV has **no** `depth` column raises `ValueError` — opting in with no data to opt into is a misuse signal.
 
-### Integrity Checks and `--mutations-strict-check`
+### Integrity Checks and `--mutations-allow-mismatch`
 
-In `name_site` mode, `parent_aa`/`child_aa` (and `depth`, only when `--mutations-use-depth` is set) aren't part of the join key — they're cross-checked against the tree's derived mutation at the identified `(node, site)`. On disagreement:
-- **Default:** warn at `vprint.error` level, skip the row (no enrichment attached), count in `MergeStats.integrity_mismatches`. Exit 0.
-- **`--mutations-strict-check`:** raise `ValueError` → the command exits non-zero.
+In `name_site` mode, `parent_aa`/`child_aa` (and `depth`, only when `--mutations-use-depth` is set) aren't part of the join key — they're cross-checked against the tree's derived mutation at the identified `(node, site)`. Mismatched rows are **always skipped** (never attached, regardless of flags). The flag controls whether the command exits:
+- **Default:** any integrity mismatch raises `ValueError` → the command exits non-zero. Callers can't accidentally ship a partially-wrong merge.
+- **`--mutations-allow-mismatch`:** downgrade to a warning; skipped rows are still reported via `MergeStats.integrity_mismatches` but the command exits 0.
 
-Rationale: attaching upstream scores to a mutation whose parent/child residues don't match what the CSV claimed would attach data to the wrong biological event. Skipping is always safer than attributing.
+Rationale: attaching upstream scores to a mutation whose parent/child residues don't match what the CSV claimed would attach data to the wrong biological event. Skipping is always safer than attributing; failing loud by default surfaces CSV/tree drift rather than letting it pass silently. The flag exists as an explicit "I know, proceed anyway" escape hatch.
 
 ### Excluded CSV Columns
 
@@ -269,10 +269,12 @@ Broadcast: {K} CSV rows matched multiple nodes (ambiguous join — same data app
 Integrity mismatches: {I} CSV rows matched a (node, site) but disagreed with the tree's derived mutation
 ```
 
-Warnings (at error level, exit 0 unless `--mutations-strict-check`):
+Warnings (at error level, exit 0):
 - **Unmatched mutations** in matched families — the CSV references substitutions / nodes that don't appear in any derived diff
 - **Broadcast rows** — the CSV row's enrichment was applied to multiple node-mutations; may not be correct for per-event scores
-- **Integrity mismatches** — in `name_site` mode, the CSV's `parent_aa`/`child_aa`/`depth` disagreed with what the tree derived at that position; the row was skipped. `--mutations-strict-check` upgrades this to exit non-zero.
+
+Hard failures (exit non-zero):
+- **Integrity mismatches** in `name_site` mode — the CSV's `parent_aa`/`child_aa`/`depth` disagreed with what the tree derived at that position. Mismatched rows are always skipped (never attached); the default is to also exit non-zero. `--mutations-allow-mismatch` downgrades this to a warning and keeps exit 0.
 
 Per-family detail at `-v 2`: which keys went unmatched, which broadcast, and which failed integrity.
 
