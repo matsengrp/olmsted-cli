@@ -136,6 +136,11 @@
                     "type": "continuous",
                     "display": "dropdown",
                     "label": "Multiplicity"
+                },
+                "pcp_index": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "Pcp Index"
                 }
             },
             "branch": {

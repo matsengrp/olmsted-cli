@@ -190,26 +190,54 @@ def _normalize_nodes(tree: Dict[str, Any]) -> List[Dict[str, Any]]:
     return nodes
 
 
-def _compute_node_depths(nodes: List[Dict[str, Any]]) -> Dict[str, int]:
-    """Compute each node's depth (edges from the nearest root) via BFS.
+def _compute_node_depths(
+    nodes: List[Dict[str, Any]], naive_name: str = "naive"
+) -> Dict[str, int]:
+    """Compute each node's depth via BFS, measuring from ``naive`` when present.
 
-    A node is treated as a root if its ``parent`` field is missing/None or
-    refers to a sequence_id not in the tree.
+    If a node with ``sequence_id == naive_name`` exists, depths are measured
+    as the **undirected** graph distance from that node (treating parent→child
+    edges as bidirectional). This matches the depth convention used by
+    upstream mutation/surprise pipelines that treat the naive/germline
+    sequence as the root reference point — even though olmsted trees
+    typically place naive as a sibling leaf next to a synthetic root.
+
+    Falls back to directed BFS from the tree root (nodes with no parent) when
+    no naive node is found.
     """
     sid_set = {n["sequence_id"] for n in nodes if isinstance(n, dict) and "sequence_id" in n}
-    children_by_parent: Dict[str, List[str]] = {}
+
+    # Build undirected adjacency for naive-rooted BFS
+    adj: Dict[str, List[str]] = {}
     for n in nodes:
         if not isinstance(n, dict):
             continue
         sid = n.get("sequence_id")
-        if not sid:
-            continue
         parent = n.get("parent")
-        if parent and parent in sid_set:
-            children_by_parent.setdefault(parent, []).append(sid)
+        if sid and parent and parent in sid_set:
+            adj.setdefault(sid, []).append(parent)
+            adj.setdefault(parent, []).append(sid)
 
-    depths: Dict[str, int] = {}
-    queue: deque = deque()
+    # Prefer naive as the reference origin (depth 0), but only if it's
+    # connected to the rest of the tree. In some tree representations,
+    # naive is an isolated root in a forest of subtrees — in that case
+    # BFS from naive can't reach anything useful, so we fall back.
+    if naive_name in sid_set and adj.get(naive_name):
+        depths: Dict[str, int] = {naive_name: 0}
+        queue: deque = deque([naive_name])
+        while queue:
+            sid = queue.popleft()
+            for nb in adj.get(sid, []):
+                if nb not in depths:
+                    depths[nb] = depths[sid] + 1
+                    queue.append(nb)
+        if len(depths) > 1:
+            return depths
+        # naive is present but disconnected — fall through to root-based BFS
+
+    # Fallback: directed BFS from tree root(s)
+    depths = {}
+    queue = deque()
     for n in nodes:
         if not isinstance(n, dict):
             continue
@@ -220,6 +248,15 @@ def _compute_node_depths(nodes: List[Dict[str, Any]]) -> Dict[str, int]:
         if not parent or parent not in sid_set:
             depths[sid] = 0
             queue.append(sid)
+
+    children_by_parent: Dict[str, List[str]] = {}
+    for n in nodes:
+        if not isinstance(n, dict):
+            continue
+        sid = n.get("sequence_id")
+        parent = n.get("parent")
+        if sid and parent and parent in sid_set:
+            children_by_parent.setdefault(parent, []).append(sid)
 
     while queue:
         sid = queue.popleft()

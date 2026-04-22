@@ -243,7 +243,7 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
         is_paired = has_heavy and has_light
         is_light_only = has_light and not has_heavy
 
-        for raw_row in reader:
+        for pcp_index, raw_row in enumerate(reader):
             # Apply column name normalization
             row = {column_map.get(k, k): v for k, v in raw_row.items() if k}
             sample_id = row["sample_id"]
@@ -441,6 +441,7 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
             if child not in families[family_id]["nodes"]:
                 child_node_data = {
                     "sequence_id": child,
+                    "pcp_index": pcp_index,
                     "multiplicity": sample_count,
                     "timepoint_multiplicities": [],
                     "sequence_alignment": child_sequence,
