@@ -34,7 +34,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 178
         },
         {
             "sequence_id": "Node2",
@@ -50,7 +51,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 179
         },
         {
             "sequence_id": "Node3",
@@ -66,7 +68,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 180
         },
         {
             "sequence_id": "Node4",
@@ -82,7 +85,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 181
         },
         {
             "sequence_id": "1TTTTGATACGCTTAGTTCTTGG",
@@ -98,7 +102,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 182
         },
         {
             "sequence_id": "1TTGTTCGAATCTTGGGGGAGGA",
@@ -114,7 +119,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 183
         },
         {
             "sequence_id": "Node5",
@@ -130,7 +136,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 184
         },
         {
             "sequence_id": "1TATGGTATGGTCTTTTCTTGGG",
@@ -146,7 +153,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 185
         },
         {
             "sequence_id": "1TGGATTGTTCTAGCATCTTGGG",
@@ -162,7 +170,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 186
         },
         {
             "sequence_id": "Node6",
@@ -178,7 +187,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 187
         },
         {
             "sequence_id": "1TCCGCTCGCGTTTGCTCTTGGG",
@@ -194,7 +204,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 188
         },
         {
             "sequence_id": "1TTGGATGACGTCCGGTCTTGGG",
@@ -210,7 +221,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 189
         },
         {
             "sequence_id": "1TTTTCTTAAATGCGGTCTTGGG",
@@ -226,7 +238,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 190
         },
         {
             "sequence_id": "1TGTGGTTGTCTGGATTCTTGGG",
@@ -242,7 +255,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 193
         },
         {
             "sequence_id": "1TGTTGTGGAATAGTCTCTTGGG",
@@ -258,7 +272,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 194
         },
         {
             "sequence_id": "1TGCCCTAATGTAGGCTCTTGGG",
@@ -274,7 +289,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 195
         },
         {
             "sequence_id": "1TACCCTGTCATGATTTCTTGGG",
@@ -290,7 +306,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 198
         },
         {
             "sequence_id": "1TAGGCTACGTTGACGTCTTGGG",
@@ -306,7 +323,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 200
         },
         {
             "sequence_id": "1TAGATTCGGCTCGCGTCTTGGG",
@@ -322,7 +340,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 201
         },
         {
             "sequence_id": "1TTACTTCGAGTTCGTTCTTGGG",
@@ -338,7 +357,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 204
         },
         {
             "sequence_id": "1TGGCCTGCTTTGTTGTCTTGGG",
@@ -354,7 +374,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 205
         },
         {
             "sequence_id": "1TGTAATTGCCTTATTTCTTGGG",
@@ -370,7 +391,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 206
         }
     ],
     "type": "pcp.reconstruction"

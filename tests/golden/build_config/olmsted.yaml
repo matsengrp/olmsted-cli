@@ -1,0 +1,195 @@
+# =============================================================================
+# Field configuration generated from: surprise_subset.json
+# Detected format: olmsted
+# =============================================================================
+#
+# This file lists all fields discovered in your data. Edit it to:
+#   - Remove fields you don't want in the web app dropdowns
+#   - Change type (continuous, categorical, aa, dna, list, json)
+#   - Change display mode (dropdown, tooltip, skip)
+#   - Customize display labels
+#   - Uncomment processing options below as needed
+#
+# Then use with:  olmsted tag -i data.json -o tagged.json -c this_file.yaml
+
+# =============================================================================
+# Processing Options (uncomment and edit as needed)
+# =============================================================================
+
+# input: example_data/surprise/surprise_subset.json
+# output: tagged_output.json
+# mode: add            # add (merge with existing) or overwrite
+
+
+# =============================================================================
+# Field Declarations
+# =============================================================================
+#
+# Each field entry supports:
+#   name:        Field name in the input data (required)
+#   output_name: Renamed field in output (optional)
+#   level:       family, node, branch, or mutation (required)
+#   type:        continuous, categorical, aa, dna, list, or json (required)
+#   display:     dropdown (default), tooltip, or skip (optional)
+#   label:       Display label in web app (required)
+#   skip:        true to exclude from metadata (shorthand for display: skip)
+#   range:       [min, max] for continuous fields (optional)
+#   encoding:    list, json, or records (mutation-level only, optional)
+#   source:      node field containing the data (required for encoding: records)
+#
+# Types (what the data IS):
+#   continuous  — numeric (axes, size, color scales)
+#   categorical — string/enum (color, shape, facet)
+#   aa          — amino acid identity (full genetic alphabet)
+#   dna         — nucleotide identity (full genetic alphabet)
+#   list        — ordered sequence of values (e.g. per-position data)
+#   json        — structured key-value data (pretty-printed in tooltips)
+#
+# Display modes (how to show it):
+#   dropdown    — in visualization controls (default, omit if not needed)
+#   tooltip     — shown on hover only, not in controls
+#   skip        — excluded from output metadata entirely
+#
+# Cross-format aliases (suggested output_name, remove if not needed):
+#   v_gene, v_gene_heavy  ->  v_call
+#   d_gene, d_gene_heavy  ->  d_call
+#   j_gene, j_gene_heavy  ->  j_call
+#   rearrangement_count   ->  unique_seqs_count
+#   size                  ->  total_read_count
+
+custom_fields:
+
+  # --- Family level (clonal family — scatterplot axes, color, facet) ---
+  - name: has_seed
+    level: family
+    type: categorical
+    label: "Has Seed"
+    # sample values: False, False, False
+  - name: mean_mut_freq
+    level: family
+    type: continuous
+    label: "Mean Mutation Frequency"
+    # sample values: 0.07664073931803274, 0.020543204735820882, 0.04089491015901639
+  - name: mean_surprise_mutsel
+    level: family
+    type: continuous
+    label: "Mean Surprise MutSel"
+    # sample values: 3.980109743815524, 4.534031605318286, 4.438974180546018
+  - name: num_mutations
+    level: family
+    type: continuous
+    label: "Num Mutations"
+    # sample values: 404, 189, 182
+  - name: sample_id
+    level: family
+    type: categorical
+    label: "Sample"
+    # sample values: d4, d3, d1
+  - name: subject_id
+    level: family
+    type: categorical
+    label: "Subject"
+    # sample values: d4, d3, d1
+  - name: unique_seqs_count
+    level: family
+    type: continuous
+    label: "Unique Sequences Count"
+    # sample values: 62, 76, 67
+  - name: v_call
+    level: family
+    type: categorical
+    label: "V Gene"
+    # sample values: IGHV3-23*01+G147A.C148G, IGHV1-46*01, IGHV3-30*04
+
+  # --- Mutation level (alignment coloring) ---
+  # The following fields are derived by the web app from
+  # parent/child sequence alignments during rendering:
+  - name: child_aa
+    level: mutation
+    type: aa
+    label: "Child Amino Acid"
+  - name: parent_aa
+    level: mutation
+    type: aa
+    display: tooltip
+    label: "Parent Amino Acid"
+  - name: region
+    level: mutation
+    type: categorical
+    label: "Region"
+    # sample values: CDR1, CDR1, CDR1, FWR2, FWR2, ...
+  - name: selection_contribution
+    level: mutation
+    type: continuous
+    label: "Selection Contribution"
+    # range in data: [-1.2639827852342562, 4.31660655226451]
+    # range: [-1.2639827852342562, 4.31660655226451]  # uncomment to set color scale domain
+    # sample values: 0.3450907410128154, -0.0049462329914633, 1.045566610142299, 0.4135494607189889, -0.2073864599790593, ...
+  - name: surprise_mutsel
+    level: mutation
+    type: continuous
+    label: "Surprise (MutSel)"
+    # range in data: [1.0796225326983708, 10.249228698117571]
+    # range: [1.0796225326983708, 10.249228698117571]  # uncomment to set color scale domain
+    # sample values: 4.220882652529221, 2.472661528946595, 4.8768858667723896, 6.304168751730626, 2.800127240637156, ...
+  - name: surprise_neutral
+    level: mutation
+    type: continuous
+    label: "Surprise (Neutral)"
+    # range in data: [1.492852812911735, 10.738948988639992]
+    # range: [1.492852812911735, 10.738948988639992]  # uncomment to set color scale domain
+    # sample values: 3.875791911516406, 2.4776077619380583, 3.83131925663009, 5.890619291011637, 3.0075137006162147, ...
+
+  # =================================================================
+  # Skipped fields (not included in output metadata)
+  # Remove 'skip: true' to include a field, or delete the entry
+  # =================================================================
+  - name: clone_id
+    level: family
+    skip: true
+    type: categorical
+    label: "Clone ID"
+    # sample values: 205347-igk-205347, 16107-igk-16107, 245021-igl-91758
+  - name: dataset_id
+    level: family
+    skip: true
+    type: categorical
+    label: "Dataset ID"
+    # sample values: dasm2-surprise-20260315, dasm2-surprise-20260315, dasm2-surprise-20260315
+  - name: ident
+    level: family
+    skip: true
+    type: categorical
+    label: "Ident"
+    # sample values: 35d705ae-82a0-4b0d-ad31-35bb5de10786, 3c2a2a57-176e-4ebd-8f7a-6c526eb2dd13, 276e5849-a623-42e3-8598-1c205072ca68
+  - name: j_alignment_end
+    level: family
+    skip: true
+    type: continuous
+    label: "J Alignment End"
+    # sample values: 366, 369, 369
+  - name: j_alignment_start
+    level: family
+    skip: true
+    type: continuous
+    label: "J Alignment Start"
+    # sample values: 326, 329, 329
+  - name: v_alignment_end
+    level: family
+    skip: true
+    type: continuous
+    label: "V Alignment End"
+    # sample values: 366, 369, 369
+  - name: v_alignment_start
+    level: family
+    skip: true
+    type: continuous
+    label: "V Alignment Start"
+    # sample values: 1, 1, 1
+  - name: type
+    level: node
+    skip: true
+    type: categorical
+    label: "Type"
+    # sample values: root, internal, internal, leaf, internal, ...
+

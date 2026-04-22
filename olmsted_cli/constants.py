@@ -171,9 +171,21 @@ KNOWN_BRANCH_FIELDS = {
 KNOWN_MUTATION_FIELDS = {
     "surprise_mutsel": {"type": "continuous", "label": "Surprise (MutSel)"},
     "surprise_neutral": {"type": "continuous", "label": "Surprise (Neutral)"},
+    "surprise_mutsel_theoretical": {
+        "type": "continuous",
+        "label": "Surprise (MutSel, Theoretical)",
+    },
     "selection_contribution": {
         "type": "continuous",
         "label": "Selection Contribution",
+    },
+    "log_selection_factor": {
+        "type": "continuous",
+        "label": "Log Selection Factor",
+    },
+    "num_codon_changes": {
+        "type": "continuous",
+        "label": "Number of Codon Changes",
     },
     "region": {"type": "categorical", "label": "Region"},
     "parent_aa": {"type": "aa", "display": "tooltip", "label": "Parent Amino Acid"},
@@ -181,6 +193,32 @@ KNOWN_MUTATION_FIELDS = {
     "parent_nt": {"type": "dna", "display": "tooltip", "label": "Parent Nucleotide"},
     "child_nt": {"type": "dna", "label": "Child Nucleotide"},
 }
+
+# CSV columns that act as join/structural keys when merging mutations CSVs.
+# These are excluded from the mutation field dicts that get attached to nodes.
+MUTATIONS_CSV_KEY_COLUMNS = {
+    "family",
+    "sample_id",
+    "site",
+    "parent_aa",
+    "child_aa",
+    "pcp_index",
+    "depth",
+    "node_name",
+    "child_name",
+}
+
+#: Aliases for the "node name" column in a mutations CSV. When any of these
+#: columns is present, the mutation row is routed to the specific node whose
+#: ``sequence_id`` equals the value, fully disambiguating the join. The first
+#: alias found (in this order) wins; others are still treated as structural
+#: columns and stripped from the output mutation record.
+MUTATIONS_CSV_NAME_ALIASES = ("node_name", "child_name")
+
+#: Top-level keys required on a consolidated Olmsted JSON file. Commands
+#: that operate on all three (e.g. ``merge``) validate presence against
+#: this tuple before proceeding.
+OLMSTED_REQUIRED_TOP_LEVEL_KEYS = ("datasets", "clones", "trees")
 
 #: Mapping from level name to its known fields registry.
 KNOWN_FIELDS_BY_LEVEL = {

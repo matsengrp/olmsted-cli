@@ -62,6 +62,7 @@ from tqdm import tqdm
 from .process_utils import (
     SCHEMA_VERSION,
     VerbosePrinter,
+    coerce_csv_value,
     create_consolidated_data,
     tag_field_metadata,
     get_optional_int,
@@ -138,34 +139,6 @@ def _partition_chain_fields(fields):
         else:
             shared[key] = val
     return shared, heavy_only, light_only
-
-
-def _coerce_csv_value(val: str):
-    """
-    Coerce a CSV string value to the most appropriate Python type.
-
-    Attempts: int → float → JSON (list/dict) → string.
-    """
-    # Try int
-    try:
-        return int(val)
-    except (ValueError, TypeError):
-        pass
-    # Try float
-    try:
-        return float(val)
-    except (ValueError, TypeError):
-        pass
-    # Try JSON (for lists, dicts — mutation-level structured data)
-    if val.startswith(("[", "{")):
-        try:
-            return json.loads(val)
-        except (json.JSONDecodeError, ValueError):
-            pass
-    # Boolean
-    if val.lower() in ("true", "false"):
-        return val.lower() == "true"
-    return val
 
 
 def infer_locus_from_v_gene(v_gene: str) -> str:
@@ -270,7 +243,7 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
         is_paired = has_heavy and has_light
         is_light_only = has_light and not has_heavy
 
-        for raw_row in reader:
+        for pcp_index, raw_row in enumerate(reader):
             # Apply column name normalization
             row = {column_map.get(k, k): v for k, v in raw_row.items() if k}
             sample_id = row["sample_id"]
@@ -461,13 +434,14 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
                 for col in extra_columns:
                     val = row.get(col, "")
                     if val != "":
-                        parent_node_data[col] = _coerce_csv_value(val)
+                        parent_node_data[col] = coerce_csv_value(val)
                 families[family_id]["nodes"][parent] = parent_node_data
 
             # Add child node if not already present
             if child not in families[family_id]["nodes"]:
                 child_node_data = {
                     "sequence_id": child,
+                    "pcp_index": pcp_index,
                     "multiplicity": sample_count,
                     "timepoint_multiplicities": [],
                     "sequence_alignment": child_sequence,
@@ -484,7 +458,7 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
                 for col in extra_columns:
                     val = row.get(col, "")
                     if val != "":
-                        child_node_data[col] = _coerce_csv_value(val)
+                        child_node_data[col] = coerce_csv_value(val)
                 families[family_id]["nodes"][child] = child_node_data
             else:
                 # Update multiplicity if node appears multiple times
@@ -956,7 +930,7 @@ def parse_newick_csv(csv_path: str) -> Dict[str, Any]:
                 for col in extra_columns:
                     val = row.get(col, "")
                     if val != "":
-                        tree_data[col] = _coerce_csv_value(val)
+                        tree_data[col] = coerce_csv_value(val)
             else:
                 # Return just string for backwards compatibility
                 tree_data = newick_tree

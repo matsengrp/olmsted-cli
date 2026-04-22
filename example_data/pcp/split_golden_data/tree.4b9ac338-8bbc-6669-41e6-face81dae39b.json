@@ -34,7 +34,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 76
         },
         {
             "sequence_id": "Node2",
@@ -50,7 +51,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 77
         },
         {
             "sequence_id": "Node3",
@@ -66,7 +68,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 78
         },
         {
             "sequence_id": "Node4",
@@ -82,7 +85,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 79
         },
         {
             "sequence_id": "Node5",
@@ -98,7 +102,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 80
         },
         {
             "sequence_id": "Node6",
@@ -114,7 +119,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 81
         },
         {
             "sequence_id": "Node7",
@@ -130,7 +136,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 82
         },
         {
             "sequence_id": "Node8",
@@ -146,7 +153,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 83
         },
         {
             "sequence_id": "Node9",
@@ -162,7 +170,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 84
         },
         {
             "sequence_id": "Node10",
@@ -178,7 +187,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 85
         },
         {
             "sequence_id": "Node11",
@@ -194,7 +204,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 86
         },
         {
             "sequence_id": "Node12",
@@ -210,7 +221,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 87
         },
         {
             "sequence_id": "Node13",
@@ -226,7 +238,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 88
         },
         {
             "sequence_id": "1TCGAGTCTTGTCAACTCTTGGG",
@@ -242,7 +255,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 89
         },
         {
             "sequence_id": "1TTCACTAGGGTAGTCTCTTGGG",
@@ -258,7 +272,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 90
         },
         {
             "sequence_id": "1TCACATGGGATGTAGTCTTGGG",
@@ -274,7 +289,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 91
         },
         {
             "sequence_id": "1TTCAATGGTGTTGCTTCTTGGG",
@@ -290,7 +306,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 92
         },
         {
             "sequence_id": "1TGTGATGGTCTATGGTCTTGGG",
@@ -306,7 +323,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 93
         },
         {
             "sequence_id": "1TCCGGTTTGCTGCGATCTTGGG",
@@ -322,7 +340,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 94
         },
         {
             "sequence_id": "1TGCAATTTCGTAGGGTCTTGGG",
@@ -338,7 +357,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 95
         },
         {
             "sequence_id": "1TTCGTTGATGTATGCTCTTGGG",
@@ -354,7 +374,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 96
         },
         {
             "sequence_id": "1TGTGTTGGAATCTATTCTTGGG",
@@ -370,7 +391,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 97
         },
         {
             "sequence_id": "1TCGTTTGCTTTAGTGTCTTGGG",
@@ -386,7 +408,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 98
         },
         {
             "sequence_id": "1TGGCCTACAGTCGGTTCTTGGG",
@@ -402,7 +425,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 99
         },
         {
             "sequence_id": "Node14",
@@ -418,7 +442,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 100
         },
         {
             "sequence_id": "1TTGGTTTGGTTCGTGTCTTGGG",
@@ -434,7 +459,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 101
         },
         {
             "sequence_id": "1TTTATTGGGCTAGACTCTTGGG",
@@ -450,7 +476,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 102
         },
         {
             "sequence_id": "1TGGGATTACATAATGTCTTGGG",
@@ -466,7 +493,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 103
         },
         {
             "sequence_id": "1TTCTGTGGAGTTTGATCTTGGG",
@@ -482,7 +510,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 104
         },
         {
             "sequence_id": "1TAGAATGGGGTTTCTTCTTGGG",
@@ -498,7 +527,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 106
         },
         {
             "sequence_id": "1TTTGCTCGATTGCCGTCTTGGG",
@@ -514,7 +544,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 107
         },
         {
             "sequence_id": "1TCACATGGATTTAAATCTTGGG",
@@ -530,7 +561,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 112
         },
         {
             "sequence_id": "1TAAAATGAATTGGTTTCTTGGG",
@@ -546,7 +578,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 114
         },
         {
             "sequence_id": "1TGGGATGGTTTCTTGTCTTGGG",
@@ -562,7 +595,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 116
         },
         {
             "sequence_id": "1TTGAATAAAGTACGGTCTTGGG",
@@ -578,7 +612,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 117
         },
         {
             "sequence_id": "1TCATGTAAAGTCGGCTCTTGGG",
@@ -594,7 +629,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 118
         },
         {
             "sequence_id": "1TACAATCTCATGACGTCTTGGG",
@@ -610,7 +646,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 119
         },
         {
             "sequence_id": "1TCTGTTAAGTTTGCCTCTTGGG",
@@ -626,7 +663,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 121
         },
         {
             "sequence_id": "1TCCGTTGGCTTGATATCTTGGG",
@@ -642,7 +680,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 122
         },
         {
             "sequence_id": "1TTGCTTGTGCTTTGTTCTTGGG",
@@ -658,7 +697,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 126
         },
         {
             "sequence_id": "1TGTGGTCTAGTTGTCTCTTGGG",
@@ -674,7 +714,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 128
         },
         {
             "sequence_id": "1TCCTCTGGGTTTGCGTCTTGGG",
@@ -690,7 +731,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 129
         },
         {
             "sequence_id": "1TAGGATTTGTTCTAGTCTTGGG",
@@ -706,7 +748,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 130
         },
         {
             "sequence_id": "1TAAGGTTTAATAGGCTCTTGGG",
@@ -722,7 +765,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 132
         },
         {
             "sequence_id": "1TGGAATGCGCTGTTTTCTTGGG",
@@ -738,7 +782,8 @@
             "lbi": null,
             "lbr": null,
             "affinity": null,
-            "scaled_affinity": null
+            "scaled_affinity": null,
+            "pcp_index": 133
         }
     ],
     "type": "pcp.reconstruction"

@@ -716,7 +716,8 @@ def _build_yaml(
 
     # --- Skipped fields section (at the bottom) ---
     if skip_entries:
-        parts.append(_load_template("skip_header.yaml"))
+        lines.append("")
+        lines.append(_load_template("skip_header.yaml").strip("\n"))
         for field, level, entry, samples, field_range in skip_entries:
             lines.append(_format_field_block(field, level, entry, samples, field_range, skip=True))
 

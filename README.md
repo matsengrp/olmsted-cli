@@ -77,6 +77,7 @@ olmsted process -i sequences.csv --tree trees.csv -o output/data.json --compute-
 |---------|---------|
 | **`process`** | This is the primary tool: Converts input AIRR or PCP format data into Olmsted-readable JSON format |
 | **`tag`** | Add field metadata to existing Olmsted JSON files |
+| **`merge`** | Merge external mutation-level CSV data into existing Olmsted JSON files |
 | **`build-config`** | Generate a YAML config from your data for editing |
 | **`validate`** | Verify data files conform to Olmsted schema |
 | **`summary`** | Generate statistics and metadata report for processed data |
@@ -109,6 +110,7 @@ olmsted process -i input.csv -f pcp -o output.json
 | `--unbundle DIR` | Unbundle output into separate component files (datasets.json, clones.*.json, tree.*.json) for backwards compatibility with Olmsted web app |
 | `-f, --format {airr,pcp,auto}` | Input format (default: auto-detect) |
 | `-t, --tree FILE` | Trees file for PCP format (optional, can be gzipped) |
+| `--mutations FILE` | Mutation-level CSV file to merge into tree nodes after processing (see `merge` command) |
 | `-c, --config FILE` | YAML configuration file (CLI arguments override config values) |
 
 #### Processing Options
@@ -215,6 +217,62 @@ olmsted tag -i data.json --in-place -c config.yaml
 | `-c, --config FILE` | YAML config with custom field declarations |
 | `--json-format {pretty,compact}` | JSON output format (default: pretty) |
 | `-v, --verbose` | Show detailed output |
+
+---
+
+### `merge` - Merge External Mutation Data into Olmsted JSON
+
+Attach mutation-level annotations (e.g., surprise scores, selection contributions) from an external CSV onto an existing Olmsted JSON file. For each tree node, mutations are derived from parent/child amino acid sequence diffs and matched against CSV rows by `(family, site, parent_aa, child_aa)`. Matching CSV columns are merged onto the mutation records, and `field_metadata` is regenerated so the new fields appear in the web app's controls.
+
+The same logic is also available during initial processing via `olmsted process --mutations` — see the `process` section.
+
+#### Basic Usage
+
+```bash
+# Merge mutation scores into an existing Olmsted JSON
+olmsted merge -i base.json --mutations scores.csv -o output.json
+
+# In-place modification
+olmsted merge -i base.json --mutations scores.csv --in-place
+
+# With a config file (preserves custom_fields declarations)
+olmsted merge -i base.json --mutations scores.csv -c config.yaml -o output.json
+```
+
+#### Options
+
+| Option | Description |
+|--------|-------------|
+| `-i, --input FILE` | Input Olmsted JSON file |
+| `--mutations FILE` | Mutations CSV file (see format below) |
+| `-o, --output FILE` | Output file path (required unless `--in-place`) |
+| `--in-place` | Modify the input file in place (refused if zero trees match) |
+| `-c, --config FILE` | YAML config with custom field declarations |
+| `--json-format {pretty,compact}` | JSON output format (default: pretty) |
+| `-v, --verbose {0,1,2,3}` | Verbosity level (use `-v 2` for per-family unmatched detail) |
+
+#### Mutations CSV Format
+
+Required columns:
+
+| Column | Description |
+|--------|-------------|
+| `family` | Clonal family identifier (joined against `clone_id` in the Olmsted JSON) |
+| `site` | Integer amino acid position (0-based) |
+| `parent_aa` | Single-character parent amino acid |
+| `child_aa` | Single-character child amino acid |
+
+Any additional columns become mutation-level fields on matching nodes (e.g., `surprise_mutsel`, `selection_contribution`, `log_selection_factor`). These known structural columns are recognized but **not** added to the output: `sample_id`, `pcp_index`, `depth`.
+
+#### Reporting
+
+At normal verbosity, `merge` reports:
+- Total CSV rows loaded and number of families
+- Trees matched, mutations merged, nodes affected
+- **Warning** if any CSV families had no matching `clone_id` in the JSON
+- **Warning** if CSV rows in matched families had no corresponding derived mutation
+
+Use `-v 2` to see per-family details about which specific (site, parent_aa, child_aa) tuples didn't match.
 
 ---
 
@@ -527,4 +585,4 @@ ruff check .
 
 ---
 
-_Last updated: 2026-03-31_
+_Last updated: 2026-04-10_
