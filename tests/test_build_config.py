@@ -1,9 +1,11 @@
 """Tests for the build-config command."""
 
+import difflib
 import json
 import os
 import subprocess
 import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -14,6 +16,9 @@ from olmsted_cli.build_config import (
     generate_default_config,
 )
 from olmsted_cli.process_utils import unpack_encoded_mutations
+
+REPO_ROOT = Path(__file__).parent.parent
+GOLDEN_DIR = REPO_ROOT / "tests" / "golden" / "build_config"
 
 
 class TestBuildConfigOlmsted:
@@ -804,3 +809,53 @@ class TestProcessMatchesBuildConfig:
             for p in (olmsted_path, tagged_no_config, config_path, tagged_with_config):
                 if os.path.exists(p):
                     os.unlink(p)
+
+
+class TestBuildConfigGolden:
+    """Snapshot tests: compare stdout against committed golden YAML files.
+
+    Set UPDATE_GOLDEN=1 to regenerate the goldens from current output.
+    Run from repo root so the embedded input/tree paths stay stable.
+    """
+
+    @pytest.mark.parametrize(
+        "scenario,cli_args",
+        [
+            ("pcp", ["-f", "pcp", "-i", "example_data/pcp/pcp.csv",
+                     "-t", "example_data/pcp/trees.csv"]),
+            ("airr", ["-i", "example_data/airr/airr.json"]),
+            ("olmsted", ["-i", "example_data/surprise/surprise_subset.json"]),
+        ],
+    )
+    def test_matches_golden(self, scenario, cli_args):
+        golden_path = GOLDEN_DIR / f"{scenario}.yaml"
+        result = subprocess.run(
+            ["olmsted", "build-config", "-q", *cli_args],
+            capture_output=True, text=True, cwd=REPO_ROOT,
+        )
+        assert result.returncode == 0, f"build-config failed: {result.stderr}"
+        actual = result.stdout
+
+        if os.environ.get("UPDATE_GOLDEN"):
+            golden_path.parent.mkdir(parents=True, exist_ok=True)
+            golden_path.write_text(actual)
+            pytest.skip(f"Regenerated golden: {golden_path}")
+
+        assert golden_path.exists(), (
+            f"Missing golden file {golden_path}. "
+            f"Run `UPDATE_GOLDEN=1 pytest {__file__}` to create it."
+        )
+        expected = golden_path.read_text()
+        if actual != expected:
+            diff = "".join(difflib.unified_diff(
+                expected.splitlines(keepends=True),
+                actual.splitlines(keepends=True),
+                fromfile=str(golden_path),
+                tofile=f"build-config --{scenario} (actual)",
+            ))
+            pytest.fail(
+                f"build-config output drifted from golden ({scenario}).\n"
+                f"If the change is intentional, run "
+                f"`UPDATE_GOLDEN=1 pytest {__file__}::TestBuildConfigGolden` "
+                f"to regenerate.\n\n{diff}"
+            )
