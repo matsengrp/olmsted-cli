@@ -20,16 +20,16 @@ from __future__ import annotations
 import argparse
 import csv
 import gzip
-import hashlib
 import json
 import html
 import os
 import sys
 import traceback
-import uuid
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 from urllib.parse import parse_qs, parse_qsl
+
+from .identifier import IdentMinter, deterministic_uuid  # noqa: F401 (re-exported for back-compat)
 
 if TYPE_CHECKING:
     from .types import OlmstedClone, OlmstedDataset, OlmstedNode, OlmstedTree
@@ -1525,7 +1525,7 @@ def build_newick_from_edges(nodes, edges):
 def process_pcp_to_olmsted(
     pcp_families: Dict[str, Any],
     newick_trees: Optional[Dict[str, Any]] = None,
-    uuid_generator: Optional[Callable[[str], str]] = None,
+    minter: Optional[IdentMinter] = None,
     warn_disagreements: bool = False,
     compute_metrics: bool = False,
     lbi_tau: float = 0.0125,
@@ -1541,7 +1541,8 @@ def process_pcp_to_olmsted(
     Args:
         pcp_families: dict from parse_pcp_csv
         newick_trees: dict from parse_newick_csv (optional)
-        uuid_generator: Function to generate UUIDs (defaults to random)
+        minter: IdentMinter for generating ``{datatype}-{uuid}`` identifiers
+            (defaults to a random, non-deterministic minter)
         warn_disagreements: If True, print warnings when tree and PCP data disagree
         compute_metrics: If True, compute all phylogenetic metrics (LBI, LBR, affinity, scaled_affinity, mean_mut_freq)
         lbi_tau: Time scale parameter for LBI calculation (default: 0.0125)
@@ -1556,11 +1557,11 @@ def process_pcp_to_olmsted(
     # Set global verbosity
     set_verbosity(verbosity)
 
-    if uuid_generator is None:
-        uuid_generator = lambda prefix="": f"{prefix}{str(uuid.uuid4())}" if prefix else str(uuid.uuid4())
+    if minter is None:
+        minter = IdentMinter()
 
-    dataset_id = f"pcp-{uuid_generator()}"
-    dataset_ident = uuid_generator("dataset-")
+    dataset_id = minter.mint("dataset")
+    dataset_ident = minter.mint("dataset")
 
     datasets = []
     clones_dict = {dataset_id: []}  # Clones array indexed by dataset_id
@@ -1573,7 +1574,7 @@ def process_pcp_to_olmsted(
         "schema_version": SCHEMA_VERSION,
         "type": "pcp.dataset",
         "build": {"commit": "pcp-import", "time": ""},
-        "subjects": [{"ident": uuid_generator("subject-"), "subject_id": "pcp-subject"}],
+        "subjects": [{"ident": minter.mint("subject"), "subject_id": "pcp-subject"}],
         "samples": [],
         "seeds": [],
         "clone_count": len(pcp_families),
@@ -1589,8 +1590,8 @@ def process_pcp_to_olmsted(
     family_items = list(pcp_families.items())
     with tqdm(family_items, desc="Processing families", unit="family", disable=len(family_items) == 1) as pbar:
         for family_idx, (family_id, family_data) in enumerate(pbar):
-            clone_ident = uuid_generator("clone-")
-            tree_ident = uuid_generator()
+            clone_ident = minter.mint("clone")
+            tree_ident = minter.mint("tree")
 
             # Get sample_id from family data
             family_meta = family_data.get("family_data", {})
@@ -1607,7 +1608,7 @@ def process_pcp_to_olmsted(
 
                 dataset["samples"].append(
                     {
-                        "ident": uuid_generator("sample-"),
+                        "ident": minter.mint("sample"),
                         "sample_id": original_sample_id,
                         "locus": locus,
                         "timepoint_id": "merged",
@@ -2330,22 +2331,6 @@ def process_pcp_to_olmsted(
     return datasets, clones_dict, trees
 
 
-def deterministic_uuid(seed_base, counter=None):
-    """Generate a deterministic UUID based on a seed and optional counter."""
-    if counter is not None:
-        seed_str = f"{seed_base}_{counter}"
-    else:
-        seed_str = str(seed_base)
-
-    # Create a hash of the seed string
-    hash_obj = hashlib.md5(seed_str.encode())
-    hash_hex = hash_obj.hexdigest()
-
-    # Convert to UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-    uuid_str = f"{hash_hex[:8]}-{hash_hex[8:12]}-{hash_hex[12:16]}-{hash_hex[16:20]}-{hash_hex[20:32]}"
-    return uuid_str
-
-
 def get_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
@@ -2475,17 +2460,8 @@ def main():
     vprint.verbose("=" * 25)
     vprint.verbose("")
 
-    # Set up deterministic UUID generation if seed is provided
-    uuid_counter = 0
-
-    def get_uuid(prefix=""):
-        nonlocal uuid_counter
-        if args.seed is not None:
-            uuid_counter += 1
-            uuid_str = deterministic_uuid(args.seed, uuid_counter)
-        else:
-            uuid_str = str(uuid.uuid4())
-        return f"{prefix}{uuid_str}" if prefix else uuid_str
+    # Set up identifier minter (deterministic if seed provided)
+    minter = IdentMinter(seed=args.seed)
 
     try:
         # Parse PCP CSV
@@ -2505,7 +2481,7 @@ def main():
         # Convert to Olmsted format
         vprint.status("Converting to Olmsted format...")
         datasets, clones_dict, trees = process_pcp_to_olmsted(
-            pcp_families, newick_trees, get_uuid, args.warn_disagreements,
+            pcp_families, newick_trees, minter, args.warn_disagreements,
             compute_metrics=args.compute_metrics, lbi_tau=args.lbi_tau,
             standardize_names=args.standardize_names, alignment_method=args.alignment_method,
             name=args.name, verbosity=args.verbose

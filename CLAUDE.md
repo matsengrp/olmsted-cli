@@ -45,6 +45,15 @@ olmsted-cli is a Python CLI tool that processes immunological data (AIRR JSON an
 | `skip: true` | (field excluded) | Custom field keyword to exclude from metadata |
 | `field_metadata` | `field_metadata` | Dict on each dataset describing available fields |
 
+### Identifier Fields
+
+| Field | Role |
+|-------|------|
+| `*_id` (e.g. `clone_id`, `tree_id`, `dataset_id`) | **Input-derived** identifier. When synthesis is unavoidable, use `{datatype}-{uuid}` — never format-origin prefixes like `pcp-`. |
+| `ident` | **CLI-minted** primary key, always via `IdentMinter.mint(datatype)` producing `{datatype}-{uuid}`. Only on objects the webapp keys on it (today: `clone`, `tree`). |
+
+See `ARCHITECTURE.md#identifier-conventions` for the full rules and per-field uniqueness scopes.
+
 ### Field Levels
 
 - **family/clone**: Clonal family level (scatterplot axes, color, facet)

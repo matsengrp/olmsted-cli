@@ -10,11 +10,11 @@ import os
 import pprint
 import sys
 import traceback
-import uuid
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from urllib.parse import parse_qs, parse_qsl
 
+from .identifier import IdentMinter
 from .metrics import compute_tree_metrics
 from .process_utils import tag_field_metadata
 from .utils import vprint
@@ -85,13 +85,16 @@ except FileNotFoundError:
     pass
 
 
-def ensure_ident(record, prefix=""):
-    "Want to let people choose their own uuids if they like, but not require them to"
+def ensure_ident(record, datatype: str, minter: IdentMinter):
+    """Attach an ``ident`` to ``record`` if absent, using ``minter``.
+
+    Lets callers supply their own ident (pass-through) without forcing it.
+    When the minter is deterministic (seed-backed), generated idents are
+    reproducible across runs.
+    """
     if record.get("ident"):
         return record
-    uuid_str = str(uuid.uuid4())
-    ident_value = f"{prefix}{uuid_str}" if prefix else uuid_str
-    return merge(record, {"ident": ident_value})
+    return merge(record, {"ident": minter.mint(datatype)})
 
 
 # reroot the tree on node matching regex pattern.
@@ -150,7 +153,7 @@ def process_tree(args, clone_id, tree):
     tree["nodes"] = process_tree_nodes(
         args, ete_tree, tree["nodes"], reroot=args.root_trees
     )
-    return ensure_ident(tree, prefix="tree-")
+    return ensure_ident(tree, "tree", args.minter)
 
 
 def process_clone(args, dataset, clone):
@@ -201,7 +204,7 @@ def process_clone(args, dataset, clone):
 
     if "samples" in clone.get("dataset", {}):
         del clone["dataset"]["samples"]
-    return ensure_ident(clone, prefix="clone-")
+    return ensure_ident(clone, "clone", args.minter)
 
 
 def process_dataset(
@@ -289,7 +292,7 @@ def process_dataset(
 
     del dataset["clones"]
     dataset["schema_version"] = SCHEMA_VERSION
-    return ensure_ident(dataset, prefix="dataset-")
+    return ensure_ident(dataset, "dataset", args.minter)
 
 
 def hiccup_rep(schema, depth=1, property=None):
@@ -463,6 +466,7 @@ def get_args():
 
 def main():
     args = get_args()
+    args.minter = IdentMinter(seed=getattr(args, "seed", None))
     datasets, clones_dict, trees = [], {}, []
     for infile in args.inputs or []:
         vprint.status(f"\nProcessing infile: {str(infile)}")
