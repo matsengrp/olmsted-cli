@@ -142,8 +142,11 @@ def main():
     # Ensure metadata has the format tag
     if "metadata" not in data:
         data["metadata"] = {}
-    if isinstance(data["metadata"], dict) and "format" not in data["metadata"]:
-        data["metadata"]["format"] = "olmsted"
+    if isinstance(data["metadata"], dict):
+        if "format" not in data["metadata"]:
+            data["metadata"]["format"] = "olmsted"
+        if "source_format" not in data["metadata"]:
+            data["metadata"]["source_format"] = "olmsted"
 
     datasets = data.get("datasets", [])
     clones_dict = data.get("clones", {})

@@ -125,10 +125,11 @@ class TestTagCommand:
                 tagged = json.load(f)
 
             # All original data should still be present
-            # Metadata may have "format": "olmsted" added by tag
+            # Metadata may have "format" and "source_format" added by tag
             for key in original["metadata"]:
                 assert tagged["metadata"][key] == original["metadata"][key]
             assert tagged["metadata"].get("format") == "olmsted"
+            assert tagged["metadata"].get("source_format") == "olmsted"
             assert tagged["clones"] == original["clones"]
             assert tagged["trees"] == original["trees"]
             # Dataset should have field_metadata added but otherwise same
