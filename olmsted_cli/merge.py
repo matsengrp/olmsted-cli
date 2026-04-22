@@ -17,8 +17,13 @@ import json
 import sys
 from pathlib import Path
 
+from .constants import OLMSTED_REQUIRED_TOP_LEVEL_KEYS
 from .merge_mutations import apply_mutations_csv
-from .process_utils import add_verbosity_args, resolve_verbosity
+from .process_utils import (
+    add_verbosity_args,
+    resolve_verbosity,
+    retag_datasets_field_metadata,
+)
 from .utils import set_verbosity, vprint
 
 # Config keys merge reads from YAML (beyond custom_fields)
@@ -139,26 +144,31 @@ def main():
         vprint.error(f"Error: Invalid JSON in input file: {e}")
         sys.exit(1)
 
-    if "datasets" not in data or "clones" not in data or "trees" not in data:
+    missing = [k for k in OLMSTED_REQUIRED_TOP_LEVEL_KEYS if k not in data]
+    if missing:
         vprint.error(
-            "Error: Input does not appear to be Olmsted JSON "
-            "(missing 'datasets', 'clones', or 'trees' key)"
+            f"Error: Input does not appear to be Olmsted JSON "
+            f"(missing top-level keys: {missing})"
         )
         sys.exit(1)
 
     try:
         stats = apply_mutations_csv(
             args.mutations,
-            data["datasets"],
-            data.get("clones", {}),
             data["trees"],
-            custom_fields=args.custom_fields,
             use_depth=args.mutations_use_depth,
             strict_check=args.mutations_strict_check,
         )
     except (FileNotFoundError, ValueError) as e:
         vprint.error(f"Error: {e}")
         sys.exit(1)
+
+    retag_datasets_field_metadata(
+        data["datasets"],
+        data.get("clones", {}),
+        data["trees"],
+        custom_fields=args.custom_fields,
+    )
 
     # Refuse to overwrite the input file in place when nothing matched.
     if args.in_place and stats is not None and stats.trees_matched == 0:

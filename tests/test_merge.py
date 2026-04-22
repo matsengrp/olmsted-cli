@@ -646,3 +646,24 @@ def test_merge_depth_ignored_without_flag(tmp_path):
     by_id = {n["sequence_id"]: n for n in out["trees"][0]["nodes"]}
     leaf_mut = next(m for m in by_id["leaf"]["mutations"] if m["site"] == 1)
     assert leaf_mut["score"] == 111
+
+
+@pytest.mark.parametrize("flag", ["--mutations-use-depth", "--mutations-strict-check"])
+def test_process_rejects_mutation_flags_without_mutations(tmp_path, flag):
+    """`process` argparse rejects mutation-related flags when --mutations is absent.
+
+    Catches a regression where the flags silently no-op. Uses a dummy
+    input path — argparse validation should fire before file I/O.
+    """
+    result = subprocess.run(
+        ["olmsted", "process", "-f", "pcp",
+         "-i", str(tmp_path / "dummy.csv"),
+         "-o", str(tmp_path / "out.json"),
+         flag],
+        capture_output=True, text=True,
+    )
+    assert result.returncode != 0
+    # argparse errors go to stderr; message mentions the flag requirement
+    combined = result.stdout + result.stderr
+    assert "--mutations" in combined
+    assert "require" in combined.lower()

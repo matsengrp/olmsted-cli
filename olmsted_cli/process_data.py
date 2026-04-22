@@ -57,6 +57,7 @@ from .process_utils import (
     add_verbosity_args,
     create_consolidated_data,
     resolve_verbosity,
+    retag_datasets_field_metadata,
     validate_dataset,
     validate_output_data,
     write_out,
@@ -231,19 +232,22 @@ def process_airr_format(args):
                 sys.exit(1)
 
     # Merge mutations CSV if --mutations was specified
-    try:
-        apply_mutations_csv(
-            getattr(args, "mutations", None),
-            datasets,
-            clones_dict,
-            trees,
+    mutations_path = getattr(args, "mutations", None)
+    if mutations_path:
+        try:
+            apply_mutations_csv(
+                mutations_path,
+                trees,
+                use_depth=getattr(args, "mutations_use_depth", False),
+                strict_check=getattr(args, "mutations_strict_check", False),
+            )
+        except ValueError as e:
+            vprint.error(f"Error: {e}")
+            sys.exit(1)
+        retag_datasets_field_metadata(
+            datasets, clones_dict, trees,
             custom_fields=getattr(args, "custom_fields", None),
-            use_depth=getattr(args, "mutations_use_depth", False),
-            strict_check=getattr(args, "mutations_strict_check", False),
         )
-    except ValueError as e:
-        vprint.error(f"Error: {e}")
-        sys.exit(1)
 
     # Validate data before writing if requested
     if airr_args.validate and not validate_output_data(
@@ -374,19 +378,22 @@ def process_pcp_format(args):
         )
 
         # Merge mutations CSV if --mutations was specified
-        try:
-            apply_mutations_csv(
-                getattr(args, "mutations", None),
-                datasets,
-                clones_dict,
-                trees,
+        mutations_path = getattr(args, "mutations", None)
+        if mutations_path:
+            try:
+                apply_mutations_csv(
+                    mutations_path,
+                    trees,
+                    use_depth=getattr(args, "mutations_use_depth", False),
+                    strict_check=getattr(args, "mutations_strict_check", False),
+                )
+            except ValueError as e:
+                vprint.error(f"Error: {e}")
+                sys.exit(1)
+            retag_datasets_field_metadata(
+                datasets, clones_dict, trees,
                 custom_fields=getattr(args, "custom_fields", None),
-                use_depth=getattr(args, "mutations_use_depth", False),
-                strict_check=getattr(args, "mutations_strict_check", False),
             )
-        except ValueError as e:
-            vprint.error(f"Error: {e}")
-            sys.exit(1)
 
         # Validate data if requested
         if args.validate:

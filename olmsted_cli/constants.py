@@ -215,6 +215,11 @@ MUTATIONS_CSV_KEY_COLUMNS = {
 #: columns and stripped from the output mutation record.
 MUTATIONS_CSV_NAME_ALIASES = ("node_name", "child_name")
 
+#: Top-level keys required on a consolidated Olmsted JSON file. Commands
+#: that operate on all three (e.g. ``merge``) validate presence against
+#: this tuple before proceeding.
+OLMSTED_REQUIRED_TOP_LEVEL_KEYS = ("datasets", "clones", "trees")
+
 #: Mapping from level name to its known fields registry.
 KNOWN_FIELDS_BY_LEVEL = {
     "clone": KNOWN_CLONE_FIELDS,

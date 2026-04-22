@@ -26,7 +26,7 @@ import gzip
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from .constants import MUTATIONS_CSV_KEY_COLUMNS, MUTATIONS_CSV_NAME_ALIASES
 from .process_utils import coerce_csv_value
@@ -34,6 +34,13 @@ from .utils import vprint
 
 # Characters in AA sequences that should not be treated as a mutation event.
 _GAP_AA_CHARS = {"-", ".", "X", "*", "?"}
+
+# Match-mode identifiers for MergeStats.match_mode. The empty string is the
+# pre-merge sentinel (before merge_mutations_into_trees has run).
+MatchMode = Literal["", "name_site", "site_paa_caa", "site_paa_caa_depth"]
+MATCH_MODE_NAME_SITE: MatchMode = "name_site"
+MATCH_MODE_SITE_PAA_CAA: MatchMode = "site_paa_caa"
+MATCH_MODE_SITE_PAA_CAA_DEPTH: MatchMode = "site_paa_caa_depth"
 
 
 @dataclass
@@ -72,9 +79,9 @@ class MergeStats:
     # Names of optional disambiguation / structural columns that were present
     # in the CSV and used as part of the match key or as integrity checks.
     disambiguation_columns_used: List[str] = field(default_factory=list)
-    # The chosen matching mode: "name_site" (deterministic) or
-    # "site_paa_caa[_depth]" (may broadcast).
-    match_mode: str = ""
+    # The chosen matching mode: name_site (deterministic) or
+    # site_paa_caa[_depth] (may broadcast).
+    match_mode: MatchMode = ""
 
 
 def _detect_name_column(fieldnames: List[str]) -> Optional[str]:
@@ -131,7 +138,10 @@ def load_mutations_csv(csv_path: str) -> Dict[str, List[Dict[str, Any]]]:
         for row in reader:
             family = row.get("family")
             if not family:
-                continue
+                raise ValueError(
+                    f"Mutations CSV row {reader.line_num}: 'family' is empty. "
+                    f"Every row must have a family/clone_id for routing."
+                )
 
             mutation: Dict[str, Any] = {}
             for key, val in row.items():
@@ -207,11 +217,33 @@ def derive_node_mutations(
     return mutations
 
 
-def _build_parent_lookup(nodes: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-    """Build a sequence_id -> node lookup for parent resolution."""
+def _build_node_id_lookup(nodes: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """Build a sequence_id -> node lookup used for both identity and parent resolution."""
     return {
         n["sequence_id"]: n for n in nodes if isinstance(n, dict) and "sequence_id" in n
     }
+
+
+def _get_or_derive_mutations(
+    node: Dict[str, Any],
+    nodes_by_id: Dict[str, Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Return the node's mutations, deriving from parent-AA diff if needed.
+
+    Prefers a pre-existing non-empty ``mutations`` list (upstream pipeline
+    data). Otherwise derives via ``derive_node_mutations`` and writes the
+    result back onto the node if non-empty. Empty results are NOT persisted
+    onto the node to avoid polluting it with empty arrays.
+    """
+    existing = node.get("mutations")
+    if isinstance(existing, list) and existing:
+        return existing
+    parent_id = node.get("parent")
+    parent_node = nodes_by_id.get(parent_id) if parent_id else None
+    derived = derive_node_mutations(node, parent_node)
+    if derived:
+        node["mutations"] = derived
+    return derived
 
 
 def _normalize_nodes(tree: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -353,13 +385,13 @@ def merge_mutations_into_trees(
     depth_present = _has_depth_column(mutations_by_family)
 
     if name_keyed:
-        stats.match_mode = "name_site"
+        stats.match_mode = MATCH_MODE_NAME_SITE
         extend_with_depth = False  # depth is integrity-only in this mode
     elif use_depth and depth_present:
-        stats.match_mode = "site_paa_caa_depth"
+        stats.match_mode = MATCH_MODE_SITE_PAA_CAA_DEPTH
         extend_with_depth = True
     else:
-        stats.match_mode = "site_paa_caa"
+        stats.match_mode = MATCH_MODE_SITE_PAA_CAA
         extend_with_depth = False
 
     # Columns used for matching or integrity; surface them in stats/logs.
@@ -411,8 +443,7 @@ def _merge_name_keyed(
         stats.trees_matched += 1
 
         nodes = _normalize_nodes(tree)
-        nodes_by_id = _build_parent_lookup(nodes)
-        parent_lookup = nodes_by_id  # same dict; different semantic name
+        nodes_by_id = _build_node_id_lookup(nodes)
         node_depths = _compute_node_depths(nodes) if check_depth else {}
 
         unmatched = 0
@@ -433,17 +464,7 @@ def _merge_name_keyed(
                 unmatched += 1
                 continue
 
-            # Derive or read the node's mutations
-            existing = node.get("mutations")
-            if isinstance(existing, list) and existing:
-                node_mutations = existing
-            else:
-                parent_id = node.get("parent")
-                parent_node = parent_lookup.get(parent_id) if parent_id else None
-                node_mutations = derive_node_mutations(node, parent_node)
-                node["mutations"] = node_mutations
-
-            # Locate the mutation at this site
+            node_mutations = _get_or_derive_mutations(node, nodes_by_id)
             target = next((m for m in node_mutations if m.get("site") == site), None)
             if target is None:
                 unmatched += 1
@@ -515,7 +536,7 @@ def _merge_site_keyed(
         stats.trees_matched += 1
 
         nodes = _normalize_nodes(tree)
-        parent_lookup = _build_parent_lookup(nodes)
+        nodes_by_id = _build_node_id_lookup(nodes)
         node_depths = _compute_node_depths(nodes) if use_depth else {}
 
         # Build CSV index keyed by (site, parent_aa, child_aa[, depth])
@@ -542,15 +563,9 @@ def _merge_site_keyed(
             if not isinstance(node, dict):
                 continue
 
-            existing = node.get("mutations")
-            if isinstance(existing, list) and existing:
-                node_mutations = existing
-            else:
-                parent_id = node.get("parent")
-                parent_node = parent_lookup.get(parent_id) if parent_id else None
-                node_mutations = derive_node_mutations(node, parent_node)
-                if not node_mutations:
-                    continue
+            node_mutations = _get_or_derive_mutations(node, nodes_by_id)
+            if not node_mutations:
+                continue
 
             node_depth = node_depths.get(node.get("sequence_id")) if use_depth else None
 
@@ -597,19 +612,21 @@ def _merge_site_keyed(
 
 def apply_mutations_csv(
     mutations_path: Optional[str],
-    datasets: List[Dict[str, Any]],
-    clones_dict: Dict[str, List[Dict[str, Any]]],
     trees: List[Dict[str, Any]],
-    custom_fields: Optional[List[Dict[str, Any]]] = None,
     *,
     use_depth: bool = False,
     strict_check: bool = False,
 ) -> Optional[MergeStats]:
-    """High-level entry point: load a mutations CSV, merge, warn, retag.
+    """Load a mutations CSV and merge it into ``trees`` (in place).
 
-    Used by both the ``merge`` command and ``process --mutations``. Modifies
-    ``datasets`` and ``trees`` in place. Returns ``None`` if ``mutations_path``
-    is falsy (no-op), otherwise the ``MergeStats``.
+    Used by both the ``merge`` command and ``process --mutations``. Returns
+    ``None`` when ``mutations_path`` is falsy (no-op), otherwise the
+    ``MergeStats`` from the merge.
+
+    Callers are responsible for regenerating ``field_metadata`` (via
+    ``retag_datasets_field_metadata``) afterwards. This is deliberate: the
+    merge doesn't know about dataset-level metadata, and keeping the two
+    steps separate keeps the function testable with just a list of trees.
 
     Args:
         use_depth: Enable the optional ``depth`` column as part of the
@@ -629,10 +646,6 @@ def apply_mutations_csv(
     """
     if not mutations_path:
         return None
-
-    # Import here to avoid a circular import: process_utils imports from
-    # field_metadata which is pulled in via tag_field_metadata.
-    from .process_utils import retag_datasets_field_metadata
 
     vprint.status(f"Loading mutations CSV: {mutations_path}")
     mutations_by_family = load_mutations_csv(mutations_path)
@@ -706,10 +719,6 @@ def apply_mutations_csv(
             f"the tree's derived mutation. The enrichment data was NOT attached "
             f"for those rows. Run with -v 2 to see per-family details."
         )
-
-    retag_datasets_field_metadata(
-        datasets, clones_dict, trees, custom_fields=custom_fields
-    )
 
     if strict_check and stats.integrity_mismatches:
         raise ValueError(
