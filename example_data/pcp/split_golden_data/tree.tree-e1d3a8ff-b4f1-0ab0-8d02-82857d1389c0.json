@@ -1,7 +1,7 @@
 {
-    "ident": "e1d3a8ff-b4f1-0ab0-8d02-82857d1389c0",
-    "tree_id": "pcp-tree-160",
+    "ident": "tree-e1d3a8ff-b4f1-0ab0-8d02-82857d1389c0",
     "clone_id": "160",
+    "tree_id": "tree-160",
     "newick": "(naive:0.0934134975,(((1TTTTGATACGCTTAGTTCTTGG:0.0000010000,1TTGTTCGAATCTTGGGGGAGGA:0.0000010000)Node4:0.0000010000,(1TATGGTATGGTCTTTTCTTGGG:0.0000010000,1TGGATTGTTCTAGCATCTTGGG:0.0000010000)Node5:0.0000010000)Node3:0.0000010000,(1TCCGCTCGCGTTTGCTCTTGGG:0.0000010000,1TTGGATGACGTCCGGTCTTGGG:0.0000010000)Node6:0.0000010000)Node2:0.0000010000,1TTTTCTTAAATGCGGTCTTGGG:0.0000010000)Node1;",
     "nodes": [
         {
@@ -394,6 +394,5 @@
             "scaled_affinity": null,
             "pcp_index": 206
         }
-    ],
-    "type": "pcp.reconstruction"
+    ]
 }

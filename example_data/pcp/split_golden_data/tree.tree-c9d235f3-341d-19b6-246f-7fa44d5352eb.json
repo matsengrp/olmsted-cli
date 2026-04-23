@@ -1,7 +1,7 @@
 {
-    "ident": "c9d235f3-341d-19b6-246f-7fa44d5352eb",
-    "tree_id": "pcp-tree-1391",
+    "ident": "tree-c9d235f3-341d-19b6-246f-7fa44d5352eb",
     "clone_id": "1391",
+    "tree_id": "tree-1391",
     "newick": "(naive:0.0190287512,(1TGCGATGCTTTCTGAGAGTCAT:0.0000010000,1TTAGGTCCCGTGAGCTCTTGGG:0.0000010000)Node2:0.0000010000,1TAGAGTACGTTGGGGTCTTGGG:0.0000010000)Node1;",
     "nodes": [
         {
@@ -513,6 +513,5 @@
             "scaled_affinity": null,
             "pcp_index": 343
         }
-    ],
-    "type": "pcp.reconstruction"
+    ]
 }

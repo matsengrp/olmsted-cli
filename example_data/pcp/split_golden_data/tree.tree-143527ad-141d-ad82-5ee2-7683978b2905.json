@@ -1,7 +1,7 @@
 {
-    "ident": "143527ad-141d-ad82-5ee2-7683978b2905",
-    "tree_id": "pcp-tree-1553",
+    "ident": "tree-143527ad-141d-ad82-5ee2-7683978b2905",
     "clone_id": "1553",
+    "tree_id": "tree-1553",
     "newick": "(naive:0.0595366340,1TGGATTCGGTTACAGTCTTGGG:0.0000010000,(1TGTTCTCAGCTTTACTCTTGGG:0.0000010000,1TGAGGTTGTGTGGTATCTTGGG:0.0000010000)Node2:0.0000010000)Node1;",
     "nodes": [
         {
@@ -513,6 +513,5 @@
             "scaled_affinity": null,
             "pcp_index": 243
         }
-    ],
-    "type": "pcp.reconstruction"
+    ]
 }
