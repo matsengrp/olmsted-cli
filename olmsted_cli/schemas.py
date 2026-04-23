@@ -248,6 +248,14 @@ tree_spec = {
             "description": "Sample identifier for associated sequences",
             "type": ["string", "null"],
         },
+        "reconstruction_method": {
+            "description": (
+                "Method used to build this tree (e.g. 'dnapars', 'raxml_ng'). "
+                "Only populated when supplied by the input; absent means the "
+                "reconstruction method is unknown."
+            ),
+            "type": ["string", "null"],
+        },
         "newick": {
             "description": "Tree in Newick format",
             "type": "string",
@@ -527,7 +535,11 @@ dataset_spec = {
             "type": "string",
         },
         "type": {
-            "description": "Dataset type",
+            "description": (
+                "Free-form dataset-type label. Passed through from input when "
+                "present; never synthesized by olmsted-cli. Source format is "
+                "recorded separately in metadata.source_format."
+            ),
             "type": ["string", "null"],
         },
         "build": {
