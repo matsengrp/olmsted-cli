@@ -19,7 +19,7 @@ from tqdm import tqdm
 
 from .build_config import generate_default_config
 from .field_metadata import generate_field_metadata
-from .schemas import SCHEMA_VERSION, clone_spec, dataset_spec, tree_spec
+from .schemas import SCHEMA_VERSION, _resolver, clone_spec, dataset_spec, tree_spec
 from .utils import (  # noqa: F401 — re-exported for backward compatibility
     VerbosePrinter,
     add_verbosity_args,
@@ -695,7 +695,7 @@ def validate_dataset(data, verbose=False):
 
     try:
         # Create validator
-        validator = jsonschema.Draft4Validator(dataset_spec)
+        validator = jsonschema.Draft4Validator(dataset_spec, resolver=_resolver)
 
         if not validator.is_valid(data):
             if verbose:
@@ -735,7 +735,7 @@ def validate_clone(data, verbose=False):
     # Try Olmsted schema validation
     olmsted_errors = []
     try:
-        validator = jsonschema.Draft4Validator(clone_spec)
+        validator = jsonschema.Draft4Validator(clone_spec, resolver=_resolver)
         if not validator.is_valid(data):
             for error in validator.iter_errors(data):
                 error_path = (
@@ -846,7 +846,7 @@ def validate_tree(data, verbose=False, check_time_tree=False):
     # Try Olmsted schema validation
     olmsted_errors = []
     try:
-        validator = jsonschema.Draft4Validator(tree_spec)
+        validator = jsonschema.Draft4Validator(tree_spec, resolver=_resolver)
         if not validator.is_valid(data):
             for error in validator.iter_errors(data):
                 error_path = (

@@ -63,3 +63,4 @@ Thumbs.db
 *.log
 **/_*/
 .claude/
+ISSUE-*.md
