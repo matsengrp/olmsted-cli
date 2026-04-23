@@ -114,11 +114,6 @@ def split_consolidated_data(data, max_clones_per_file):
                 for clone in dataset_clones_in_chunk:
                     updated_clone = copy.deepcopy(clone)
                     updated_clone["dataset_id"] = new_dataset_id
-                    
-                    # Update nested dataset reference if it exists
-                    if "dataset" in updated_clone and isinstance(updated_clone["dataset"], dict):
-                        updated_clone["dataset"]["dataset_id"] = new_dataset_id
-                    
                     updated_clones.append(updated_clone)
                 
                 new_clones[new_dataset_id] = updated_clones

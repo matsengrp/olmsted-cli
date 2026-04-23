@@ -141,7 +141,7 @@ def _partition_chain_fields(fields):
     return shared, heavy_only, light_only
 
 
-def infer_locus_from_v_gene(v_gene: str) -> str:
+def infer_locus_from_v_gene(v_gene: str) -> Optional[str]:
     """
     Infer locus from V gene call.
 
@@ -149,8 +149,11 @@ def infer_locus_from_v_gene(v_gene: str) -> str:
         v_gene: V gene call (e.g., "IGHV1-2*01", "IGKV3-20*01", "IGLV2-14*04")
 
     Returns:
-        str: Locus ("igh", "igk", or "igl")
+        Locus string ("igh", "igk", or "igl") or None if v_gene is missing
+        or its prefix is not recognized.
     """
+    if not v_gene:
+        return None
     v_gene_upper = v_gene.upper()
     if v_gene_upper.startswith("IGKV"):
         return "igk"
@@ -158,9 +161,7 @@ def infer_locus_from_v_gene(v_gene: str) -> str:
         return "igl"
     elif v_gene_upper.startswith("IGHV"):
         return "igh"
-    else:
-        # Default to igh if cannot be determined
-        return "igh"
+    return None
 
 
 def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
@@ -1567,19 +1568,22 @@ def process_pcp_to_olmsted(
     clones_dict = {dataset_id: []}  # Clones array indexed by dataset_id
     trees = []
 
-    # Create dataset
+    # Create dataset. PCP input has no native subject or timepoint concept,
+    # so those collections start empty rather than being fabricated with
+    # placeholder records (subject_id="pcp-subject", timepoint="merged").
+    # The webapp is expected to render "<unspecified>" for unset reference
+    # fields.
     dataset = {
         "ident": dataset_ident,
         "dataset_id": dataset_id,
         "schema_version": SCHEMA_VERSION,
-        "type": "pcp.dataset",
         "build": {"commit": "pcp-import", "time": ""},
-        "subjects": [{"ident": minter.mint("subject"), "subject_id": "pcp-subject"}],
+        "subjects": [],
         "samples": [],
         "seeds": [],
         "clone_count": len(pcp_families),
-        "subjects_count": 1,
-        "timepoints_count": 1,
+        "subjects_count": 0,
+        "timepoints_count": 0,
     }
 
     # Add name if provided
@@ -1593,9 +1597,10 @@ def process_pcp_to_olmsted(
             clone_ident = minter.mint("clone")
             tree_ident = minter.mint("tree")
 
-            # Get sample_id from family data
+            # Get sample_id from family data. sample_id is a required PCP
+            # CSV column, so family_meta always has it under normal input.
             family_meta = family_data.get("family_data", {})
-            original_sample_id = family_meta.get("sample_id", family_id)
+            original_sample_id = family_meta.get("sample_id")
 
             # Create sample if not already present
             sample_exists = any(
@@ -1611,7 +1616,6 @@ def process_pcp_to_olmsted(
                         "ident": minter.mint("sample"),
                         "sample_id": original_sample_id,
                         "locus": locus,
-                        "timepoint_id": "merged",
                     }
                 )
 
@@ -2160,7 +2164,6 @@ def process_pcp_to_olmsted(
                 "ident": clone_ident if not is_paired else f"{clone_ident}-heavy",
                 "dataset_id": dataset_id,
                 "sample_id": original_sample_id,
-                "subject_id": "pcp-subject",
                 "unique_seqs_count": len(processed_nodes_heavy),
                 "total_read_count": sum(
                     n.get("multiplicity", 0) for n in processed_nodes_heavy.values()
@@ -2191,17 +2194,14 @@ def process_pcp_to_olmsted(
                         "clone_id": family_id if not is_paired else f"{family_id}-heavy",
                         "tree_id": f"pcp-tree-{family_id}" if not is_paired else f"pcp-tree-{family_id}-heavy",
                         "newick": newick,
-                        "type": "pcp.reconstruction",
                     }
                 ],
-                # Add nested sample and dataset objects for webapp compatibility
+                # Denormalized sample reference for webapp convenience
                 "sample": {
                     "ident": clone_ident if not is_paired else f"{clone_ident}-heavy",
                     "locus": infer_locus_from_v_gene(v_call),
                     "sample_id": original_sample_id,
-                    "timepoint_id": "merged",
                 },
-                "dataset": {"ident": dataset_ident, "dataset_id": dataset_id},
             }
 
             # Add paired data fields
@@ -2223,21 +2223,21 @@ def process_pcp_to_olmsted(
 
             # Create light chain clone (if paired data)
             if is_paired:
-                # Determine light chain locus from light_chain_type
+                # Determine light chain locus from light_chain_type. Leave
+                # unset when light_chain_type isn't recognized — the webapp
+                # renders its own marker for absent fields.
                 if light_chain_type.lower() == "kappa":
                     light_locus = "igk"
                 elif light_chain_type.lower() == "lambda":
                     light_locus = "igl"
                 else:
-                    # Default to igk if not specified
-                    light_locus = "igk"
+                    light_locus = None
 
                 clone_light = {
                     "clone_id": f"{family_id}-light",
                     "ident": f"{clone_ident}-light",
                     "dataset_id": dataset_id,
                     "sample_id": original_sample_id,
-                    "subject_id": "pcp-subject",
                     "unique_seqs_count": len(processed_nodes_light),
                     "total_read_count": sum(
                         n.get("multiplicity", 0) for n in processed_nodes_light.values()
@@ -2268,16 +2268,13 @@ def process_pcp_to_olmsted(
                             "clone_id": f"{family_id}-light",
                             "tree_id": f"pcp-tree-{family_id}-light",
                             "newick": newick,  # Same topology, different sequences
-                            "type": "pcp.reconstruction",
                         }
                     ],
                     "sample": {
                         "ident": f"{clone_ident}-light",
                         "locus": light_locus,  # "igk" or "igl" based on light_chain_type
                         "sample_id": original_sample_id,
-                        "timepoint_id": "merged",
                     },
-                    "dataset": {"ident": dataset_ident, "dataset_id": dataset_id},
                     "is_paired": True,
                     "pair_id": pair_id,
                 }
@@ -2303,7 +2300,6 @@ def process_pcp_to_olmsted(
                 "clone_id": family_id if not is_paired else f"{family_id}-heavy",
                 "newick": newick,
                 "nodes": nodes_array_heavy,
-                "type": "pcp.reconstruction",
             }
             trees.append(tree_heavy)
 
@@ -2319,7 +2315,6 @@ def process_pcp_to_olmsted(
                     "clone_id": f"{family_id}-light",
                     "newick": newick,  # Same topology, different sequences in nodes
                     "nodes": nodes_array_light,
-                    "type": "pcp.reconstruction",
                 }
                 trees.append(tree_light)
 

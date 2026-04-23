@@ -122,7 +122,7 @@ class OlmstedTree(TypedDict, total=False):
     nodes: List[OlmstedNode] | Dict[str, OlmstedNode]
 
     # Tree metadata
-    type: Optional[str]  # e.g., "pcp.reconstruction", "dnapars"
+    reconstruction_method: Optional[str]  # e.g., "dnapars", "raxml_ng"
     sample_id: Optional[str]
     timepoint_ids: Optional[List[str]]
 
@@ -155,13 +155,6 @@ class SampleInfo(TypedDict, total=False):
     sample_id: str
     locus: str
     timepoint_id: str
-
-
-class DatasetInfo(TypedDict, total=False):
-    """Dataset information nested in clone."""
-
-    ident: str
-    dataset_id: str
 
 
 class OlmstedClone(TypedDict, total=False):
@@ -248,9 +241,10 @@ class OlmstedClone(TypedDict, total=False):
     d_per_gene_support: Optional[List[GeneSupport]]
     j_per_gene_support: Optional[List[GeneSupport]]
 
-    # Nested references (for webapp compatibility)
+    # Nested sample reference (for webapp compatibility — see
+    # src/selectors/clonalFamilies.js). The webapp reads
+    # clone.sample.locus and clone.sample[fieldName] at render time.
     sample: Optional[SampleInfo]
-    dataset: Optional[DatasetInfo]
 
     # === Light chain fields (paired heavy/light data) ===
     is_paired: Optional[bool]
@@ -370,7 +364,7 @@ class OlmstedDataset(TypedDict, total=False):
 
     # Schema info
     schema_version: Optional[str]
-    type: Optional[str]  # e.g., "pcp.dataset", "airr.dataset"
+    type: Optional[str]  # Free-form label passed through from input; never synthesized.
 
     # Build info
     build: Optional[BuildInfo]
@@ -484,7 +478,6 @@ __all__ = [
     "TimepointMultiplicity",
     "GeneSupport",
     "SampleInfo",
-    "DatasetInfo",
     "SubjectInfo",
     "SampleMetadata",
     "TimepointInfo",

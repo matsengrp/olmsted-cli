@@ -80,27 +80,28 @@ def analyze_consolidated_data(data):
     trees = data.get("trees", [])
     summary["trees"] = {
         "total_count": len(trees),
-        "tree_types": {}
+        "reconstruction_methods": {}
     }
-    
+
     # Tree node statistics
     if trees:
         node_counts = []
-        tree_types = {}
-        
+        reconstruction_methods = {}
+
         for tree in trees:
-            # Count tree types
-            tree_type = tree.get("type", "unknown")
-            tree_types[tree_type] = tree_types.get(tree_type, 0) + 1
-            
+            # Count reconstruction methods. Unset/blank → "<unspecified>"
+            # (angle-braced to avoid collision with a genuine method name).
+            method = tree.get("reconstruction_method") or "<unspecified>"
+            reconstruction_methods[method] = reconstruction_methods.get(method, 0) + 1
+
             # Count nodes
             nodes = tree.get("nodes", [])
             if isinstance(nodes, list):
                 node_counts.append(len(nodes))
             elif isinstance(nodes, dict):
                 node_counts.append(len(nodes))
-        
-        summary["trees"]["tree_types"] = tree_types
+
+        summary["trees"]["reconstruction_methods"] = reconstruction_methods
         
         if node_counts:
             summary["tree_statistics"] = {
@@ -234,10 +235,10 @@ def format_summary_text(summary):
     # Trees
     trees = summary["trees"]
     lines.append(f"Trees: {trees['total_count']}")
-    if trees["tree_types"]:
-        lines.append("  Types:")
-        for tree_type, count in trees["tree_types"].items():
-            lines.append(f"    {tree_type}: {count}")
+    if trees["reconstruction_methods"]:
+        lines.append("  Reconstruction methods:")
+        for method, count in trees["reconstruction_methods"].items():
+            lines.append(f"    {method}: {count}")
     lines.append("")
     
     # Tree statistics

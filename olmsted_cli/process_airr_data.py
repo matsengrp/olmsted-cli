@@ -178,32 +178,24 @@ def process_clone(args, dataset, clone):
             f"  Note: clone '{clone_id}' missing position fields: {_missing_fields}"
         )
 
-    # need to create a copy of the dataset without clonal families that we
-    # can nest under clonal family for viz convenience
-    _dataset = dataset.copy()
-    del _dataset["clones"]
-    clone["dataset"] = _dataset
-
-    # Match sample by sample_id; gracefully handle missing match
+    # Look up matching sample from the dataset to denormalize onto the clone
+    # as clone["sample"]. The webapp reads clone.sample.locus and other
+    # sample-level fields at render time (see src/selectors/clonalFamilies.js).
+    # When the sample can't be resolved, leave clone["sample"] unset rather
+    # than fabricating a placeholder — the webapp is responsible for
+    # rendering its own "unknown" marker.
     matching_samples = [
-        s for s in clone["dataset"].get("samples", [])
+        s for s in dataset.get("samples", [])
         if s.get("sample_id") == clone.get("sample_id")
     ]
     if matching_samples:
         clone["sample"] = matching_samples[0]
-    else:
-        clone["sample"] = {
-            "sample_id": clone.get("sample_id", "unknown"),
-            "locus": "igh",
-        }
-        if getattr(args, "verbose", 0) >= 1:
-            vprint.status(
-                f"  Note: clone '{clone.get('clone_id', '?')}' sample_id "
-                f"'{clone.get('sample_id')}' not found in dataset samples"
-            )
+    elif getattr(args, "verbose", 0) >= 1:
+        vprint.status(
+            f"  Note: clone '{clone.get('clone_id', '?')}' sample_id "
+            f"'{clone.get('sample_id')}' not found in dataset samples"
+        )
 
-    if "samples" in clone.get("dataset", {}):
-        del clone["dataset"]["samples"]
     return ensure_ident(clone, "clone", args.minter)
 
 
@@ -226,11 +218,13 @@ def process_dataset(
         Processed dataset in Olmsted format, or None if processing fails
     """
     dataset["clone_count"] = len(dataset["clones"])
+    # Count only clones/samples that actually carry the reference field —
+    # missing values don't collapse into a synthetic "unknown" bucket.
     dataset["subjects_count"] = len(
-        set(cf.get("subject_id", "unknown") for cf in dataset["clones"])
+        {cf["subject_id"] for cf in dataset["clones"] if cf.get("subject_id")}
     )
     dataset["timepoints_count"] = len(
-        set(sample.get("timepoint_id", "unknown") for sample in dataset.get("samples", []))
+        {s["timepoint_id"] for s in dataset.get("samples", []) if s.get("timepoint_id")}
     )
     clones = list(
         map(functools.partial(process_clone, args, dataset), dataset["clones"])
