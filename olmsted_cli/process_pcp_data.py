@@ -1598,6 +1598,739 @@ def _build_tree_ref(
     return record
 
 
+def _process_family_tree(
+    *,
+    family_data: Dict[str, Any],
+    tree_entry: Dict[str, Any],
+    dataset_id: str,
+    dataset_ident: str,
+    family_id: str,
+    clone_ident: str,
+    tree_ident: str,
+    minter: IdentMinter,
+    compute_metrics: bool,
+    lbi_tau: float,
+    standardize_names: bool,
+    alignment_method: str,
+    warn_disagreements: bool,
+    verbosity: int,
+) -> Optional[Tuple[Dict[str, Any], Optional[Dict[str, Any]], Dict[str, Any], Optional[Dict[str, Any]]]]:
+    """Process one (family, tree) pair.
+
+    Returns ``(heavy_clone, light_clone, heavy_tree, light_tree)`` where:
+
+    - ``heavy_clone`` is the full clone dict for the heavy chain, with
+      ``"trees"`` already containing a single tree reference dict.
+    - ``light_clone`` is the equivalent for the light chain, or ``None`` when
+      not paired.
+    - ``heavy_tree`` is the full top-level tree record (including the
+      ``nodes`` array).
+    - ``light_tree`` is the equivalent for light, or ``None`` when not paired.
+
+    Returns ``None`` when the tree should be skipped (e.g. malformed root
+    node, missing germline).
+
+    ``family_data`` is expected to already be deep-copied by the caller;
+    this helper may mutate it.
+    """
+    family_meta = family_data.get("family_data", {})
+    original_sample_id = family_meta.get("sample_id")
+
+    newick = tree_entry.get("newick") or None
+    csv_tree_id = tree_entry.get("tree_id")
+    reconstruction_method = tree_entry.get("reconstruction_method")
+    rate_scale_heavy = tree_entry.get("rate_scale_heavy", 1.0)
+    rate_scale_light = tree_entry.get("rate_scale_light", 1.0)
+    # Extras are every column that wasn't a reserved tree-level field.
+    extra_tree_fields = {
+        k: v for k, v in tree_entry.items()
+        if k not in ("newick", "tree_id", "reconstruction_method",
+                     "rate_scale_heavy", "rate_scale_light")
+    }
+
+    if newick:
+        # Use complete tree topology from Newick
+        family_data = merge_tree_topology_with_pcp(family_data, newick, warn_disagreements, family_id)
+    else:
+        # Fallback to building tree from PCP edges only
+        newick = build_newick_from_edges(family_data["nodes"], family_data["edges"])
+
+    # Store rate scaling in family data for later use
+    family_data["family_data"]["rate_scale_heavy"] = rate_scale_heavy
+    family_data["family_data"]["rate_scale_light"] = rate_scale_light
+    # Store extra tree columns as clone-level custom fields
+    if extra_tree_fields:
+        family_data["family_data"]["_extra_clone_fields"] = extra_tree_fields
+
+    # Refresh family_meta in case merge_tree_topology_with_pcp replaced it
+    family_meta = family_data.get("family_data", {})
+
+    # Check if this family has paired data
+    is_paired = family_data.get("is_paired", False)
+
+    # Process nodes - add required fields with rich PCP data
+    # For paired data, we'll create TWO sets of nodes (heavy and light)
+    processed_nodes_heavy = {}
+    processed_nodes_light = {} if is_paired else None
+
+    for node_id, node_data in family_data["nodes"].items():
+        # Determine node type based on PCP metadata
+        if node_data.get("is_naive", False):
+            node_type = "root"
+        elif node_data.get("is_leaf", False):
+            node_type = "leaf"
+        else:
+            # This is an internal/ancestral node (Node1, Node2, etc.)
+            node_type = "internal"
+
+        # Create heavy chain node
+        sequence_alignment_heavy = node_data.get("sequence_alignment", "")
+        sequence_alignment_heavy_aa = translate_dna_to_aa(sequence_alignment_heavy)
+
+        processed_node_heavy = {
+            "sequence_id": node_id,
+            "sequence_alignment": sequence_alignment_heavy,
+            "sequence_alignment_aa": sequence_alignment_heavy_aa,
+            "multiplicity": node_data.get("multiplicity", 0),
+            "cluster_multiplicity": None,  # Will be computed below
+            "timepoint_multiplicities": node_data.get(
+                "timepoint_multiplicities", []
+            ),
+            "type": node_type,
+            "parent": None,  # Will be set from edges below
+            "distance": node_data.get("distance", 0.0),  # Distance from root
+            "length": node_data.get("length", 0.0),  # Branch length
+            "lbi": None,
+            "lbr": None,
+            "affinity": None,
+            "scaled_affinity": None,
+        }
+        # Carry through extra PCP columns as custom node-level fields
+        # Partition by chain suffix for paired data
+        _known_node_keys = {
+            "sequence_id", "sequence_alignment", "sequence_alignment_aa",
+            "sequence_alignment_light", "multiplicity", "cluster_multiplicity",
+            "timepoint_multiplicities", "type", "parent", "distance", "length",
+            "lbi", "lbr", "affinity", "scaled_affinity",
+            "is_naive", "is_leaf", "distances",
+        }
+        extra_node_raw = {
+            k: v for k, v in node_data.items()
+            if k not in _known_node_keys and k not in processed_node_heavy
+        }
+        node_shared, node_heavy, node_light = _partition_chain_fields(extra_node_raw)
+        for k, v in node_shared.items():
+            processed_node_heavy[k] = v
+        for k, v in node_heavy.items():
+            processed_node_heavy[k] = v
+
+        processed_nodes_heavy[node_id] = processed_node_heavy
+
+        # Create light chain node (if paired data)
+        if is_paired:
+            sequence_alignment_light = node_data.get("sequence_alignment_light", "")
+            sequence_alignment_light_aa = translate_dna_to_aa(sequence_alignment_light)
+
+            processed_node_light = {
+                "sequence_id": node_id,
+                "sequence_alignment": sequence_alignment_light,  # Use light chain as main sequence
+                "sequence_alignment_aa": sequence_alignment_light_aa,
+                "multiplicity": node_data.get("multiplicity", 0),
+                "cluster_multiplicity": None,
+                "timepoint_multiplicities": node_data.get(
+                    "timepoint_multiplicities", []
+                ),
+                "type": node_type,
+                "parent": None,  # Will be set from edges below
+                "distance": node_data.get("distance", 0.0),
+                "length": node_data.get("length", 0.0),
+                "lbi": None,
+                "lbr": None,
+                "affinity": None,
+                "scaled_affinity": None,
+            }
+            # Add extra node fields: shared + light-only
+            for k, v in node_shared.items():
+                processed_node_light[k] = v
+            for k, v in node_light.items():
+                processed_node_light[k] = v
+
+            processed_nodes_light[node_id] = processed_node_light
+
+    # For backward compatibility, keep processed_nodes pointing to heavy chain
+    processed_nodes = processed_nodes_heavy
+
+    # Set parent field based on edges (same topology for heavy and light)
+    # First, find the true root (node that doesn't appear as a child in any edge)
+    all_children = {child for _, child, _ in family_data["edges"]}
+    all_parents = {parent for parent, _, _ in family_data["edges"]}
+    potential_roots = all_parents - all_children
+
+    # Determine the root node
+    if potential_roots:
+        tree_root = potential_roots.pop()
+    else:
+        # If no clear root, use "naive" if present, otherwise use first node
+        tree_root = "naive" if "naive" in processed_nodes_heavy else list(processed_nodes_heavy.keys())[0]
+
+    # Set parent relationships for heavy chain nodes
+    for parent_id, child_id, edge_length in family_data["edges"]:
+        if child_id in processed_nodes_heavy and child_id != tree_root:
+            processed_nodes_heavy[child_id]["parent"] = parent_id
+
+    # Ensure the root node has no parent
+    if tree_root in processed_nodes_heavy:
+        processed_nodes_heavy[tree_root]["parent"] = None
+
+    # Set parent relationships for light chain nodes (if paired)
+    if is_paired:
+        for parent_id, child_id, edge_length in family_data["edges"]:
+            if child_id in processed_nodes_light and child_id != tree_root:
+                processed_nodes_light[child_id]["parent"] = parent_id
+
+        if tree_root in processed_nodes_light:
+            processed_nodes_light[tree_root]["parent"] = None
+
+    # Calculate cluster multiplicity for heavy chain (always computed)
+    vprint.verbose(f"  Computing cluster multiplicity for family {family_id}")
+    cluster_mult_values = compute_cluster_multiplicity_for_tree(processed_nodes_heavy, family_data["edges"], tree_root)
+    for node_id in processed_nodes_heavy:
+        processed_nodes_heavy[node_id]["cluster_multiplicity"] = cluster_mult_values.get(node_id, 0)
+
+    # Calculate cluster multiplicity for light chain (if paired)
+    if is_paired:
+        cluster_mult_values_light = compute_cluster_multiplicity_for_tree(processed_nodes_light, family_data["edges"], tree_root)
+        for node_id in processed_nodes_light:
+            processed_nodes_light[node_id]["cluster_multiplicity"] = cluster_mult_values_light.get(node_id, 0)
+
+    # Calculate phylogenetic metrics if requested (computed for both heavy and light)
+    if compute_metrics:
+        vprint.verbose(f"  Computing metrics for family {family_id} (tau={lbi_tau})")
+        compute_tree_metrics(
+            processed_nodes_heavy, family_data["edges"], tree_root, tau=lbi_tau
+        )
+        if is_paired:
+            compute_tree_metrics(
+                processed_nodes_light, family_data["edges"], tree_root, tau=lbi_tau
+            )
+
+    # Standardize node names if requested (apply same mapping to heavy and light)
+    if standardize_names:
+        # Create name mapping: old_name -> new_name (same for heavy and light chains)
+        name_mapping = {}
+        internal_counter = 1
+        leaf_counter = 1
+
+        # First pass: create mapping (based on heavy chain node structure)
+        for node_id, node_data in processed_nodes_heavy.items():
+            node_type = node_data.get("type")
+            if node_type == "root":
+                name_mapping[node_id] = "naive"
+            elif node_type == "leaf":
+                name_mapping[node_id] = f"Leaf{leaf_counter}"
+                leaf_counter += 1
+            else:  # internal
+                name_mapping[node_id] = f"Node{internal_counter}"
+                internal_counter += 1
+
+        # Second pass: rename heavy chain nodes and update parent references
+        renamed_nodes_heavy = {}
+        for old_name, node_data in processed_nodes_heavy.items():
+            new_name = name_mapping[old_name]
+            # Update parent reference to use new name
+            if node_data["parent"] and node_data["parent"] in name_mapping:
+                node_data["parent"] = name_mapping[node_data["parent"]]
+            # Update sequence_id to new name
+            node_data["sequence_id"] = new_name
+            # Store under new name
+            renamed_nodes_heavy[new_name] = node_data
+
+        processed_nodes_heavy = renamed_nodes_heavy
+
+        # Rename light chain nodes using same mapping (if paired)
+        if is_paired:
+            renamed_nodes_light = {}
+            for old_name, node_data in processed_nodes_light.items():
+                new_name = name_mapping[old_name]
+                if node_data["parent"] and node_data["parent"] in name_mapping:
+                    node_data["parent"] = name_mapping[node_data["parent"]]
+                node_data["sequence_id"] = new_name
+                renamed_nodes_light[new_name] = node_data
+
+            processed_nodes_light = renamed_nodes_light
+
+        # Update tree root and processed_nodes pointer
+        tree_root = name_mapping.get(tree_root, tree_root)
+        processed_nodes = processed_nodes_heavy
+
+    # Extract family-level immunological data
+    v_call = family_meta.get("v_gene", "")
+    d_call = family_meta.get("d_gene", "")
+    j_call = family_meta.get("j_gene", "")
+
+    # Get CDR positions
+    cdr1_start = family_meta.get("cdr1_start", 0)
+    cdr1_end = family_meta.get("cdr1_end", 0)
+    cdr2_start = family_meta.get("cdr2_start", 0)
+    cdr2_end = family_meta.get("cdr2_end", 0)
+    cdr3_start = family_meta.get("cdr3_start", 0)
+    cdr3_end = family_meta.get("cdr3_end", 0)
+
+    # Get gene positions from CSV if available - no fallbacks, don't guess
+    # V gene alignment positions
+    v_alignment_start = family_meta.get("v_gene_start")
+    if v_alignment_start is None:
+        vprint.print(
+            f"WARNING: Family {family_id} missing v_gene_start position, defaulting to 0. "
+            "Gene region visualization may be incorrect.",
+            min_level=2
+        )
+        v_alignment_start = 0
+
+    v_alignment_end = family_meta.get("v_gene_end")
+    if v_alignment_end is None:
+        vprint.print(
+            f"WARNING: Family {family_id} missing v_gene_end position, defaulting to 0. "
+            "Gene region visualization may be incorrect.",
+            min_level=2
+        )
+        v_alignment_end = 0
+
+    # D gene alignment positions
+    d_alignment_start = family_meta.get("d_gene_start")
+    if d_alignment_start is None:
+        vprint.print(
+            f"WARNING: Family {family_id} missing d_gene_start position, defaulting to 0. "
+            "Gene region visualization may be incorrect.",
+            min_level=2
+        )
+        d_alignment_start = 0
+
+    d_alignment_end = family_meta.get("d_gene_end")
+    if d_alignment_end is None:
+        vprint.print(
+            f"WARNING: Family {family_id} missing d_gene_end position, defaulting to 0. "
+            "Gene region visualization may be incorrect.",
+            min_level=2
+        )
+        d_alignment_end = 0
+
+    # J gene alignment positions
+    j_alignment_start = family_meta.get("j_gene_start")
+    if j_alignment_start is None:
+        vprint.print(
+            f"WARNING: Family {family_id} missing j_gene_start position, defaulting to 0. "
+            "Gene region visualization may be incorrect.",
+            min_level=2
+        )
+        j_alignment_start = 0
+
+    j_alignment_end = family_meta.get("j_gene_end")
+    if j_alignment_end is None:
+        vprint.print(
+            f"WARNING: Family {family_id} missing j_gene_end position, defaulting to 0. "
+            "Gene region visualization may be incorrect.",
+            min_level=2
+        )
+        j_alignment_end = 0
+
+    junction_start = cdr3_start
+    junction_length = (cdr3_end - cdr3_start) if (cdr3_end > cdr3_start) else 0
+
+    # Extract light chain data for paired format
+    v_call_light = family_meta.get("v_gene_light", "") if is_paired else ""
+    j_call_light = family_meta.get("j_gene_light", "") if is_paired else ""
+    light_chain_type = family_meta.get("light_chain_type", "") if is_paired else ""
+
+    # Light chain CDR positions
+    cdr1_start_light = family_meta.get("cdr1_start_light", 0) if is_paired else 0
+    cdr1_end_light = family_meta.get("cdr1_end_light", 0) if is_paired else 0
+    cdr2_start_light = family_meta.get("cdr2_start_light", 0) if is_paired else 0
+    cdr2_end_light = family_meta.get("cdr2_end_light", 0) if is_paired else 0
+    cdr3_start_light = family_meta.get("cdr3_start_light", 0) if is_paired else 0
+    cdr3_end_light = family_meta.get("cdr3_end_light", 0) if is_paired else 0
+
+    junction_start_light = cdr3_start_light
+    junction_length_light = (cdr3_end_light - cdr3_start_light) if (cdr3_end_light > cdr3_start_light) else 0
+
+    # Rate scaling factors (from trees.csv)
+    rate_scale_heavy = family_meta.get("rate_scale_heavy", 1.0)
+    rate_scale_light = family_meta.get("rate_scale_light", 1.0) if is_paired else 1.0
+
+    # Get germline sequence from naive node (needed for mean_mut_freq calculation)
+    # Validate that exactly one root node exists with a valid sequence
+    root_nodes_heavy = [n for n in processed_nodes_heavy.values() if n.get("type") == "root"]
+    if len(root_nodes_heavy) != 1:
+        vprint.print(
+            f"WARNING: Family {family_id} has {len(root_nodes_heavy)} root nodes (expected 1). "
+            "This may indicate malformed data. Skipping this tree.",
+            min_level=1
+        )
+        return None
+
+    germline_alignment = root_nodes_heavy[0].get("sequence_alignment", "")
+    if not germline_alignment:
+        vprint.print(
+            f"WARNING: Family {family_id} root node missing sequence_alignment. "
+            "Cannot calculate mutation frequency. Skipping this tree.",
+            min_level=1
+        )
+        return None
+
+    # Get light chain germline (if paired)
+    germline_alignment_light = ""
+    if is_paired:
+        root_nodes_light = [n for n in processed_nodes_light.values() if n.get("type") == "root"]
+        if len(root_nodes_light) != 1:
+            vprint.print(
+                f"WARNING: Family {family_id} light chain has {len(root_nodes_light)} root nodes (expected 1). "
+                "This may indicate malformed paired data. Skipping this tree.",
+                min_level=1
+            )
+            return None
+
+        germline_alignment_light = root_nodes_light[0].get("sequence_alignment", "")
+        if not germline_alignment_light:
+            vprint.print(
+                f"WARNING: Family {family_id} light chain root node missing sequence_alignment. "
+                "Cannot calculate mutation frequency for paired data. Skipping this tree.",
+                min_level=1
+            )
+            return None
+
+    # Calculate mean mutation frequency for HEAVY CHAIN from observed leaf sequences only
+    # mean_mut_freq = average(mutations_per_site) across all leaf nodes, weighted by multiplicity
+    # Count actual mutations by comparing leaf sequence to germline sequence
+    total_mut_freq_heavy = 0.0
+    total_sequences_heavy = 0
+    germline_length = len(germline_alignment) if germline_alignment else 0
+
+    # DEBUG: Print calculation details for all sequences
+    debug_info_heavy = []
+    skipped_nodes_heavy = []
+
+    for node_id, node_data in processed_nodes_heavy.items():
+        node_type = node_data.get("type")
+        multiplicity = node_data.get("multiplicity", 0)
+        # Only count LEAF nodes with observed sequences (type="leaf" and multiplicity > 0)
+        # Skip internal nodes (type="internal") and root node (type="root")
+        if node_type == "leaf" and multiplicity > 0:
+            leaf_sequence = node_data.get("sequence_alignment", "")
+
+            # Count mutations by comparing to germline
+            if germline_alignment and leaf_sequence:
+                # Use helper function to align and calculate mutations
+                num_mutations, seq_length, germline_aligned, leaf_aligned = align_and_calculate_mutations(
+                    germline_alignment, leaf_sequence, alignment_method
+                )
+
+                # Calculate mutation frequency
+                mut_freq = num_mutations / seq_length if seq_length > 0 else 0.0
+
+                total_mut_freq_heavy += mut_freq * multiplicity
+                total_sequences_heavy += multiplicity
+
+                # Collect mutation positions for display
+                mutation_positions = []
+                for pos, (g, l) in enumerate(zip(germline_aligned, leaf_aligned)):
+                    if g != l and g not in ('', '.') and l not in ('', '.'):
+                        mutation_positions.append({
+                            'pos': pos,
+                            'germline': g,
+                            'leaf': l
+                        })
+
+                # Collect debug info
+                debug_info_heavy.append({
+                    'node': node_id,
+                    'type': node_type,
+                    'distance': node_data.get("distance", 0.0),
+                    'num_mutations': num_mutations,
+                    'seq_length': seq_length,
+                    'original_leaf_len': len(leaf_sequence),
+                    'original_germline_len': len(germline_alignment),
+                    'mut_freq': mut_freq,
+                    'multiplicity': multiplicity,
+                    'weighted_contribution': mut_freq * multiplicity,
+                    'germline_seq': germline_aligned,
+                    'leaf_seq': leaf_aligned,
+                    'mutations': mutation_positions,
+                    'was_aligned': len(germline_alignment) != len(leaf_sequence),
+                    'alignment_method': alignment_method
+                })
+            else:
+                # Track why we skipped this sequence - be specific
+                if not leaf_sequence:
+                    reason = 'missing sequence (empty)'
+                elif not germline_alignment:
+                    reason = 'missing germline sequence'
+                elif len(leaf_sequence) != len(germline_alignment):
+                    reason = f'sequence length mismatch (leaf={len(leaf_sequence)}, germline={len(germline_alignment)})'
+                else:
+                    reason = 'unknown'
+
+                skipped_nodes_heavy.append({
+                    'node': node_id,
+                    'type': node_type,
+                    'multiplicity': multiplicity,
+                    'reason': reason,
+                    'has_sequence': bool(leaf_sequence),
+                    'seq_len': len(leaf_sequence) if leaf_sequence else 0,
+                    'germline_len': len(germline_alignment) if germline_alignment else 0
+                })
+        else:
+            # Track all non-leaf nodes or leaves with multiplicity 0
+            reason = ''
+            if node_type != "leaf":
+                reason = f'not a leaf (type={node_type})'
+            elif multiplicity == 0:
+                reason = 'leaf with multiplicity=0 (no observed sequences)'
+            else:
+                reason = 'unknown'
+
+            skipped_nodes_heavy.append({
+                'node': node_id,
+                'type': node_type,
+                'multiplicity': multiplicity,
+                'reason': reason
+            })
+
+    mean_mut_freq = total_mut_freq_heavy / total_sequences_heavy if total_sequences_heavy > 0 else 0.0
+
+    # Log debug information (only at debug verbosity level)
+    log_mutation_frequency_debug(
+        family_id=family_id,
+        germline_alignment=germline_alignment,
+        debug_info=debug_info_heavy,
+        skipped_nodes=skipped_nodes_heavy,
+        total_mut_freq=total_mut_freq_heavy,
+        total_sequences=total_sequences_heavy,
+        mean_mut_freq=mean_mut_freq,
+        chain_label="HEAVY CHAIN",
+        vprint=vprint
+    )
+
+    # Calculate mean mutation frequency for LIGHT CHAIN (if paired)
+    mean_mut_freq_light = 0.0
+    if is_paired:
+        total_mut_freq_light = 0.0
+        total_sequences_light = 0
+        germline_length_light = len(germline_alignment_light) if germline_alignment_light else 0
+
+        for node_id, node_data in processed_nodes_light.items():
+            node_type = node_data.get("type")
+            multiplicity = node_data.get("multiplicity", 0)
+
+            if node_type == "leaf" and multiplicity > 0:
+                leaf_sequence = node_data.get("sequence_alignment", "")
+
+                if germline_alignment_light and leaf_sequence:
+                    # Use same alignment method as heavy chain
+                    if alignment_method == "truncate":
+                        min_len = min(len(germline_alignment_light), len(leaf_sequence))
+                        germline_compared = germline_alignment_light[:min_len]
+                        leaf_compared = leaf_sequence[:min_len]
+                        num_mutations = sum(1 for g, l in zip(germline_compared, leaf_compared)
+                                          if g != l and g != '' and l != '')
+                        mut_freq = num_mutations / min_len if min_len > 0 else 0.0
+                    elif alignment_method == "pad":
+                        max_len = max(len(germline_alignment_light), len(leaf_sequence))
+                        germline_padded = germline_alignment_light.ljust(max_len, ".")
+                        leaf_padded = leaf_sequence.ljust(max_len, ".")
+                        num_mutations = sum(1 for g, l in zip(germline_padded, leaf_padded)
+                                          if g != l and g != '' and l != '' and g != '.' and l != '.')
+                        mut_freq = num_mutations / max_len if max_len > 0 else 0.0
+
+                    total_mut_freq_light += mut_freq * multiplicity
+                    total_sequences_light += multiplicity
+
+        mean_mut_freq_light = total_mut_freq_light / total_sequences_light if total_sequences_light > 0 else 0.0
+        vprint.debug(f"\n=== Light chain mean_mut_freq for family {family_id} ===")
+        vprint.debug(f"Total mutation frequency (weighted): {total_mut_freq_light:.6f}")
+        vprint.debug(f"Total leaf sequences: {total_sequences_light}")
+        vprint.debug(f"Mean mutation frequency (light): {mean_mut_freq_light:.6f}")
+        vprint.debug(f"  (This means {mean_mut_freq_light*100:.2f}% of positions have mutations on average)")
+        vprint.debug(f"===================================================\n")
+
+    # Generate pair_id for paired data (links heavy and light clone entries)
+    pair_id = None
+    if is_paired:
+        # Use family_id as base for pair_id to ensure consistency
+        pair_id = f"pair-{family_id}"
+
+    # Create heavy chain clone
+    clone_heavy = {
+        "clone_id": family_id if not is_paired else f"{family_id}-heavy",
+        "ident": clone_ident if not is_paired else f"{clone_ident}-heavy",
+        "dataset_id": dataset_id,
+        "sample_id": original_sample_id,
+        "unique_seqs_count": len(processed_nodes_heavy),
+        "total_read_count": sum(
+            n.get("multiplicity", 0) for n in processed_nodes_heavy.values()
+        ),
+        "mean_mut_freq": mean_mut_freq,
+        # Heavy chain alignment positions
+        "v_alignment_start": v_alignment_start,
+        "v_alignment_end": v_alignment_end,
+        "j_alignment_start": j_alignment_start,
+        "j_alignment_end": j_alignment_end,
+        "cdr1_alignment_start": cdr1_start,
+        "cdr1_alignment_end": cdr1_end,
+        "cdr2_alignment_start": cdr2_start,
+        "cdr2_alignment_end": cdr2_end,
+        "junction_start": junction_start,
+        "junction_length": junction_length,
+        # Heavy chain gene calls
+        "v_call": v_call,
+        "d_call": d_call,
+        "j_call": j_call,
+        "d_alignment_start": d_alignment_start,
+        "d_alignment_end": d_alignment_end,
+        "germline_alignment": germline_alignment,
+        "has_seed": False,
+        "trees": [
+            _build_tree_ref(
+                tree_ident=tree_ident,
+                family_id=family_id,
+                is_paired=is_paired,
+                chain="heavy",
+                newick=newick,
+                csv_tree_id=csv_tree_id,
+                reconstruction_method=reconstruction_method,
+            )
+        ],
+        # Denormalized sample reference for webapp convenience
+        "sample": {
+            "ident": clone_ident if not is_paired else f"{clone_ident}-heavy",
+            "locus": infer_locus_from_v_gene(v_call),
+            "sample_id": original_sample_id,
+        },
+    }
+
+    # Add paired data fields
+    if is_paired:
+        clone_heavy["is_paired"] = True
+        clone_heavy["pair_id"] = pair_id
+
+    # Add extra clone-level fields from tree CSV
+    # Partition by chain suffix: _heavy → heavy only, _light → light only, neither → shared
+    extra_clone_raw = family_meta.get("_extra_clone_fields", {})
+    extra_shared, extra_heavy, extra_light = _partition_chain_fields(extra_clone_raw)
+    for k, v in extra_shared.items():
+        clone_heavy[k] = v
+    for k, v in extra_heavy.items():
+        clone_heavy[k] = v
+
+    # Create light chain clone (if paired data)
+    clone_light: Optional[Dict[str, Any]] = None
+    if is_paired:
+        # Determine light chain locus from light_chain_type. Leave
+        # unset when light_chain_type isn't recognized — the webapp
+        # renders its own marker for absent fields.
+        if light_chain_type.lower() == "kappa":
+            light_locus = "igk"
+        elif light_chain_type.lower() == "lambda":
+            light_locus = "igl"
+        else:
+            light_locus = None
+
+        clone_light = {
+            "clone_id": f"{family_id}-light",
+            "ident": f"{clone_ident}-light",
+            "dataset_id": dataset_id,
+            "sample_id": original_sample_id,
+            "unique_seqs_count": len(processed_nodes_light),
+            "total_read_count": sum(
+                n.get("multiplicity", 0) for n in processed_nodes_light.values()
+            ),
+            "mean_mut_freq": mean_mut_freq_light,  # Calculated separately for light chain
+            # Light chain alignment positions
+            "v_alignment_start": 0,  # Not typically provided for light chain
+            "v_alignment_end": 0,
+            "j_alignment_start": 0,
+            "j_alignment_end": 0,
+            "cdr1_alignment_start": cdr1_start_light,
+            "cdr1_alignment_end": cdr1_end_light,
+            "cdr2_alignment_start": cdr2_start_light,
+            "cdr2_alignment_end": cdr2_end_light,
+            "junction_start": junction_start_light,
+            "junction_length": junction_length_light,
+            # Light chain gene calls (no D gene)
+            "v_call": v_call_light,
+            "d_call": "",  # Light chains don't have D gene
+            "j_call": j_call_light,
+            "d_alignment_start": 0,
+            "d_alignment_end": 0,
+            "germline_alignment": germline_alignment_light,
+            "has_seed": False,
+            "trees": [
+                _build_tree_ref(
+                    tree_ident=tree_ident,
+                    family_id=family_id,
+                    is_paired=True,
+                    chain="light",
+                    newick=newick,  # Same topology, different sequences
+                    csv_tree_id=csv_tree_id,
+                    reconstruction_method=reconstruction_method,
+                )
+            ],
+            "sample": {
+                "ident": f"{clone_ident}-light",
+                "locus": light_locus,  # "igk" or "igl" based on light_chain_type
+                "sample_id": original_sample_id,
+            },
+            "is_paired": True,
+            "pair_id": pair_id,
+        }
+
+        # Add extra clone-level fields from tree CSV (shared + light-only)
+        for k, v in extra_shared.items():
+            clone_light[k] = v
+        for k, v in extra_light.items():
+            clone_light[k] = v
+
+    # Convert heavy chain nodes to array format (required by webapp)
+    nodes_array_heavy = []
+    for node_id, node_data in processed_nodes_heavy.items():
+        nodes_array_heavy.append(node_data)
+
+    # Create heavy chain tree
+    tree_heavy = {
+        **_build_tree_ref(
+            tree_ident=tree_ident,
+            family_id=family_id,
+            is_paired=is_paired,
+            chain="heavy",
+            newick=newick,
+            csv_tree_id=csv_tree_id,
+            reconstruction_method=reconstruction_method,
+        ),
+        "nodes": nodes_array_heavy,
+    }
+
+    # Create light chain tree (if paired)
+    tree_light: Optional[Dict[str, Any]] = None
+    if is_paired:
+        nodes_array_light = []
+        for node_id, node_data in processed_nodes_light.items():
+            nodes_array_light.append(node_data)
+
+        tree_light = {
+            **_build_tree_ref(
+                tree_ident=tree_ident,
+                family_id=family_id,
+                is_paired=True,
+                chain="light",
+                newick=newick,  # Same topology, different sequences in nodes
+                csv_tree_id=csv_tree_id,
+                reconstruction_method=reconstruction_method,
+            ),
+            "nodes": nodes_array_light,
+        }
+
+    return clone_heavy, clone_light, tree_heavy, tree_light
+
+
 def process_pcp_to_olmsted(
     pcp_families: Dict[str, Any],
     newick_trees: Optional[Dict[str, Any]] = None,
@@ -1670,7 +2403,6 @@ def process_pcp_to_olmsted(
     with tqdm(family_items, desc="Processing families", unit="family", disable=len(family_items) == 1) as pbar:
         for family_idx, (family_id, family_data) in enumerate(pbar):
             clone_ident = minter.mint("clone")
-            tree_ident = minter.mint("tree")
 
             # Get sample_id from family data. sample_id is a required PCP
             # CSV column, so family_meta always has it under normal input.
@@ -1696,10 +2428,8 @@ def process_pcp_to_olmsted(
 
             # Look up tree entries for this family. parse_newick_csv returns a
             # list-per-key; multiple entries mean alternate reconstructions of
-            # the same clonal family. For this pass we accept the list shape
-            # but require it to have exactly one entry — the pipeline's
-            # multi-tree iteration is introduced in a follow-up step.
-            tree_entries = []
+            # the same clonal family.
+            tree_entries: List[Dict[str, Any]] = []
             if newick_trees:
                 composite_key = (family_id, original_sample_id)
                 if composite_key in newick_trees:
@@ -1707,710 +2437,68 @@ def process_pcp_to_olmsted(
                 elif family_id in newick_trees:
                     tree_entries = newick_trees[family_id]
 
-            if len(tree_entries) > 1:
-                raise NotImplementedError(
-                    f"Multiple trees per family (family_id={family_id!r}, "
-                    f"sample_id={original_sample_id!r}) are recognized by the "
-                    f"tree-CSV parser but not yet supported by the processing "
-                    f"pipeline. Only one tree per (family, sample_id) is "
-                    f"currently handled."
-                )
-
-            tree_entry = tree_entries[0] if tree_entries else {}
-            newick = tree_entry.get("newick") or None
-            csv_tree_id = tree_entry.get("tree_id")
-            reconstruction_method = tree_entry.get("reconstruction_method")
-            rate_scale_heavy = tree_entry.get("rate_scale_heavy", 1.0)
-            rate_scale_light = tree_entry.get("rate_scale_light", 1.0)
-            # Extras are every column that wasn't a reserved tree-level field.
-            extra_tree_fields = {
-                k: v for k, v in tree_entry.items()
-                if k not in ("newick", "tree_id", "reconstruction_method",
-                             "rate_scale_heavy", "rate_scale_light")
-            }
-
-            if newick:
-                # Use complete tree topology from Newick
-                family_data = merge_tree_topology_with_pcp(family_data, newick, warn_disagreements, family_id)
-            else:
-                # Fallback to building tree from PCP edges only
-                newick = build_newick_from_edges(family_data["nodes"], family_data["edges"])
-
-            # Store rate scaling in family data for later use
-            family_data["family_data"]["rate_scale_heavy"] = rate_scale_heavy
-            family_data["family_data"]["rate_scale_light"] = rate_scale_light
-            # Store extra tree columns as clone-level custom fields
-            if extra_tree_fields:
-                family_data["family_data"]["_extra_clone_fields"] = extra_tree_fields
-
-            # Check if this family has paired data
-            is_paired = family_data.get("is_paired", False)
-
-            # Process nodes - add required fields with rich PCP data
-            # For paired data, we'll create TWO sets of nodes (heavy and light)
-            processed_nodes_heavy = {}
-            processed_nodes_light = {} if is_paired else None
-
-            for node_id, node_data in family_data["nodes"].items():
-                # Determine node type based on PCP metadata
-                if node_data.get("is_naive", False):
-                    node_type = "root"
-                elif node_data.get("is_leaf", False):
-                    node_type = "leaf"
-                else:
-                    # This is an internal/ancestral node (Node1, Node2, etc.)
-                    node_type = "internal"
-
-                # Create heavy chain node
-                sequence_alignment_heavy = node_data.get("sequence_alignment", "")
-                sequence_alignment_heavy_aa = translate_dna_to_aa(sequence_alignment_heavy)
-
-                processed_node_heavy = {
-                    "sequence_id": node_id,
-                    "sequence_alignment": sequence_alignment_heavy,
-                    "sequence_alignment_aa": sequence_alignment_heavy_aa,
-                    "multiplicity": node_data.get("multiplicity", 0),
-                    "cluster_multiplicity": None,  # Will be computed below
-                    "timepoint_multiplicities": node_data.get(
-                        "timepoint_multiplicities", []
-                    ),
-                    "type": node_type,
-                    "parent": None,  # Will be set from edges below
-                    "distance": node_data.get("distance", 0.0),  # Distance from root
-                    "length": node_data.get("length", 0.0),  # Branch length
-                    "lbi": None,
-                    "lbr": None,
-                    "affinity": None,
-                    "scaled_affinity": None,
-                }
-                # Carry through extra PCP columns as custom node-level fields
-                # Partition by chain suffix for paired data
-                _known_node_keys = {
-                    "sequence_id", "sequence_alignment", "sequence_alignment_aa",
-                    "sequence_alignment_light", "multiplicity", "cluster_multiplicity",
-                    "timepoint_multiplicities", "type", "parent", "distance", "length",
-                    "lbi", "lbr", "affinity", "scaled_affinity",
-                    "is_naive", "is_leaf", "distances",
-                }
-                extra_node_raw = {
-                    k: v for k, v in node_data.items()
-                    if k not in _known_node_keys and k not in processed_node_heavy
-                }
-                node_shared, node_heavy, node_light = _partition_chain_fields(extra_node_raw)
-                for k, v in node_shared.items():
-                    processed_node_heavy[k] = v
-                for k, v in node_heavy.items():
-                    processed_node_heavy[k] = v
-
-                processed_nodes_heavy[node_id] = processed_node_heavy
-
-                # Create light chain node (if paired data)
-                if is_paired:
-                    sequence_alignment_light = node_data.get("sequence_alignment_light", "")
-                    sequence_alignment_light_aa = translate_dna_to_aa(sequence_alignment_light)
-
-                    processed_node_light = {
-                        "sequence_id": node_id,
-                        "sequence_alignment": sequence_alignment_light,  # Use light chain as main sequence
-                        "sequence_alignment_aa": sequence_alignment_light_aa,
-                        "multiplicity": node_data.get("multiplicity", 0),
-                        "cluster_multiplicity": None,
-                        "timepoint_multiplicities": node_data.get(
-                            "timepoint_multiplicities", []
-                        ),
-                        "type": node_type,
-                        "parent": None,  # Will be set from edges below
-                        "distance": node_data.get("distance", 0.0),
-                        "length": node_data.get("length", 0.0),
-                        "lbi": None,
-                        "lbr": None,
-                        "affinity": None,
-                        "scaled_affinity": None,
-                    }
-                    # Add extra node fields: shared + light-only
-                    for k, v in node_shared.items():
-                        processed_node_light[k] = v
-                    for k, v in node_light.items():
-                        processed_node_light[k] = v
-
-                    processed_nodes_light[node_id] = processed_node_light
-
-            # For backward compatibility, keep processed_nodes pointing to heavy chain
-            processed_nodes = processed_nodes_heavy
-
-            # Set parent field based on edges (same topology for heavy and light)
-            # First, find the true root (node that doesn't appear as a child in any edge)
-            all_children = {child for _, child, _ in family_data["edges"]}
-            all_parents = {parent for parent, _, _ in family_data["edges"]}
-            potential_roots = all_parents - all_children
-
-            # Determine the root node
-            if potential_roots:
-                tree_root = potential_roots.pop()
-            else:
-                # If no clear root, use "naive" if present, otherwise use first node
-                tree_root = "naive" if "naive" in processed_nodes_heavy else list(processed_nodes_heavy.keys())[0]
-
-            # Set parent relationships for heavy chain nodes
-            for parent_id, child_id, edge_length in family_data["edges"]:
-                if child_id in processed_nodes_heavy and child_id != tree_root:
-                    processed_nodes_heavy[child_id]["parent"] = parent_id
-
-            # Ensure the root node has no parent
-            if tree_root in processed_nodes_heavy:
-                processed_nodes_heavy[tree_root]["parent"] = None
-
-            # Set parent relationships for light chain nodes (if paired)
-            if is_paired:
-                for parent_id, child_id, edge_length in family_data["edges"]:
-                    if child_id in processed_nodes_light and child_id != tree_root:
-                        processed_nodes_light[child_id]["parent"] = parent_id
-
-                if tree_root in processed_nodes_light:
-                    processed_nodes_light[tree_root]["parent"] = None
-
-            # Calculate cluster multiplicity for heavy chain (always computed)
-            vprint.verbose(f"  Computing cluster multiplicity for family {family_id}")
-            cluster_mult_values = compute_cluster_multiplicity_for_tree(processed_nodes_heavy, family_data["edges"], tree_root)
-            for node_id in processed_nodes_heavy:
-                processed_nodes_heavy[node_id]["cluster_multiplicity"] = cluster_mult_values.get(node_id, 0)
-
-            # Calculate cluster multiplicity for light chain (if paired)
-            if is_paired:
-                cluster_mult_values_light = compute_cluster_multiplicity_for_tree(processed_nodes_light, family_data["edges"], tree_root)
-                for node_id in processed_nodes_light:
-                    processed_nodes_light[node_id]["cluster_multiplicity"] = cluster_mult_values_light.get(node_id, 0)
-
-            # Calculate phylogenetic metrics if requested (computed for both heavy and light)
-            if compute_metrics:
-                vprint.verbose(f"  Computing metrics for family {family_id} (tau={lbi_tau})")
-                compute_tree_metrics(
-                    processed_nodes_heavy, family_data["edges"], tree_root, tau=lbi_tau
-                )
-                if is_paired:
-                    compute_tree_metrics(
-                        processed_nodes_light, family_data["edges"], tree_root, tau=lbi_tau
-                    )
-
-            # Standardize node names if requested (apply same mapping to heavy and light)
-            if standardize_names:
-                # Create name mapping: old_name -> new_name (same for heavy and light chains)
-                name_mapping = {}
-                internal_counter = 1
-                leaf_counter = 1
-
-                # First pass: create mapping (based on heavy chain node structure)
-                for node_id, node_data in processed_nodes_heavy.items():
-                    node_type = node_data.get("type")
-                    if node_type == "root":
-                        name_mapping[node_id] = "naive"
-                    elif node_type == "leaf":
-                        name_mapping[node_id] = f"Leaf{leaf_counter}"
-                        leaf_counter += 1
-                    else:  # internal
-                        name_mapping[node_id] = f"Node{internal_counter}"
-                        internal_counter += 1
-
-                # Second pass: rename heavy chain nodes and update parent references
-                renamed_nodes_heavy = {}
-                for old_name, node_data in processed_nodes_heavy.items():
-                    new_name = name_mapping[old_name]
-                    # Update parent reference to use new name
-                    if node_data["parent"] and node_data["parent"] in name_mapping:
-                        node_data["parent"] = name_mapping[node_data["parent"]]
-                    # Update sequence_id to new name
-                    node_data["sequence_id"] = new_name
-                    # Store under new name
-                    renamed_nodes_heavy[new_name] = node_data
-
-                processed_nodes_heavy = renamed_nodes_heavy
-
-                # Rename light chain nodes using same mapping (if paired)
-                if is_paired:
-                    renamed_nodes_light = {}
-                    for old_name, node_data in processed_nodes_light.items():
-                        new_name = name_mapping[old_name]
-                        if node_data["parent"] and node_data["parent"] in name_mapping:
-                            node_data["parent"] = name_mapping[node_data["parent"]]
-                        node_data["sequence_id"] = new_name
-                        renamed_nodes_light[new_name] = node_data
-
-                    processed_nodes_light = renamed_nodes_light
-
-                # Update tree root and processed_nodes pointer
-                tree_root = name_mapping.get(tree_root, tree_root)
-                processed_nodes = processed_nodes_heavy
-
-            # Extract family-level immunological data (already extracted above)
-            v_call = family_meta.get("v_gene", "")
-            d_call = family_meta.get("d_gene", "")
-            j_call = family_meta.get("j_gene", "")
-
-            # Get CDR positions
-            cdr1_start = family_meta.get("cdr1_start", 0)
-            cdr1_end = family_meta.get("cdr1_end", 0)
-            cdr2_start = family_meta.get("cdr2_start", 0)
-            cdr2_end = family_meta.get("cdr2_end", 0)
-            cdr3_start = family_meta.get("cdr3_start", 0)
-            cdr3_end = family_meta.get("cdr3_end", 0)
-
-            # Get gene positions from CSV if available - no fallbacks, don't guess
-            # V gene alignment positions
-            v_alignment_start = family_meta.get("v_gene_start")
-            if v_alignment_start is None:
-                vprint.print(
-                    f"WARNING: Family {family_id} missing v_gene_start position, defaulting to 0. "
-                    "Gene region visualization may be incorrect.",
-                    min_level=2
-                )
-                v_alignment_start = 0
-
-            v_alignment_end = family_meta.get("v_gene_end")
-            if v_alignment_end is None:
-                vprint.print(
-                    f"WARNING: Family {family_id} missing v_gene_end position, defaulting to 0. "
-                    "Gene region visualization may be incorrect.",
-                    min_level=2
-                )
-                v_alignment_end = 0
-
-            # D gene alignment positions
-            d_alignment_start = family_meta.get("d_gene_start")
-            if d_alignment_start is None:
-                vprint.print(
-                    f"WARNING: Family {family_id} missing d_gene_start position, defaulting to 0. "
-                    "Gene region visualization may be incorrect.",
-                    min_level=2
-                )
-                d_alignment_start = 0
-
-            d_alignment_end = family_meta.get("d_gene_end")
-            if d_alignment_end is None:
-                vprint.print(
-                    f"WARNING: Family {family_id} missing d_gene_end position, defaulting to 0. "
-                    "Gene region visualization may be incorrect.",
-                    min_level=2
-                )
-                d_alignment_end = 0
-
-            # J gene alignment positions
-            j_alignment_start = family_meta.get("j_gene_start")
-            if j_alignment_start is None:
-                vprint.print(
-                    f"WARNING: Family {family_id} missing j_gene_start position, defaulting to 0. "
-                    "Gene region visualization may be incorrect.",
-                    min_level=2
-                )
-                j_alignment_start = 0
-
-            j_alignment_end = family_meta.get("j_gene_end")
-            if j_alignment_end is None:
-                vprint.print(
-                    f"WARNING: Family {family_id} missing j_gene_end position, defaulting to 0. "
-                    "Gene region visualization may be incorrect.",
-                    min_level=2
-                )
-                j_alignment_end = 0
-
-            junction_start = cdr3_start
-            junction_length = (cdr3_end - cdr3_start) if (cdr3_end > cdr3_start) else 0
-
-            # Extract light chain data for paired format
-            v_call_light = family_meta.get("v_gene_light", "") if is_paired else ""
-            j_call_light = family_meta.get("j_gene_light", "") if is_paired else ""
-            light_chain_type = family_meta.get("light_chain_type", "") if is_paired else ""
-
-            # Light chain CDR positions
-            cdr1_start_light = family_meta.get("cdr1_start_light", 0) if is_paired else 0
-            cdr1_end_light = family_meta.get("cdr1_end_light", 0) if is_paired else 0
-            cdr2_start_light = family_meta.get("cdr2_start_light", 0) if is_paired else 0
-            cdr2_end_light = family_meta.get("cdr2_end_light", 0) if is_paired else 0
-            cdr3_start_light = family_meta.get("cdr3_start_light", 0) if is_paired else 0
-            cdr3_end_light = family_meta.get("cdr3_end_light", 0) if is_paired else 0
-
-            junction_start_light = cdr3_start_light
-            junction_length_light = (cdr3_end_light - cdr3_start_light) if (cdr3_end_light > cdr3_start_light) else 0
-
-            # Rate scaling factors (from trees.csv)
-            rate_scale_heavy = family_meta.get("rate_scale_heavy", 1.0)
-            rate_scale_light = family_meta.get("rate_scale_light", 1.0) if is_paired else 1.0
-
-            # Get germline sequence from naive node (needed for mean_mut_freq calculation)
-            # Validate that exactly one root node exists with a valid sequence
-            root_nodes_heavy = [n for n in processed_nodes_heavy.values() if n.get("type") == "root"]
-            if len(root_nodes_heavy) != 1:
-                vprint.print(
-                    f"WARNING: Family {family_id} has {len(root_nodes_heavy)} root nodes (expected 1). "
-                    "This may indicate malformed data. Skipping this family.",
-                    min_level=1
-                )
-                continue  # Skip this family
-
-            germline_alignment = root_nodes_heavy[0].get("sequence_alignment", "")
-            if not germline_alignment:
-                vprint.print(
-                    f"WARNING: Family {family_id} root node missing sequence_alignment. "
-                    "Cannot calculate mutation frequency. Skipping this family.",
-                    min_level=1
-                )
-                continue  # Skip this family
-
-            # Get light chain germline (if paired)
-            germline_alignment_light = ""
-            if is_paired:
-                root_nodes_light = [n for n in processed_nodes_light.values() if n.get("type") == "root"]
-                if len(root_nodes_light) != 1:
-                    vprint.print(
-                        f"WARNING: Family {family_id} light chain has {len(root_nodes_light)} root nodes (expected 1). "
-                        "This may indicate malformed paired data. Skipping this family.",
-                        min_level=1
-                    )
-                    continue  # Skip this family
-
-                germline_alignment_light = root_nodes_light[0].get("sequence_alignment", "")
-                if not germline_alignment_light:
-                    vprint.print(
-                        f"WARNING: Family {family_id} light chain root node missing sequence_alignment. "
-                        "Cannot calculate mutation frequency for paired data. Skipping this family.",
-                        min_level=1
-                    )
-                    continue  # Skip this family
-
-            # Calculate mean mutation frequency for HEAVY CHAIN from observed leaf sequences only
-            # mean_mut_freq = average(mutations_per_site) across all leaf nodes, weighted by multiplicity
-            # Count actual mutations by comparing leaf sequence to germline sequence
-            total_mut_freq_heavy = 0.0
-            total_sequences_heavy = 0
-            germline_length = len(germline_alignment) if germline_alignment else 0
-
-            # DEBUG: Print calculation details for all sequences
-            debug_info_heavy = []
-            skipped_nodes_heavy = []
-
-            for node_id, node_data in processed_nodes_heavy.items():
-                node_type = node_data.get("type")
-                multiplicity = node_data.get("multiplicity", 0)
-                # Only count LEAF nodes with observed sequences (type="leaf" and multiplicity > 0)
-                # Skip internal nodes (type="internal") and root node (type="root")
-                if node_type == "leaf" and multiplicity > 0:
-                    leaf_sequence = node_data.get("sequence_alignment", "")
-
-                    # Count mutations by comparing to germline
-                    if germline_alignment and leaf_sequence:
-                        # Use helper function to align and calculate mutations
-                        num_mutations, seq_length, germline_aligned, leaf_aligned = align_and_calculate_mutations(
-                            germline_alignment, leaf_sequence, alignment_method
-                        )
-
-                        # Calculate mutation frequency
-                        mut_freq = num_mutations / seq_length if seq_length > 0 else 0.0
-
-                        total_mut_freq_heavy += mut_freq * multiplicity
-                        total_sequences_heavy += multiplicity
-
-                        # Collect mutation positions for display
-                        mutation_positions = []
-                        for pos, (g, l) in enumerate(zip(germline_aligned, leaf_aligned)):
-                            if g != l and g not in ('', '.') and l not in ('', '.'):
-                                mutation_positions.append({
-                                    'pos': pos,
-                                    'germline': g,
-                                    'leaf': l
-                                })
-
-                        # Collect debug info
-                        debug_info_heavy.append({
-                            'node': node_id,
-                            'type': node_type,
-                            'distance': node_data.get("distance", 0.0),
-                            'num_mutations': num_mutations,
-                            'seq_length': seq_length,
-                            'original_leaf_len': len(leaf_sequence),
-                            'original_germline_len': len(germline_alignment),
-                            'mut_freq': mut_freq,
-                            'multiplicity': multiplicity,
-                            'weighted_contribution': mut_freq * multiplicity,
-                            'germline_seq': germline_aligned,
-                            'leaf_seq': leaf_aligned,
-                            'mutations': mutation_positions,
-                            'was_aligned': len(germline_alignment) != len(leaf_sequence),
-                            'alignment_method': alignment_method
-                        })
-                    else:
-                        # Track why we skipped this sequence - be specific
-                        if not leaf_sequence:
-                            reason = 'missing sequence (empty)'
-                        elif not germline_alignment:
-                            reason = 'missing germline sequence'
-                        elif len(leaf_sequence) != len(germline_alignment):
-                            reason = f'sequence length mismatch (leaf={len(leaf_sequence)}, germline={len(germline_alignment)})'
-                        else:
-                            reason = 'unknown'
-
-                        skipped_nodes_heavy.append({
-                            'node': node_id,
-                            'type': node_type,
-                            'multiplicity': multiplicity,
-                            'reason': reason,
-                            'has_sequence': bool(leaf_sequence),
-                            'seq_len': len(leaf_sequence) if leaf_sequence else 0,
-                            'germline_len': len(germline_alignment) if germline_alignment else 0
-                        })
-                else:
-                    # Track all non-leaf nodes or leaves with multiplicity 0
-                    reason = ''
-                    if node_type != "leaf":
-                        reason = f'not a leaf (type={node_type})'
-                    elif multiplicity == 0:
-                        reason = 'leaf with multiplicity=0 (no observed sequences)'
-                    else:
-                        reason = 'unknown'
-
-                    skipped_nodes_heavy.append({
-                        'node': node_id,
-                        'type': node_type,
-                        'multiplicity': multiplicity,
-                        'reason': reason
-                    })
-
-            mean_mut_freq = total_mut_freq_heavy / total_sequences_heavy if total_sequences_heavy > 0 else 0.0
-
-            # Log debug information (only at debug verbosity level)
-            log_mutation_frequency_debug(
-                family_id=family_id,
-                germline_alignment=germline_alignment,
-                debug_info=debug_info_heavy,
-                skipped_nodes=skipped_nodes_heavy,
-                total_mut_freq=total_mut_freq_heavy,
-                total_sequences=total_sequences_heavy,
-                mean_mut_freq=mean_mut_freq,
-                chain_label="HEAVY CHAIN",
-                vprint=vprint
-            )
-
-            # Calculate mean mutation frequency for LIGHT CHAIN (if paired)
-            mean_mut_freq_light = 0.0
-            if is_paired:
-                total_mut_freq_light = 0.0
-                total_sequences_light = 0
-                germline_length_light = len(germline_alignment_light) if germline_alignment_light else 0
-
-                for node_id, node_data in processed_nodes_light.items():
-                    node_type = node_data.get("type")
-                    multiplicity = node_data.get("multiplicity", 0)
-
-                    if node_type == "leaf" and multiplicity > 0:
-                        leaf_sequence = node_data.get("sequence_alignment", "")
-
-                        if germline_alignment_light and leaf_sequence:
-                            # Use same alignment method as heavy chain
-                            if alignment_method == "truncate":
-                                min_len = min(len(germline_alignment_light), len(leaf_sequence))
-                                germline_compared = germline_alignment_light[:min_len]
-                                leaf_compared = leaf_sequence[:min_len]
-                                num_mutations = sum(1 for g, l in zip(germline_compared, leaf_compared)
-                                                  if g != l and g != '' and l != '')
-                                mut_freq = num_mutations / min_len if min_len > 0 else 0.0
-                            elif alignment_method == "pad":
-                                max_len = max(len(germline_alignment_light), len(leaf_sequence))
-                                germline_padded = germline_alignment_light.ljust(max_len, ".")
-                                leaf_padded = leaf_sequence.ljust(max_len, ".")
-                                num_mutations = sum(1 for g, l in zip(germline_padded, leaf_padded)
-                                                  if g != l and g != '' and l != '' and g != '.' and l != '.')
-                                mut_freq = num_mutations / max_len if max_len > 0 else 0.0
-
-                            total_mut_freq_light += mut_freq * multiplicity
-                            total_sequences_light += multiplicity
-
-                mean_mut_freq_light = total_mut_freq_light / total_sequences_light if total_sequences_light > 0 else 0.0
-                vprint.debug(f"\n=== Light chain mean_mut_freq for family {family_id} ===")
-                vprint.debug(f"Total mutation frequency (weighted): {total_mut_freq_light:.6f}")
-                vprint.debug(f"Total leaf sequences: {total_sequences_light}")
-                vprint.debug(f"Mean mutation frequency (light): {mean_mut_freq_light:.6f}")
-                vprint.debug(f"  (This means {mean_mut_freq_light*100:.2f}% of positions have mutations on average)")
-                vprint.debug(f"===================================================\n")
-
-            # Generate pair_id for paired data (links heavy and light clone entries)
-            pair_id = None
-            if is_paired:
-                # Use family_id as base for pair_id to ensure consistency
-                pair_id = f"pair-{family_id}"
-
-            # Create heavy chain clone
-            clone_heavy = {
-                "clone_id": family_id if not is_paired else f"{family_id}-heavy",
-                "ident": clone_ident if not is_paired else f"{clone_ident}-heavy",
-                "dataset_id": dataset_id,
-                "sample_id": original_sample_id,
-                "unique_seqs_count": len(processed_nodes_heavy),
-                "total_read_count": sum(
-                    n.get("multiplicity", 0) for n in processed_nodes_heavy.values()
-                ),
-                "mean_mut_freq": mean_mut_freq,
-                # Heavy chain alignment positions
-                "v_alignment_start": v_alignment_start,
-                "v_alignment_end": v_alignment_end,
-                "j_alignment_start": j_alignment_start,
-                "j_alignment_end": j_alignment_end,
-                "cdr1_alignment_start": cdr1_start,
-                "cdr1_alignment_end": cdr1_end,
-                "cdr2_alignment_start": cdr2_start,
-                "cdr2_alignment_end": cdr2_end,
-                "junction_start": junction_start,
-                "junction_length": junction_length,
-                # Heavy chain gene calls
-                "v_call": v_call,
-                "d_call": d_call,
-                "j_call": j_call,
-                "d_alignment_start": d_alignment_start,
-                "d_alignment_end": d_alignment_end,
-                "germline_alignment": germline_alignment,
-                "has_seed": False,
-                "trees": [
-                    _build_tree_ref(
-                        tree_ident=tree_ident,
-                        family_id=family_id,
-                        is_paired=is_paired,
-                        chain="heavy",
-                        newick=newick,
-                        csv_tree_id=csv_tree_id,
-                        reconstruction_method=reconstruction_method,
-                    )
-                ],
-                # Denormalized sample reference for webapp convenience
-                "sample": {
-                    "ident": clone_ident if not is_paired else f"{clone_ident}-heavy",
-                    "locus": infer_locus_from_v_gene(v_call),
-                    "sample_id": original_sample_id,
-                },
-            }
-
-            # Add paired data fields
-            if is_paired:
-                clone_heavy["is_paired"] = True
-                clone_heavy["pair_id"] = pair_id
-
-            # Add extra clone-level fields from tree CSV
-            # Partition by chain suffix: _heavy → heavy only, _light → light only, neither → shared
-            extra_clone_raw = family_meta.get("_extra_clone_fields", {})
-            extra_shared, extra_heavy, extra_light = _partition_chain_fields(extra_clone_raw)
-            for k, v in extra_shared.items():
-                clone_heavy[k] = v
-            for k, v in extra_heavy.items():
-                clone_heavy[k] = v
-
-            # Add clone to dataset's clones array
-            clones_dict[dataset_id].append(clone_heavy)
-
-            # Create light chain clone (if paired data)
-            if is_paired:
-                # Determine light chain locus from light_chain_type. Leave
-                # unset when light_chain_type isn't recognized — the webapp
-                # renders its own marker for absent fields.
-                if light_chain_type.lower() == "kappa":
-                    light_locus = "igk"
-                elif light_chain_type.lower() == "lambda":
-                    light_locus = "igl"
-                else:
-                    light_locus = None
-
-                clone_light = {
-                    "clone_id": f"{family_id}-light",
-                    "ident": f"{clone_ident}-light",
-                    "dataset_id": dataset_id,
-                    "sample_id": original_sample_id,
-                    "unique_seqs_count": len(processed_nodes_light),
-                    "total_read_count": sum(
-                        n.get("multiplicity", 0) for n in processed_nodes_light.values()
-                    ),
-                    "mean_mut_freq": mean_mut_freq_light,  # Calculated separately for light chain
-                    # Light chain alignment positions
-                    "v_alignment_start": 0,  # Not typically provided for light chain
-                    "v_alignment_end": 0,
-                    "j_alignment_start": 0,
-                    "j_alignment_end": 0,
-                    "cdr1_alignment_start": cdr1_start_light,
-                    "cdr1_alignment_end": cdr1_end_light,
-                    "cdr2_alignment_start": cdr2_start_light,
-                    "cdr2_alignment_end": cdr2_end_light,
-                    "junction_start": junction_start_light,
-                    "junction_length": junction_length_light,
-                    # Light chain gene calls (no D gene)
-                    "v_call": v_call_light,
-                    "d_call": "",  # Light chains don't have D gene
-                    "j_call": j_call_light,
-                    "d_alignment_start": 0,
-                    "d_alignment_end": 0,
-                    "germline_alignment": germline_alignment_light,
-                    "has_seed": False,
-                    "trees": [
-                        _build_tree_ref(
-                            tree_ident=tree_ident,
-                            family_id=family_id,
-                            is_paired=True,
-                            chain="light",
-                            newick=newick,  # Same topology, different sequences
-                            csv_tree_id=csv_tree_id,
-                            reconstruction_method=reconstruction_method,
-                        )
-                    ],
-                    "sample": {
-                        "ident": f"{clone_ident}-light",
-                        "locus": light_locus,  # "igk" or "igl" based on light_chain_type
-                        "sample_id": original_sample_id,
-                    },
-                    "is_paired": True,
-                    "pair_id": pair_id,
-                }
-
-                # Add extra clone-level fields from tree CSV (shared + light-only)
-                for k, v in extra_shared.items():
-                    clone_light[k] = v
-                for k, v in extra_light.items():
-                    clone_light[k] = v
-
-                # Add clone to dataset's clones array
-                clones_dict[dataset_id].append(clone_light)
-
-            # Convert heavy chain nodes to array format (required by webapp)
-            nodes_array_heavy = []
-            for node_id, node_data in processed_nodes_heavy.items():
-                nodes_array_heavy.append(node_data)
-
-            # Create heavy chain tree
-            tree_heavy = {
-                **_build_tree_ref(
-                    tree_ident=tree_ident,
+            # Fall back to a single "empty" tree entry when no CSV trees are
+            # supplied; the helper handles the build_newick_from_edges
+            # fallback internally.
+            tree_entries_normalized = tree_entries if tree_entries else [{}]
+
+            # The helper mutates family_data during topology merge + node
+            # processing, so take a pristine copy and deep-copy per tree
+            # iteration.
+            family_data_pristine = copy.deepcopy(family_data)
+
+            canonical_heavy_clone: Optional[Dict[str, Any]] = None
+            canonical_light_clone: Optional[Dict[str, Any]] = None
+            for tree_idx, tree_entry in enumerate(tree_entries_normalized):
+                family_data_this = copy.deepcopy(family_data_pristine)
+                per_tree_ident = minter.mint("tree")
+
+                result = _process_family_tree(
+                    family_data=family_data_this,
+                    tree_entry=tree_entry,
+                    dataset_id=dataset_id,
+                    dataset_ident=dataset_ident,
                     family_id=family_id,
-                    is_paired=is_paired,
-                    chain="heavy",
-                    newick=newick,
-                    csv_tree_id=csv_tree_id,
-                    reconstruction_method=reconstruction_method,
-                ),
-                "nodes": nodes_array_heavy,
-            }
-            trees.append(tree_heavy)
+                    clone_ident=clone_ident,
+                    tree_ident=per_tree_ident,
+                    minter=minter,
+                    compute_metrics=compute_metrics,
+                    lbi_tau=lbi_tau,
+                    standardize_names=standardize_names,
+                    alignment_method=alignment_method,
+                    warn_disagreements=warn_disagreements,
+                    verbosity=verbosity,
+                )
+                if result is None:
+                    # Helper decided to skip this tree (e.g. missing germline).
+                    # Keep processing remaining trees for the family.
+                    continue
 
-            # Create light chain tree (if paired)
-            if is_paired:
-                nodes_array_light = []
-                for node_id, node_data in processed_nodes_light.items():
-                    nodes_array_light.append(node_data)
+                heavy_clone, light_clone, heavy_tree, light_tree = result
 
-                tree_light = {
-                    **_build_tree_ref(
-                        tree_ident=tree_ident,
-                        family_id=family_id,
-                        is_paired=True,
-                        chain="light",
-                        newick=newick,  # Same topology, different sequences in nodes
-                        csv_tree_id=csv_tree_id,
-                        reconstruction_method=reconstruction_method,
-                    ),
-                    "nodes": nodes_array_light,
-                }
-                trees.append(tree_light)
+                if canonical_heavy_clone is None:
+                    # First successful tree for this family: use the helper's
+                    # clone dicts as canonical (already have one tree ref
+                    # inline).
+                    canonical_heavy_clone = heavy_clone
+                    clones_dict[dataset_id].append(canonical_heavy_clone)
+                    if light_clone is not None:
+                        canonical_light_clone = light_clone
+                        clones_dict[dataset_id].append(canonical_light_clone)
+                else:
+                    # Subsequent alternate reconstruction: extend the existing
+                    # clone's trees[] with just the reference (no nodes).
+                    canonical_heavy_clone["trees"].append(
+                        {k: v for k, v in heavy_tree.items() if k != "nodes"}
+                    )
+                    if canonical_light_clone is not None and light_tree is not None:
+                        canonical_light_clone["trees"].append(
+                            {k: v for k, v in light_tree.items() if k != "nodes"}
+                        )
+
+                trees.append(heavy_tree)
+                if light_tree is not None:
+                    trees.append(light_tree)
 
     # Generate field_metadata (uses generate_default_config when no config provided)
     dataset_clones = clones_dict.get(dataset_id, [])
