@@ -21,6 +21,7 @@ from .constants import OLMSTED_REQUIRED_TOP_LEVEL_KEYS
 from .merge_mutations import apply_mutations_csv
 from .process_utils import (
     add_verbosity_args,
+    check_output_id_uniqueness,
     resolve_verbosity,
     retag_datasets_field_metadata,
 )
@@ -97,6 +98,14 @@ Examples:
         default="pretty",
         help="JSON output format (default: pretty)",
     )
+    parser.add_argument(
+        "--allow-duplicate-ids",
+        action="store_true",
+        help="Downgrade duplicate-*_id errors in the input file to warnings "
+        "and pass the data through unchanged. By default, merge fails when "
+        "dataset_id, clone_id, tree_id, sample_id, or subject_id collide "
+        "within their natural uniqueness scope.",
+    )
     add_verbosity_args(parser)
 
     args = parser.parse_args()
@@ -172,6 +181,17 @@ def main():
         data["trees"],
         custom_fields=args.custom_fields,
     )
+
+    try:
+        check_output_id_uniqueness(
+            data["datasets"],
+            data.get("clones", {}),
+            data["trees"],
+            allow_duplicates=args.allow_duplicate_ids,
+        )
+    except ValueError as e:
+        vprint.error(f"Error: {e}")
+        sys.exit(1)
 
     # Refuse to overwrite the input file in place when nothing matched.
     if args.in_place and stats is not None and stats.trees_matched == 0:
