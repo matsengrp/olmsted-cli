@@ -18,6 +18,7 @@ And a CSV file containing Newick trees:
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
 import gzip
 import json
@@ -676,8 +677,11 @@ def merge_tree_topology_with_pcp(pcp_family_data, newick_string, warn_disagreeme
     # Parse the Newick tree to get complete topology
     tree_nodes, tree_edges, tree_root = parse_newick_tree(newick_string)
 
-    # Start with existing PCP data
-    merged_nodes = pcp_family_data["nodes"].copy()
+    # Start with existing PCP data. Deep-copy the inner node dicts so
+    # downstream mutations (e.g. setting "distance") don't leak back
+    # into the input, which matters when the same base family data is
+    # processed against multiple alternate tree topologies.
+    merged_nodes = {node_id: node.copy() for node_id, node in pcp_family_data["nodes"].items()}
     merged_edges = pcp_family_data["edges"].copy()
 
     # Add any missing nodes from the tree
@@ -849,27 +853,47 @@ def merge_tree_topology_with_pcp(pcp_family_data, newick_string, warn_disagreeme
     }
 
 
-def parse_newick_csv(csv_path: str) -> Dict[str, Any]:
-    """
-    Parse CSV file containing Newick trees.
+def parse_newick_csv(csv_path: str) -> Dict[Any, List[Dict[str, Any]]]:
+    """Parse a CSV of Newick trees into a list-per-family-key mapping.
 
-    Expected CSV format:
-    family_name,sample_id,newick_tree (or family_name,newick_tree for backwards compatibility)
+    Required columns:
 
-    Optional columns for paired format:
-    - rate_scale_heavy: Rate scaling factor for heavy chain
-    - rate_scale_light: Rate scaling factor for light chain
-    - newick (alternative column name for newick_tree)
-    - family (alternative column name for family_name)
+    - ``family_name`` (or ``family``) — clonal family identifier.
+    - ``newick_tree`` (or ``newick``) — Newick topology string.
+
+    Optional reserved columns (handled here, not captured as clone-level
+    extras):
+
+    - ``sample_id`` — when present, the key is
+      ``(family_name, sample_id)``; otherwise just ``family_name``.
+    - ``tree_id`` — per-tree identifier. Enables multiple alternate
+      reconstructions for the same ``(family, sample_id)``. When absent,
+      a fallback is synthesized downstream.
+    - ``reconstruction_method`` — written to ``tree.reconstruction_method``
+      on the output.
+    - ``rate_scale_heavy`` / ``rate_scale_light`` — paired-format rate
+      scaling factors; promoted to clone-level fields.
+
+    Any other columns are captured as clone-level extras (same chain
+    suffix convention as PCP CSV extras — see
+    ``_partition_chain_fields``).
 
     Returns:
-        dict: {(family_name, sample_id): tree_data} if sample_id present,
-              {family_name: tree_data} otherwise
-              where tree_data is either:
-              - str: newick_string (for backwards compatibility)
-              - dict: {"newick": newick_string, "rate_scale_heavy": float, "rate_scale_light": float}
+        A mapping from family-key to a list of tree-data dicts. The key is
+        ``(family_name, sample_id)`` if a ``sample_id`` column is present,
+        else just ``family_name``. Each list entry is one row of the CSV
+        and has the shape::
+
+            {
+                "newick": str,                       # required
+                "tree_id": Optional[str],            # only when column present + non-empty
+                "reconstruction_method": Optional[str],
+                "rate_scale_heavy": float,           # paired only
+                "rate_scale_light": float,           # paired only
+                "<extra_col>": coerced value,        # any other columns
+            }
     """
-    newick_trees = {}
+    newick_trees: Dict[Any, List[Dict[str, Any]]] = {}
 
     # Determine if file is gzipped
     if csv_path.endswith(".gz"):
@@ -905,44 +929,52 @@ def parse_newick_csv(csv_path: str) -> Dict[str, Any]:
         has_sample_id = "sample_id" in reader.fieldnames
 
         # Check for rate scaling columns (paired format)
-        has_rate_scale = "rate_scale_heavy" in reader.fieldnames or "rate_scale_light" in reader.fieldnames
+        has_rate_scale = (
+            "rate_scale_heavy" in reader.fieldnames
+            or "rate_scale_light" in reader.fieldnames
+        )
 
-        # Identify extra columns for clone-level data
-        # Filter out empty/None column names (e.g., unnamed index columns)
+        # Identify extra columns for clone-level data.
+        # Filter out empty/None column names (e.g., unnamed index columns).
         extra_columns = {
             c for c in reader.fieldnames if c and c not in KNOWN_TREE_COLUMNS
         }
-        has_extras = len(extra_columns) > 0
 
         for row in reader:
             family_name = row[family_col]
             newick_tree = row[newick_col]
 
-            # Build tree data
-            if has_rate_scale or has_extras:
-                # Return dict with all metadata
-                tree_data = {
-                    "newick": newick_tree,
-                }
-                if has_rate_scale:
-                    tree_data["rate_scale_heavy"] = float(row.get("rate_scale_heavy", 1.0)) if row.get("rate_scale_heavy") else 1.0
-                    tree_data["rate_scale_light"] = float(row.get("rate_scale_light", 1.0)) if row.get("rate_scale_light") else 1.0
-                # Capture extra columns as clone-level fields
-                for col in extra_columns:
-                    val = row.get(col, "")
-                    if val != "":
-                        tree_data[col] = coerce_csv_value(val)
-            else:
-                # Return just string for backwards compatibility
-                tree_data = newick_tree
+            tree_data: Dict[str, Any] = {"newick": newick_tree}
+
+            # Reserved tree-level columns
+            tree_id_val = row.get("tree_id")
+            if tree_id_val:
+                tree_data["tree_id"] = tree_id_val
+
+            reconstruction_method_val = row.get("reconstruction_method")
+            if reconstruction_method_val:
+                tree_data["reconstruction_method"] = reconstruction_method_val
+
+            if has_rate_scale:
+                tree_data["rate_scale_heavy"] = (
+                    float(row["rate_scale_heavy"]) if row.get("rate_scale_heavy") else 1.0
+                )
+                tree_data["rate_scale_light"] = (
+                    float(row["rate_scale_light"]) if row.get("rate_scale_light") else 1.0
+                )
+
+            # Capture extra columns as clone-level fields
+            for col in extra_columns:
+                val = row.get(col, "")
+                if val != "":
+                    tree_data[col] = coerce_csv_value(val)
 
             if has_sample_id:
-                sample_id = row["sample_id"]
-                # Use composite key (family_name, sample_id) to handle multiple samples with same family ID
-                newick_trees[(family_name, sample_id)] = tree_data
+                key = (family_name, row["sample_id"])
             else:
-                # Backwards compatibility: use just family_name
-                newick_trees[family_name] = tree_data
+                key = family_name
+
+            newick_trees.setdefault(key, []).append(tree_data)
 
     return newick_trees
 
@@ -1523,6 +1555,49 @@ def build_newick_from_edges(nodes, edges):
     return f"({','.join(subtrees)}){root}:0.0;"
 
 
+def _build_tree_ref(
+    *,
+    tree_ident: str,
+    family_id: str,
+    is_paired: bool,
+    chain: str,
+    newick: str,
+    csv_tree_id: Optional[str],
+    reconstruction_method: Optional[str],
+) -> Dict[str, Any]:
+    """Build a tree record (``clone.trees[]`` entry or the header of a
+    top-level ``trees[]`` entry) with the identifier and semantic columns.
+
+    ``tree_id`` resolves in this order:
+    1. ``csv_tree_id`` when the tree CSV supplied a value (possibly with
+       a chain suffix for paired data).
+    2. Synthesized ``tree-{family_id}`` (paired:
+       ``tree-{family_id}-heavy`` / ``-light``).
+
+    ``reconstruction_method`` is only included on the output record when
+    the input supplied one — never fabricated.
+    """
+    if is_paired:
+        suffix = f"-{chain}"
+    else:
+        suffix = ""
+
+    if csv_tree_id:
+        resolved_tree_id = f"{csv_tree_id}{suffix}"
+    else:
+        resolved_tree_id = f"tree-{family_id}{suffix}"
+
+    record: Dict[str, Any] = {
+        "ident": f"{tree_ident}{suffix}",
+        "clone_id": f"{family_id}{suffix}",
+        "tree_id": resolved_tree_id,
+        "newick": newick,
+    }
+    if reconstruction_method:
+        record["reconstruction_method"] = reconstruction_method
+    return record
+
+
 def process_pcp_to_olmsted(
     pcp_families: Dict[str, Any],
     newick_trees: Optional[Dict[str, Any]] = None,
@@ -1619,37 +1694,40 @@ def process_pcp_to_olmsted(
                     }
                 )
 
-            # Merge tree topology with PCP data if Newick tree is available
-            # Try composite key first (family_id, sample_id), then fall back to just family_id
-            newick = None
-            newick_tree_data = None
-            rate_scale_heavy = 1.0
-            rate_scale_light = 1.0
-            extra_tree_fields = {}
-
+            # Look up tree entries for this family. parse_newick_csv returns a
+            # list-per-key; multiple entries mean alternate reconstructions of
+            # the same clonal family. For this pass we accept the list shape
+            # but require it to have exactly one entry — the pipeline's
+            # multi-tree iteration is introduced in a follow-up step.
+            tree_entries = []
             if newick_trees:
-                # Try composite key (family_id, sample_id)
                 composite_key = (family_id, original_sample_id)
                 if composite_key in newick_trees:
-                    newick_tree_data = newick_trees[composite_key]
-                # Fall back to just family_id for backwards compatibility
+                    tree_entries = newick_trees[composite_key]
                 elif family_id in newick_trees:
-                    newick_tree_data = newick_trees[family_id]
+                    tree_entries = newick_trees[family_id]
 
-                # Handle both string and dict return types from parse_newick_csv
-                if newick_tree_data is not None:
-                    if isinstance(newick_tree_data, dict):
-                        newick = newick_tree_data.get("newick", "")
-                        rate_scale_heavy = newick_tree_data.get("rate_scale_heavy", 1.0)
-                        rate_scale_light = newick_tree_data.get("rate_scale_light", 1.0)
-                        # Capture extra tree columns as clone-level fields
-                        extra_tree_fields = {
-                            k: v for k, v in newick_tree_data.items()
-                            if k not in ("newick", "rate_scale_heavy", "rate_scale_light")
-                        }
-                    else:
-                        # String format (backwards compatibility)
-                        newick = newick_tree_data
+            if len(tree_entries) > 1:
+                raise NotImplementedError(
+                    f"Multiple trees per family (family_id={family_id!r}, "
+                    f"sample_id={original_sample_id!r}) are recognized by the "
+                    f"tree-CSV parser but not yet supported by the processing "
+                    f"pipeline. Only one tree per (family, sample_id) is "
+                    f"currently handled."
+                )
+
+            tree_entry = tree_entries[0] if tree_entries else {}
+            newick = tree_entry.get("newick") or None
+            csv_tree_id = tree_entry.get("tree_id")
+            reconstruction_method = tree_entry.get("reconstruction_method")
+            rate_scale_heavy = tree_entry.get("rate_scale_heavy", 1.0)
+            rate_scale_light = tree_entry.get("rate_scale_light", 1.0)
+            # Extras are every column that wasn't a reserved tree-level field.
+            extra_tree_fields = {
+                k: v for k, v in tree_entry.items()
+                if k not in ("newick", "tree_id", "reconstruction_method",
+                             "rate_scale_heavy", "rate_scale_light")
+            }
 
             if newick:
                 # Use complete tree topology from Newick
@@ -2189,12 +2267,15 @@ def process_pcp_to_olmsted(
                 "germline_alignment": germline_alignment,
                 "has_seed": False,
                 "trees": [
-                    {
-                        "ident": tree_ident if not is_paired else f"{tree_ident}-heavy",
-                        "clone_id": family_id if not is_paired else f"{family_id}-heavy",
-                        "tree_id": f"pcp-tree-{family_id}" if not is_paired else f"pcp-tree-{family_id}-heavy",
-                        "newick": newick,
-                    }
+                    _build_tree_ref(
+                        tree_ident=tree_ident,
+                        family_id=family_id,
+                        is_paired=is_paired,
+                        chain="heavy",
+                        newick=newick,
+                        csv_tree_id=csv_tree_id,
+                        reconstruction_method=reconstruction_method,
+                    )
                 ],
                 # Denormalized sample reference for webapp convenience
                 "sample": {
@@ -2263,12 +2344,15 @@ def process_pcp_to_olmsted(
                     "germline_alignment": germline_alignment_light,
                     "has_seed": False,
                     "trees": [
-                        {
-                            "ident": f"{tree_ident}-light",
-                            "clone_id": f"{family_id}-light",
-                            "tree_id": f"pcp-tree-{family_id}-light",
-                            "newick": newick,  # Same topology, different sequences
-                        }
+                        _build_tree_ref(
+                            tree_ident=tree_ident,
+                            family_id=family_id,
+                            is_paired=True,
+                            chain="light",
+                            newick=newick,  # Same topology, different sequences
+                            csv_tree_id=csv_tree_id,
+                            reconstruction_method=reconstruction_method,
+                        )
                     ],
                     "sample": {
                         "ident": f"{clone_ident}-light",
@@ -2295,10 +2379,15 @@ def process_pcp_to_olmsted(
 
             # Create heavy chain tree
             tree_heavy = {
-                "ident": tree_ident if not is_paired else f"{tree_ident}-heavy",
-                "tree_id": f"pcp-tree-{family_id}" if not is_paired else f"pcp-tree-{family_id}-heavy",
-                "clone_id": family_id if not is_paired else f"{family_id}-heavy",
-                "newick": newick,
+                **_build_tree_ref(
+                    tree_ident=tree_ident,
+                    family_id=family_id,
+                    is_paired=is_paired,
+                    chain="heavy",
+                    newick=newick,
+                    csv_tree_id=csv_tree_id,
+                    reconstruction_method=reconstruction_method,
+                ),
                 "nodes": nodes_array_heavy,
             }
             trees.append(tree_heavy)
@@ -2310,10 +2399,15 @@ def process_pcp_to_olmsted(
                     nodes_array_light.append(node_data)
 
                 tree_light = {
-                    "ident": f"{tree_ident}-light",
-                    "tree_id": f"pcp-tree-{family_id}-light",
-                    "clone_id": f"{family_id}-light",
-                    "newick": newick,  # Same topology, different sequences in nodes
+                    **_build_tree_ref(
+                        tree_ident=tree_ident,
+                        family_id=family_id,
+                        is_paired=True,
+                        chain="light",
+                        newick=newick,  # Same topology, different sequences in nodes
+                        csv_tree_id=csv_tree_id,
+                        reconstruction_method=reconstruction_method,
+                    ),
                     "nodes": nodes_array_light,
                 }
                 trees.append(tree_light)

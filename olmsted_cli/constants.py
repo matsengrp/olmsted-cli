@@ -320,6 +320,10 @@ KNOWN_TREE_COLUMNS = {
     "family_name", "family", "sample_id",
     "newick_tree", "newick",
     "rate_scale_heavy", "rate_scale_light",
+    # tree-level reserved columns — recognized and plumbed onto the tree
+    # record (not captured as clone-level extras):
+    "tree_id",
+    "reconstruction_method",
 }
 
 

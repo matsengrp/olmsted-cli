@@ -153,7 +153,13 @@ def process_tree(args, clone_id, tree):
     tree["nodes"] = process_tree_nodes(
         args, ete_tree, tree["nodes"], reroot=args.root_trees
     )
-    return ensure_ident(tree, "tree", args.minter)
+    # AIRR Community's Tree schema marks tree_id as required. Input may or
+    # may not supply it; when absent, fall back to the CLI-minted ident so
+    # both fields are populated and the webapp dropdown has a stable label.
+    tree = ensure_ident(tree, "tree", args.minter)
+    if not tree.get("tree_id"):
+        tree["tree_id"] = tree["ident"]
+    return tree
 
 
 def process_clone(args, dataset, clone):
