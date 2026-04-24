@@ -54,10 +54,11 @@ def _run_airr_process(tmp_path: Path) -> dict:
 class TestPcpOutputShape:
     def test_dataset_type_not_synthesized(self, tmp_path):
         """dataset.type is no longer set to "pcp.dataset" — only populated
-        when input supplies one."""
+        when input supplies one. PCP input has no dataset.type, so the
+        field must be absent/None on output."""
         data = _run_pcp_process(tmp_path)
         for ds in data["datasets"]:
-            assert ds.get("type") in (None, "", "pcp.dataset") is False or ds.get("type") != "pcp.dataset"
+            assert ds.get("type") != "pcp.dataset"
 
     def test_tree_reconstruction_method_not_synthesized(self, tmp_path):
         """tree.reconstruction_method absent when CSV has no column."""
@@ -119,16 +120,77 @@ class TestPcpOutputShape:
 
 
 class TestAirrOutputShape:
-    def test_tree_id_populated_from_ident_when_missing(self, tmp_path):
-        """AIRR input's Tree schema requires tree_id; olmsted-cli fills
-        it with the minted ident when input omits it."""
+    def test_tree_id_passthrough_when_input_supplies_it(self, tmp_path):
+        """When AIRR input provides tree_id, it's preserved (not overwritten
+        by the ident fallback)."""
         data = _run_airr_process(tmp_path)
         for tree in data["trees"]:
-            assert tree.get("tree_id")  # non-empty
-            # If input supplied a tree_id, it's kept; otherwise it matches ident
-            if tree["tree_id"] != tree["ident"]:
-                # Input supplied a tree_id — that's fine too
-                pass
+            assert tree.get("tree_id"), "tree_id should be non-empty"
+        # The example_data/airr input always supplies tree_id, so all trees
+        # here exercise the pass-through path; the fallback path is covered
+        # by test_tree_id_fallback_to_ident_when_input_missing below.
+
+    def test_tree_id_fallback_to_ident_when_input_missing(self):
+        """process_tree populates tree_id with the minted ident when AIRR
+        input omits the field — the fallback at process_airr_data.process_tree:160-162."""
+        from argparse import Namespace
+
+        from olmsted_cli.identifier import IdentMinter
+        from olmsted_cli.process_airr_data import process_tree
+
+        args = Namespace(
+            minter=IdentMinter(seed=42),
+            root_trees=False,
+            naive_name="naive",
+            verbose=0,
+        )
+        # Minimal AIRR tree dict with no tree_id supplied
+        tree = {
+            "newick": "(leaf1:0.01,leaf2:0.02)naive:0.0;",
+            "nodes": {
+                "naive": {"sequence_alignment": "ATCG", "sequence_alignment_aa": "T"},
+                "leaf1": {"sequence_alignment": "ATCG", "sequence_alignment_aa": "T"},
+                "leaf2": {"sequence_alignment": "ATCG", "sequence_alignment_aa": "T"},
+            },
+        }
+        result = process_tree(args, clone_id="clone-xyz", tree=tree)
+
+        assert result["ident"].startswith("tree-"), "minted ident should carry tree- prefix"
+        assert result["tree_id"] == result["ident"], (
+            "missing input tree_id should fall back to the minted ident"
+        )
+
+    def test_tree_id_passthrough_on_helper(self):
+        """process_tree leaves input-supplied tree_id alone (doesn't
+        overwrite with ident fallback)."""
+        from argparse import Namespace
+
+        from olmsted_cli.identifier import IdentMinter
+        from olmsted_cli.process_airr_data import process_tree
+
+        args = Namespace(
+            minter=IdentMinter(seed=42),
+            root_trees=False,
+            naive_name="naive",
+            verbose=0,
+        )
+        tree = {
+            "tree_id": "my-explicit-tree-id",
+            "newick": "(leaf1:0.01,leaf2:0.02)naive:0.0;",
+            "nodes": {
+                "naive": {"sequence_alignment": "ATCG", "sequence_alignment_aa": "T"},
+                "leaf1": {"sequence_alignment": "ATCG", "sequence_alignment_aa": "T"},
+                "leaf2": {"sequence_alignment": "ATCG", "sequence_alignment_aa": "T"},
+            },
+        }
+        result = process_tree(args, clone_id="clone-xyz", tree=tree)
+
+        assert result["tree_id"] == "my-explicit-tree-id", (
+            "input-supplied tree_id must be preserved"
+        )
+        assert result["ident"] != result["tree_id"], (
+            "minted ident is still distinct from the input tree_id"
+        )
 
     def test_clone_dataset_nested_absent(self, tmp_path):
         data = _run_airr_process(tmp_path)

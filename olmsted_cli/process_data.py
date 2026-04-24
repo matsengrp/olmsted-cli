@@ -256,7 +256,7 @@ def process_airr_format(args):
     # downstream are impossible.
     try:
         check_output_id_uniqueness(
-            datasets, clones_dict, trees,
+            datasets, clones_dict,
             allow_duplicates=getattr(args, "allow_duplicate_ids", False),
         )
     except ValueError as e:
@@ -404,7 +404,7 @@ def process_pcp_format(args):
         # downgrades collisions to a warning.
         try:
             check_output_id_uniqueness(
-                datasets, clones_dict, trees,
+                datasets, clones_dict,
                 allow_duplicates=getattr(args, "allow_duplicate_ids", False),
             )
         except ValueError as e:

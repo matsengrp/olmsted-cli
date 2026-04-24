@@ -27,7 +27,8 @@ import os
 import sys
 import traceback
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple
 from urllib.parse import parse_qs, parse_qsl
 
 from .identifier import IdentMinter, deterministic_uuid  # noqa: F401 (re-exported for back-compat)
@@ -1555,12 +1556,28 @@ def build_newick_from_edges(nodes, edges):
     return f"({','.join(subtrees)}){root}:0.0;"
 
 
+@dataclass(frozen=True)
+class TreeProcessingConfig:
+    """Stable-across-iterations settings for per-family-tree processing.
+
+    Bundles the handful of knobs that ``_process_family_tree`` reads
+    (metric computation, alignment method, warning policy) so the
+    per-call signature stays about the inputs that actually vary
+    (family_data, tree_entry, identities).
+    """
+
+    compute_metrics: bool = False
+    lbi_tau: float = 0.0125
+    standardize_names: bool = False
+    alignment_method: str = "truncate"
+    warn_disagreements: bool = False
+
+
 def _build_tree_ref(
     *,
     tree_ident: str,
     family_id: str,
-    is_paired: bool,
-    chain: str,
+    chain: Optional[Literal["heavy", "light"]] = None,
     newick: str,
     csv_tree_id: Optional[str],
     reconstruction_method: Optional[str],
@@ -1568,19 +1585,21 @@ def _build_tree_ref(
     """Build a tree record (``clone.trees[]`` entry or the header of a
     top-level ``trees[]`` entry) with the identifier and semantic columns.
 
+    Args:
+        chain: ``"heavy"`` or ``"light"`` for paired data (adds the
+            corresponding suffix to ``ident``/``clone_id``/``tree_id``);
+            ``None`` for single-chain data (no suffix).
+
     ``tree_id`` resolves in this order:
-    1. ``csv_tree_id`` when the tree CSV supplied a value (possibly with
-       a chain suffix for paired data).
+    1. ``csv_tree_id`` when the tree CSV supplied a value (paired data
+       appends the chain suffix).
     2. Synthesized ``tree-{family_id}`` (paired:
        ``tree-{family_id}-heavy`` / ``-light``).
 
     ``reconstruction_method`` is only included on the output record when
     the input supplied one — never fabricated.
     """
-    if is_paired:
-        suffix = f"-{chain}"
-    else:
-        suffix = ""
+    suffix = f"-{chain}" if chain is not None else ""
 
     if csv_tree_id:
         resolved_tree_id = f"{csv_tree_id}{suffix}"
@@ -1603,17 +1622,10 @@ def _process_family_tree(
     family_data: Dict[str, Any],
     tree_entry: Dict[str, Any],
     dataset_id: str,
-    dataset_ident: str,
     family_id: str,
     clone_ident: str,
     tree_ident: str,
-    minter: IdentMinter,
-    compute_metrics: bool,
-    lbi_tau: float,
-    standardize_names: bool,
-    alignment_method: str,
-    warn_disagreements: bool,
-    verbosity: int,
+    config: TreeProcessingConfig,
 ) -> Optional[Tuple[Dict[str, Any], Optional[Dict[str, Any]], Dict[str, Any], Optional[Dict[str, Any]]]]:
     """Process one (family, tree) pair.
 
@@ -1650,7 +1662,7 @@ def _process_family_tree(
 
     if newick:
         # Use complete tree topology from Newick
-        family_data = merge_tree_topology_with_pcp(family_data, newick, warn_disagreements, family_id)
+        family_data = merge_tree_topology_with_pcp(family_data, newick, config.warn_disagreements, family_id)
     else:
         # Fallback to building tree from PCP edges only
         newick = build_newick_from_edges(family_data["nodes"], family_data["edges"])
@@ -1804,18 +1816,18 @@ def _process_family_tree(
             processed_nodes_light[node_id]["cluster_multiplicity"] = cluster_mult_values_light.get(node_id, 0)
 
     # Calculate phylogenetic metrics if requested (computed for both heavy and light)
-    if compute_metrics:
-        vprint.verbose(f"  Computing metrics for family {family_id} (tau={lbi_tau})")
+    if config.compute_metrics:
+        vprint.verbose(f"  Computing metrics for family {family_id} (tau={config.lbi_tau})")
         compute_tree_metrics(
-            processed_nodes_heavy, family_data["edges"], tree_root, tau=lbi_tau
+            processed_nodes_heavy, family_data["edges"], tree_root, tau=config.lbi_tau
         )
         if is_paired:
             compute_tree_metrics(
-                processed_nodes_light, family_data["edges"], tree_root, tau=lbi_tau
+                processed_nodes_light, family_data["edges"], tree_root, tau=config.lbi_tau
             )
 
     # Standardize node names if requested (apply same mapping to heavy and light)
-    if standardize_names:
+    if config.standardize_names:
         # Create name mapping: old_name -> new_name (same for heavy and light chains)
         name_mapping = {}
         internal_counter = 1
@@ -2021,7 +2033,7 @@ def _process_family_tree(
             if germline_alignment and leaf_sequence:
                 # Use helper function to align and calculate mutations
                 num_mutations, seq_length, germline_aligned, leaf_aligned = align_and_calculate_mutations(
-                    germline_alignment, leaf_sequence, alignment_method
+                    germline_alignment, leaf_sequence, config.alignment_method
                 )
 
                 # Calculate mutation frequency
@@ -2056,7 +2068,7 @@ def _process_family_tree(
                     'leaf_seq': leaf_aligned,
                     'mutations': mutation_positions,
                     'was_aligned': len(germline_alignment) != len(leaf_sequence),
-                    'alignment_method': alignment_method
+                    'alignment_method': config.alignment_method
                 })
             else:
                 # Track why we skipped this sequence - be specific
@@ -2110,12 +2122,15 @@ def _process_family_tree(
         vprint=vprint
     )
 
-    # Calculate mean mutation frequency for LIGHT CHAIN (if paired)
+    # Calculate mean mutation frequency for LIGHT CHAIN (if paired).
+    # Routes through align_and_calculate_mutations like the heavy chain
+    # path above so both chains share the same alignment semantics —
+    # including gap-skipping behavior that the inlined version used to
+    # diverge on.
     mean_mut_freq_light = 0.0
     if is_paired:
         total_mut_freq_light = 0.0
         total_sequences_light = 0
-        germline_length_light = len(germline_alignment_light) if germline_alignment_light else 0
 
         for node_id, node_data in processed_nodes_light.items():
             node_type = node_data.get("type")
@@ -2125,22 +2140,10 @@ def _process_family_tree(
                 leaf_sequence = node_data.get("sequence_alignment", "")
 
                 if germline_alignment_light and leaf_sequence:
-                    # Use same alignment method as heavy chain
-                    if alignment_method == "truncate":
-                        min_len = min(len(germline_alignment_light), len(leaf_sequence))
-                        germline_compared = germline_alignment_light[:min_len]
-                        leaf_compared = leaf_sequence[:min_len]
-                        num_mutations = sum(1 for g, l in zip(germline_compared, leaf_compared)
-                                          if g != l and g != '' and l != '')
-                        mut_freq = num_mutations / min_len if min_len > 0 else 0.0
-                    elif alignment_method == "pad":
-                        max_len = max(len(germline_alignment_light), len(leaf_sequence))
-                        germline_padded = germline_alignment_light.ljust(max_len, ".")
-                        leaf_padded = leaf_sequence.ljust(max_len, ".")
-                        num_mutations = sum(1 for g, l in zip(germline_padded, leaf_padded)
-                                          if g != l and g != '' and l != '' and g != '.' and l != '.')
-                        mut_freq = num_mutations / max_len if max_len > 0 else 0.0
-
+                    num_mutations, seq_length, _, _ = align_and_calculate_mutations(
+                        germline_alignment_light, leaf_sequence, config.alignment_method
+                    )
+                    mut_freq = num_mutations / seq_length if seq_length > 0 else 0.0
                     total_mut_freq_light += mut_freq * multiplicity
                     total_sequences_light += multiplicity
 
@@ -2192,8 +2195,7 @@ def _process_family_tree(
             _build_tree_ref(
                 tree_ident=tree_ident,
                 family_id=family_id,
-                is_paired=is_paired,
-                chain="heavy",
+                chain="heavy" if is_paired else None,
                 newick=newick,
                 csv_tree_id=csv_tree_id,
                 reconstruction_method=reconstruction_method,
@@ -2267,7 +2269,6 @@ def _process_family_tree(
                 _build_tree_ref(
                     tree_ident=tree_ident,
                     family_id=family_id,
-                    is_paired=True,
                     chain="light",
                     newick=newick,  # Same topology, different sequences
                     csv_tree_id=csv_tree_id,
@@ -2299,8 +2300,7 @@ def _process_family_tree(
         **_build_tree_ref(
             tree_ident=tree_ident,
             family_id=family_id,
-            is_paired=is_paired,
-            chain="heavy",
+            chain="heavy" if is_paired else None,
             newick=newick,
             csv_tree_id=csv_tree_id,
             reconstruction_method=reconstruction_method,
@@ -2319,7 +2319,6 @@ def _process_family_tree(
             **_build_tree_ref(
                 tree_ident=tree_ident,
                 family_id=family_id,
-                is_paired=True,
                 chain="light",
                 newick=newick,  # Same topology, different sequences in nodes
                 csv_tree_id=csv_tree_id,
@@ -2369,8 +2368,25 @@ def process_pcp_to_olmsted(
     if minter is None:
         minter = IdentMinter()
 
+    # Two "dataset" mints on purpose: dataset_id is the semantic foreign
+    # key the webapp cross-references (used as the clones_dict key below);
+    # dataset_ident is the internal primary-key-shaped ident on the
+    # dataset record. Both share the same {datatype}-{uuid} convention
+    # but are minted as separate uuids so they can diverge if future
+    # input formats supply a user-meaningful dataset_id.
     dataset_id = minter.mint("dataset")
     dataset_ident = minter.mint("dataset")
+
+    # Per-run settings are stable across family/tree iterations — bundle
+    # them once so the per-call signature stays focused on the varying
+    # inputs (family_data, tree_entry, identities).
+    tree_config = TreeProcessingConfig(
+        compute_metrics=compute_metrics,
+        lbi_tau=lbi_tau,
+        standardize_names=standardize_names,
+        alignment_method=alignment_method,
+        warn_disagreements=warn_disagreements,
+    )
 
     datasets = []
     clones_dict = {dataset_id: []}  # Clones array indexed by dataset_id
@@ -2457,17 +2473,10 @@ def process_pcp_to_olmsted(
                     family_data=family_data_this,
                     tree_entry=tree_entry,
                     dataset_id=dataset_id,
-                    dataset_ident=dataset_ident,
                     family_id=family_id,
                     clone_ident=clone_ident,
                     tree_ident=per_tree_ident,
-                    minter=minter,
-                    compute_metrics=compute_metrics,
-                    lbi_tau=lbi_tau,
-                    standardize_names=standardize_names,
-                    alignment_method=alignment_method,
-                    warn_disagreements=warn_disagreements,
-                    verbosity=verbosity,
+                    config=tree_config,
                 )
                 if result is None:
                     # Helper decided to skip this tree (e.g. missing germline).

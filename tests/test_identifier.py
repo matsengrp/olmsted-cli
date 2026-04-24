@@ -35,7 +35,7 @@ class TestIdentMinter:
         """Different seeds produce different sequences."""
         m1 = IdentMinter(seed=1)
         m2 = IdentMinter(seed=2)
-        assert m1.mint("x") != m2.mint("x")
+        assert m1.mint("clone") != m2.mint("clone")
 
     def test_mint_random_unique(self):
         """Random-mode minting produces unique values (uuid4 collision
@@ -49,9 +49,19 @@ class TestIdentMinter:
         with pytest.raises(ValueError, match="datatype"):
             m.mint("")
 
+    def test_mint_rejects_unknown_datatype(self):
+        """Closed-set datatype: even well-formed strings not in the
+        registered set are rejected (catches typos like 'Dataset')."""
+        m = IdentMinter()
+        with pytest.raises(ValueError, match="datatype"):
+            m.mint("Dataset")  # capital D — common typo
+        with pytest.raises(ValueError, match="datatype"):
+            m.mint("repertoire")  # plausible-but-unregistered
+
     def test_mint_rejects_datatype_with_hyphen(self):
         """Hyphens in datatype would make the {datatype}-{uuid} split
-        ambiguous, so they're banned at the signature level."""
+        ambiguous; the closed set has no hyphenated entries so hyphens
+        fall through the same rejection path."""
         m = IdentMinter()
         with pytest.raises(ValueError, match="datatype"):
             m.mint("my-thing")

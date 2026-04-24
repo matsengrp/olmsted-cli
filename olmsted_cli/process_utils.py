@@ -1048,7 +1048,7 @@ def _find_duplicates(values):
     return sorted(dups)
 
 
-def check_output_id_uniqueness(datasets, clones_dict, trees, *, allow_duplicates=False):
+def check_output_id_uniqueness(datasets, clones_dict, *, allow_duplicates=False):
     """Verify user-facing ``*_id`` uniqueness across the output.
 
     Catches input-derived or synthesized ``*_id`` values that collide in
@@ -1065,13 +1065,15 @@ def check_output_id_uniqueness(datasets, clones_dict, trees, *, allow_duplicates
 
     ``sequence_id`` uniqueness within a tree is already enforced upstream
     by the Newick parser (``process_pcp_data._build_unique_names``) and is
-    not rechecked here.
+    not rechecked here. The top-level ``trees[]`` list is not an input
+    because every tree is also reachable via ``clones_dict[*].trees[]``;
+    adding a top-level scope would require a new rule (e.g. global
+    ``tree.ident`` uniqueness once the webapp DB migrates to a
+    ``tree_id`` primary key) — not the current contract.
 
     Args:
         datasets: List of dataset dicts.
         clones_dict: ``{dataset_id: [clone, ...]}`` mapping.
-        trees: List of tree dicts (unused today, accepted for symmetry
-            with other checker signatures).
         allow_duplicates: If True, violations are printed as warnings and
             the function returns normally. If False (default), raises
             ``ValueError`` listing every violation found.
@@ -1081,8 +1083,6 @@ def check_output_id_uniqueness(datasets, clones_dict, trees, *, allow_duplicates
         is False. All violations are reported in one error so users can
         fix input once rather than chasing them one at a time.
     """
-    del trees  # reserved for future scopes; accept for signature symmetry
-
     violations = []
 
     # dataset_id across datasets[]

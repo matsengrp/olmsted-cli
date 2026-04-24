@@ -32,12 +32,12 @@ class TestChecker:
         datasets = _minimal_datasets(["ds-1"])
         clones = {"ds-1": [{"clone_id": "c1", "trees": []}]}
         # Should not raise
-        check_output_id_uniqueness(datasets, clones, [])
+        check_output_id_uniqueness(datasets, clones)
 
     def test_detects_duplicate_dataset_id(self):
         datasets = _minimal_datasets(["ds-1", "ds-1"])
         with pytest.raises(ValueError, match="dataset_id"):
-            check_output_id_uniqueness(datasets, {"ds-1": []}, [])
+            check_output_id_uniqueness(datasets, {"ds-1": []})
 
     def test_detects_duplicate_clone_id(self):
         datasets = _minimal_datasets(["ds-1"])
@@ -48,7 +48,7 @@ class TestChecker:
             ]
         }
         with pytest.raises(ValueError, match="clone_id.*c1"):
-            check_output_id_uniqueness(datasets, clones, [])
+            check_output_id_uniqueness(datasets, clones)
 
     def test_detects_duplicate_tree_id_within_clone(self):
         datasets = _minimal_datasets(["ds-1"])
@@ -61,7 +61,7 @@ class TestChecker:
             ]
         }
         with pytest.raises(ValueError, match="tree_id.*t-a"):
-            check_output_id_uniqueness(datasets, clones, [])
+            check_output_id_uniqueness(datasets, clones)
 
     def test_tree_ids_may_repeat_across_clones(self):
         """The scope is within-a-clone, not across clones."""
@@ -72,19 +72,19 @@ class TestChecker:
                 {"clone_id": "c2", "trees": [{"tree_id": "t-a"}]},
             ]
         }
-        check_output_id_uniqueness(datasets, clones, [])  # no raise
+        check_output_id_uniqueness(datasets, clones)  # no raise
 
     def test_detects_duplicate_sample_id(self):
         samples = [{"sample_id": "s1"}, {"sample_id": "s1"}]
         datasets = _minimal_datasets(["ds-1"], samples=samples)
         with pytest.raises(ValueError, match="sample_id"):
-            check_output_id_uniqueness(datasets, {"ds-1": []}, [])
+            check_output_id_uniqueness(datasets, {"ds-1": []})
 
     def test_detects_duplicate_subject_id(self):
         subjects = [{"subject_id": "subj1"}, {"subject_id": "subj1"}]
         datasets = _minimal_datasets(["ds-1"], subjects=subjects)
         with pytest.raises(ValueError, match="subject_id"):
-            check_output_id_uniqueness(datasets, {"ds-1": []}, [])
+            check_output_id_uniqueness(datasets, {"ds-1": []})
 
     def test_reports_all_violations_in_one_error(self):
         datasets = _minimal_datasets(["ds-1", "ds-1"])  # dataset_id dup
@@ -95,7 +95,7 @@ class TestChecker:
             ]
         }
         with pytest.raises(ValueError) as excinfo:
-            check_output_id_uniqueness(datasets, clones, [])
+            check_output_id_uniqueness(datasets, clones)
         msg = str(excinfo.value)
         # Both violations show up in the same error
         assert "dataset_id" in msg
@@ -104,7 +104,7 @@ class TestChecker:
     def test_allow_duplicates_does_not_raise(self):
         datasets = _minimal_datasets(["ds-1", "ds-1"])
         # Should not raise when allow_duplicates=True
-        check_output_id_uniqueness(datasets, {"ds-1": []}, [], allow_duplicates=True)
+        check_output_id_uniqueness(datasets, {"ds-1": []}, allow_duplicates=True)
 
     def test_empty_or_absent_ids_not_counted(self):
         """Missing/empty *_id values don't collide with each other."""
@@ -117,7 +117,7 @@ class TestChecker:
             ]
         }
         # None of these should register as duplicates
-        check_output_id_uniqueness(datasets, clones, [])
+        check_output_id_uniqueness(datasets, clones)
 
 
 class TestCLIIntegration:

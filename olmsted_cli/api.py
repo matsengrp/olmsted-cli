@@ -31,6 +31,7 @@ from argparse import Namespace
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
+from .identifier import IdentMinter
 from .types import (
     OlmstedClone,
     OlmstedDataset,
@@ -146,7 +147,6 @@ class OlmstedData:
             data = OlmstedData.from_pcp("pcp.csv", "trees.csv")
             data = OlmstedData.from_pcp("paired.csv.gz", "trees.csv.gz")
         """
-        from .identifier import IdentMinter
         from .process_pcp_data import (
             parse_newick_csv,
             parse_pcp_csv,
@@ -197,7 +197,6 @@ class OlmstedData:
             For full AIRR processing options, use the CLI:
             `olmsted process -f airr -i input.json -o output.json`
         """
-        from .identifier import IdentMinter
         from .process_airr_data import process_dataset
 
         filepath = Path(filepath)

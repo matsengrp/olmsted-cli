@@ -5,6 +5,8 @@ This module centralizes all configuration constants used across olmsted-cli.
 It has NO dependencies on other project modules.
 """
 
+from typing import Literal
+
 # =============================================================================
 # Verbosity Levels
 # =============================================================================
@@ -38,6 +40,17 @@ INPUT_FORMATS = {FORMAT_PCP, FORMAT_AIRR, FORMAT_AUTO}
 
 #: All detectable formats
 ALL_FORMATS = {FORMAT_PCP, FORMAT_AIRR, FORMAT_OLMSTED}
+
+# --- Identifier Datatypes ---
+
+#: Datatype prefixes accepted by ``IdentMinter.mint``. Closed set — any
+#: object type whose ident is CLI-minted registers here.
+IdentDatatype = Literal["dataset", "clone", "tree", "sample", "subject"]
+
+#: Runtime-checkable tuple of the same values, for assertions that happen
+#: outside a type-check context.
+IDENT_DATATYPES = ("dataset", "clone", "tree", "sample", "subject")
+
 
 # --- Validation File Types ---
 

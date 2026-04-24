@@ -13,9 +13,9 @@ Convention (see ARCHITECTURE.md#identifier-conventions):
   this minter produces.
 - ``ident`` fields are always CLI-minted via ``IdentMinter.mint``.
 
-This module has no dependencies on other project modules — it sits
-alongside ``constants.py``, ``types.py``, and ``utils.py`` at the bottom
-of the dependency hierarchy.
+Depends only on ``constants`` for the closed-set ``IdentDatatype`` type
+alias — sits alongside ``constants.py``, ``types.py``, and ``utils.py``
+near the bottom of the dependency hierarchy.
 """
 
 from __future__ import annotations
@@ -23,6 +23,8 @@ from __future__ import annotations
 import hashlib
 import uuid as _uuid
 from typing import Optional
+
+from .constants import IDENT_DATATYPES, IdentDatatype
 
 
 def deterministic_uuid(seed_base, counter: Optional[int] = None) -> str:
@@ -44,23 +46,26 @@ class IdentMinter:
     under ``--seed``); random otherwise.
 
     The ``datatype`` argument is required on every call — there is no
-    way to mint a bare or prefixless uuid through this class.
+    way to mint a bare or prefixless uuid through this class. Accepted
+    datatypes are closed-set (see ``constants.IdentDatatype``); new
+    object types whose ident is CLI-minted must register there.
     """
 
     def __init__(self, seed: Optional[int] = None):
         self._seed = seed
         self._counter = 0
 
-    def mint(self, datatype: str) -> str:
+    def mint(self, datatype: IdentDatatype) -> str:
         """Return a new ``{datatype}-{uuid}`` identifier.
 
-        ``datatype`` must be a non-empty string with no hyphens, to
-        keep the convention unambiguous (idents are parsed as
-        ``datatype-rest`` where ``rest`` is a uuid).
+        ``datatype`` is type-checked as ``Literal["dataset", "clone",
+        "tree", "sample", "subject"]``; the runtime check catches
+        anything slipping past static type-checking (or callers using
+        ``Any``).
         """
-        if not datatype or "-" in datatype or not datatype.isascii():
+        if datatype not in IDENT_DATATYPES:
             raise ValueError(
-                f"datatype must be a non-empty hyphen-free ASCII string; got {datatype!r}"
+                f"datatype must be one of {IDENT_DATATYPES}; got {datatype!r}"
             )
         self._counter += 1
         if self._seed is not None:

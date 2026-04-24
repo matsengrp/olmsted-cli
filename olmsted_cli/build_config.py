@@ -16,6 +16,7 @@ import json
 import sys
 from pathlib import Path
 
+from .identifier import IdentMinter
 from .constants import (
     EXCLUDED_CLONE_FIELDS,
     EXCLUDED_MUTATION_FIELDS,
@@ -150,7 +151,6 @@ def _load_olmsted(input_path):
 def _load_pcp(input_path, trees_path, seed, compute_metrics):
     """Process PCP data and return clones and trees."""
     # Deferred: process_pcp_data pulls in ete3 and other heavy dependencies
-    from .identifier import IdentMinter
     from .process_pcp_data import (
         parse_newick_csv,
         parse_pcp_csv,
@@ -183,7 +183,6 @@ def _load_airr(input_path):
     from argparse import Namespace
 
     # Deferred: process_airr_data pulls in heavy processing dependencies
-    from .identifier import IdentMinter
     from .process_airr_data import process_dataset
 
     with open(input_path) as f:

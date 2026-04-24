@@ -186,7 +186,6 @@ def main():
         check_output_id_uniqueness(
             data["datasets"],
             data.get("clones", {}),
-            data["trees"],
             allow_duplicates=args.allow_duplicate_ids,
         )
     except ValueError as e:
