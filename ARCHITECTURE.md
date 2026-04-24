@@ -501,10 +501,16 @@ keys.
   through `IdentMinter.mint(datatype)` in `olmsted_cli/identifier.py`,
   which enforces the `{datatype}-{uuid}` shape at the signature level.
   Deterministic under `--seed`, random otherwise.
-- **`ident` is only minted on objects where the webapp uses it as a
-  primary key.** Today: `clone` and `tree`. `dataset`, `sample`,
-  `subject`, and `GeneSupport` don't carry `ident`; their `*_id` is
-  the primary key.
+- **`ident` is minted on objects that are — or will become — webapp
+  primary keys.** See the table below for per-object status.
+
+| Object | `ident` minted? | Webapp status | Notes |
+|---|---|---|---|
+| `tree` | yes | **Dexie PK** (`trees.where("ident")`) and used in every lookup path | Load-bearing today |
+| `clone` | yes | Redux PK (`clonalFamilies` state keyed on `ident`; `selectedFamily`, starred families flow through it); Dexie still uses compound `[dataset_id+clone_id]` | Half-migrated; webapp side still needs the Dexie PK swap |
+| `dataset` | yes | Dexie PK is `dataset_id`; `ident` is written but not yet read | Minted in anticipation of the Dexie PK migration |
+| `sample` (PCP only) | yes | Not its own Dexie store today; `sample_id` is indexed on the `clones` store | Minted in anticipation of a `samples` store |
+| `subject` | no | No webapp presence | `IdentDatatype` registers the slot for future use |
 
 ### Uniqueness guarantees
 
@@ -545,4 +551,4 @@ silently overwriting downstream.
 
 ---
 
-_Last updated: 2026-04-10_
+_Last updated: 2026-04-24_
