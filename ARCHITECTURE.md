@@ -228,6 +228,12 @@ In `name_site` mode, `parent_aa`/`child_aa` (and `depth`, only when `--mutations
 
 Rationale: attaching upstream scores to a mutation whose parent/child residues don't match what the CSV claimed would attach data to the wrong biological event. Skipping is always safer than attributing; failing loud by default surfaces CSV/tree drift rather than letting it pass silently. The flag exists as an explicit "I know, proceed anyway" escape hatch.
 
+### Authoritative CSV: `--only-listed-mutations`
+
+By default the merge enriches mutations matched by the CSV but still emits sequence-diff-derived mutations that have no CSV row (just without the extra columns). Pipelines that use the CSV as an *intentional filter* — e.g. dropping multi-nt-per-codon mutations because they're noisy under a downstream model — get those filtered events back as bare mutations on the tree.
+
+Passing `--only-listed-mutations` makes the CSV authoritative: on every tree whose `clone_id` matches a family in the CSV, derived mutations that don't have a corresponding CSV row are removed. The number dropped is reported via `MergeStats.mutations_dropped` and at status verbosity. Trees whose family is absent from the CSV are not filtered (the user has no opinion on them), so the flag is safe to combine with a CSV that only covers a subset of families.
+
 ### Excluded CSV Columns
 
 These columns are recognized as structural/join keys and are **not** included in the merged output (see `MUTATIONS_CSV_KEY_COLUMNS` in `constants.py`):
@@ -254,6 +260,7 @@ family, sample_id, site, parent_aa, child_aa, pcp_index, depth, node_name, child
 | `integrity_mismatches` | CSV rows that resolved to a real `(node, site)` in `name_site` mode but whose `parent_aa`/`child_aa`/`depth` disagreed with the tree's derived mutation. Not attached. |
 | `disambiguation_columns_used` | Optional disambiguation / integrity-check columns active on this run (e.g. `["node_name"]` or `["depth"]`) |
 | `match_mode` | Chosen match mode: `name_site`, `site_paa_caa_depth`, or `site_paa_caa` |
+| `mutations_dropped` | Derived mutations removed under `--only-listed-mutations` because they had no matching CSV row. Always 0 without the flag. |
 
 Counts are scoped to the current run: `nodes_enriched` and `mutations_enriched` exclude pre-existing mutation arrays from upstream pipelines.
 

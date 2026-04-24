@@ -83,6 +83,10 @@ class MergeStats:
     # The chosen matching mode: name_site (deterministic) or
     # site_paa_caa[_depth] (may broadcast).
     match_mode: MatchMode = ""
+    # Mutations dropped under --only-listed-mutations: derived mutations on
+    # nodes in CSV-matched trees that didn't appear in the CSV. Always 0
+    # when only_listed=False.
+    mutations_dropped: int = 0
 
 
 def _detect_name_column(fieldnames: List[str]) -> Optional[str]:
@@ -355,6 +359,7 @@ def merge_mutations_into_trees(
     mutations_by_family: Dict[str, List[Dict[str, Any]]],
     *,
     use_depth: bool = False,
+    only_listed: bool = False,
 ) -> MergeStats:
     """Merge mutation-level CSV data into tree nodes (in place).
 
@@ -369,6 +374,9 @@ def merge_mutations_into_trees(
          match against the family's CSV rows.
       3. Attach extra fields to matching mutations. Integrity mismatches
          (in name_site mode) warn and skip the attachment.
+      4. If ``only_listed`` is True, drop any mutations on those nodes
+         that did not match a CSV row. Trees whose family is absent
+         from the CSV are passed through untouched.
 
     Args:
         trees: List of tree dicts (modified in place).
@@ -380,6 +388,12 @@ def merge_mutations_into_trees(
             purposes. Opt-in because depth arithmetic depends on the
             upstream pipeline's rooting convention, which the CLI cannot
             infer with certainty.
+        only_listed: When True, the CSV is treated as authoritative for
+            which mutations should appear on each node of a CSV-matched
+            tree. Sequence-diff-derived (or pre-existing upstream)
+            mutations that don't have a corresponding CSV row are
+            removed. Trees whose ``clone_id`` does not appear in the
+            CSV are not filtered.
 
     Returns:
         A ``MergeStats`` describing what was merged, what was skipped, and
@@ -435,11 +449,13 @@ def merge_mutations_into_trees(
         _merge_name_keyed(
             trees, mutations_by_family, stats, unmatched_family_set, extras_excluded,
             check_depth=honor_depth,
+            only_listed=only_listed,
         )
     else:
         _merge_site_keyed(
             trees, mutations_by_family, stats, unmatched_family_set, extras_excluded,
             use_depth=extend_with_depth,
+            only_listed=only_listed,
         )
 
     stats.unmatched_families = sorted(unmatched_family_set)
@@ -456,6 +472,7 @@ def _merge_name_keyed(
     unmatched_family_set: set,
     extras_excluded: set,
     check_depth: bool,
+    only_listed: bool = False,
 ) -> None:
     """Deterministic ``(node_name, site)`` merge with integrity checks."""
     for tree in trees:
@@ -473,6 +490,8 @@ def _merge_name_keyed(
         unmatched = 0
         mismatched = 0
         enriched_nodes: set = set()
+        # (node_name -> set of sites enriched by the CSV) for --only-listed
+        enriched_sites_by_node: Dict[str, set] = {}
 
         for row in mutations_by_family[clone_id]:
             site = row.get("site")
@@ -519,13 +538,35 @@ def _merge_name_keyed(
             target.update(extras)
             stats.mutations_enriched += 1
             enriched_nodes.add(name)
+            enriched_sites_by_node.setdefault(name, set()).add(site)
+
+        # Under --only-listed, drop mutations on every node of this matched
+        # tree that did not receive a CSV row. Includes nodes never enriched.
+        if only_listed:
+            for node in nodes:
+                if not isinstance(node, dict):
+                    continue
+                muts = node.get("mutations")
+                if not isinstance(muts, list) or not muts:
+                    continue
+                node_name = node.get("sequence_id")
+                kept_sites = enriched_sites_by_node.get(node_name, set())
+                kept = [m for m in muts if m.get("site") in kept_sites]
+                stats.mutations_dropped += len(muts) - len(kept)
+                if kept:
+                    node["mutations"] = kept
+                else:
+                    # Drop the empty list rather than leaving [] behind, so
+                    # nodes look the same as ones that never had mutations.
+                    del node["mutations"]
 
         # Keep mutations arrays sorted where we touched them
         for name in enriched_nodes:
             node = nodes_by_id[name]
-            node["mutations"] = sorted(
-                node.get("mutations", []), key=lambda m: m.get("site", 0)
-            )
+            if "mutations" in node:
+                node["mutations"] = sorted(
+                    node["mutations"], key=lambda m: m.get("site", 0)
+                )
 
         stats.nodes_enriched += len(enriched_nodes)
         stats.unmatched_mutations += unmatched
@@ -549,6 +590,7 @@ def _merge_site_keyed(
     unmatched_family_set: set,
     extras_excluded: set,
     use_depth: bool,
+    only_listed: bool = False,
 ) -> None:
     """Fallback ``(site, parent_aa, child_aa[, depth])`` merge. May broadcast."""
     for tree in trees:
@@ -594,6 +636,7 @@ def _merge_site_keyed(
             node_depth = node_depths.get(node.get("sequence_id")) if use_depth else None
 
             any_merged = False
+            kept_mutations: List[Dict[str, Any]] = []
             for mut in node_mutations:
                 if use_depth:
                     key = (
@@ -610,8 +653,18 @@ def _merge_site_keyed(
                     stats.mutations_enriched += 1
                     csv_match_counts[key] = csv_match_counts.get(key, 0) + 1
                     any_merged = True
+                    kept_mutations.append(mut)
+                elif only_listed:
+                    stats.mutations_dropped += 1
+                else:
+                    kept_mutations.append(mut)
 
-            node["mutations"] = sorted(node_mutations, key=lambda m: m.get("site", 0))
+            if kept_mutations:
+                node["mutations"] = sorted(
+                    kept_mutations, key=lambda m: m.get("site", 0)
+                )
+            elif "mutations" in node:
+                del node["mutations"]
             if any_merged:
                 stats.nodes_enriched += 1
 
@@ -640,6 +693,7 @@ def apply_mutations_csv(
     *,
     use_depth: bool = False,
     allow_mismatch: bool = False,
+    only_listed: bool = False,
 ) -> Optional[MergeStats]:
     """Load a mutations CSV and merge it into ``trees`` (in place).
 
@@ -661,6 +715,9 @@ def apply_mutations_csv(
             behavior is to raise ``ValueError`` if any mismatch occurs, so
             that callers can't accidentally ship a partially-wrong merge.
             Mismatched rows are never attached regardless of this flag.
+        only_listed: Treat the CSV as authoritative — drop derived
+            mutations on CSV-matched trees that don't appear in the CSV.
+            See ``merge_mutations_into_trees`` for details.
 
     Warnings for unmatched families, unmatched mutations, and broadcast
     rows are emitted via ``vprint.error`` at normal verbosity.
@@ -683,7 +740,7 @@ def apply_mutations_csv(
     )
 
     stats = merge_mutations_into_trees(
-        trees, mutations_by_family, use_depth=use_depth
+        trees, mutations_by_family, use_depth=use_depth, only_listed=only_listed
     )
 
     vprint.status(f"Match mode: {stats.match_mode}")
@@ -714,6 +771,11 @@ def apply_mutations_csv(
         vprint.status(
             f"Integrity mismatches: {stats.integrity_mismatches} CSV rows matched "
             f"a (node, site) but disagreed with the tree's derived mutation"
+        )
+    if stats.mutations_dropped:
+        vprint.status(
+            f"Dropped {stats.mutations_dropped} derived mutations not listed in "
+            f"the CSV (--only-listed-mutations)"
         )
 
     if stats.trees_matched == 0:

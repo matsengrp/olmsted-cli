@@ -242,6 +242,7 @@ def process_airr_format(args):
                 trees,
                 use_depth=getattr(args, "mutations_use_depth", False),
                 allow_mismatch=getattr(args, "mutations_allow_mismatch", False),
+                only_listed=getattr(args, "only_listed_mutations", False),
             )
         except ValueError as e:
             vprint.error(f"Error: {e}")
@@ -391,6 +392,7 @@ def process_pcp_format(args):
                     trees,
                     use_depth=getattr(args, "mutations_use_depth", False),
                     allow_mismatch=getattr(args, "mutations_allow_mismatch", False),
+                    only_listed=getattr(args, "only_listed_mutations", False),
                 )
             except ValueError as e:
                 vprint.error(f"Error: {e}")
@@ -507,6 +509,14 @@ Examples:
         "and the tree's derived mutations. By default processing fails on "
         "any such mismatch. Mismatched rows are always skipped; the flag "
         "only controls whether the command exits non-zero afterwards.",
+    )
+    parser.add_argument(
+        "--only-listed-mutations",
+        action="store_true",
+        help="Treat the mutations CSV as authoritative: on trees whose "
+        "clone_id matches a family in the CSV, drop any derived "
+        "mutations that don't appear in the CSV. Trees whose family is "
+        "absent from the CSV pass through untouched.",
     )
     parser.add_argument(
         "-o",
@@ -821,9 +831,14 @@ def get_args():
         )
 
     # Mutation flags only make sense with --mutations
-    if (args.mutations_use_depth or args.mutations_allow_mismatch) and not args.mutations:
+    if (
+        args.mutations_use_depth
+        or args.mutations_allow_mismatch
+        or args.only_listed_mutations
+    ) and not args.mutations:
         parser.error(
-            "--mutations-use-depth / --mutations-allow-mismatch require --mutations"
+            "--mutations-use-depth / --mutations-allow-mismatch / "
+            "--only-listed-mutations require --mutations"
         )
 
     return args

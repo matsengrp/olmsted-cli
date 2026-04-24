@@ -739,7 +739,169 @@ def test_merge_depth_ignored_without_flag(tmp_path):
     assert leaf_mut["score"] == 111
 
 
-@pytest.mark.parametrize("flag", ["--mutations-use-depth", "--mutations-allow-mismatch"])
+def test_only_listed_drops_unlisted_derived_mutations(tmp_path):
+    """--only-listed-mutations: derived mutations not in the CSV are dropped.
+
+    Reproduces the scenario from issue #18: a leaf has two derived
+    mutations (sites 1 and 2), but the CSV only lists site 1. Without
+    the flag, both appear in the output (site 2 unannotated). With the
+    flag, only site 1 survives.
+    """
+    olmsted = {
+        "metadata": {"format": "olmsted", "format_version": "1.0"},
+        "datasets": [{"dataset_id": "ds", "name": "Only-Listed Test"}],
+        "clones": {"ds": [{"clone_id": "fam1", "dataset_id": "ds",
+                           "unique_seqs_count": 2, "mean_mut_freq": 0.0,
+                           "sample_id": "s1"}]},
+        "trees": [
+            {
+                "ident": "tree-1",
+                "clone_id": "fam1",
+                "newick": "(leaf:0.1)root;",
+                "nodes": [
+                    {"sequence_id": "root", "parent": None, "type": "root",
+                     "sequence_alignment_aa": "MQQ"},
+                    # K at site 1 (Q→K), R at site 2 (Q→R) — two derived mutations
+                    {"sequence_id": "leaf", "parent": "root", "type": "leaf",
+                     "sequence_alignment_aa": "MKR"},
+                ],
+            }
+        ],
+    }
+    json_path = tmp_path / "input.json"
+    csv_path = tmp_path / "muts.csv"
+    out_path_default = tmp_path / "out_default.json"
+    out_path_filtered = tmp_path / "out_filtered.json"
+    json_path.write_text(json.dumps(olmsted))
+    # CSV lists only the site-1 mutation
+    csv_path.write_text(
+        "family,site,parent_aa,child_aa,score\nfam1,1,Q,K,9.9\n"
+    )
+
+    # Default behavior: site-2 derived mutation passes through unannotated
+    result = subprocess.run(
+        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
+         "-o", str(out_path_default)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    out = json.loads(out_path_default.read_text())
+    leaf = next(n for n in out["trees"][0]["nodes"] if n["sequence_id"] == "leaf")
+    sites = sorted(m["site"] for m in leaf["mutations"])
+    assert sites == [1, 2], "Default keeps both derived mutations"
+    site2 = next(m for m in leaf["mutations"] if m["site"] == 2)
+    assert "score" not in site2, "Unlisted mutation comes through unannotated"
+
+    # With --only-listed-mutations: site-2 derived mutation is dropped
+    result = subprocess.run(
+        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
+         "--only-listed-mutations", "-o", str(out_path_filtered)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    combined = result.stdout + result.stderr
+    assert "Dropped 1 derived mutations" in combined
+    out = json.loads(out_path_filtered.read_text())
+    leaf = next(n for n in out["trees"][0]["nodes"] if n["sequence_id"] == "leaf")
+    assert len(leaf["mutations"]) == 1
+    assert leaf["mutations"][0]["site"] == 1
+    assert leaf["mutations"][0]["score"] == 9.9
+
+
+def test_only_listed_name_keyed(tmp_path):
+    """--only-listed-mutations works in name-keyed mode too.
+
+    The leaf node has two derived mutations (K→R at site 1, T→R at site 2)
+    but the CSV only lists site 1. Under --only-listed-mutations, site 2
+    is dropped even though it would have been derived and emitted bare
+    by the default merge.
+    """
+    olmsted = {
+        "metadata": {"format": "olmsted", "format_version": "1.0"},
+        "datasets": [{"dataset_id": "ds", "name": "Name Only-Listed Test"}],
+        "clones": {"ds": [{"clone_id": "fam1", "dataset_id": "ds",
+                           "unique_seqs_count": 2, "mean_mut_freq": 0.0,
+                           "sample_id": "s1"}]},
+        "trees": [
+            {
+                "ident": "tree-1",
+                "clone_id": "fam1",
+                "newick": "(leaf:0.1)root;",
+                "nodes": [
+                    {"sequence_id": "root", "parent": None, "type": "root",
+                     "sequence_alignment_aa": "MKT"},
+                    # K→R at site 1, T→R at site 2 — two derived mutations
+                    {"sequence_id": "leaf", "parent": "root", "type": "leaf",
+                     "sequence_alignment_aa": "MRR"},
+                ],
+            }
+        ],
+    }
+    json_path = tmp_path / "input.json"
+    csv_path = tmp_path / "muts.csv"
+    out_path = tmp_path / "out.json"
+    json_path.write_text(json.dumps(olmsted))
+    csv_path.write_text(
+        "family,node_name,site,parent_aa,child_aa,score\n"
+        "fam1,leaf,1,K,R,111\n"
+    )
+
+    result = subprocess.run(
+        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
+         "--only-listed-mutations", "-o", str(out_path)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    combined = result.stdout + result.stderr
+    assert "Match mode: name_site" in combined
+    assert "Dropped 1 derived mutations" in combined
+
+    out = json.loads(out_path.read_text())
+    leaf = next(n for n in out["trees"][0]["nodes"] if n["sequence_id"] == "leaf")
+    assert len(leaf["mutations"]) == 1
+    assert leaf["mutations"][0]["site"] == 1
+    assert leaf["mutations"][0]["score"] == 111
+
+
+def test_only_listed_leaves_unmatched_families_alone(tmp_path, sample_olmsted_json,
+                                                     sample_csv):
+    """Trees whose family is absent from the CSV pass through untouched.
+
+    The CSV only mentions fam1 (and fam99, which has no tree). Pre-existing
+    mutations on fam2's tree must survive --only-listed-mutations untouched
+    — the filter is scoped to CSV-matched trees only.
+    """
+    # Pre-populate fam2's child node with mutations to confirm they survive.
+    fam2_tree = next(t for t in sample_olmsted_json["trees"] if t["clone_id"] == "fam2")
+    fam2_tree["nodes"].append({
+        "sequence_id": "child2",
+        "parent": "root",
+        "type": "leaf",
+        "sequence_alignment_aa": "MRTV",
+        "mutations": [{"site": 1, "parent_aa": "K", "child_aa": "R"}],
+    })
+
+    json_path = tmp_path / "input.json"
+    csv_path = tmp_path / "muts.csv"
+    out_path = tmp_path / "out.json"
+    json_path.write_text(json.dumps(sample_olmsted_json))
+    csv_path.write_text(sample_csv)
+
+    result = subprocess.run(
+        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
+         "--only-listed-mutations", "-o", str(out_path)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    out = json.loads(out_path.read_text())
+    fam2_tree_out = next(t for t in out["trees"] if t["clone_id"] == "fam2")
+    child2 = next(n for n in fam2_tree_out["nodes"] if n["sequence_id"] == "child2")
+    # fam2 isn't in the CSV → its pre-existing mutations are not filtered
+    assert child2["mutations"] == [{"site": 1, "parent_aa": "K", "child_aa": "R"}]
+
+
+@pytest.mark.parametrize("flag", ["--mutations-use-depth", "--mutations-allow-mismatch",
+                                  "--only-listed-mutations"])
 def test_process_rejects_mutation_flags_without_mutations(tmp_path, flag):
     """`process` argparse rejects mutation-related flags when --mutations is absent.
 
