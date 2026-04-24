@@ -110,11 +110,6 @@ custom_fields:
     type: categorical
     label: "Sample"
     # sample values: sample-igg-1008, sample-igg-0007, sample-igg-705c, sample-igg-4002, sample-igg-5001, ...
-  - name: subject_id
-    level: family
-    type: categorical
-    label: "Subject"
-    # sample values: pcp-subject, pcp-subject, pcp-subject, pcp-subject, pcp-subject, ...
   - name: total_read_count
     level: family
     type: continuous
@@ -224,7 +219,7 @@ custom_fields:
     skip: true
     type: categorical
     label: "Dataset ID"
-    # sample values: pcp-80b0c82d-284e-7539-1fd0-934b7fdebbc3, pcp-80b0c82d-284e-7539-1fd0-934b7fdebbc3, pcp-80b0c82d-284e-7539-1fd0-934b7fdebbc3, pcp-80b0c82d-284e-7539-1fd0-934b7fdebbc3, pcp-80b0c82d-284e-7539-1fd0-934b7fdebbc3, ...
+    # sample values: dataset-14b429db-6afa-5d76-5c16-dd7dab2897af, dataset-14b429db-6afa-5d76-5c16-dd7dab2897af, dataset-14b429db-6afa-5d76-5c16-dd7dab2897af, dataset-14b429db-6afa-5d76-5c16-dd7dab2897af, dataset-14b429db-6afa-5d76-5c16-dd7dab2897af, ...
   - name: ident
     level: family
     skip: true

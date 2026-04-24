@@ -27,11 +27,11 @@ from __future__ import annotations
 import csv
 import gzip
 import json
-import uuid as uuid_module
 from argparse import Namespace
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
+from .identifier import IdentMinter
 from .types import (
     OlmstedClone,
     OlmstedDataset,
@@ -148,7 +148,6 @@ class OlmstedData:
             data = OlmstedData.from_pcp("paired.csv.gz", "trees.csv.gz")
         """
         from .process_pcp_data import (
-            deterministic_uuid,
             parse_newick_csv,
             parse_pcp_csv,
             process_pcp_to_olmsted,
@@ -158,24 +157,11 @@ class OlmstedData:
         pcp_families = parse_pcp_csv(str(pcp_csv))
         newick_trees = parse_newick_csv(str(trees_csv)) if trees_csv else None
 
-        # Create UUID generator based on seed
-        if seed is not None:
-            counter = [0]
-
-            def uuid_generator(prefix: str = "") -> str:
-                result = deterministic_uuid(seed, counter[0])
-                counter[0] += 1
-                return f"{prefix}{result}"
-        else:
-
-            def uuid_generator(prefix: str = "") -> str:
-                return f"{prefix}{uuid_module.uuid4()}"
-
         # Process to Olmsted format
         datasets, clones, trees = process_pcp_to_olmsted(
             pcp_families,
             newick_trees,
-            uuid_generator=uuid_generator,
+            minter=IdentMinter(seed=seed),
             compute_metrics=compute_metrics,
             name=name,
             verbosity=verbosity,
@@ -212,7 +198,6 @@ class OlmstedData:
             `olmsted process -f airr -i input.json -o output.json`
         """
         from .process_airr_data import process_dataset
-        from .process_pcp_data import deterministic_uuid
 
         filepath = Path(filepath)
 
@@ -224,21 +209,8 @@ class OlmstedData:
             with open(filepath) as f:
                 airr_data = json.load(f)
 
-        # Create UUID generator based on seed
-        if seed is not None:
-            counter = [0]
-
-            def uuid_generator(prefix: str = "") -> str:
-                result = deterministic_uuid(seed, counter[0])
-                counter[0] += 1
-                return f"{prefix}{result}"
-        else:
-
-            def uuid_generator(prefix: str = "") -> str:
-                return f"{prefix}{uuid_module.uuid4()}"
-
         args = Namespace(
-            uuid_generator=uuid_generator,
+            minter=IdentMinter(seed=seed),
             verbose=verbosity > 0,
             name=name,
         )

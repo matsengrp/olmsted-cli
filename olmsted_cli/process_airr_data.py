@@ -10,11 +10,11 @@ import os
 import pprint
 import sys
 import traceback
-import uuid
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from urllib.parse import parse_qs, parse_qsl
 
+from .identifier import IdentMinter
 from .metrics import compute_tree_metrics
 from .process_utils import tag_field_metadata
 from .utils import vprint
@@ -85,13 +85,16 @@ except FileNotFoundError:
     pass
 
 
-def ensure_ident(record, prefix=""):
-    "Want to let people choose their own uuids if they like, but not require them to"
+def ensure_ident(record, datatype: str, minter: IdentMinter):
+    """Attach an ``ident`` to ``record`` if absent, using ``minter``.
+
+    Lets callers supply their own ident (pass-through) without forcing it.
+    When the minter is deterministic (seed-backed), generated idents are
+    reproducible across runs.
+    """
     if record.get("ident"):
         return record
-    uuid_str = str(uuid.uuid4())
-    ident_value = f"{prefix}{uuid_str}" if prefix else uuid_str
-    return merge(record, {"ident": ident_value})
+    return merge(record, {"ident": minter.mint(datatype)})
 
 
 # reroot the tree on node matching regex pattern.
@@ -150,7 +153,13 @@ def process_tree(args, clone_id, tree):
     tree["nodes"] = process_tree_nodes(
         args, ete_tree, tree["nodes"], reroot=args.root_trees
     )
-    return ensure_ident(tree, prefix="tree-")
+    # AIRR Community's Tree schema marks tree_id as required. Input may or
+    # may not supply it; when absent, fall back to the CLI-minted ident so
+    # both fields are populated and the webapp dropdown has a stable label.
+    tree = ensure_ident(tree, "tree", args.minter)
+    if not tree.get("tree_id"):
+        tree["tree_id"] = tree["ident"]
+    return tree
 
 
 def process_clone(args, dataset, clone):
@@ -175,33 +184,25 @@ def process_clone(args, dataset, clone):
             f"  Note: clone '{clone_id}' missing position fields: {_missing_fields}"
         )
 
-    # need to create a copy of the dataset without clonal families that we
-    # can nest under clonal family for viz convenience
-    _dataset = dataset.copy()
-    del _dataset["clones"]
-    clone["dataset"] = _dataset
-
-    # Match sample by sample_id; gracefully handle missing match
+    # Look up matching sample from the dataset to denormalize onto the clone
+    # as clone["sample"]. The webapp reads clone.sample.locus and other
+    # sample-level fields at render time (see src/selectors/clonalFamilies.js).
+    # When the sample can't be resolved, leave clone["sample"] unset rather
+    # than fabricating a placeholder — the webapp is responsible for
+    # rendering its own "unknown" marker.
     matching_samples = [
-        s for s in clone["dataset"].get("samples", [])
+        s for s in dataset.get("samples", [])
         if s.get("sample_id") == clone.get("sample_id")
     ]
     if matching_samples:
         clone["sample"] = matching_samples[0]
-    else:
-        clone["sample"] = {
-            "sample_id": clone.get("sample_id", "unknown"),
-            "locus": "igh",
-        }
-        if getattr(args, "verbose", 0) >= 1:
-            vprint.status(
-                f"  Note: clone '{clone.get('clone_id', '?')}' sample_id "
-                f"'{clone.get('sample_id')}' not found in dataset samples"
-            )
+    elif getattr(args, "verbose", 0) >= 1:
+        vprint.status(
+            f"  Note: clone '{clone.get('clone_id', '?')}' sample_id "
+            f"'{clone.get('sample_id')}' not found in dataset samples"
+        )
 
-    if "samples" in clone.get("dataset", {}):
-        del clone["dataset"]["samples"]
-    return ensure_ident(clone, prefix="clone-")
+    return ensure_ident(clone, "clone", args.minter)
 
 
 def process_dataset(
@@ -223,11 +224,13 @@ def process_dataset(
         Processed dataset in Olmsted format, or None if processing fails
     """
     dataset["clone_count"] = len(dataset["clones"])
+    # Count only clones/samples that actually carry the reference field —
+    # missing values don't collapse into a synthetic "unknown" bucket.
     dataset["subjects_count"] = len(
-        set(cf.get("subject_id", "unknown") for cf in dataset["clones"])
+        {cf["subject_id"] for cf in dataset["clones"] if cf.get("subject_id")}
     )
     dataset["timepoints_count"] = len(
-        set(sample.get("timepoint_id", "unknown") for sample in dataset.get("samples", []))
+        {s["timepoint_id"] for s in dataset.get("samples", []) if s.get("timepoint_id")}
     )
     clones = list(
         map(functools.partial(process_clone, args, dataset), dataset["clones"])
@@ -289,7 +292,7 @@ def process_dataset(
 
     del dataset["clones"]
     dataset["schema_version"] = SCHEMA_VERSION
-    return ensure_ident(dataset, prefix="dataset-")
+    return ensure_ident(dataset, "dataset", args.minter)
 
 
 def hiccup_rep(schema, depth=1, property=None):
@@ -463,6 +466,7 @@ def get_args():
 
 def main():
     args = get_args()
+    args.minter = IdentMinter(seed=getattr(args, "seed", None))
     datasets, clones_dict, trees = [], {}, []
     for infile in args.inputs or []:
         vprint.status(f"\nProcessing infile: {str(infile)}")

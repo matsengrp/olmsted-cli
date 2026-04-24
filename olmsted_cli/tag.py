@@ -23,6 +23,7 @@ from .process_data import load_config
 from .process_utils import (
     VerbosePrinter,
     add_verbosity_args,
+    check_output_id_uniqueness,
     resolve_verbosity,
     retag_datasets_field_metadata,
 )
@@ -81,6 +82,14 @@ Examples:
         choices=["pretty", "compact"],
         default="pretty",
         help="JSON output format (default: pretty)",
+    )
+    parser.add_argument(
+        "--allow-duplicate-ids",
+        action="store_true",
+        help="Downgrade duplicate-*_id errors in the input file to warnings "
+        "and pass the data through unchanged. By default, tag fails when "
+        "dataset_id, clone_id, tree_id, sample_id, or subject_id collide "
+        "within their natural uniqueness scope.",
     )
     add_verbosity_args(parser)
 
@@ -155,6 +164,15 @@ def main():
     retag_datasets_field_metadata(
         datasets, clones_dict, all_trees, custom_fields=custom_fields, mode=args.mode
     )
+
+    try:
+        check_output_id_uniqueness(
+            datasets, clones_dict,
+            allow_duplicates=args.allow_duplicate_ids,
+        )
+    except ValueError as e:
+        vprint.error(f"Error: {e}")
+        sys.exit(1)
 
     for dataset in datasets:
         dataset_id = dataset.get("dataset_id")

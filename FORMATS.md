@@ -90,10 +90,14 @@ Each row provides a Newick tree for one clonal family.
 | Column | Maps to | Level |
 |--------|---------|-------|
 | `sample_id` | Used as composite key with `family_name` | — |
+| `tree_id` | `tree.tree_id` | tree |
+| `reconstruction_method` | `tree.reconstruction_method` | tree |
 | `rate_scale_heavy` | `rate_scale_heavy` | family |
 | `rate_scale_light` | `rate_scale_light` | family |
 
 **Extra columns**: Any column not listed above is captured as a family-level (clone-level) field. Same chain suffix convention applies.
+
+**Multiple trees per family**: The same `(family_name, sample_id)` may appear on multiple rows, one per alternate phylogenetic reconstruction of the family. Each row becomes a separate entry in `clone.trees[]` and in the top-level `trees[]`. Supply a distinct `tree_id` on each row to label the alternate — duplicates within a `(family, sample_id)` pair cause the output uniqueness check to fail (see `--allow-duplicate-ids` to opt out).
 
 ### Minimum Viable PCP Data
 
@@ -296,10 +300,14 @@ Contains all family-level data: gene calls, alignment positions, CDR positions, 
 
 | Field | Description |
 |-------|-------------|
-| `ident` | Unique tree identifier |
+| `ident` | CLI-minted primary key (`tree-{uuid}`) |
+| `tree_id` | Semantic identifier: from PCP trees.csv `tree_id` column if present, otherwise synthesized as `tree-{family_id}` (paired: `-heavy` / `-light` suffix). AIRR: passed through from input, or falls back to `ident`. |
 | `clone_id` | Links to parent clone |
+| `reconstruction_method` | *(optional)* Method used to build the tree (e.g. `"dnapars"`, `"raxml_ng"`). Only present when the input provided one; absent means unknown. |
 | `newick` | Newick tree string |
 | `nodes` | Array of node objects |
+
+A clone can carry multiple alternate-reconstruction trees in its `clone.trees[]` list; each gets its own entry in the top-level `trees[]` with a full `nodes` array.
 
 ### Node object (in tree `nodes[]`)
 
@@ -401,12 +409,28 @@ All schemas allow `additionalProperties: true` — extra fields are preserved.
 | Missing field | Behavior |
 |---------------|----------|
 | `v/d/j_alignment_start` | Skipped (not adjusted), notification at verbose ≥ 2 |
-| `subject_id` | Defaults to `"unknown"` |
-| `timepoint_id` (on samples) | Defaults to `"unknown"` |
-| Sample not found for `sample_id` | Default sample created, notification at verbose ≥ 1 |
-| Gene calls (`v_call`, `d_call`, `j_call`) | Empty string, locus defaults to `"igh"` |
+| `subject_id` | Left unset; webapp renders its own unknown marker |
+| `timepoint_id` | Left unset; webapp renders its own unknown marker |
+| Sample not found for `sample_id` (AIRR) | `clone.sample` left unset, notification at verbose ≥ 1 |
+| Gene calls (`v_call`, `d_call`, `j_call`) | Empty string; locus is inferred from V-gene prefix when possible, else left unset |
 | CDR/alignment positions | Zero values |
 | Tree file (PCP) | Trees built from parent-child edges |
+| `tree.reconstruction_method` | Left unset when not supplied by input |
+| `tree.type` / `dataset.type` | Not synthesized — passed through from input only |
+
+### Uniqueness enforcement
+
+`*_id` fields that the webapp uses to cross-reference objects must be unique within their natural scope. `olmsted process`, `olmsted tag`, and `olmsted merge` all check this before writing output and fail fast on collisions:
+
+| Scope | Field |
+|---|---|
+| Within output | `dataset.dataset_id` |
+| Within a dataset | `clone.clone_id` |
+| Within a clone | `tree.tree_id` |
+| Within `dataset.samples[]` | `sample.sample_id` |
+| Within `dataset.subjects[]` | `subject.subject_id` |
+
+Pass `--allow-duplicate-ids` to downgrade these to warnings and let the data pass through unchanged. `sequence_id` uniqueness within a tree is always enforced upstream by the Newick parser (duplicate leaf names get `_1`, `_2` suffixes).
 
 ### Format detection
 
@@ -452,11 +476,11 @@ AIRR fields are mostly passed through directly. Key transformations:
 | Transformation | Description |
 |---------------|-------------|
 | `*_start` positions | 1-based → 0-based (subtract 1) |
-| `dataset.samples` | Nested as `clone.sample` |
-| `dataset` (minus clones) | Nested as `clone.dataset` |
+| Matching `dataset.samples[]` entry | Denormalized as `clone.sample` (webapp reads `clone.sample.locus` etc.) |
 | Tree nodes | Extracted from clones, stored in top-level `trees[]` |
 | `clone.trees` | Reduced to metadata references (nodes removed) |
+| `tree.tree_id` | Passed through from input; when absent, filled with the CLI-minted `tree.ident` to satisfy the AIRR Community schema's required-field contract. |
 
 ---
 
-_Last updated: 2026-04-10_
+_Last updated: 2026-04-22_

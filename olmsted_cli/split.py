@@ -6,9 +6,9 @@ import json
 import sys
 from pathlib import Path
 import copy
-import uuid
 from datetime import datetime
 
+from .identifier import IdentMinter
 from .utils import set_verbosity, vprint
 
 
@@ -61,7 +61,8 @@ def split_consolidated_data(data, max_clones_per_file):
     
     # Create split files
     split_files = []
-    
+    _split_minter = IdentMinter()
+
     for chunk_idx, clone_chunk in enumerate(clone_chunks):
         split_data = copy.deepcopy(data)
         
@@ -87,7 +88,7 @@ def split_consolidated_data(data, max_clones_per_file):
             
             new_dataset = copy.deepcopy(dataset)
             new_dataset["dataset_id"] = new_dataset_id
-            new_dataset["ident"] = str(uuid.uuid4())
+            new_dataset["ident"] = _split_minter.mint("dataset")
             
             # Count clones for this dataset in this chunk
             dataset_clone_count = sum(1 for clone in clone_chunk 
@@ -113,11 +114,6 @@ def split_consolidated_data(data, max_clones_per_file):
                 for clone in dataset_clones_in_chunk:
                     updated_clone = copy.deepcopy(clone)
                     updated_clone["dataset_id"] = new_dataset_id
-                    
-                    # Update nested dataset reference if it exists
-                    if "dataset" in updated_clone and isinstance(updated_clone["dataset"], dict):
-                        updated_clone["dataset"]["dataset_id"] = new_dataset_id
-                    
                     updated_clones.append(updated_clone)
                 
                 new_clones[new_dataset_id] = updated_clones

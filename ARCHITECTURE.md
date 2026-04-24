@@ -17,6 +17,7 @@ See also:
 - [PCP Column Handling](#pcp-column-handling)
 - [Phylogenetic Metrics](#phylogenetic-metrics)
 - [Output Format](#output-format)
+- [Identifier Conventions](#identifier-conventions)
 - [Key Files Reference](#key-files-reference)
 
 ---
@@ -478,6 +479,55 @@ These work on any tree with branch lengths — both PCP and AIRR data.
 
 ---
 
+## Identifier Conventions
+
+Objects in the output JSON carry up to two identifier fields with
+distinct roles. The separation is load-bearing — mixing them produces
+format-origin leaks (`"pcp-<uuid>"`) or silently-colliding primary
+keys.
+
+| Field | Role | Source | Format |
+|---|---|---|---|
+| `*_id` — `dataset_id`, `clone_id`, `tree_id`, `sample_id`, `subject_id`, `sequence_id`, `timepoint_id` | Semantic identifier carrying meaning from source data | **Input-derived.** When the input format lacks the field (e.g. PCP has no dataset concept), the CLI synthesizes a typed `{datatype}-{uuid}` value using the same minter as `ident`. | Input-supplied string, or synthesized `{datatype}-{uuid}` |
+| `ident` | Primary key the webapp uses for cross-referencing (Redux state, Dexie DB) | **Always CLI-minted.** Never derived from input. | `{datatype}-{uuid}` |
+
+### Rules
+
+- **`*_id` is reserved for input-derived values.** When synthesis is
+  unavoidable, use the same `{datatype}-{uuid}` shape as `ident`.
+  Never use format-origin prefixes (`pcp-`, `cft-`) — those belong in
+  `metadata.source_format` at the output root only.
+- **`ident` is reserved for CLI-minted identifiers.** All minting goes
+  through `IdentMinter.mint(datatype)` in `olmsted_cli/identifier.py`,
+  which enforces the `{datatype}-{uuid}` shape at the signature level.
+  Deterministic under `--seed`, random otherwise.
+- **`ident` is minted on objects that are — or will become — webapp
+  primary keys.** See the table below for per-object status.
+
+| Object | `ident` minted? | Webapp status | Notes |
+|---|---|---|---|
+| `tree` | yes | **Dexie PK** (`trees.where("ident")`) and used in every lookup path | Load-bearing today |
+| `clone` | yes | Redux PK (`clonalFamilies` state keyed on `ident`; `selectedFamily`, starred families flow through it); Dexie still uses compound `[dataset_id+clone_id]` | Half-migrated; webapp side still needs the Dexie PK swap |
+| `dataset` | yes | Dexie PK is `dataset_id`; `ident` is written but not yet read | Minted in anticipation of the Dexie PK migration |
+| `sample` (PCP only) | yes | Not its own Dexie store today; `sample_id` is indexed on the `clones` store | Minted in anticipation of a `samples` store |
+| `subject` | no | No webapp presence | `IdentDatatype` registers the slot for future use |
+
+### Uniqueness guarantees
+
+Validated during processing — duplicates fail fast rather than
+silently overwriting downstream.
+
+| Field | Scope |
+|---|---|
+| `dataset_id` | unique across `datasets[]` |
+| `clone_id` | unique within a dataset |
+| `tree_id` | unique within a clone |
+| `sample_id` | unique within `dataset.samples[]` |
+| `subject_id` | unique within `dataset.subjects[]` |
+| `sequence_id` | unique within a tree (Newick parser suffix-disambiguates) |
+
+---
+
 ## Key Files Reference
 
 | File | Purpose |
@@ -501,4 +551,4 @@ These work on any tree with branch lengths — both PCP and AIRR data.
 
 ---
 
-_Last updated: 2026-04-10_
+_Last updated: 2026-04-24_

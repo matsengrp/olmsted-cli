@@ -16,6 +16,7 @@ import json
 import sys
 from pathlib import Path
 
+from .identifier import IdentMinter
 from .constants import (
     EXCLUDED_CLONE_FIELDS,
     EXCLUDED_MUTATION_FIELDS,
@@ -151,7 +152,6 @@ def _load_pcp(input_path, trees_path, seed, compute_metrics):
     """Process PCP data and return clones and trees."""
     # Deferred: process_pcp_data pulls in ete3 and other heavy dependencies
     from .process_pcp_data import (
-        deterministic_uuid,
         parse_newick_csv,
         parse_pcp_csv,
         process_pcp_to_olmsted,
@@ -163,17 +163,10 @@ def _load_pcp(input_path, trees_path, seed, compute_metrics):
     if trees_path:
         newick_trees = parse_newick_csv(str(trees_path))
 
-    counter = [0]
-
-    def get_uuid(prefix=""):
-        result = deterministic_uuid(seed, counter[0])
-        counter[0] += 1
-        return f"{prefix}{result}"
-
     datasets, clones_dict, trees = process_pcp_to_olmsted(
         pcp_families,
         newick_trees,
-        uuid_generator=get_uuid,
+        minter=IdentMinter(seed=seed),
         compute_metrics=compute_metrics,
         verbosity=0,
     )
@@ -207,6 +200,7 @@ def _load_airr(input_path):
         root_trees=False,    # no rooting for build-config introspection
         verbose=0,
         custom_fields=None,
+        minter=IdentMinter(),
     )
 
     all_clones = []

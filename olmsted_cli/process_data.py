@@ -21,7 +21,6 @@ import json
 import os
 import sys
 import traceback
-import uuid
 from pathlib import Path
 
 import jsonschema
@@ -44,8 +43,8 @@ from .process_airr_data import (
     clone_spec,
     process_dataset,
 )
+from .identifier import IdentMinter
 from .process_pcp_data import (
-    deterministic_uuid,
     parse_newick_csv,
     parse_pcp_csv,
     process_pcp_to_olmsted,
@@ -55,6 +54,7 @@ from .merge_mutations import apply_mutations_csv
 from .process_utils import (
     VerbosePrinter,
     add_verbosity_args,
+    check_output_id_uniqueness,
     create_consolidated_data,
     resolve_verbosity,
     retag_datasets_field_metadata,
@@ -167,6 +167,8 @@ def process_airr_format(args):
     airr_args.compute_metrics = getattr(args, "compute_metrics", False)
     airr_args.lbi_tau = getattr(args, "lbi_tau", 0.0125)
     airr_args.custom_fields = getattr(args, "custom_fields", None)
+    airr_args.minter = IdentMinter(seed=getattr(args, "seed", None))
+    airr_args.allow_duplicate_ids = getattr(args, "allow_duplicate_ids", False)
 
     # Process using AIRR logic (adapted from process_airr_data.py)
     datasets, clones_dict, trees = [], {}, []
@@ -249,6 +251,18 @@ def process_airr_format(args):
             custom_fields=getattr(args, "custom_fields", None),
         )
 
+    # Enforce *_id uniqueness before writing. --allow-duplicate-ids downgrades
+    # collisions to a warning; otherwise we fail fast so silent overwrites
+    # downstream are impossible.
+    try:
+        check_output_id_uniqueness(
+            datasets, clones_dict,
+            allow_duplicates=getattr(args, "allow_duplicate_ids", False),
+        )
+    except ValueError as e:
+        vprint.error(f"Error: {e}")
+        sys.exit(1)
+
     # Validate data before writing if requested
     if airr_args.validate and not validate_output_data(
         datasets, clones_dict, trees, airr_args
@@ -327,17 +341,8 @@ def process_pcp_format(args):
     vprint.verbose("=" * 25)
     vprint.verbose("")
 
-    # Set up deterministic UUID generation if seed is provided
-    uuid_counter = 0
-
-    def get_uuid(prefix=""):
-        nonlocal uuid_counter
-        if hasattr(args, "seed") and args.seed is not None:
-            uuid_counter += 1
-            uuid_str = deterministic_uuid(args.seed, uuid_counter)
-        else:
-            uuid_str = str(uuid.uuid4())
-        return f"{prefix}{uuid_str}" if prefix else uuid_str
+    # Set up identifier minter (deterministic if seed provided)
+    minter = IdentMinter(seed=getattr(args, "seed", None))
 
     try:
         # Get PCP file from inputs
@@ -367,7 +372,7 @@ def process_pcp_format(args):
         datasets, clones_dict, trees = process_pcp_to_olmsted(
             pcp_families,
             newick_trees,
-            get_uuid,
+            minter,
             args.warnings,
             compute_metrics=getattr(args, "compute_metrics", False),
             lbi_tau=getattr(args, "lbi_tau", 0.0125),
@@ -394,6 +399,17 @@ def process_pcp_format(args):
                 datasets, clones_dict, trees,
                 custom_fields=getattr(args, "custom_fields", None),
             )
+
+        # Enforce *_id uniqueness before writing. --allow-duplicate-ids
+        # downgrades collisions to a warning.
+        try:
+            check_output_id_uniqueness(
+                datasets, clones_dict,
+                allow_duplicates=getattr(args, "allow_duplicate_ids", False),
+            )
+        except ValueError as e:
+            vprint.error(f"Error: {e}")
+            sys.exit(1)
 
         # Validate data if requested
         if args.validate:
@@ -576,6 +592,15 @@ Examples:
         "--strict-validation",
         action="store_true",
         help="Exit with error if validation fails",
+    )
+    parser.add_argument(
+        "--allow-duplicate-ids",
+        action="store_true",
+        help="Downgrade duplicate-*_id errors to warnings and pass the data "
+        "through unchanged. By default, processing fails when dataset_id, "
+        "clone_id, tree_id, sample_id, or subject_id collide within their "
+        "natural uniqueness scope — downstream consumers (webapp Redux, "
+        "Dexie bulkPut) would silently overwrite on collision.",
     )
     parser.add_argument(
         "-w",

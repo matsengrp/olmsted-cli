@@ -177,8 +177,12 @@ class TestPcpExtraColumns:
             },
         ])
         trees = parse_newick_csv(str(tree_file))
-        tree_data = trees[("f1", "s1")]
-        assert isinstance(tree_data, dict)
+        tree_entries = trees[("f1", "s1")]
+        # parse_newick_csv returns a list-per-key (each list element is
+        # one row of the tree CSV; multiple entries = alternate
+        # reconstructions of the same clonal family).
+        assert isinstance(tree_entries, list) and len(tree_entries) == 1
+        tree_data = tree_entries[0]
         assert tree_data["phylo_diversity"] == 0.85
         assert tree_data["clade"] == "group-A"
 

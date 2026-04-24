@@ -1034,3 +1034,123 @@ def validate_consolidated_data(data, verbose=False, check_time_tree=False):
                     errors.extend([f"Tree {i}: {e}" for e in tree_errors])
 
     return errors
+
+
+def _find_duplicates(values):
+    """Return a sorted list of values that appear more than once."""
+    seen = set()
+    dups = set()
+    for v in values:
+        if v in seen:
+            dups.add(v)
+        else:
+            seen.add(v)
+    return sorted(dups)
+
+
+def check_output_id_uniqueness(datasets, clones_dict, *, allow_duplicates=False):
+    """Verify user-facing ``*_id`` uniqueness across the output.
+
+    Catches input-derived or synthesized ``*_id`` values that collide in
+    ways that would silently overwrite downstream (Redux state keyed on
+    ``*_id``, Dexie ``bulkPut`` upsert semantics).
+
+    Scopes checked:
+
+    - ``dataset.dataset_id`` across ``datasets[]``
+    - ``clone.clone_id`` within each dataset's clones
+    - ``tree.tree_id`` within each clone's ``trees[]``
+    - ``sample.sample_id`` within each ``dataset.samples[]``
+    - ``subject.subject_id`` within each ``dataset.subjects[]``
+
+    ``sequence_id`` uniqueness within a tree is already enforced upstream
+    by the Newick parser (``process_pcp_data._build_unique_names``) and is
+    not rechecked here. The top-level ``trees[]`` list is not an input
+    because every tree is also reachable via ``clones_dict[*].trees[]``;
+    adding a top-level scope would require a new rule (e.g. global
+    ``tree.ident`` uniqueness once the webapp DB migrates to a
+    ``tree_id`` primary key) — not the current contract.
+
+    Args:
+        datasets: List of dataset dicts.
+        clones_dict: ``{dataset_id: [clone, ...]}`` mapping.
+        allow_duplicates: If True, violations are printed as warnings and
+            the function returns normally. If False (default), raises
+            ``ValueError`` listing every violation found.
+
+    Raises:
+        ValueError: When duplicates are detected and ``allow_duplicates``
+        is False. All violations are reported in one error so users can
+        fix input once rather than chasing them one at a time.
+    """
+    violations = []
+
+    # dataset_id across datasets[]
+    dataset_id_dups = _find_duplicates(
+        d["dataset_id"] for d in datasets if d.get("dataset_id")
+    )
+    if dataset_id_dups:
+        violations.append(
+            f"dataset_id: duplicate across datasets[]: {dataset_id_dups}"
+        )
+
+    for dataset in datasets:
+        dataset_id = dataset.get("dataset_id", "<unknown>")
+
+        # sample_id within dataset.samples[]
+        sample_dups = _find_duplicates(
+            s["sample_id"] for s in dataset.get("samples", []) if s.get("sample_id")
+        )
+        if sample_dups:
+            violations.append(
+                f"sample_id: duplicate in dataset {dataset_id}.samples[]: {sample_dups}"
+            )
+
+        # subject_id within dataset.subjects[]
+        subject_dups = _find_duplicates(
+            s["subject_id"] for s in dataset.get("subjects", []) if s.get("subject_id")
+        )
+        if subject_dups:
+            violations.append(
+                f"subject_id: duplicate in dataset {dataset_id}.subjects[]: {subject_dups}"
+            )
+
+    # clone_id within a dataset; tree_id within a clone
+    for dataset_id, clones in clones_dict.items():
+        clone_id_dups = _find_duplicates(
+            c["clone_id"] for c in clones if c.get("clone_id")
+        )
+        if clone_id_dups:
+            violations.append(
+                f"clone_id: duplicate within dataset {dataset_id}: {clone_id_dups}"
+            )
+
+        for clone in clones:
+            tree_id_dups = _find_duplicates(
+                t["tree_id"]
+                for t in clone.get("trees", [])
+                if t.get("tree_id")
+            )
+            if tree_id_dups:
+                violations.append(
+                    f"tree_id: duplicate within clone {clone.get('clone_id', '<unknown>')}: "
+                    f"{tree_id_dups}"
+                )
+
+    if not violations:
+        return
+
+    if allow_duplicates:
+        vprint.error(
+            "Duplicate *_id values detected (--allow-duplicate-ids set, proceeding):"
+        )
+        for v in violations:
+            vprint.error(f"  {v}")
+        return
+
+    raise ValueError(
+        "Duplicate *_id values detected — downstream consumers key on these and "
+        "would silently overwrite on collision:\n  "
+        + "\n  ".join(violations)
+        + "\n\nFix the input, or pass --allow-duplicate-ids to downgrade this to a warning."
+    )

@@ -120,6 +120,7 @@ olmsted process -i input.csv -f pcp -o output.json
 | `-n, --name NAME` | Optional dataset name (stored in metadata) |
 | `--validate` | Validate output against schemas before writing |
 | `--strict-validation` | Exit with error if validation fails |
+| `--allow-duplicate-ids` | Downgrade duplicate-`*_id` errors to warnings and pass data through unchanged. Without this flag, processing fails when `dataset_id`, `clone_id`, `tree_id`, `sample_id`, or `subject_id` collide within their natural uniqueness scope. |
 | `--seed INT` | Random seed for deterministic UUID generation |
 | `-v, --verbose {0,1,2,3}` | Verbosity: 0=quiet, 1=normal (default), 2=verbose, 3=debug |
 | `-q, --quiet` | Quiet mode - only show errors (equivalent to `-v 0`) |
@@ -187,6 +188,10 @@ Expected columns in the trees file:
 | `family_name` | Clonal family identifier (must match `family` in PCP CSV) |
 | `sample_id` | Sample identifier (must match `sample_id` in PCP CSV) |
 | `newick_tree` | Newick format tree string for the family |
+| `tree_id` *(optional)* | Stable per-tree identifier. Required to disambiguate multiple rows per `(family_name, sample_id)` — i.e. alternate phylogenetic reconstructions of the same clonal family. Synthesized as `tree-{family_id}` when absent. |
+| `reconstruction_method` *(optional)* | Label for the method that built this tree (e.g. `"dnapars"`, `"raxml_ng"`). Written to `tree.reconstruction_method` on the output; left unset when the column is absent. |
+
+Multiple rows with the same `(family_name, sample_id)` produce multiple entries in `clone.trees[]` (one per alternate reconstruction). Duplicate `tree_id` values within a clone fail the output uniqueness check; see `--allow-duplicate-ids` to opt out.
 
 ---
 
