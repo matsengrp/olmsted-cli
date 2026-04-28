@@ -490,35 +490,6 @@ Examples:
         help="Companion tree CSV file (PCP format)",
     )
     parser.add_argument(
-        "--mutations",
-        help="Mutations CSV file (columns: family, site, parent_aa, child_aa, ...). "
-        "Mutation-level scores are merged into tree nodes after processing.",
-    )
-    parser.add_argument(
-        "--mutations-use-depth",
-        action="store_true",
-        help="Use an optional 'depth' column in the mutations CSV to extend the "
-        "match key to (site, parent_aa, child_aa, depth). Ignored when the "
-        "CSV has a node-name column. Opt-in because depth arithmetic depends "
-        "on the upstream rooting convention.",
-    )
-    parser.add_argument(
-        "--mutations-allow-mismatch",
-        action="store_true",
-        help="Proceed past integrity mismatches between the mutations CSV "
-        "and the tree's derived mutations. By default processing fails on "
-        "any such mismatch. Mismatched rows are always skipped; the flag "
-        "only controls whether the command exits non-zero afterwards.",
-    )
-    parser.add_argument(
-        "--only-listed-mutations",
-        action="store_true",
-        help="Treat the mutations CSV as authoritative: on trees whose "
-        "clone_id matches a family in the CSV, drop any derived "
-        "mutations that don't appear in the CSV. Trees whose family is "
-        "absent from the CSV pass through untouched.",
-    )
-    parser.add_argument(
         "-o",
         "--output",
         help="Output Olmsted JSON file path",
@@ -534,6 +505,46 @@ Examples:
         choices=[FORMAT_AIRR, FORMAT_PCP, FORMAT_AUTO],
         default=FORMAT_AUTO,
         help="Input format (default: auto-detect)",
+    )
+
+    # --- Mutations CSV options ---
+    mutations_group = parser.add_argument_group(
+        "mutations CSV options",
+        # Hand-wrapped because the parser uses RawDescriptionHelpFormatter
+        # (to preserve the epilog's example block), which also disables
+        # wrapping on argument-group descriptions.
+        "Pass --mutations FILE to merge mutation-level data into tree nodes\n"
+        "after processing. Equivalent to running `olmsted merge` against the\n"
+        "output. The remaining flags in this group modify that merge.",
+    )
+    mutations_group.add_argument(
+        "--mutations",
+        help="Mutations CSV file (columns: family, site, parent_aa, child_aa, ...). "
+        "Mutation-level scores are merged into tree nodes after processing.",
+    )
+    mutations_group.add_argument(
+        "--mutations-use-depth",
+        action="store_true",
+        help="Use an optional 'depth' column in the mutations CSV to extend the "
+        "match key to (site, parent_aa, child_aa, depth). Ignored when the "
+        "CSV has a node-name column. Opt-in because depth arithmetic depends "
+        "on the upstream rooting convention.",
+    )
+    mutations_group.add_argument(
+        "--mutations-allow-mismatch",
+        action="store_true",
+        help="Proceed past integrity mismatches between the mutations CSV "
+        "and the tree's derived mutations. By default processing fails on "
+        "any such mismatch. Mismatched rows are always skipped; the flag "
+        "only controls whether the command exits non-zero afterwards.",
+    )
+    mutations_group.add_argument(
+        "--only-listed-mutations",
+        action="store_true",
+        help="Treat the mutations CSV as authoritative: on trees whose "
+        "clone_id matches a family in the CSV, drop any derived "
+        "mutations that don't appear in the CSV. Trees whose family is "
+        "absent from the CSV pass through untouched.",
     )
 
     # --- Dataset metadata ---
