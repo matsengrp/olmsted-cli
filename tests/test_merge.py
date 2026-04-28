@@ -942,6 +942,186 @@ def test_only_listed_leaves_unmatched_families_alone(tmp_path, sample_olmsted_js
     assert child2["mutations"] == [{"site": 1, "parent_aa": "K", "child_aa": "R"}]
 
 
+def test_only_listed_filters_preexisting_upstream_mutations(tmp_path):
+    """Pre-existing upstream mutations on a CSV-matched family are filtered too.
+
+    The flag's contract is "the CSV is authoritative for which mutations
+    appear" — applies regardless of whether the array on the node came
+    from sequence-diff derivation or from an upstream pipeline that
+    pre-populated `mutations`. Counterpart to
+    `test_only_listed_leaves_unmatched_families_alone`, which covers the
+    *unmatched*-family case.
+    """
+    olmsted = {
+        "metadata": {"format": "olmsted", "format_version": "1.0"},
+        "datasets": [{"dataset_id": "ds", "name": "Pre-existing Filter Test"}],
+        "clones": {"ds": [{"clone_id": "fam1", "dataset_id": "ds",
+                           "unique_seqs_count": 2, "mean_mut_freq": 0.0,
+                           "sample_id": "s1"}]},
+        "trees": [
+            {
+                "ident": "tree-1",
+                "clone_id": "fam1",
+                "newick": "(leaf:0.1)root;",
+                "nodes": [
+                    {"sequence_id": "root", "parent": None, "type": "root",
+                     "sequence_alignment_aa": "MQQQ"},
+                    # AA sequence still shows three changes vs. parent, but
+                    # the upstream pipeline pre-populated only two of them
+                    # — exercising the "existing array, no derive" path.
+                    {"sequence_id": "leaf", "parent": "root", "type": "leaf",
+                     "sequence_alignment_aa": "MKRS",
+                     "mutations": [
+                         {"site": 1, "parent_aa": "Q", "child_aa": "K"},
+                         {"site": 2, "parent_aa": "Q", "child_aa": "R"},
+                     ]},
+                ],
+            }
+        ],
+    }
+    json_path = tmp_path / "input.json"
+    csv_path = tmp_path / "muts.csv"
+    out_path = tmp_path / "out.json"
+    json_path.write_text(json.dumps(olmsted))
+    # CSV lists only site 1; site 2 is a pre-existing entry the user has
+    # no opinion about and wants filtered out.
+    csv_path.write_text(
+        "family,site,parent_aa,child_aa,score\nfam1,1,Q,K,9.9\n"
+    )
+
+    result = subprocess.run(
+        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
+         "--only-listed-mutations", "-o", str(out_path)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    out = json.loads(out_path.read_text())
+    leaf = next(n for n in out["trees"][0]["nodes"] if n["sequence_id"] == "leaf")
+    # Site-1 enriched, site-2 pre-existing entry filtered out.
+    assert len(leaf["mutations"]) == 1
+    assert leaf["mutations"][0]["site"] == 1
+    assert leaf["mutations"][0]["score"] == 9.9
+
+
+@pytest.mark.parametrize("mode", ["site_keyed", "name_keyed"])
+def test_only_listed_deletes_empty_mutations_array(tmp_path, mode):
+    """When every derived mutation on a node is unlisted, drop the key entirely.
+
+    Both merge modes should `del node["mutations"]` rather than leave an
+    empty list behind, so a node that loses all its events looks the
+    same as one that never had any.
+    """
+    olmsted = {
+        "metadata": {"format": "olmsted", "format_version": "1.0"},
+        "datasets": [{"dataset_id": "ds", "name": "Empty-Result Test"}],
+        "clones": {"ds": [{"clone_id": "fam1", "dataset_id": "ds",
+                           "unique_seqs_count": 2, "mean_mut_freq": 0.0,
+                           "sample_id": "s1"}]},
+        "trees": [
+            {
+                "ident": "tree-1",
+                "clone_id": "fam1",
+                "newick": "(leaf:0.1)root;",
+                "nodes": [
+                    {"sequence_id": "root", "parent": None, "type": "root",
+                     "sequence_alignment_aa": "MQQ"},
+                    {"sequence_id": "leaf", "parent": "root", "type": "leaf",
+                     "sequence_alignment_aa": "MKR"},
+                ],
+            }
+        ],
+    }
+    json_path = tmp_path / "input.json"
+    csv_path = tmp_path / "muts.csv"
+    out_path = tmp_path / "out.json"
+    json_path.write_text(json.dumps(olmsted))
+    # CSV is for fam1 (so the tree is matched and filtering runs) but
+    # lists a site that isn't in the tree — every derived mutation is
+    # unlisted. Mode is selected by whether `node_name` is in the header.
+    if mode == "name_keyed":
+        csv_path.write_text(
+            "family,node_name,site,parent_aa,child_aa,score\n"
+            "fam1,leaf,99,X,Y,1.0\n"
+        )
+    else:
+        csv_path.write_text(
+            "family,site,parent_aa,child_aa,score\nfam1,99,X,Y,1.0\n"
+        )
+
+    result = subprocess.run(
+        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
+         "--only-listed-mutations", "-o", str(out_path)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    out = json.loads(out_path.read_text())
+    leaf = next(n for n in out["trees"][0]["nodes"] if n["sequence_id"] == "leaf")
+    assert "mutations" not in leaf, (
+        f"Expected `mutations` key to be deleted when all entries are dropped; "
+        f"got: {leaf.get('mutations')!r}"
+    )
+
+
+def test_only_listed_drops_integrity_mismatched_sites(tmp_path):
+    """Integrity mismatch + allow-mismatch + only-listed cascades into a drop.
+
+    A name-keyed CSV row that resolves to a real (node, site) but
+    disagrees with the tree's parent_aa/child_aa is skipped (its site
+    never enters the listed set). Combined with --mutations-allow-mismatch
+    the run continues, and --only-listed-mutations then drops the bare
+    derived mutation at that site as well — the rejected CSV claim is
+    treated as "no claim," not as evidence the bare event should survive.
+    """
+    olmsted = {
+        "metadata": {"format": "olmsted", "format_version": "1.0"},
+        "datasets": [{"dataset_id": "ds", "name": "Integrity Cascade Test"}],
+        "clones": {"ds": [{"clone_id": "fam1", "dataset_id": "ds",
+                           "unique_seqs_count": 2, "mean_mut_freq": 0.0,
+                           "sample_id": "s1"}]},
+        "trees": [
+            {
+                "ident": "tree-1",
+                "clone_id": "fam1",
+                "newick": "(leaf:0.1)root;",
+                "nodes": [
+                    {"sequence_id": "root", "parent": None, "type": "root",
+                     "sequence_alignment_aa": "MQQ"},
+                    # Tree-derived mutations: site 1 Q→K, site 2 Q→R.
+                    {"sequence_id": "leaf", "parent": "root", "type": "leaf",
+                     "sequence_alignment_aa": "MKR"},
+                ],
+            }
+        ],
+    }
+    json_path = tmp_path / "input.json"
+    csv_path = tmp_path / "muts.csv"
+    out_path = tmp_path / "out.json"
+    json_path.write_text(json.dumps(olmsted))
+    # Site 1 matches; site 2 lies about child_aa (claims S, tree has R)
+    # → integrity mismatch → row skipped → site 2 not in listed set.
+    csv_path.write_text(
+        "family,node_name,site,parent_aa,child_aa,score\n"
+        "fam1,leaf,1,Q,K,9.9\n"
+        "fam1,leaf,2,Q,S,7.7\n"
+    )
+
+    result = subprocess.run(
+        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
+         "--mutations-allow-mismatch", "--only-listed-mutations",
+         "-o", str(out_path)],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    out = json.loads(out_path.read_text())
+    leaf = next(n for n in out["trees"][0]["nodes"] if n["sequence_id"] == "leaf")
+    # Only the integrity-clean site survives. The mismatched site's
+    # bare derived mutation is dropped under --only-listed-mutations
+    # even though --mutations-allow-mismatch keeps the run alive.
+    assert len(leaf["mutations"]) == 1
+    assert leaf["mutations"][0]["site"] == 1
+    assert leaf["mutations"][0]["score"] == 9.9
+
+
 @pytest.mark.parametrize("flag", ["--mutations-use-depth", "--mutations-allow-mismatch",
                                   "--only-listed-mutations"])
 def test_process_rejects_mutation_flags_without_mutations(tmp_path, flag):

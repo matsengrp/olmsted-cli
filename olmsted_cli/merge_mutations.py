@@ -489,8 +489,8 @@ def _merge_name_keyed(
 
         unmatched = 0
         mismatched = 0
-        enriched_nodes: set = set()
-        # (node_name -> set of sites enriched by the CSV) for --only-listed
+        # node_name -> set of sites enriched by the CSV. Drives both the
+        # only-listed sweep and the per-tree node-count stat.
         enriched_sites_by_node: Dict[str, set] = {}
 
         for row in mutations_by_family[clone_id]:
@@ -537,7 +537,6 @@ def _merge_name_keyed(
             extras = {k: v for k, v in row.items() if k not in extras_excluded}
             target.update(extras)
             stats.mutations_enriched += 1
-            enriched_nodes.add(name)
             enriched_sites_by_node.setdefault(name, set()).add(site)
 
         # Under --only-listed, drop mutations on every node of this matched
@@ -560,15 +559,18 @@ def _merge_name_keyed(
                     # nodes look the same as ones that never had mutations.
                     del node["mutations"]
 
-        # Keep mutations arrays sorted where we touched them
-        for name in enriched_nodes:
+        # Keep mutations arrays sorted where we touched them. Nodes that
+        # received at least one CSV match always retain their `mutations`
+        # array even after the only-listed sweep (the sweep only deletes
+        # the key when *no* sites matched — i.e., nodes never recorded
+        # in enriched_sites_by_node), so no guard is needed here.
+        for name in enriched_sites_by_node:
             node = nodes_by_id[name]
-            if "mutations" in node:
-                node["mutations"] = sorted(
-                    node["mutations"], key=lambda m: m.get("site", 0)
-                )
+            node["mutations"] = sorted(
+                node["mutations"], key=lambda m: m.get("site", 0)
+            )
 
-        stats.nodes_enriched += len(enriched_nodes)
+        stats.nodes_enriched += len(enriched_sites_by_node)
         stats.unmatched_mutations += unmatched
         stats.integrity_mismatches += mismatched
 
