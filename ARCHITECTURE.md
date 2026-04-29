@@ -228,6 +228,18 @@ In `name_site` mode, `parent_aa`/`child_aa` (and `depth`, only when `--mutations
 
 Rationale: attaching upstream scores to a mutation whose parent/child residues don't match what the CSV claimed would attach data to the wrong biological event. Skipping is always safer than attributing; failing loud by default surfaces CSV/tree drift rather than letting it pass silently. The flag exists as an explicit "I know, proceed anyway" escape hatch.
 
+### Authoritative CSV: `--mutations-listed-only`
+
+By default the merge enriches mutations matched by the CSV but still emits sequence-diff-derived mutations that have no CSV row (just without the extra columns). Pipelines that use the CSV as an *intentional filter* — e.g. dropping multi-nt-per-codon mutations because they're noisy under a downstream model — get those filtered events back as bare mutations on the tree.
+
+Passing `--mutations-listed-only` makes the CSV authoritative: on every tree whose `clone_id` matches a family in the CSV, derived mutations that don't have a corresponding CSV row are removed. The number dropped is reported via `MergeStats.mutations_dropped` and at status verbosity. Trees whose family is absent from the CSV are not filtered (the user has no opinion on them), so the flag is safe to combine with a CSV that only covers a subset of families.
+
+**Caveats**
+
+- *The `mutations` array becomes the authoritative event log; `sequence_alignment_aa` is not rewritten.* The on-disk JSON is deliberately inconsistent after the flag runs: a fresh AA diff between a node and its parent may imply events that no longer appear in the node's `mutations` array. The webapp consumes the array (not the sequences) for mutation events, so the dropped events disappear from mutation views while the sequence display still carries the residue change. Pre-existing upstream `mutations` arrays on input nodes are filtered the same way as freshly-derived ones.
+- *Re-derivation resurrection.* `_get_or_derive_mutations` re-derives from the AA diff whenever a node's `mutations` array is missing or empty. Chaining a second merge over the only-listed output (especially with a different CSV) would resurrect the dropped events as bare entries again. The flag is therefore intended for terminal/output-stage use; running it earlier in a multi-merge pipeline is unlikely to do what you want.
+- *Interaction with integrity mismatches.* In `name_site` mode, a CSV row that resolves to a real `(node, site)` but fails the `parent_aa`/`child_aa` integrity check is skipped (its site never enters the listed set). Paired with `--mutations-allow-mismatch` the run continues — and `--mutations-listed-only` then drops the derived mutation at that site as well, since no row authoritatively claimed it. This cascade is intentional: a rejected CSV claim is treated as "no claim," not as evidence that the bare event should survive.
+
 ### Excluded CSV Columns
 
 These columns are recognized as structural/join keys and are **not** included in the merged output (see `MUTATIONS_CSV_KEY_COLUMNS` in `constants.py`):
@@ -254,6 +266,7 @@ family, sample_id, site, parent_aa, child_aa, pcp_index, depth, node_name, child
 | `integrity_mismatches` | CSV rows that resolved to a real `(node, site)` in `name_site` mode but whose `parent_aa`/`child_aa`/`depth` disagreed with the tree's derived mutation. Not attached. |
 | `disambiguation_columns_used` | Optional disambiguation / integrity-check columns active on this run (e.g. `["node_name"]` or `["depth"]`) |
 | `match_mode` | Chosen match mode: `name_site`, `site_paa_caa_depth`, or `site_paa_caa` |
+| `mutations_dropped` | Derived mutations removed under `--mutations-listed-only` because they had no matching CSV row. Always 0 without the flag. |
 
 Counts are scoped to the current run: `nodes_enriched` and `mutations_enriched` exclude pre-existing mutation arrays from upstream pipelines.
 
