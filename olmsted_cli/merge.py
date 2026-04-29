@@ -78,7 +78,7 @@ Examples:
         "flag. Use only after investigating the disagreement.",
     )
     parser.add_argument(
-        "--only-listed-mutations",
+        "--mutations-listed-only",
         action="store_true",
         help="Treat the mutations CSV as authoritative: on trees whose "
         "clone_id matches a family in the CSV, drop any derived "
@@ -178,7 +178,7 @@ def main():
             data["trees"],
             use_depth=args.mutations_use_depth,
             allow_mismatch=args.mutations_allow_mismatch,
-            only_listed=args.only_listed_mutations,
+            only_listed=args.mutations_listed_only,
         )
     except (FileNotFoundError, ValueError) as e:
         vprint.error(f"Error: {e}")

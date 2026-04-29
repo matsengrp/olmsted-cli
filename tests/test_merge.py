@@ -774,7 +774,7 @@ def test_merge_depth_ignored_without_flag(tmp_path):
 
 
 def test_only_listed_drops_unlisted_derived_mutations(tmp_path):
-    """--only-listed-mutations: derived mutations not in the CSV are dropped.
+    """--mutations-listed-only: derived mutations not in the CSV are dropped.
 
     Reproduces the scenario from issue #18: a leaf has two derived
     mutations (sites 1 and 2), but the CSV only lists site 1. Without
@@ -826,10 +826,10 @@ def test_only_listed_drops_unlisted_derived_mutations(tmp_path):
     site2 = next(m for m in leaf["mutations"] if m["site"] == 2)
     assert "score" not in site2, "Unlisted mutation comes through unannotated"
 
-    # With --only-listed-mutations: site-2 derived mutation is dropped
+    # With --mutations-listed-only: site-2 derived mutation is dropped
     result = subprocess.run(
         ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
-         "--only-listed-mutations", "-o", str(out_path_filtered)],
+         "--mutations-listed-only", "-o", str(out_path_filtered)],
         capture_output=True, text=True,
     )
     assert result.returncode == 0, result.stderr
@@ -843,10 +843,10 @@ def test_only_listed_drops_unlisted_derived_mutations(tmp_path):
 
 
 def test_only_listed_name_keyed(tmp_path):
-    """--only-listed-mutations works in name-keyed mode too.
+    """--mutations-listed-only works in name-keyed mode too.
 
     The leaf node has two derived mutations (K→R at site 1, T→R at site 2)
-    but the CSV only lists site 1. Under --only-listed-mutations, site 2
+    but the CSV only lists site 1. Under --mutations-listed-only, site 2
     is dropped even though it would have been derived and emitted bare
     by the default merge.
     """
@@ -882,7 +882,7 @@ def test_only_listed_name_keyed(tmp_path):
 
     result = subprocess.run(
         ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
-         "--only-listed-mutations", "-o", str(out_path)],
+         "--mutations-listed-only", "-o", str(out_path)],
         capture_output=True, text=True,
     )
     assert result.returncode == 0, result.stderr
@@ -902,7 +902,7 @@ def test_only_listed_leaves_unmatched_families_alone(tmp_path, sample_olmsted_js
     """Trees whose family is absent from the CSV pass through untouched.
 
     The CSV only mentions fam1 (and fam99, which has no tree). Pre-existing
-    mutations on fam2's tree must survive --only-listed-mutations untouched
+    mutations on fam2's tree must survive --mutations-listed-only untouched
     — the filter is scoped to CSV-matched trees only.
     """
     # Pre-populate fam2's child node with mutations to confirm they survive.
@@ -923,7 +923,7 @@ def test_only_listed_leaves_unmatched_families_alone(tmp_path, sample_olmsted_js
 
     result = subprocess.run(
         ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
-         "--only-listed-mutations", "-o", str(out_path)],
+         "--mutations-listed-only", "-o", str(out_path)],
         capture_output=True, text=True,
     )
     assert result.returncode == 0, result.stderr
@@ -991,7 +991,7 @@ def test_only_listed_filters_preexisting_upstream_mutations(tmp_path):
 
     result = subprocess.run(
         ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
-         "--only-listed-mutations", "-o", str(out_path)],
+         "--mutations-listed-only", "-o", str(out_path)],
         capture_output=True, text=True,
     )
     assert result.returncode == 0, result.stderr
@@ -1050,7 +1050,7 @@ def test_only_listed_deletes_empty_mutations_array(tmp_path, mode):
 
     result = subprocess.run(
         ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
-         "--only-listed-mutations", "-o", str(out_path)],
+         "--mutations-listed-only", "-o", str(out_path)],
         capture_output=True, text=True,
     )
     assert result.returncode == 0, result.stderr
@@ -1068,7 +1068,7 @@ def test_only_listed_drops_integrity_mismatched_sites(tmp_path):
     A name-keyed CSV row that resolves to a real (node, site) but
     disagrees with the tree's parent_aa/child_aa is skipped (its site
     never enters the listed set). Combined with --mutations-allow-mismatch
-    the run continues, and --only-listed-mutations then drops the bare
+    the run continues, and --mutations-listed-only then drops the bare
     derived mutation at that site as well — the rejected CSV claim is
     treated as "no claim," not as evidence the bare event should survive.
     """
@@ -1107,7 +1107,7 @@ def test_only_listed_drops_integrity_mismatched_sites(tmp_path):
 
     result = subprocess.run(
         ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
-         "--mutations-allow-mismatch", "--only-listed-mutations",
+         "--mutations-allow-mismatch", "--mutations-listed-only",
          "-o", str(out_path)],
         capture_output=True, text=True,
     )
@@ -1115,7 +1115,7 @@ def test_only_listed_drops_integrity_mismatched_sites(tmp_path):
     out = json.loads(out_path.read_text())
     leaf = next(n for n in out["trees"][0]["nodes"] if n["sequence_id"] == "leaf")
     # Only the integrity-clean site survives. The mismatched site's
-    # bare derived mutation is dropped under --only-listed-mutations
+    # bare derived mutation is dropped under --mutations-listed-only
     # even though --mutations-allow-mismatch keeps the run alive.
     assert len(leaf["mutations"]) == 1
     assert leaf["mutations"][0]["site"] == 1
@@ -1123,7 +1123,7 @@ def test_only_listed_drops_integrity_mismatched_sites(tmp_path):
 
 
 @pytest.mark.parametrize("flag", ["--mutations-use-depth", "--mutations-allow-mismatch",
-                                  "--only-listed-mutations"])
+                                  "--mutations-listed-only"])
 def test_process_rejects_mutation_flags_without_mutations(tmp_path, flag):
     """`process` argparse rejects mutation-related flags when --mutations is absent.
 

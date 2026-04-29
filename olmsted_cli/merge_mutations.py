@@ -83,7 +83,7 @@ class MergeStats:
     # The chosen matching mode: name_site (deterministic) or
     # site_paa_caa[_depth] (may broadcast).
     match_mode: MatchMode = ""
-    # Mutations dropped under --only-listed-mutations: derived mutations on
+    # Mutations dropped under --mutations-listed-only: derived mutations on
     # nodes in CSV-matched trees that didn't appear in the CSV. Always 0
     # when only_listed=False.
     mutations_dropped: int = 0
@@ -777,7 +777,7 @@ def apply_mutations_csv(
     if stats.mutations_dropped:
         vprint.status(
             f"Dropped {stats.mutations_dropped} derived mutations not listed in "
-            f"the CSV (--only-listed-mutations)"
+            f"the CSV (--mutations-listed-only)"
         )
 
     if stats.trees_matched == 0:

@@ -252,7 +252,7 @@ olmsted merge -i base.json --mutations scores.csv -c config.yaml -o output.json
 | `--mutations FILE` | Mutations CSV file (see format below) |
 | `--mutations-use-depth` | Use the CSV's `depth` column as a match-key participant or integrity check (opt-in) |
 | `--mutations-allow-mismatch` | Downgrade integrity mismatches from a hard failure to a warning |
-| `--only-listed-mutations` | Treat the CSV as authoritative — drop derived mutations on CSV-matched trees that don't appear in the CSV |
+| `--mutations-listed-only` | Treat the CSV as authoritative — drop derived mutations on CSV-matched trees that don't appear in the CSV |
 | `-o, --output FILE` | Output file path (required unless `--in-place`) |
 | `--in-place` | Modify the input file in place (refused if zero trees match) |
 | `-c, --config FILE` | YAML config with custom field declarations |

@@ -242,7 +242,7 @@ def process_airr_format(args):
                 trees,
                 use_depth=getattr(args, "mutations_use_depth", False),
                 allow_mismatch=getattr(args, "mutations_allow_mismatch", False),
-                only_listed=getattr(args, "only_listed_mutations", False),
+                only_listed=getattr(args, "mutations_listed_only", False),
             )
         except ValueError as e:
             vprint.error(f"Error: {e}")
@@ -392,7 +392,7 @@ def process_pcp_format(args):
                     trees,
                     use_depth=getattr(args, "mutations_use_depth", False),
                     allow_mismatch=getattr(args, "mutations_allow_mismatch", False),
-                    only_listed=getattr(args, "only_listed_mutations", False),
+                    only_listed=getattr(args, "mutations_listed_only", False),
                 )
             except ValueError as e:
                 vprint.error(f"Error: {e}")
@@ -539,7 +539,7 @@ Examples:
         "only controls whether the command exits non-zero afterwards.",
     )
     mutations_group.add_argument(
-        "--only-listed-mutations",
+        "--mutations-listed-only",
         action="store_true",
         help="Treat the mutations CSV as authoritative: on trees whose "
         "clone_id matches a family in the CSV, drop any derived "
@@ -845,11 +845,11 @@ def get_args():
     if (
         args.mutations_use_depth
         or args.mutations_allow_mismatch
-        or args.only_listed_mutations
+        or args.mutations_listed_only
     ) and not args.mutations:
         parser.error(
             "--mutations-use-depth / --mutations-allow-mismatch / "
-            "--only-listed-mutations require --mutations"
+            "--mutations-listed-only require --mutations"
         )
 
     return args
