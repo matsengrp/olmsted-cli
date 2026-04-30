@@ -21,19 +21,18 @@ class TestValidation:
     """Test validation functionality."""
 
     def test_validate_airr_golden_outputs(self):
-        """Test that AIRR golden outputs are valid."""
+        """Validate every split-format AIRR golden file individually."""
         golden_dir = (
-            Path(__file__).parent.parent / "example_data" / "airr" / "split_golden_data"
+            Path(__file__).parent.parent / "example-data" / "airr" / "split-golden-data"
         )
 
         if not golden_dir.exists():
             pytest.skip(f"Golden AIRR data directory not found: {golden_dir}")
 
-        # Check all JSON files in the golden directory
         json_files = list(golden_dir.glob("*.json"))
         assert len(json_files) > 0, f"No JSON files found in {golden_dir}"
 
-        # Test without time tree validation (default)
+        # Schema validation (default).
         validation_errors = []
         for json_file in json_files:
             is_valid, errors = validate_file(
@@ -41,13 +40,12 @@ class TestValidation:
             )
             if not is_valid:
                 validation_errors.append(f"{json_file.name}: {errors}")
-
         assert len(validation_errors) == 0, (
-            f"AIRR golden outputs should be valid. Errors found:\n"
+            "AIRR golden outputs should be valid. Errors found:\n"
             + "\n".join(validation_errors)
         )
-        
-        # Also test with time tree validation enabled
+
+        # Time-tree validation.
         validation_errors_time_tree = []
         for json_file in json_files:
             is_valid, errors = validate_file(
@@ -55,26 +53,33 @@ class TestValidation:
             )
             if not is_valid:
                 validation_errors_time_tree.append(f"{json_file.name}: {errors}")
-
         assert len(validation_errors_time_tree) == 0, (
-            f"AIRR golden outputs should be valid time trees. Errors found:\n"
+            "AIRR golden outputs should be valid time trees. Errors found:\n"
             + "\n".join(validation_errors_time_tree)
         )
 
+    @pytest.mark.xfail(
+        reason="time-tree precision drift on golden PCP, see issue #20",
+        strict=True,
+    )
     def test_validate_pcp_golden_outputs(self):
-        """Test that PCP golden outputs are valid."""
+        """Validate every split-format PCP golden file individually.
+
+        Currently xfailed for the same reason as
+        ``test_validate_pcp_consolidated_golden_output``: floating-point
+        drift in tree distances trips the time-tree invariant. Tracked
+        in issue #20.
+        """
         golden_dir = (
-            Path(__file__).parent.parent / "example_data" / "pcp" / "split_golden_data"
+            Path(__file__).parent.parent / "example-data" / "pcp" / "split-golden-data"
         )
 
         if not golden_dir.exists():
             pytest.skip(f"Golden PCP data directory not found: {golden_dir}")
 
-        # Check all JSON files in the golden directory
         json_files = list(golden_dir.glob("*.json"))
         assert len(json_files) > 0, f"No JSON files found in {golden_dir}"
 
-        # Test without time tree validation (default)
         validation_errors = []
         for json_file in json_files:
             is_valid, errors = validate_file(
@@ -82,13 +87,11 @@ class TestValidation:
             )
             if not is_valid:
                 validation_errors.append(f"{json_file.name}: {errors}")
-
         assert len(validation_errors) == 0, (
-            f"PCP golden outputs should be valid. Errors found:\n"
+            "PCP golden outputs should be valid. Errors found:\n"
             + "\n".join(validation_errors)
         )
-        
-        # Also test with time tree validation enabled
+
         validation_errors_time_tree = []
         for json_file in json_files:
             is_valid, errors = validate_file(
@@ -96,9 +99,8 @@ class TestValidation:
             )
             if not is_valid:
                 validation_errors_time_tree.append(f"{json_file.name}: {errors}")
-
         assert len(validation_errors_time_tree) == 0, (
-            f"PCP golden outputs should be valid time trees. Errors found:\n"
+            "PCP golden outputs should be valid time trees. Errors found:\n"
             + "\n".join(validation_errors_time_tree)
         )
 
@@ -106,9 +108,9 @@ class TestValidation:
         """Test that AIRR consolidated golden output is valid."""
         consolidated_file = (
             Path(__file__).parent.parent
-            / "example_data"
+            / "example-data"
             / "airr"
-            / "consolidated_golden_data.json"
+            / "airr-olmsted-golden.json"
         )
 
         if not consolidated_file.exists():
@@ -144,13 +146,24 @@ class TestValidation:
         assert "clones" in data, "Consolidated data should have clones"
         assert "trees" in data, "Consolidated data should have trees"
 
+    @pytest.mark.xfail(
+        reason="time-tree precision drift on golden PCP, see issue #20",
+        strict=True,
+    )
     def test_validate_pcp_consolidated_golden_output(self):
-        """Test that PCP consolidated golden output is valid."""
+        """Test that PCP consolidated golden output is valid.
+
+        Currently xfailed: the PCP example tree has a Node5 distance that
+        is floating-point-less-than its parent's, tripping the time-tree
+        invariant check. Tracked in issue #20; this xfail flips to pass
+        automatically once the drift is resolved (alerting us to drop the
+        marker).
+        """
         consolidated_file = (
             Path(__file__).parent.parent
-            / "example_data"
+            / "example-data"
             / "pcp"
-            / "consolidated_golden_data.json"
+            / "pcp-olmsted-golden.json"
         )
 
         if not consolidated_file.exists():

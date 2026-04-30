@@ -1,5 +1,5 @@
 # =============================================================================
-# Field configuration generated from: pcp.csv
+# Field configuration generated from: input-pcp.csv
 # Detected format: pcp
 # =============================================================================
 #
@@ -16,8 +16,8 @@
 # Processing Options (uncomment and edit as needed)
 # =============================================================================
 
-inputs: [example_data/pcp/pcp.csv]
-tree: example_data/pcp/trees.csv
+inputs: [example-data/pcp/input-pcp.csv]
+tree: example-data/pcp/input-trees.csv
 output: output.json
 format: pcp
 

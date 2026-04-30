@@ -1,5 +1,5 @@
 # =============================================================================
-# Field configuration generated from: airr.json
+# Field configuration generated from: input-airr.json
 # Detected format: airr
 # =============================================================================
 #
@@ -16,7 +16,7 @@
 # Processing Options (uncomment and edit as needed)
 # =============================================================================
 
-inputs: [example_data/airr/airr.json]
+inputs: [example-data/airr/input-airr.json]
 output: output.json
 format: airr
 

@@ -147,8 +147,8 @@ class TestCLIIntegration:
             [
                 "olmsted", "process",
                 "-f", "pcp",
-                "-i", str(REPO_ROOT / "example_data/pcp/pcp.csv"),
-                "-t", str(REPO_ROOT / "example_data/pcp/trees.csv"),
+                "-i", str(REPO_ROOT / "example-data/pcp/input-pcp.csv"),
+                "-t", str(REPO_ROOT / "example-data/pcp/input-trees.csv"),
                 "-o", str(source),
                 "--seed", "42",
                 "-q",
@@ -174,8 +174,8 @@ class TestCLIIntegration:
             [
                 "olmsted", "process",
                 "-f", "pcp",
-                "-i", str(REPO_ROOT / "example_data/pcp/pcp.csv"),
-                "-t", str(REPO_ROOT / "example_data/pcp/trees.csv"),
+                "-i", str(REPO_ROOT / "example-data/pcp/input-pcp.csv"),
+                "-t", str(REPO_ROOT / "example-data/pcp/input-trees.csv"),
                 "-o", str(source),
                 "--seed", "42",
                 "-q",

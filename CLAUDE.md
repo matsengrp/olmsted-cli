@@ -96,11 +96,27 @@ SUGGESTED_FIELD_TYPES["my_field"] = "tooltip"
 
 ### Regenerating Golden Data
 
+Consolidated goldens (the canonical single-file output for each dataset):
+
 ```bash
-olmsted process -f airr -i example_data/airr/airr.json --split-files example_data/airr/split_golden_data --seed 42 --name airr-example -q
-olmsted process -f airr -i example_data/airr/airr.json -o example_data/airr/consolidated_golden_data.json --seed 42 --name airr-example -q
-olmsted process -f pcp -i example_data/pcp/pcp.csv -t example_data/pcp/trees.csv --split-files example_data/pcp/split_golden_data --seed 42 --name pcp-example -q
-olmsted process -f pcp -i example_data/pcp/pcp.csv -t example_data/pcp/trees.csv -o example_data/pcp/consolidated_golden_data.json --seed 42 --name pcp-example -q
+olmsted process -f airr -i example-data/airr/input-airr.json -o example-data/airr/airr-olmsted-golden.json --seed 42 --name airr-example -q
+olmsted process -f pcp -i example-data/pcp/input-pcp.csv -t example-data/pcp/input-trees.csv -o example-data/pcp/pcp-olmsted-golden.json --seed 42 --name pcp-example -q
+olmsted process -f pcp -i example-data/pcp-byhand/input-pcp.csv -t example-data/pcp-byhand/input-trees.csv -o example-data/pcp-byhand/pcp-byhand-olmsted-golden.json --seed 42 --name pcp-byhand-example -q
+olmsted process -f pcp -i example-data/pcp-light/input-pcp.csv -t example-data/pcp-light/input-trees.csv -o example-data/pcp-light/pcp-light-olmsted-golden.json --seed 42 --name pcp-light-example -q
+olmsted process -f pcp -i example-data/pcp-paired/input-pcp.csv -t example-data/pcp-paired/input-trees.csv -o example-data/pcp-paired/pcp-paired-olmsted-golden.json --seed 42 --name pcp-paired-example -q
+```
+
+Split-format goldens (legacy, pinned for integrity testing as long as `--split-files` is supported):
+
+```bash
+olmsted process -f airr -i example-data/airr/input-airr.json --split-files example-data/airr/split-golden-data --seed 42 --name airr-example -q
+olmsted process -f pcp -i example-data/pcp/input-pcp.csv -t example-data/pcp/input-trees.csv --split-files example-data/pcp/split-golden-data --seed 42 --name pcp-example -q
+```
+
+Merge golden (post-merge source-of-truth):
+
+```bash
+olmsted merge -i example-data/merge/input-olmsted.json --mutations example-data/merge/input-mutations.csv --mutations-use-depth -o example-data/merge/merge-olmsted-golden.json -q
 ```
 
 ---

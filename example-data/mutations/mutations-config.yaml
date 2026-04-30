@@ -1,14 +1,16 @@
 # =============================================================================
-# Olmsted CLI — Surprise Analysis Configuration
+# Olmsted CLI — Mutations Example Configuration
 # =============================================================================
 #
-# This config is designed for DASM2 surprise analysis data that has been
-# pre-built into Olmsted JSON format. Use with the `enrich` command to add
-# field_metadata describing the surprise-specific fields.
+# Example field-metadata configuration for mutation-level annotation data.
+# The fields described here (surprise_mutsel, surprise_neutral, ...) come
+# from DASM2 surprise analysis output, but the same pattern applies to any
+# mutation-level annotations: declare each field's level, type, and label
+# and use the `enrich` command to attach `field_metadata` to the JSON.
 #
 # Usage:
-#   olmsted enrich -i top20_by_count_olmsted.json -o enriched.json -c surprise.yaml
-#   olmsted enrich -i top20_by_count_olmsted.json --in-place -c surprise.yaml
+#   olmsted enrich -i mutations-olmsted.json -o enriched.json -c mutations-config.yaml
+#   olmsted enrich -i mutations-olmsted.json --in-place -c mutations-config.yaml
 #
 # =============================================================================
 
