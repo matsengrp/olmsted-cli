@@ -31,12 +31,14 @@ def normalize_json(obj, float_tolerance=1e-12):
         return obj
 
 
-# Fields in metadata that change between runs (timestamps, git hashes)
-VOLATILE_METADATA_FIELDS = {"created_at", "git_hash"}
+# Metadata fields that record run state, not data content. Stripped before
+# comparing two consolidated outputs so the comparison is sensitive to data
+# shape and not to invocation-time flags.
+VOLATILE_METADATA_FIELDS = {"created_at", "git_hash", "processing_options"}
 
 
 def strip_volatile_fields(data):
-    """Remove volatile fields (timestamps, hashes) from consolidated data for comparison."""
+    """Remove run-state metadata from consolidated data for comparison."""
     data = json.loads(json.dumps(data))  # deep copy
     if "metadata" in data:
         for key in VOLATILE_METADATA_FIELDS:
@@ -45,19 +47,6 @@ def strip_volatile_fields(data):
         for key in VOLATILE_METADATA_FIELDS:
             generated_by.pop(key, None)
     return data
-
-
-def compare_json_files(file1, file2):
-    """Compare two JSON files after normalizing."""
-    with open(file1) as f:
-        data1 = json.load(f)
-    with open(file2) as f:
-        data2 = json.load(f)
-
-    norm1 = normalize_json(data1)
-    norm2 = normalize_json(data2)
-
-    return norm1 == norm2
 
 
 def compare_consolidated_files(file1, file2):
@@ -78,6 +67,18 @@ def compare_consolidated_files(file1, file2):
     return False, diff
 
 
+def compare_json_files(file1, file2):
+    """Compare two JSON files after stripping volatile fields and normalizing."""
+    with open(file1) as f:
+        data1 = json.load(f)
+    with open(file2) as f:
+        data2 = json.load(f)
+
+    return normalize_json(strip_volatile_fields(data1)) == normalize_json(
+        strip_volatile_fields(data2)
+    )
+
+
 def compare_directories(dir1, dir2):
     """Compare all JSON files in two directories with detailed error reporting."""
     files1 = set(f for f in os.listdir(dir1) if f.endswith(".json"))
@@ -93,14 +94,12 @@ def compare_directories(dir1, dir2):
             error_msg.append(f"Files missing in {dir1}: {missing_in_dir1}")
         return False, "\n".join(error_msg)
 
-    # Check each file and collect detailed differences
     all_differences = []
     for fname in sorted(files1):
         file1 = os.path.join(dir1, fname)
         file2 = os.path.join(dir2, fname)
         if not compare_json_files(file1, file2):
-            diff_output = format_json_diff(file1, file2)
-            all_differences.append(diff_output)
+            all_differences.append(format_json_diff(file1, file2))
 
     if all_differences:
         return False, "\n\n".join(all_differences)
@@ -117,13 +116,13 @@ class TestOlmstedCLI:
         # Get paths relative to the package root
         self.cli_root = Path(__file__).parent.parent
         self.test_data_dir = self.cli_root / "example_data"
-        self.golden_airr_dir = self.test_data_dir / "airr" / "split_golden_data"
-        self.golden_pcp_dir = self.test_data_dir / "pcp" / "split_golden_data"
+        self.golden_airr_dir = self.test_data_dir / "airr" / "split-golden-data"
+        self.golden_pcp_dir = self.test_data_dir / "pcp" / "split-golden-data"
         self.consolidated_airr_file = (
-            self.test_data_dir / "airr" / "consolidated_golden_data.json"
+            self.test_data_dir / "airr" / "airr-olmsted-golden.json"
         )
         self.consolidated_pcp_file = (
-            self.test_data_dir / "pcp" / "consolidated_golden_data.json"
+            self.test_data_dir / "pcp" / "pcp-olmsted-golden.json"
         )
 
         # Use the session directory and create a subdirectory for this specific test
@@ -138,40 +137,38 @@ class TestOlmstedCLI:
 
     @pytest.mark.airr
     def test_airr_processing(self):
-        """Test AIRR data processing using olmsted process command with split files."""
-        # Input and output paths
+        """`process --split-files` on AIRR matches the split-format golden.
+
+        Pure shape check on the legacy split-file output (datasets.json,
+        clones.*.json, tree.*.json). Validation is covered separately;
+        this test fails specifically when split-format output drifts.
+        """
         input_file = self.test_data_dir / "airr" / "airr.json"
         output_dir = Path(self.temp_dir) / "airr_output"
 
-        # Run the process command with split files to match golden data
         cmd = [
-            "olmsted",
-            "process",
-            "-f",
-            "airr",
-            "-i",
-            str(input_file),
-            "--split-files",
-            str(output_dir),
-            "--seed",
-            "42",
-            "--name",
-            "airr-example",
-            "--validate",
+            "olmsted", "process", "-f", "airr",
+            "-i", str(input_file),
+            "--split-files", str(output_dir),
+            "--seed", "42",
+            "--name", "airr-example",
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)
-
-        # Check command succeeded
         assert result.returncode == 0, f"Command failed: {result.stderr}"
 
-        # Compare output with golden data
         match, message = compare_directories(str(self.golden_airr_dir), str(output_dir))
         assert match, f"Output doesn't match golden data: {message}"
 
     @pytest.mark.airr
     def test_airr_consolidated_processing(self):
-        """Test AIRR consolidated output matches golden data."""
+        """`process` on AIRR produces output matching the golden (data shape).
+
+        Pure shape check — no `--validate`. Schema/time-tree validation is
+        covered separately by `test_airr_consolidated_inline_validation`
+        and `test_validate_airr_consolidated_golden_output`, so a failure
+        here unambiguously points at processing rather than validation.
+        """
         input_file = self.test_data_dir / "airr" / "airr.json"
         output_file = Path(self.temp_dir) / "airr_consolidated.json"
 
@@ -181,7 +178,6 @@ class TestOlmstedCLI:
             "-o", str(output_file),
             "--seed", "42",
             "--name", "airr-example",
-            "--validate",
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -194,41 +190,31 @@ class TestOlmstedCLI:
         )
         assert match, f"Output doesn't match consolidated golden data:\n{message}"
 
-    @pytest.mark.pcp
-    def test_pcp_processing(self):
-        """Test PCP data processing using olmsted process command with split files."""
-        # Input and output paths
-        input_clones = self.test_data_dir / "pcp" / "pcp.csv"
-        input_trees = self.test_data_dir / "pcp" / "trees.csv"
-        output_dir = Path(self.temp_dir) / "pcp_output"
+    @pytest.mark.airr
+    def test_airr_consolidated_inline_validation(self):
+        """`process --validate` on AIRR runs without error.
 
-        # Run the process command with split files to match golden data
+        Exercises the inline-validation code path through the CLI. A
+        regression here means either inline validation broke or the
+        AIRR output became schema/time-tree-invalid.
+        """
+        input_file = self.test_data_dir / "airr" / "airr.json"
+        output_file = Path(self.temp_dir) / "airr_inline_validated.json"
+
         cmd = [
-            "olmsted",
-            "process",
-            "-f",
-            "pcp",
-            "-i",
-            str(input_clones),
-            "-t",
-            str(input_trees),
-            "--split-files",
-            str(output_dir),
-            "--seed",
-            "42",
-            "--name",
-            "pcp-example",
+            "olmsted", "process", "-f", "airr",
+            "-i", str(input_file),
+            "-o", str(output_file),
+            "--seed", "42",
+            "--name", "airr-example",
             "--validate",
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)
-
-        # Check command succeeded
-        assert result.returncode == 0, f"Command failed: {result.stderr}"
-
-        # Compare output with golden data
-        match, message = compare_directories(str(self.golden_pcp_dir), str(output_dir))
-        assert match, f"Output doesn't match golden data: {message}"
+        assert result.returncode == 0, (
+            f"`process --validate` failed:\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
 
     @pytest.mark.pcp
     def test_pcp_with_trees_processing(self):
@@ -317,11 +303,74 @@ class TestOlmstedCLI:
             assert "nodes" in first_tree, "First tree missing nodes data"
 
     @pytest.mark.pcp
+    def test_pcp_processing(self):
+        """`process --split-files` on PCP matches the split-format golden.
+
+        Pure shape check on the legacy split-file output. See the AIRR
+        counterpart for the rationale on splitting shape from
+        validation coverage.
+        """
+        input_clones = self.test_data_dir / "pcp" / "pcp.csv"
+        input_trees = self.test_data_dir / "pcp" / "trees.csv"
+        output_dir = Path(self.temp_dir) / "pcp_output"
+
+        cmd = [
+            "olmsted", "process", "-f", "pcp",
+            "-i", str(input_clones),
+            "-t", str(input_trees),
+            "--split-files", str(output_dir),
+            "--seed", "42",
+            "--name", "pcp-example",
+        ]
+
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        assert result.returncode == 0, f"Command failed: {result.stderr}"
+
+        match, message = compare_directories(str(self.golden_pcp_dir), str(output_dir))
+        assert match, f"Output doesn't match golden data: {message}"
+
+    @pytest.mark.pcp
     def test_pcp_consolidated_processing(self):
-        """Test PCP consolidated output matches golden data."""
+        """`process` on PCP produces output matching the golden (data shape).
+
+        Pure shape check — no `--validate`. See the AIRR counterpart for
+        the rationale on splitting shape from inline-validation coverage.
+        """
         input_clones = self.test_data_dir / "pcp" / "pcp.csv"
         input_trees = self.test_data_dir / "pcp" / "trees.csv"
         output_file = Path(self.temp_dir) / "pcp_consolidated.json"
+
+        cmd = [
+            "olmsted", "process", "-f", "pcp",
+            "-i", str(input_clones),
+            "-t", str(input_trees),
+            "-o", str(output_file),
+            "--seed", "42",
+            "--name", "pcp-example",
+        ]
+
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        assert result.returncode == 0, f"Command failed: {result.stderr}"
+        assert output_file.exists(), f"Output file not created: {output_file}"
+
+        # Compare against consolidated golden data (ignoring volatile fields)
+        match, message = compare_consolidated_files(
+            str(self.consolidated_pcp_file), str(output_file)
+        )
+        assert match, f"Output doesn't match consolidated golden data:\n{message}"
+
+    @pytest.mark.pcp
+    def test_pcp_consolidated_inline_validation(self):
+        """`process --validate` on PCP runs without error.
+
+        Inline validation during processing does not run the time-tree
+        check that `validate_file(check_time_tree=True)` does, so this
+        test passes despite the known PCP time-tree drift (see issue
+        #20 and `test_validate_pcp_consolidated_golden_output`).
+        """
+        input_clones = self.test_data_dir / "pcp" / "pcp.csv"
+        input_trees = self.test_data_dir / "pcp" / "trees.csv"
+        output_file = Path(self.temp_dir) / "pcp_inline_validated.json"
 
         cmd = [
             "olmsted", "process", "-f", "pcp",
@@ -334,14 +383,10 @@ class TestOlmstedCLI:
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)
-        assert result.returncode == 0, f"Command failed: {result.stderr}"
-        assert output_file.exists(), f"Output file not created: {output_file}"
-
-        # Compare against consolidated golden data (ignoring volatile fields)
-        match, message = compare_consolidated_files(
-            str(self.consolidated_pcp_file), str(output_file)
+        assert result.returncode == 0, (
+            f"`process --validate` failed:\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
-        assert match, f"Output doesn't match consolidated golden data:\n{message}"
 
     def test_auto_format_detection_airr(self):
         """Test automatic format detection for AIRR JSON files."""

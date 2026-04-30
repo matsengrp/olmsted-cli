@@ -68,9 +68,10 @@ olmsted process -c example_data/surprise/surprise_config.yaml
 
 ## Golden Data
 
-The `airr/` and `pcp/` directories include golden data files used by the test suite:
+Each dataset folder includes a single consolidated golden used by the test suite:
 
-- `consolidated_golden_data.json` -- Expected consolidated output
-- `split_golden_data/` -- Expected split-file output (datasets.json, clones.\*.json, tree.\*.json)
+- `{folder}-olmsted-golden.json` — expected consolidated output for that dataset (e.g., `airr/airr-olmsted-golden.json`, `pcp/pcp-olmsted-golden.json`)
 
-These are regenerated when the output format changes (e.g., adding `field_metadata`).
+The `airr/` and `pcp/` folders additionally carry a `split-golden-data/` directory pinning the legacy split-format output (`datasets.json`, `clones.*.json`, `tree.*.json`). These are maintained as integrity coverage for the `--split-files` CLI flag and will be removed if/when split-format support is officially dropped.
+
+Regenerate after output-format changes — see CLAUDE.md or DEVELOPMENT.md for the regeneration commands.

@@ -20,7 +20,7 @@ class TestDetectFileFormat:
         assert detect_file_format("example_data/surprise/surprise_subset.json") == "olmsted"
 
     def test_olmsted_json_consolidated(self):
-        assert detect_file_format("example_data/pcp/consolidated_golden_data.json") == "olmsted"
+        assert detect_file_format("example_data/pcp/pcp-olmsted-golden.json") == "olmsted"
 
     def test_olmsted_json_without_format_tag(self):
         """Heuristic detection: datasets + metadata keys → olmsted."""

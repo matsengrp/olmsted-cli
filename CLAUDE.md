@@ -96,11 +96,21 @@ SUGGESTED_FIELD_TYPES["my_field"] = "tooltip"
 
 ### Regenerating Golden Data
 
+Consolidated goldens (the canonical single-file output for each dataset):
+
 ```bash
-olmsted process -f airr -i example_data/airr/airr.json --split-files example_data/airr/split_golden_data --seed 42 --name airr-example -q
-olmsted process -f airr -i example_data/airr/airr.json -o example_data/airr/consolidated_golden_data.json --seed 42 --name airr-example -q
-olmsted process -f pcp -i example_data/pcp/pcp.csv -t example_data/pcp/trees.csv --split-files example_data/pcp/split_golden_data --seed 42 --name pcp-example -q
-olmsted process -f pcp -i example_data/pcp/pcp.csv -t example_data/pcp/trees.csv -o example_data/pcp/consolidated_golden_data.json --seed 42 --name pcp-example -q
+olmsted process -f airr -i example_data/airr/airr.json -o example_data/airr/airr-olmsted-golden.json --seed 42 --name airr-example -q
+olmsted process -f pcp -i example_data/pcp/pcp.csv -t example_data/pcp/trees.csv -o example_data/pcp/pcp-olmsted-golden.json --seed 42 --name pcp-example -q
+olmsted process -f pcp -i example_data/pcp-byhand/pcp.csv -t example_data/pcp-byhand/trees.csv -o example_data/pcp-byhand/pcp-byhand-olmsted-golden.json --seed 42 --name pcp-byhand -q
+olmsted process -f pcp -i example_data/pcp-light/pcp.csv -t example_data/pcp-light/trees.csv -o example_data/pcp-light/pcp-light-olmsted-golden.json --seed 42 --name pcp-light -q
+olmsted process -f pcp -i example_data/pcp-paired/pcp.csv -t example_data/pcp-paired/trees.csv -o example_data/pcp-paired/pcp-paired-olmsted-golden.json --seed 42 --name pcp-paired -q
+```
+
+Split-format goldens (legacy, pinned for integrity testing as long as `--split-files` is supported):
+
+```bash
+olmsted process -f airr -i example_data/airr/airr.json --split-files example_data/airr/split-golden-data --seed 42 --name airr-example -q
+olmsted process -f pcp -i example_data/pcp/pcp.csv -t example_data/pcp/trees.csv --split-files example_data/pcp/split-golden-data --seed 42 --name pcp-example -q
 ```
 
 ---
