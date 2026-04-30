@@ -169,6 +169,7 @@ def process_airr_format(args):
     airr_args.custom_fields = getattr(args, "custom_fields", None)
     airr_args.minter = IdentMinter(seed=getattr(args, "seed", None))
     airr_args.allow_duplicate_ids = getattr(args, "allow_duplicate_ids", False)
+    airr_args.json_format = getattr(args, "json_format", "pretty")
 
     # Process using AIRR logic (adapted from process_airr_data.py)
     datasets, clones_dict, trees = [], {}, []

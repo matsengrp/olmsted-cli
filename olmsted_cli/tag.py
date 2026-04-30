@@ -26,8 +26,9 @@ from .process_utils import (
     check_output_id_uniqueness,
     resolve_verbosity,
     retag_datasets_field_metadata,
+    write_olmsted_json,
 )
-from .utils import set_verbosity, vprint
+from .utils import open_maybe_gzip, set_verbosity, vprint
 
 
 def get_args():
@@ -79,9 +80,9 @@ Examples:
     )
     parser.add_argument(
         "--json-format",
-        choices=["pretty", "compact"],
+        choices=["pretty", "compact", "gzip"],
         default="pretty",
-        help="JSON output format (default: pretty)",
+        help="JSON output format (default: pretty). gzip auto-appends .gz to the output path.",
     )
     parser.add_argument(
         "--allow-duplicate-ids",
@@ -131,7 +132,7 @@ def main():
         sys.exit(1)
 
     try:
-        with open(input_path) as f:
+        with open_maybe_gzip(input_path) as f:
             data = json.load(f)
     except json.JSONDecodeError as e:
         vprint.error(f"Error: Invalid JSON in input file: {e}")
@@ -187,11 +188,7 @@ def main():
     # Write output
     output_path = input_path if args.in_place else Path(args.output)
 
-    indent = 2 if args.json_format == "pretty" else None
-    separators = None if args.json_format == "pretty" else (",", ":")
-
-    with open(output_path, "w") as f:
-        json.dump(data, f, indent=indent, separators=separators)
+    output_path = write_olmsted_json(data, output_path, json_format=args.json_format)
 
     vprint.status(f"Tagged data written to: {output_path}")
 

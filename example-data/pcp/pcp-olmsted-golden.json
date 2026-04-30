@@ -3,7 +3,7 @@
         "format": "olmsted",
         "format_version": "1.0",
         "schema_version": "2.0.0",
-        "created_at": "2026-04-30T01:25:03.059978+00:00",
+        "created_at": "2026-04-30T14:27:14.958340+00:00",
         "source_format": "pcp",
         "source_files": [
             "input-pcp.csv"
@@ -17,7 +17,7 @@
         "generated_by": {
             "tool": "olmsted-cli",
             "version": "0.2.0",
-            "git_hash": "419c7af"
+            "git_hash": "b943089"
         },
         "name": "pcp-example",
         "processing_options": {

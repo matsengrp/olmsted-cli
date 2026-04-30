@@ -9,11 +9,24 @@ field_metadata, build_config) live in ``process_utils.py``.
 """
 
 import argparse
+import gzip
 import uuid
 
 from tqdm import tqdm
 
 from .constants import VERBOSITY_HELP
+
+
+def open_maybe_gzip(path, mode="rt"):
+    """Open a file for reading, transparently handling ``.gz``.
+
+    Returns a context-managerable file handle. Path inspection is by
+    extension (``.gz``), not magic bytes — keeps the helper trivial and
+    matches what ``write_olmsted_json`` does on the write side.
+    """
+    if str(path).endswith(".gz"):
+        return gzip.open(path, mode)
+    return open(path, mode)
 
 
 # Module-level VerbosePrinter instance.  Call set_verbosity() early in each

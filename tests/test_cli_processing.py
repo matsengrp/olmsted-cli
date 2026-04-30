@@ -152,6 +152,8 @@ class TestOlmstedCLI:
             "--split-files", str(output_dir),
             "--seed", "42",
             "--name", "airr-example",
+
+            "--json-format", "pretty",
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -178,6 +180,8 @@ class TestOlmstedCLI:
             "-o", str(output_file),
             "--seed", "42",
             "--name", "airr-example",
+
+            "--json-format", "pretty",
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -207,6 +211,8 @@ class TestOlmstedCLI:
             "-o", str(output_file),
             "--seed", "42",
             "--name", "airr-example",
+
+            "--json-format", "pretty",
             "--validate",
         ]
 
@@ -321,6 +327,8 @@ class TestOlmstedCLI:
             "--split-files", str(output_dir),
             "--seed", "42",
             "--name", "pcp-example",
+
+            "--json-format", "pretty",
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -347,6 +355,8 @@ class TestOlmstedCLI:
             "-o", str(output_file),
             "--seed", "42",
             "--name", "pcp-example",
+
+            "--json-format", "pretty",
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -379,6 +389,8 @@ class TestOlmstedCLI:
             "-o", str(output_file),
             "--seed", "42",
             "--name", "pcp-example",
+
+            "--json-format", "pretty",
             "--validate",
         ]
 

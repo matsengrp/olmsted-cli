@@ -9,6 +9,7 @@ project dependencies live in ``utils.py``.
 
 import csv
 import gzip
+import io
 import json
 import os
 import uuid
@@ -76,6 +77,46 @@ def coerce_csv_value(val: str):
     return val
 
 
+def write_olmsted_json(data, output_path, json_format="pretty", default=None):
+    """Write Olmsted JSON to ``output_path`` in the requested format.
+
+    Single source of truth for JSON output across ``process``, ``merge``,
+    and ``tag``. Three formats:
+
+    - ``pretty`` — indent=4, human-readable
+    - ``compact`` — no whitespace
+    - ``gzip`` — pretty content, gzipped; ``.gz`` is auto-appended to
+      ``output_path`` if not already present
+
+    Gzip output is **deterministic** (``mtime=0``) so byte-identical
+    regenerations produce byte-identical files — important for tracked
+    ``.json.gz`` examples that would otherwise churn on every regen.
+
+    Returns the actual path written (may differ from input when ``gzip``
+    auto-appends ``.gz``).
+    """
+    output_path = str(output_path)
+    if json_format == "gzip" and not output_path.endswith(".gz"):
+        output_path = output_path + ".gz"
+
+    indent = 4 if json_format in ("pretty", "gzip") else None
+    separators = (",", ":") if json_format == "compact" else None
+
+    if json_format == "gzip" or output_path.endswith(".gz"):
+        # `gzip.open` doesn't accept `mtime`; go through `GzipFile` directly so
+        # we can pin both the header timestamp (`mtime=0`) and the embedded
+        # filename (empty) — together those give byte-deterministic output.
+        with open(output_path, "wb") as raw:
+            with gzip.GzipFile(filename="", fileobj=raw, mode="wb", mtime=0) as gz:
+                with io.TextIOWrapper(gz, encoding="utf-8") as fh:
+                    json.dump(data, fh, default=default, indent=indent, separators=separators)
+    else:
+        with open(output_path, "w") as fh:
+            json.dump(data, fh, default=default, indent=indent, separators=separators)
+
+    return output_path
+
+
 def write_out(data, dirname, filename, args):
     """
     Write data to JSON or CSV file with proper formatting and UUID handling.
@@ -114,51 +155,7 @@ def write_out(data, dirname, filename, args):
                 writer.writerows(data)
     elif isinstance(data, (list, dict)):
         # Write as JSON with selected format
-        if json_format == "pretty":
-            # Pretty-printed JSON (human-readable)
-            if full_path.endswith(".gz"):
-                with gzip.open(full_path, "wt") as fh:
-                    json.dump(
-                        data,
-                        fh,
-                        default=json_rep,
-                        indent=4,
-                    )
-            else:
-                with open(full_path, "w") as fh:
-                    json.dump(
-                        data,
-                        fh,
-                        default=json_rep,
-                        indent=4,
-                    )
-        elif json_format == "compact":
-            # Compact JSON (no whitespace)
-            if full_path.endswith(".gz"):
-                with gzip.open(full_path, "wt") as fh:
-                    json.dump(
-                        data,
-                        fh,
-                        default=json_rep,
-                        separators=(',', ':'),
-                    )
-            else:
-                with open(full_path, "w") as fh:
-                    json.dump(
-                        data,
-                        fh,
-                        default=json_rep,
-                        separators=(',', ':'),
-                    )
-        elif json_format == "gzip":
-            # Gzipped JSON (pretty-printed and compressed)
-            with gzip.open(full_path, "wt") as fh:
-                json.dump(
-                    data,
-                    fh,
-                    default=json_rep,
-                    indent=4,
-                )
+        write_olmsted_json(data, full_path, json_format=json_format, default=json_rep)
     else:
         # Handle raw string data
         with open(full_path, "w") as fh:
