@@ -1,12 +1,12 @@
 {
     "metadata": {
+        "format": "olmsted",
         "format_version": "1.0",
         "schema_version": "2.0.0",
-        "created_at": "2025-12-13T02:21:30.544860+00:00",
+        "created_at": "2026-04-29T23:50:53.806271+00:00",
         "source_format": "pcp",
         "source_files": [
-            "pcp.csv",
-            "trees.csv"
+            "pcp.csv"
         ],
         "processing_info": {
             "datasets_count": 1,
@@ -16,66 +16,152 @@
         },
         "generated_by": {
             "tool": "olmsted-cli",
-            "version": "2.0.0"
+            "version": "0.2.0",
+            "git_hash": "466d7e5"
         },
-        "name": "pcp-light-example",
+        "name": "pcp-light",
         "processing_options": {
             "validation": false,
             "strict_validation": false,
-            "seed": null
+            "seed": 42
         }
     },
     "datasets": [
         {
-            "ident": "dataset-4d6a435b-fbd1-4a20-b4a9-9470b61d6594",
-            "dataset_id": "pcp-ce173140-de93-4ddd-a9bc-716dd005c464",
+            "ident": "dataset-9fd49829-96aa-d2c8-d415-44cdffcac37f",
+            "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
             "schema_version": "2.0.0",
-            "type": "pcp.dataset",
             "build": {
                 "commit": "pcp-import",
                 "time": ""
             },
-            "subjects": [
-                {
-                    "ident": "subject-c52e20c7-66e8-4d1d-bbc8-b417f0104f69",
-                    "subject_id": "pcp-subject"
-                }
-            ],
+            "subjects": [],
             "samples": [
                 {
-                    "ident": "sample-db199e7c-f7c4-49a4-bc79-f999e71f3da3",
+                    "ident": "sample-a0a3ed44-be90-ae54-a384-ca11486dd87b",
                     "sample_id": "d1",
-                    "locus": "igk",
-                    "timepoint_id": "merged"
+                    "locus": "igk"
                 },
                 {
-                    "ident": "sample-9cde2cb5-d7ac-400b-8958-7dee0b51db79",
+                    "ident": "sample-bfdd83da-8e95-1048-1ec0-fc750e65bc19",
                     "sample_id": "d3",
-                    "locus": "igk",
-                    "timepoint_id": "merged"
+                    "locus": "igk"
                 },
                 {
-                    "ident": "sample-81d9c377-b587-4f45-88b5-46b8fce22960",
+                    "ident": "sample-8ad370da-caa2-665c-2cdc-b78f8886901f",
                     "sample_id": "d4",
-                    "locus": "igk",
-                    "timepoint_id": "merged"
+                    "locus": "igk"
                 }
             ],
             "seeds": [],
             "clone_count": 8,
-            "subjects_count": 1,
-            "timepoints_count": 1,
-            "name": "pcp-light-example"
+            "subjects_count": 0,
+            "timepoints_count": 0,
+            "name": "pcp-light",
+            "field_metadata": {
+                "clone": {
+                    "d_call": {
+                        "type": "categorical",
+                        "display": "dropdown",
+                        "label": "D Gene"
+                    },
+                    "has_seed": {
+                        "type": "categorical",
+                        "display": "dropdown",
+                        "label": "Has Seed"
+                    },
+                    "j_call": {
+                        "type": "categorical",
+                        "display": "dropdown",
+                        "label": "J Gene"
+                    },
+                    "junction_length": {
+                        "type": "continuous",
+                        "display": "dropdown",
+                        "label": "Junction Length"
+                    },
+                    "locus": {
+                        "type": "categorical",
+                        "display": "dropdown",
+                        "label": "Locus"
+                    },
+                    "mean_mut_freq": {
+                        "type": "continuous",
+                        "display": "dropdown",
+                        "label": "Mean Mutation Frequency"
+                    },
+                    "sample_id": {
+                        "type": "categorical",
+                        "display": "dropdown",
+                        "label": "Sample"
+                    },
+                    "total_read_count": {
+                        "type": "continuous",
+                        "display": "dropdown",
+                        "label": "Total Read Count"
+                    },
+                    "unique_seqs_count": {
+                        "type": "continuous",
+                        "display": "dropdown",
+                        "label": "Unique Sequences Count"
+                    },
+                    "v_call": {
+                        "type": "categorical",
+                        "display": "dropdown",
+                        "label": "V Gene"
+                    }
+                },
+                "node": {
+                    "cluster_multiplicity": {
+                        "type": "continuous",
+                        "display": "dropdown",
+                        "label": "Cluster Multiplicity"
+                    },
+                    "distance": {
+                        "type": "continuous",
+                        "display": "dropdown",
+                        "label": "Distance from Root"
+                    },
+                    "multiplicity": {
+                        "type": "continuous",
+                        "display": "dropdown",
+                        "label": "Multiplicity"
+                    },
+                    "pcp_index": {
+                        "type": "continuous",
+                        "display": "dropdown",
+                        "label": "Pcp Index"
+                    }
+                },
+                "branch": {
+                    "length": {
+                        "type": "continuous",
+                        "display": "dropdown",
+                        "label": "Branch Length"
+                    }
+                },
+                "mutation": {
+                    "child_aa": {
+                        "type": "aa",
+                        "display": "dropdown",
+                        "label": "Child Amino Acid"
+                    },
+                    "parent_aa": {
+                        "type": "aa",
+                        "display": "tooltip",
+                        "label": "Parent Amino Acid"
+                    }
+                }
+            }
         }
     ],
     "clones": {
-        "pcp-ce173140-de93-4ddd-a9bc-716dd005c464": [
+        "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af": [
             {
                 "clone_id": "33424-igk-33424",
-                "ident": "clone-7ed4a2f1-2823-44a8-b263-c11a9a111948",
-                "dataset_id": "pcp-ce173140-de93-4ddd-a9bc-716dd005c464",
+                "ident": "clone-6a5eb4e0-90d9-e591-ee20-6debc0f4b040",
+                "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d1",
-                "subject_id": "pcp-subject",
                 "unique_seqs_count": 6,
                 "total_read_count": 5,
                 "mean_mut_freq": 0.042575285565939765,
@@ -98,30 +184,23 @@
                 "has_seed": false,
                 "trees": [
                     {
-                        "ident": "44c30642-e7fb-47d6-879c-716a6685a8e8",
+                        "ident": "tree-4c247208-9d1c-b8f1-5aa4-5bf50526b6fe",
                         "clone_id": "33424-igk-33424",
-                        "tree_id": "pcp-tree-33424-igk-33424",
-                        "newick": "(naive:0.0299518105,(ACACTGATCTGAAAGA-1-1279059_contig_h:0.0043589267,ACGCAGCAGGCTACGA-1-1287207_contig_h:0.0088377344)Node2:0.0090040093,GTGCGGTTCCATGAGT-1-1287207_contig_h:0.0042330793)Node1;",
-                        "type": "pcp.reconstruction"
+                        "tree_id": "tree-33424-igk-33424",
+                        "newick": "(naive:0.0299518105,(ACACTGATCTGAAAGA-1-1279059_contig_h:0.0043589267,ACGCAGCAGGCTACGA-1-1287207_contig_h:0.0088377344)Node2:0.0090040093,GTGCGGTTCCATGAGT-1-1287207_contig_h:0.0042330793)Node1;"
                     }
                 ],
                 "sample": {
-                    "ident": "clone-7ed4a2f1-2823-44a8-b263-c11a9a111948",
+                    "ident": "clone-6a5eb4e0-90d9-e591-ee20-6debc0f4b040",
                     "locus": "igk",
-                    "sample_id": "d1",
-                    "timepoint_id": "merged"
-                },
-                "dataset": {
-                    "ident": "dataset-4d6a435b-fbd1-4a20-b4a9-9470b61d6594",
-                    "dataset_id": "pcp-ce173140-de93-4ddd-a9bc-716dd005c464"
+                    "sample_id": "d1"
                 }
             },
             {
                 "clone_id": "13545-igk-13545",
-                "ident": "clone-f81da967-34bb-4256-95a0-50009573cde8",
-                "dataset_id": "pcp-ce173140-de93-4ddd-a9bc-716dd005c464",
+                "ident": "clone-6fad0c6f-ef46-f158-7391-728cb379fcec",
+                "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d1",
-                "subject_id": "pcp-subject",
                 "unique_seqs_count": 6,
                 "total_read_count": 5,
                 "mean_mut_freq": 0.013374485596707819,
@@ -144,30 +223,23 @@
                 "has_seed": false,
                 "trees": [
                     {
-                        "ident": "dd5e6962-afaf-4cf9-8831-a54d8530b221",
+                        "ident": "tree-7a034993-32cb-586f-c23b-ac88bfe296f8",
                         "clone_id": "13545-igk-13545",
-                        "tree_id": "pcp-tree-13545-igk-13545",
-                        "newick": "(naive:0.0336396347,(CTCTAATGTGACGGTA-1-1287193_contig_h:0.0014534551,GCACTCTAGAGCTGCA-1-1279050_contig_h:0.0000010000)Node2:0.0014536384,GGCCGATGTTCGTGAT-1-1287200_contig_h:0.0000010000)Node1;",
-                        "type": "pcp.reconstruction"
+                        "tree_id": "tree-13545-igk-13545",
+                        "newick": "(naive:0.0336396347,(CTCTAATGTGACGGTA-1-1287193_contig_h:0.0014534551,GCACTCTAGAGCTGCA-1-1279050_contig_h:0.0000010000)Node2:0.0014536384,GGCCGATGTTCGTGAT-1-1287200_contig_h:0.0000010000)Node1;"
                     }
                 ],
                 "sample": {
-                    "ident": "clone-f81da967-34bb-4256-95a0-50009573cde8",
+                    "ident": "clone-6fad0c6f-ef46-f158-7391-728cb379fcec",
                     "locus": "igk",
-                    "sample_id": "d1",
-                    "timepoint_id": "merged"
-                },
-                "dataset": {
-                    "ident": "dataset-4d6a435b-fbd1-4a20-b4a9-9470b61d6594",
-                    "dataset_id": "pcp-ce173140-de93-4ddd-a9bc-716dd005c464"
+                    "sample_id": "d1"
                 }
             },
             {
                 "clone_id": "179396-igk-179396",
-                "ident": "clone-e50428e0-6b44-4aa6-a052-e6ed62b6bb33",
-                "dataset_id": "pcp-ce173140-de93-4ddd-a9bc-716dd005c464",
+                "ident": "clone-522fac7a-4689-e49a-05d1-9353af02f885",
+                "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d3",
-                "subject_id": "pcp-subject",
                 "unique_seqs_count": 6,
                 "total_read_count": 5,
                 "mean_mut_freq": 0.008849557522123894,
@@ -190,30 +262,23 @@
                 "has_seed": false,
                 "trees": [
                     {
-                        "ident": "5c2a41be-f9ae-40da-8caa-3172da489e51",
+                        "ident": "tree-03b48e72-5fe5-6184-fe38-a8c99e147a2a",
                         "clone_id": "179396-igk-179396",
-                        "tree_id": "pcp-tree-179396-igk-179396",
-                        "newick": "(naive:0.0111002731,(ACTTACTGTGATGTGG-1-1287157_contig_h:0.0184767759,GTTCTCGAGAACAACT-1-1287151_contig_h:0.0247904366)Node2:0.0060431645,CCTCAGTTCGGTGTTA-1-1279074_contig_h:0.0124778974)Node1;",
-                        "type": "pcp.reconstruction"
+                        "tree_id": "tree-179396-igk-179396",
+                        "newick": "(naive:0.0111002731,(ACTTACTGTGATGTGG-1-1287157_contig_h:0.0184767759,GTTCTCGAGAACAACT-1-1287151_contig_h:0.0247904366)Node2:0.0060431645,CCTCAGTTCGGTGTTA-1-1279074_contig_h:0.0124778974)Node1;"
                     }
                 ],
                 "sample": {
-                    "ident": "clone-e50428e0-6b44-4aa6-a052-e6ed62b6bb33",
+                    "ident": "clone-522fac7a-4689-e49a-05d1-9353af02f885",
                     "locus": "igk",
-                    "sample_id": "d3",
-                    "timepoint_id": "merged"
-                },
-                "dataset": {
-                    "ident": "dataset-4d6a435b-fbd1-4a20-b4a9-9470b61d6594",
-                    "dataset_id": "pcp-ce173140-de93-4ddd-a9bc-716dd005c464"
+                    "sample_id": "d3"
                 }
             },
             {
                 "clone_id": "152208-igk-152208",
-                "ident": "clone-f26f683e-70fe-4341-b506-a678ea15a460",
-                "dataset_id": "pcp-ce173140-de93-4ddd-a9bc-716dd005c464",
+                "ident": "clone-4b9ac338-8bbc-6669-41e6-face81dae39b",
+                "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d4",
-                "subject_id": "pcp-subject",
                 "unique_seqs_count": 6,
                 "total_read_count": 5,
                 "mean_mut_freq": 0.04563492063492064,
@@ -236,30 +301,23 @@
                 "has_seed": false,
                 "trees": [
                     {
-                        "ident": "9f475c19-dc37-4df8-8f19-b2b3c8c1546c",
+                        "ident": "tree-cc42c52c-6fb9-faa8-b57f-3933f1ac3d30",
                         "clone_id": "152208-igk-152208",
-                        "tree_id": "pcp-tree-152208-igk-152208",
-                        "newick": "(naive:0.0855643146,(ATAAGAGAGAAGGTTT-1-1287168_contig_h:0.0013177944,CGCGGTATCACCCGAG-1-1287164_contig_h:0.0106333602)Node2:0.0036977323,CACCAGGCAAGCGTAG-1-1279078_contig_h:0.0069765473)Node1;",
-                        "type": "pcp.reconstruction"
+                        "tree_id": "tree-152208-igk-152208",
+                        "newick": "(naive:0.0855643146,(ATAAGAGAGAAGGTTT-1-1287168_contig_h:0.0013177944,CGCGGTATCACCCGAG-1-1287164_contig_h:0.0106333602)Node2:0.0036977323,CACCAGGCAAGCGTAG-1-1279078_contig_h:0.0069765473)Node1;"
                     }
                 ],
                 "sample": {
-                    "ident": "clone-f26f683e-70fe-4341-b506-a678ea15a460",
+                    "ident": "clone-4b9ac338-8bbc-6669-41e6-face81dae39b",
                     "locus": "igk",
-                    "sample_id": "d4",
-                    "timepoint_id": "merged"
-                },
-                "dataset": {
-                    "ident": "dataset-4d6a435b-fbd1-4a20-b4a9-9470b61d6594",
-                    "dataset_id": "pcp-ce173140-de93-4ddd-a9bc-716dd005c464"
+                    "sample_id": "d4"
                 }
             },
             {
                 "clone_id": "159055-igl-5792",
-                "ident": "clone-928b0fbd-0573-4723-82b8-fabdc1cac3cd",
-                "dataset_id": "pcp-ce173140-de93-4ddd-a9bc-716dd005c464",
+                "ident": "clone-8d94ddd8-3411-9628-ac6a-1999d4a60bfb",
+                "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d1",
-                "subject_id": "pcp-subject",
                 "unique_seqs_count": 6,
                 "total_read_count": 5,
                 "mean_mut_freq": 0.10091743119266054,
@@ -282,30 +340,23 @@
                 "has_seed": false,
                 "trees": [
                     {
-                        "ident": "e65e60b6-f31a-48a3-827c-d14d984e79fe",
+                        "ident": "tree-d20f0d49-77e8-15c5-ebe4-2927bc6aeb1f",
                         "clone_id": "159055-igl-5792",
-                        "tree_id": "pcp-tree-159055-igl-5792",
-                        "newick": "(naive:0.0694293077,AAAGCAAAGGGTCGAT-1-1287206_contig_h:0.0468203936,(CTTGGCTAGGAACTGC-1-1287199_contig_h:0.0615690334,TAAGTGCCACGAAATA-1-1287198_contig_h:0.0659204148)Node2:0.0147549757)Node1;",
-                        "type": "pcp.reconstruction"
+                        "tree_id": "tree-159055-igl-5792",
+                        "newick": "(naive:0.0694293077,AAAGCAAAGGGTCGAT-1-1287206_contig_h:0.0468203936,(CTTGGCTAGGAACTGC-1-1287199_contig_h:0.0615690334,TAAGTGCCACGAAATA-1-1287198_contig_h:0.0659204148)Node2:0.0147549757)Node1;"
                     }
                 ],
                 "sample": {
-                    "ident": "clone-928b0fbd-0573-4723-82b8-fabdc1cac3cd",
+                    "ident": "clone-8d94ddd8-3411-9628-ac6a-1999d4a60bfb",
                     "locus": "igl",
-                    "sample_id": "d1",
-                    "timepoint_id": "merged"
-                },
-                "dataset": {
-                    "ident": "dataset-4d6a435b-fbd1-4a20-b4a9-9470b61d6594",
-                    "dataset_id": "pcp-ce173140-de93-4ddd-a9bc-716dd005c464"
+                    "sample_id": "d1"
                 }
             },
             {
                 "clone_id": "146931-igk-146931",
-                "ident": "clone-be3d50ff-a6d8-4dd9-b282-5f226d5a181e",
-                "dataset_id": "pcp-ce173140-de93-4ddd-a9bc-716dd005c464",
+                "ident": "clone-654906d9-16e2-5db5-4643-0490059032c0",
+                "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d1",
-                "subject_id": "pcp-subject",
                 "unique_seqs_count": 6,
                 "total_read_count": 5,
                 "mean_mut_freq": 0.03670634920634921,
@@ -328,30 +379,23 @@
                 "has_seed": false,
                 "trees": [
                     {
-                        "ident": "1dd7f5a2-671d-4cc9-b610-f90bc94ccd22",
+                        "ident": "tree-e1d3a8ff-b4f1-0ab0-8d02-82857d1389c0",
                         "clone_id": "146931-igk-146931",
-                        "tree_id": "pcp-tree-146931-igk-146931",
-                        "newick": "(naive:0.0507982969,AGCATACCAATCTACG-1-1287204_contig_h:0.0013642217,(CTTACCGCACCTCGTT-1-1287197_contig_h:0.0029312750,TAAGTGCTCCGATATG-1-1287204_contig_h:0.0043939792)Node2:0.0060185155)Node1;",
-                        "type": "pcp.reconstruction"
+                        "tree_id": "tree-146931-igk-146931",
+                        "newick": "(naive:0.0507982969,AGCATACCAATCTACG-1-1287204_contig_h:0.0013642217,(CTTACCGCACCTCGTT-1-1287197_contig_h:0.0029312750,TAAGTGCTCCGATATG-1-1287204_contig_h:0.0043939792)Node2:0.0060185155)Node1;"
                     }
                 ],
                 "sample": {
-                    "ident": "clone-be3d50ff-a6d8-4dd9-b282-5f226d5a181e",
+                    "ident": "clone-654906d9-16e2-5db5-4643-0490059032c0",
                     "locus": "igk",
-                    "sample_id": "d1",
-                    "timepoint_id": "merged"
-                },
-                "dataset": {
-                    "ident": "dataset-4d6a435b-fbd1-4a20-b4a9-9470b61d6594",
-                    "dataset_id": "pcp-ce173140-de93-4ddd-a9bc-716dd005c464"
+                    "sample_id": "d1"
                 }
             },
             {
                 "clone_id": "155785-igl-2522",
-                "ident": "clone-f4fec18b-fa81-4896-8832-a12ff36fc9fa",
-                "dataset_id": "pcp-ce173140-de93-4ddd-a9bc-716dd005c464",
+                "ident": "clone-12e70729-8abf-66ae-3611-fd397f3f50ce",
+                "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d1",
-                "subject_id": "pcp-subject",
                 "unique_seqs_count": 6,
                 "total_read_count": 5,
                 "mean_mut_freq": 0.029761904761904757,
@@ -374,30 +418,23 @@
                 "has_seed": false,
                 "trees": [
                     {
-                        "ident": "ed1f3fa7-61c5-458e-a278-9497715b5caf",
+                        "ident": "tree-5d82ca72-029f-eb0a-694b-97f7c2233755",
                         "clone_id": "155785-igl-2522",
-                        "tree_id": "pcp-tree-155785-igl-2522",
-                        "newick": "(naive:0.0004340756,(CTCGTCATCTGTCTAT-1-1287206_contig_h:0.0000025035,TGCGGGTCAGTGAGTG-1-1287198_contig_h:0.0058032692)Node2:0.0318570584,GCGCCAATCTGTCTAT-1-1287207_contig_h:0.0371698738)Node1;",
-                        "type": "pcp.reconstruction"
+                        "tree_id": "tree-155785-igl-2522",
+                        "newick": "(naive:0.0004340756,(CTCGTCATCTGTCTAT-1-1287206_contig_h:0.0000025035,TGCGGGTCAGTGAGTG-1-1287198_contig_h:0.0058032692)Node2:0.0318570584,GCGCCAATCTGTCTAT-1-1287207_contig_h:0.0371698738)Node1;"
                     }
                 ],
                 "sample": {
-                    "ident": "clone-f4fec18b-fa81-4896-8832-a12ff36fc9fa",
+                    "ident": "clone-12e70729-8abf-66ae-3611-fd397f3f50ce",
                     "locus": "igl",
-                    "sample_id": "d1",
-                    "timepoint_id": "merged"
-                },
-                "dataset": {
-                    "ident": "dataset-4d6a435b-fbd1-4a20-b4a9-9470b61d6594",
-                    "dataset_id": "pcp-ce173140-de93-4ddd-a9bc-716dd005c464"
+                    "sample_id": "d1"
                 }
             },
             {
                 "clone_id": "172841-igk-172841",
-                "ident": "clone-1f95a8a8-9221-47f5-9a91-60476d067bf5",
-                "dataset_id": "pcp-ce173140-de93-4ddd-a9bc-716dd005c464",
+                "ident": "clone-143527ad-141d-ad82-5ee2-7683978b2905",
+                "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d4",
-                "subject_id": "pcp-subject",
                 "unique_seqs_count": 6,
                 "total_read_count": 5,
                 "mean_mut_freq": 0.02064896755162242,
@@ -420,31 +457,25 @@
                 "has_seed": false,
                 "trees": [
                     {
-                        "ident": "ba5d9a6a-aff8-4b28-998c-b7aa52b7f3ff",
+                        "ident": "tree-b3598fe2-630b-536f-74e7-274c35d14209",
                         "clone_id": "172841-igk-172841",
-                        "tree_id": "pcp-tree-172841-igk-172841",
-                        "newick": "(naive:0.0276836526,(AACCGCGCAAGTTGTC-1-1279071_contig_h:0.0000010000,AGATCTGTCACATAGC-1-1279071_contig_h:0.0000010000)Node2:0.0000010000,CAGCCGAGTGTGCCTG-1-1279070_contig_h:0.0000010000)Node1;",
-                        "type": "pcp.reconstruction"
+                        "tree_id": "tree-172841-igk-172841",
+                        "newick": "(naive:0.0276836526,(AACCGCGCAAGTTGTC-1-1279071_contig_h:0.0000010000,AGATCTGTCACATAGC-1-1279071_contig_h:0.0000010000)Node2:0.0000010000,CAGCCGAGTGTGCCTG-1-1279070_contig_h:0.0000010000)Node1;"
                     }
                 ],
                 "sample": {
-                    "ident": "clone-1f95a8a8-9221-47f5-9a91-60476d067bf5",
+                    "ident": "clone-143527ad-141d-ad82-5ee2-7683978b2905",
                     "locus": "igk",
-                    "sample_id": "d4",
-                    "timepoint_id": "merged"
-                },
-                "dataset": {
-                    "ident": "dataset-4d6a435b-fbd1-4a20-b4a9-9470b61d6594",
-                    "dataset_id": "pcp-ce173140-de93-4ddd-a9bc-716dd005c464"
+                    "sample_id": "d4"
                 }
             }
         ]
     },
     "trees": [
         {
-            "ident": "44c30642-e7fb-47d6-879c-716a6685a8e8",
-            "tree_id": "pcp-tree-33424-igk-33424",
+            "ident": "tree-4c247208-9d1c-b8f1-5aa4-5bf50526b6fe",
             "clone_id": "33424-igk-33424",
+            "tree_id": "tree-33424-igk-33424",
             "newick": "(naive:0.0299518105,(ACACTGATCTGAAAGA-1-1279059_contig_h:0.0043589267,ACGCAGCAGGCTACGA-1-1287207_contig_h:0.0088377344)Node2:0.0090040093,GTGCGGTTCCATGAGT-1-1287207_contig_h:0.0042330793)Node1;",
             "nodes": [
                 {
@@ -458,10 +489,10 @@
                     "parent": null,
                     "distance": 0.0,
                     "length": 0.0,
-                    "lbi": 0.0037308306786438925,
-                    "lbr": 0.0,
-                    "affinity": 0.0037308306786438925,
-                    "scaled_affinity": 0.0
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null
                 },
                 {
                     "sequence_id": "Node1",
@@ -474,10 +505,11 @@
                     "parent": "naive",
                     "distance": 0.0299518105,
                     "length": 0.0299518105,
-                    "lbi": 0.013743215825231253,
-                    "lbr": 1.3862943611198906,
-                    "affinity": 0.013743215825231253,
-                    "scaled_affinity": 0.7733959394091082
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 0
                 },
                 {
                     "sequence_id": "Node2",
@@ -490,10 +522,11 @@
                     "parent": "Node1",
                     "distance": 0.0389558198,
                     "length": 0.0090040093,
-                    "lbi": 0.015202016228899374,
-                    "lbr": 0.0,
-                    "affinity": 0.015202016228899374,
-                    "scaled_affinity": 0.8860794101393409
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 1
                 },
                 {
                     "sequence_id": "ACACTGATCTGAAAGA-1-1279059_contig_h",
@@ -506,10 +539,11 @@
                     "parent": "Node2",
                     "distance": 0.0433147465,
                     "length": 0.0043589267,
-                    "lbi": 0.014792828644810647,
-                    "lbr": 0.0,
-                    "affinity": 0.014792828644810647,
-                    "scaled_affinity": 0.8544721545895773
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 2
                 },
                 {
                     "sequence_id": "ACGCAGCAGGCTACGA-1-1287207_contig_h",
@@ -522,10 +556,11 @@
                     "parent": "Node2",
                     "distance": 0.0477935542,
                     "length": 0.0088377344,
-                    "lbi": 0.010338118572754828,
-                    "lbr": 0.0,
-                    "affinity": 0.010338118572754828,
-                    "scaled_affinity": 0.5103728585145443
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 3
                 },
                 {
                     "sequence_id": "GTGCGGTTCCATGAGT-1-1287207_contig_h",
@@ -538,18 +573,18 @@
                     "parent": "Node1",
                     "distance": 0.0341848898,
                     "length": 0.0042330793,
-                    "lbi": 0.016676832378933457,
-                    "lbr": 0.0,
-                    "affinity": 0.016676832378933457,
-                    "scaled_affinity": 1.0
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 4
                 }
-            ],
-            "type": "pcp.reconstruction"
+            ]
         },
         {
-            "ident": "dd5e6962-afaf-4cf9-8831-a54d8530b221",
-            "tree_id": "pcp-tree-13545-igk-13545",
+            "ident": "tree-7a034993-32cb-586f-c23b-ac88bfe296f8",
             "clone_id": "13545-igk-13545",
+            "tree_id": "tree-13545-igk-13545",
             "newick": "(naive:0.0336396347,(CTCTAATGTGACGGTA-1-1287193_contig_h:0.0014534551,GCACTCTAGAGCTGCA-1-1279050_contig_h:0.0000010000)Node2:0.0014536384,GGCCGATGTTCGTGAT-1-1287200_contig_h:0.0000010000)Node1;",
             "nodes": [
                 {
@@ -563,10 +598,10 @@
                     "parent": null,
                     "distance": 0.0,
                     "length": 0.0,
-                    "lbi": 0.0024467826598273536,
-                    "lbr": 0.0,
-                    "affinity": 0.0024467826598273536,
-                    "scaled_affinity": 0.0
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null
                 },
                 {
                     "sequence_id": "Node1",
@@ -579,10 +614,11 @@
                     "parent": "naive",
                     "distance": 0.0336396347,
                     "length": 0.0336396347,
-                    "lbi": 0.004728618184361136,
-                    "lbr": 1.3862943611198906,
-                    "affinity": 0.004728618184361136,
-                    "scaled_affinity": 0.8833438003430506
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 5
                 },
                 {
                     "sequence_id": "Node2",
@@ -595,10 +631,11 @@
                     "parent": "Node1",
                     "distance": 0.035093273099999996,
                     "length": 0.0014536384,
-                    "lbi": 0.00462027138993037,
-                    "lbr": 0.0,
-                    "affinity": 0.00462027138993037,
-                    "scaled_affinity": 0.8414006067524367
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 6
                 },
                 {
                     "sequence_id": "CTCTAATGTGACGGTA-1-1287193_contig_h",
@@ -611,10 +648,11 @@
                     "parent": "Node2",
                     "distance": 0.036546728199999996,
                     "length": 0.0014534551,
-                    "lbi": 0.00425513364051507,
-                    "lbr": 0.0,
-                    "affinity": 0.00425513364051507,
-                    "scaled_affinity": 0.7000485400722056
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 7
                 },
                 {
                     "sequence_id": "GCACTCTAGAGCTGCA-1-1279050_contig_h",
@@ -627,10 +665,11 @@
                     "parent": "Node2",
                     "distance": 0.0350942731,
                     "length": 1e-06,
-                    "lbi": 0.004779436140987378,
-                    "lbr": 0.0,
-                    "affinity": 0.004779436140987378,
-                    "scaled_affinity": 0.9030164395185075
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 8
                 },
                 {
                     "sequence_id": "GGCCGATGTTCGTGAT-1-1287200_contig_h",
@@ -643,18 +682,18 @@
                     "parent": "Node1",
                     "distance": 0.0336406347,
                     "length": 1e-06,
-                    "lbi": 0.005029962078359098,
-                    "lbr": 0.0,
-                    "affinity": 0.005029962078359098,
-                    "scaled_affinity": 1.0
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 9
                 }
-            ],
-            "type": "pcp.reconstruction"
+            ]
         },
         {
-            "ident": "5c2a41be-f9ae-40da-8caa-3172da489e51",
-            "tree_id": "pcp-tree-179396-igk-179396",
+            "ident": "tree-03b48e72-5fe5-6184-fe38-a8c99e147a2a",
             "clone_id": "179396-igk-179396",
+            "tree_id": "tree-179396-igk-179396",
             "newick": "(naive:0.0111002731,(ACTTACTGTGATGTGG-1-1287157_contig_h:0.0184767759,GTTCTCGAGAACAACT-1-1287151_contig_h:0.0247904366)Node2:0.0060431645,CCTCAGTTCGGTGTTA-1-1279074_contig_h:0.0124778974)Node1;",
             "nodes": [
                 {
@@ -668,10 +707,10 @@
                     "parent": null,
                     "distance": 0.0,
                     "length": 0.0,
-                    "lbi": 0.009927753272668644,
-                    "lbr": 0.0,
-                    "affinity": 0.009927753272668644,
-                    "scaled_affinity": 0.14436498042312776
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null
                 },
                 {
                     "sequence_id": "Node1",
@@ -684,10 +723,11 @@
                     "parent": "naive",
                     "distance": 0.0111002731,
                     "length": 0.0111002731,
-                    "lbi": 0.01759473510509412,
-                    "lbr": 1.3862943611198906,
-                    "affinity": 0.01759473510509412,
-                    "scaled_affinity": 0.6940048472143341
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 10
                 },
                 {
                     "sequence_id": "Node2",
@@ -700,10 +740,11 @@
                     "parent": "Node1",
                     "distance": 0.0171434376,
                     "length": 0.0060431645,
-                    "lbi": 0.0218630922948923,
-                    "lbr": 0.0,
-                    "affinity": 0.0218630922948923,
-                    "scaled_affinity": 1.0
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 11
                 },
                 {
                     "sequence_id": "ACTTACTGTGATGTGG-1-1287157_contig_h",
@@ -716,10 +757,11 @@
                     "parent": "Node2",
                     "distance": 0.0356202135,
                     "length": 0.0184767759,
-                    "lbi": 0.013114587248167867,
-                    "lbr": 0.0,
-                    "affinity": 0.013114587248167867,
-                    "scaled_affinity": 0.3728265889235036
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 12
                 },
                 {
                     "sequence_id": "GTTCTCGAGAACAACT-1-1287151_contig_h",
@@ -732,10 +774,11 @@
                     "parent": "Node2",
                     "distance": 0.0419338742,
                     "length": 0.0247904366,
-                    "lbi": 0.007913991627967859,
-                    "lbr": 0.0,
-                    "affinity": 0.007913991627967859,
-                    "scaled_affinity": 0.0
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 13
                 },
                 {
                     "sequence_id": "CCTCAGTTCGGTGTTA-1-1279074_contig_h",
@@ -748,18 +791,18 @@
                     "parent": "Node1",
                     "distance": 0.023578170500000002,
                     "length": 0.0124778974,
-                    "lbi": 0.011319065566618214,
-                    "lbr": 0.0,
-                    "affinity": 0.011319065566618214,
-                    "scaled_affinity": 0.24410705893924278
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 14
                 }
-            ],
-            "type": "pcp.reconstruction"
+            ]
         },
         {
-            "ident": "9f475c19-dc37-4df8-8f19-b2b3c8c1546c",
-            "tree_id": "pcp-tree-152208-igk-152208",
+            "ident": "tree-cc42c52c-6fb9-faa8-b57f-3933f1ac3d30",
             "clone_id": "152208-igk-152208",
+            "tree_id": "tree-152208-igk-152208",
             "newick": "(naive:0.0855643146,(ATAAGAGAGAAGGTTT-1-1287168_contig_h:0.0013177944,CGCGGTATCACCCGAG-1-1287164_contig_h:0.0106333602)Node2:0.0036977323,CACCAGGCAAGCGTAG-1-1279078_contig_h:0.0069765473)Node1;",
             "nodes": [
                 {
@@ -773,10 +816,10 @@
                     "parent": null,
                     "distance": 0.0,
                     "length": 0.0,
-                    "lbi": 0.00010280816467312999,
-                    "lbr": 0.0,
-                    "affinity": 0.00010280816467312999,
-                    "scaled_affinity": 0.0
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null
                 },
                 {
                     "sequence_id": "Node1",
@@ -789,10 +832,11 @@
                     "parent": "naive",
                     "distance": 0.0855643146,
                     "length": 0.0855643146,
-                    "lbi": 0.011095477166619962,
-                    "lbr": 1.3862943611198906,
-                    "affinity": 0.011095477166619962,
-                    "scaled_affinity": 0.6154965035120491
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 15
                 },
                 {
                     "sequence_id": "Node2",
@@ -805,10 +849,11 @@
                     "parent": "Node1",
                     "distance": 0.0892620469,
                     "length": 0.0036977323,
-                    "lbi": 0.013736359852134929,
-                    "lbr": 0.0,
-                    "affinity": 0.013736359852134929,
-                    "scaled_affinity": 0.7633636010142208
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 16
                 },
                 {
                     "sequence_id": "ATAAGAGAGAAGGTTT-1-1287168_contig_h",
@@ -821,10 +866,11 @@
                     "parent": "Node2",
                     "distance": 0.0905798413,
                     "length": 0.0013177944,
-                    "lbi": 0.01796264804877027,
-                    "lbr": 0.0,
-                    "affinity": 0.01796264804877027,
-                    "scaled_affinity": 1.0
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 17
                 },
                 {
                     "sequence_id": "CGCGGTATCACCCGAG-1-1287164_contig_h",
@@ -837,10 +883,11 @@
                     "parent": "Node2",
                     "distance": 0.0998954071,
                     "length": 0.0106333602,
-                    "lbi": 0.00852539391784505,
-                    "lbr": 0.0,
-                    "affinity": 0.00852539391784505,
-                    "scaled_affinity": 0.4715935757448535
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 18
                 },
                 {
                     "sequence_id": "CACCAGGCAAGCGTAG-1-1279078_contig_h",
@@ -853,18 +900,18 @@
                     "parent": "Node1",
                     "distance": 0.0925408619,
                     "length": 0.0069765473,
-                    "lbi": 0.009438718297760402,
-                    "lbr": 0.0,
-                    "affinity": 0.009438718297760402,
-                    "scaled_affinity": 0.5227320174018024
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 19
                 }
-            ],
-            "type": "pcp.reconstruction"
+            ]
         },
         {
-            "ident": "e65e60b6-f31a-48a3-827c-d14d984e79fe",
-            "tree_id": "pcp-tree-159055-igl-5792",
+            "ident": "tree-d20f0d49-77e8-15c5-ebe4-2927bc6aeb1f",
             "clone_id": "159055-igl-5792",
+            "tree_id": "tree-159055-igl-5792",
             "newick": "(naive:0.0694293077,AAAGCAAAGGGTCGAT-1-1287206_contig_h:0.0468203936,(CTTGGCTAGGAACTGC-1-1287199_contig_h:0.0615690334,TAAGTGCCACGAAATA-1-1287198_contig_h:0.0659204148)Node2:0.0147549757)Node1;",
             "nodes": [
                 {
@@ -878,10 +925,10 @@
                     "parent": null,
                     "distance": 0.0,
                     "length": 0.0,
-                    "lbi": 0.0002914889061326244,
-                    "lbr": 0.0,
-                    "affinity": 0.0002914889061326244,
-                    "scaled_affinity": 0.0
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null
                 },
                 {
                     "sequence_id": "Node1",
@@ -894,10 +941,11 @@
                     "parent": "naive",
                     "distance": 0.0694293077,
                     "length": 0.0694293077,
-                    "lbi": 0.006147795697884203,
-                    "lbr": 1.3862943611198906,
-                    "affinity": 0.006147795697884203,
-                    "scaled_affinity": 0.30049153542468277
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 20
                 },
                 {
                     "sequence_id": "AAAGCAAAGGGTCGAT-1-1287206_contig_h",
@@ -910,10 +958,11 @@
                     "parent": "Node1",
                     "distance": 0.11624970130000001,
                     "length": 0.0468203936,
-                    "lbi": 0.0014793381967832277,
-                    "lbr": 0.0,
-                    "affinity": 0.0014793381967832277,
-                    "scaled_affinity": 0.06094944645035619
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 21
                 },
                 {
                     "sequence_id": "Node2",
@@ -926,10 +975,11 @@
                     "parent": "Node1",
                     "distance": 0.0841842834,
                     "length": 0.0147549757,
-                    "lbi": 0.019780579617040328,
-                    "lbr": 0.0,
-                    "affinity": 0.019780579617040328,
-                    "scaled_affinity": 1.0
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 22
                 },
                 {
                     "sequence_id": "CTTGGCTAGGAACTGC-1-1287199_contig_h",
@@ -942,10 +992,11 @@
                     "parent": "Node2",
                     "distance": 0.1457533168,
                     "length": 0.0615690334,
-                    "lbi": 0.001063326454115921,
-                    "lbr": 0.0,
-                    "affinity": 0.001063326454115921,
-                    "scaled_affinity": 0.039603568962368906
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 23
                 },
                 {
                     "sequence_id": "TAAGTGCCACGAAATA-1-1287198_contig_h",
@@ -958,18 +1009,18 @@
                     "parent": "Node2",
                     "distance": 0.1501046982,
                     "length": 0.0659204148,
-                    "lbi": 0.0007507306449707722,
-                    "lbr": 0.0,
-                    "affinity": 0.0007507306449707722,
-                    "scaled_affinity": 0.02356404132190314
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 24
                 }
-            ],
-            "type": "pcp.reconstruction"
+            ]
         },
         {
-            "ident": "1dd7f5a2-671d-4cc9-b610-f90bc94ccd22",
-            "tree_id": "pcp-tree-146931-igk-146931",
+            "ident": "tree-e1d3a8ff-b4f1-0ab0-8d02-82857d1389c0",
             "clone_id": "146931-igk-146931",
+            "tree_id": "tree-146931-igk-146931",
             "newick": "(naive:0.0507982969,AGCATACCAATCTACG-1-1287204_contig_h:0.0013642217,(CTTACCGCACCTCGTT-1-1287197_contig_h:0.0029312750,TAAGTGCTCCGATATG-1-1287204_contig_h:0.0043939792)Node2:0.0060185155)Node1;",
             "nodes": [
                 {
@@ -983,10 +1034,10 @@
                     "parent": null,
                     "distance": 0.0,
                     "length": 0.0,
-                    "lbi": 0.0010151922567373042,
-                    "lbr": 0.0,
-                    "affinity": 0.0010151922567373042,
-                    "scaled_affinity": 0.0
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null
                 },
                 {
                     "sequence_id": "Node1",
@@ -999,10 +1050,11 @@
                     "parent": "naive",
                     "distance": 0.0507982969,
                     "length": 0.0507982969,
-                    "lbi": 0.009157457902030722,
-                    "lbr": 1.3862943611198906,
-                    "affinity": 0.009157457902030722,
-                    "scaled_affinity": 0.7245517396661647
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 25
                 },
                 {
                     "sequence_id": "AGCATACCAATCTACG-1-1287204_contig_h",
@@ -1015,10 +1067,11 @@
                     "parent": "Node1",
                     "distance": 0.0521625186,
                     "length": 0.0013642217,
-                    "lbi": 0.012252851625335253,
-                    "lbr": 0.0,
-                    "affinity": 0.012252851625335253,
-                    "scaled_affinity": 1.0
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 26
                 },
                 {
                     "sequence_id": "Node2",
@@ -1031,10 +1084,11 @@
                     "parent": "Node1",
                     "distance": 0.0568168124,
                     "length": 0.0060185155,
-                    "lbi": 0.010511075937358717,
-                    "lbr": 0.0,
-                    "affinity": 0.010511075937358717,
-                    "scaled_affinity": 0.8450054739295905
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 27
                 },
                 {
                     "sequence_id": "CTTACCGCACCTCGTT-1-1287197_contig_h",
@@ -1047,10 +1101,11 @@
                     "parent": "Node2",
                     "distance": 0.0597480874,
                     "length": 0.002931275,
-                    "lbi": 0.009828612350551665,
-                    "lbr": 0.0,
-                    "affinity": 0.009828612350551665,
-                    "scaled_affinity": 0.7842754264684528
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 28
                 },
                 {
                     "sequence_id": "TAAGTGCTCCGATATG-1-1287204_contig_h",
@@ -1063,18 +1118,18 @@
                     "parent": "Node2",
                     "distance": 0.0612107916,
                     "length": 0.0043939792,
-                    "lbi": 0.008743245185573801,
-                    "lbr": 0.0,
-                    "affinity": 0.008743245185573801,
-                    "scaled_affinity": 0.6876923988665691
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 29
                 }
-            ],
-            "type": "pcp.reconstruction"
+            ]
         },
         {
-            "ident": "ed1f3fa7-61c5-458e-a278-9497715b5caf",
-            "tree_id": "pcp-tree-155785-igl-2522",
+            "ident": "tree-5d82ca72-029f-eb0a-694b-97f7c2233755",
             "clone_id": "155785-igl-2522",
+            "tree_id": "tree-155785-igl-2522",
             "newick": "(naive:0.0004340756,(CTCGTCATCTGTCTAT-1-1287206_contig_h:0.0000025035,TGCGGGTCAGTGAGTG-1-1287198_contig_h:0.0058032692)Node2:0.0318570584,GCGCCAATCTGTCTAT-1-1287207_contig_h:0.0371698738)Node1;",
             "nodes": [
                 {
@@ -1088,10 +1143,10 @@
                     "parent": null,
                     "distance": 0.0,
                     "length": 0.0,
-                    "lbi": 0.0049362196417507675,
-                    "lbr": 0.0,
-                    "affinity": 0.0049362196417507675,
-                    "scaled_affinity": 0.1600025487596221
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null
                 },
                 {
                     "sequence_id": "Node1",
@@ -1104,10 +1159,11 @@
                     "parent": "naive",
                     "distance": 0.0004340756,
                     "length": 0.0004340756,
-                    "lbi": 0.0050958310764227365,
-                    "lbr": 1.3862943611198906,
-                    "affinity": 0.0050958310764227365,
-                    "scaled_affinity": 0.18129223413460457
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 30
                 },
                 {
                     "sequence_id": "Node2",
@@ -1120,10 +1176,11 @@
                     "parent": "Node1",
                     "distance": 0.032291134,
                     "length": 0.0318570584,
-                    "lbi": 0.009080696026870722,
-                    "lbr": 0.0,
-                    "affinity": 0.009080696026870722,
-                    "scaled_affinity": 0.7128113024970155
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 31
                 },
                 {
                     "sequence_id": "CTCGTCATCTGTCTAT-1-1287206_contig_h",
@@ -1136,10 +1193,11 @@
                     "parent": "Node2",
                     "distance": 0.0322936375,
                     "length": 2.5035e-06,
-                    "lbi": 0.011233785620383007,
-                    "lbr": 0.0,
-                    "affinity": 0.011233785620383007,
-                    "scaled_affinity": 1.0
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 32
                 },
                 {
                     "sequence_id": "TGCGGGTCAGTGAGTG-1-1287198_contig_h",
@@ -1152,10 +1210,11 @@
                     "parent": "Node2",
                     "distance": 0.0380944032,
                     "length": 0.0058032692,
-                    "lbi": 0.007062962314722408,
-                    "lbr": 0.0,
-                    "affinity": 0.007062962314722408,
-                    "scaled_affinity": 0.44367697643561843
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 33
                 },
                 {
                     "sequence_id": "GCGCCAATCTGTCTAT-1-1287207_contig_h",
@@ -1168,18 +1227,18 @@
                     "parent": "Node1",
                     "distance": 0.0376039494,
                     "length": 0.0371698738,
-                    "lbi": 0.003736660516809215,
-                    "lbr": 0.0,
-                    "affinity": 0.003736660516809215,
-                    "scaled_affinity": 0.0
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 34
                 }
-            ],
-            "type": "pcp.reconstruction"
+            ]
         },
         {
-            "ident": "ba5d9a6a-aff8-4b28-998c-b7aa52b7f3ff",
-            "tree_id": "pcp-tree-172841-igk-172841",
+            "ident": "tree-b3598fe2-630b-536f-74e7-274c35d14209",
             "clone_id": "172841-igk-172841",
+            "tree_id": "tree-172841-igk-172841",
             "newick": "(naive:0.0276836526,(AACCGCGCAAGTTGTC-1-1279071_contig_h:0.0000010000,AGATCTGTCACATAGC-1-1279071_contig_h:0.0000010000)Node2:0.0000010000,CAGCCGAGTGTGCCTG-1-1279070_contig_h:0.0000010000)Node1;",
             "nodes": [
                 {
@@ -1193,10 +1252,10 @@
                     "parent": null,
                     "distance": 0.0,
                     "length": 0.0,
-                    "lbi": 0.00302313488373753,
-                    "lbr": 0.0,
-                    "affinity": 0.00302313488373753,
-                    "scaled_affinity": 0.0
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null
                 },
                 {
                     "sequence_id": "Node1",
@@ -1209,10 +1268,11 @@
                     "parent": "naive",
                     "distance": 0.0276836526,
                     "length": 0.0276836526,
-                    "lbi": 0.0030266977077118592,
-                    "lbr": 1.3862943611198906,
-                    "affinity": 0.0030266977077118592,
-                    "scaled_affinity": 1.0
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 35
                 },
                 {
                     "sequence_id": "Node2",
@@ -1225,10 +1285,11 @@
                     "parent": "Node1",
                     "distance": 0.0276846526,
                     "length": 1e-06,
-                    "lbi": 0.0030264560615100226,
-                    "lbr": 0.0,
-                    "affinity": 0.0030264560615100226,
-                    "scaled_affinity": 0.9321756551607044
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 36
                 },
                 {
                     "sequence_id": "AACCGCGCAAGTTGTC-1-1279071_contig_h",
@@ -1241,10 +1302,11 @@
                     "parent": "Node2",
                     "distance": 0.027685652600000003,
                     "length": 1e-06,
-                    "lbi": 0.0030262141146903043,
-                    "lbr": 0.0,
-                    "affinity": 0.0030262141146903043,
-                    "scaled_affinity": 0.8642669340278052
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 37
                 },
                 {
                     "sequence_id": "AGATCTGTCACATAGC-1-1279071_contig_h",
@@ -1257,10 +1319,11 @@
                     "parent": "Node2",
                     "distance": 0.027685652600000003,
                     "length": 1e-06,
-                    "lbi": 0.0030262141146903043,
-                    "lbr": 0.0,
-                    "affinity": 0.0030262141146903043,
-                    "scaled_affinity": 0.8642669340278052
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 38
                 },
                 {
                     "sequence_id": "CAGCCGAGTGTGCCTG-1-1279070_contig_h",
@@ -1273,13 +1336,13 @@
                     "parent": "Node1",
                     "distance": 0.0276846526,
                     "length": 1e-06,
-                    "lbi": 0.0030264559015292214,
-                    "lbr": 0.0,
-                    "affinity": 0.0030264559015292214,
-                    "scaled_affinity": 0.932130752352615
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "pcp_index": 39
                 }
-            ],
-            "type": "pcp.reconstruction"
+            ]
         }
     ]
 }
