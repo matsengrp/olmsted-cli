@@ -73,30 +73,38 @@ pytest --cov=olmsted_cli
 
 ### Golden Data
 
-Integration tests compare CLI output against golden data in `example_data/`. Regenerate after output format changes:
+Integration tests compare CLI output against golden data in `example-data/`. Regenerate after output format changes:
 
 Consolidated goldens (one per dataset folder):
 
 ```bash
-olmsted process -f airr -i example_data/airr/airr.json \
-  -o example_data/airr/airr-olmsted-golden.json --seed 42 --name airr-example -q
-olmsted process -f pcp -i example_data/pcp/pcp.csv -t example_data/pcp/trees.csv \
-  -o example_data/pcp/pcp-olmsted-golden.json --seed 42 --name pcp-example -q
-olmsted process -f pcp -i example_data/pcp-byhand/pcp.csv -t example_data/pcp-byhand/trees.csv \
-  -o example_data/pcp-byhand/pcp-byhand-olmsted-golden.json --seed 42 --name pcp-byhand-example -q
-olmsted process -f pcp -i example_data/pcp-light/pcp.csv -t example_data/pcp-light/trees.csv \
-  -o example_data/pcp-light/pcp-light-olmsted-golden.json --seed 42 --name pcp-light-example -q
-olmsted process -f pcp -i example_data/pcp-paired/pcp.csv -t example_data/pcp-paired/trees.csv \
-  -o example_data/pcp-paired/pcp-paired-olmsted-golden.json --seed 42 --name pcp-paired-example -q
+olmsted process -f airr -i example-data/airr/input-airr.json \
+  -o example-data/airr/airr-olmsted-golden.json --seed 42 --name airr-example -q
+olmsted process -f pcp -i example-data/pcp/input-pcp.csv -t example-data/pcp/input-trees.csv \
+  -o example-data/pcp/pcp-olmsted-golden.json --seed 42 --name pcp-example -q
+olmsted process -f pcp -i example-data/pcp-byhand/input-pcp.csv -t example-data/pcp-byhand/input-trees.csv \
+  -o example-data/pcp-byhand/pcp-byhand-olmsted-golden.json --seed 42 --name pcp-byhand-example -q
+olmsted process -f pcp -i example-data/pcp-light/input-pcp.csv -t example-data/pcp-light/input-trees.csv \
+  -o example-data/pcp-light/pcp-light-olmsted-golden.json --seed 42 --name pcp-light-example -q
+olmsted process -f pcp -i example-data/pcp-paired/input-pcp.csv -t example-data/pcp-paired/input-trees.csv \
+  -o example-data/pcp-paired/pcp-paired-olmsted-golden.json --seed 42 --name pcp-paired-example -q
 ```
 
 Split-format goldens (legacy, kept for integrity testing while `--split-files` is supported):
 
 ```bash
-olmsted process -f airr -i example_data/airr/airr.json \
-  --split-files example_data/airr/split-golden-data --seed 42 --name airr-example -q
-olmsted process -f pcp -i example_data/pcp/pcp.csv -t example_data/pcp/trees.csv \
-  --split-files example_data/pcp/split-golden-data --seed 42 --name pcp-example -q
+olmsted process -f airr -i example-data/airr/input-airr.json \
+  --split-files example-data/airr/split-golden-data --seed 42 --name airr-example -q
+olmsted process -f pcp -i example-data/pcp/input-pcp.csv -t example-data/pcp/input-trees.csv \
+  --split-files example-data/pcp/split-golden-data --seed 42 --name pcp-example -q
+```
+
+Merge golden (post-merge drift coverage for `olmsted merge`):
+
+```bash
+olmsted merge -i example-data/merge/input-olmsted.json \
+  --mutations example-data/merge/input-mutations.csv --mutations-use-depth \
+  -o example-data/merge/merge-olmsted-golden.json -q
 ```
 
 ## Project Structure
@@ -123,12 +131,12 @@ olmsted-cli/
 │   ├── api.py                # Programmatic API
 │   └── configs/              # Default YAML configs
 ├── tests/                    # Test suite
-├── example_data/             # Example datasets and golden data
+├── example-data/             # Example datasets and golden data
 │   ├── airr/                 # AIRR format + golden data
 │   ├── pcp/                  # PCP format + golden data
 │   ├── pcp-paired/           # Paired heavy/light PCP
 │   ├── mutations/            # Pre-built Olmsted JSON with mutation-level data
-│   └── test-fields/          # Foobar test data (all types × levels)
+│   └── fields-config/        # Foobar test data (all types × levels) + config
 ├── ARCHITECTURE.md           # System architecture
 ├── DEVELOPMENT.md            # This file
 ├── CLAUDE.md                 # AI assistant guidance

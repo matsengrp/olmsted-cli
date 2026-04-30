@@ -32,16 +32,16 @@ The `mutations/` directory contains a subset of mutation-level annotation data (
 
 ```bash
 # 1. See what fields are in the data
-olmsted build-config -i example_data/mutations/mutations-olmsted.json
+olmsted build-config -i example-data/mutations/input-olmsted.json
 
 # 2. Enrich with field_metadata using the provided config
-olmsted enrich -i example_data/mutations/mutations-olmsted.json \
-  -o enriched.json -c example_data/mutations/mutations-config.yaml
+olmsted enrich -i example-data/mutations/input-olmsted.json \
+  -o enriched.json -c example-data/mutations/mutations-config.yaml
 
 # 3. Or generate your own config, edit it, then enrich
-olmsted build-config -i example_data/mutations/mutations-olmsted.json -o my_config.yaml
+olmsted build-config -i example-data/mutations/input-olmsted.json -o my_config.yaml
 # ... edit my_config.yaml ...
-olmsted enrich -i example_data/mutations/mutations-olmsted.json \
+olmsted enrich -i example-data/mutations/input-olmsted.json \
   -o enriched.json -c my_config.yaml
 ```
 
@@ -49,21 +49,21 @@ olmsted enrich -i example_data/mutations/mutations-olmsted.json \
 
 ```bash
 # Process AIRR format
-olmsted process -i example_data/airr/airr.json -o output.json
+olmsted process -i example-data/airr/input-airr.json -o output.json
 
 # Process PCP format with trees
-olmsted process -i example_data/pcp/pcp.csv -t example_data/pcp/trees.csv -o output.json
+olmsted process -i example-data/pcp/input-pcp.csv -t example-data/pcp/input-trees.csv -o output.json
 
 # Process PCP with metrics
-olmsted process -i example_data/pcp/pcp.csv -t example_data/pcp/trees.csv \
+olmsted process -i example-data/pcp/input-pcp.csv -t example-data/pcp/input-trees.csv \
   -o output.json --compute-metrics
 
 # Process paired heavy/light chain data
-olmsted process -i example_data/pcp-paired/pcp-paired.csv \
-  -t example_data/pcp-paired/trees-paired.csv -o output.json
+olmsted process -i example-data/pcp-paired/input-pcp.csv \
+  -t example-data/pcp-paired/input-trees.csv -o output.json
 
 # Use a YAML config file
-olmsted process -c example_data/mutations/mutations-config.yaml
+olmsted process -c example-data/mutations/mutations-config.yaml
 ```
 
 ## Golden Data

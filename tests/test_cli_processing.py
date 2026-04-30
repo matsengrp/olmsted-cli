@@ -115,7 +115,7 @@ class TestOlmstedCLI:
         """Set up and tear down test environment."""
         # Get paths relative to the package root
         self.cli_root = Path(__file__).parent.parent
-        self.test_data_dir = self.cli_root / "example_data"
+        self.test_data_dir = self.cli_root / "example-data"
         self.golden_airr_dir = self.test_data_dir / "airr" / "split-golden-data"
         self.golden_pcp_dir = self.test_data_dir / "pcp" / "split-golden-data"
         self.consolidated_airr_file = (
@@ -143,7 +143,7 @@ class TestOlmstedCLI:
         clones.*.json, tree.*.json). Validation is covered separately;
         this test fails specifically when split-format output drifts.
         """
-        input_file = self.test_data_dir / "airr" / "airr.json"
+        input_file = self.test_data_dir / "airr" / "input-airr.json"
         output_dir = Path(self.temp_dir) / "airr_output"
 
         cmd = [
@@ -169,7 +169,7 @@ class TestOlmstedCLI:
         and `test_validate_airr_consolidated_golden_output`, so a failure
         here unambiguously points at processing rather than validation.
         """
-        input_file = self.test_data_dir / "airr" / "airr.json"
+        input_file = self.test_data_dir / "airr" / "input-airr.json"
         output_file = Path(self.temp_dir) / "airr_consolidated.json"
 
         cmd = [
@@ -198,7 +198,7 @@ class TestOlmstedCLI:
         regression here means either inline validation broke or the
         AIRR output became schema/time-tree-invalid.
         """
-        input_file = self.test_data_dir / "airr" / "airr.json"
+        input_file = self.test_data_dir / "airr" / "input-airr.json"
         output_file = Path(self.temp_dir) / "airr_inline_validated.json"
 
         cmd = [
@@ -220,8 +220,8 @@ class TestOlmstedCLI:
     def test_pcp_with_trees_processing(self):
         """Test PCP data processing with separate trees file using --tree argument."""
         # Input and output paths
-        input_clones = self.test_data_dir / "pcp" / "pcp.csv"
-        input_trees = self.test_data_dir / "pcp" / "trees.csv"
+        input_clones = self.test_data_dir / "pcp" / "input-pcp.csv"
+        input_trees = self.test_data_dir / "pcp" / "input-trees.csv"
         output_dir = Path(self.temp_dir) / "pcp_trees_output"
 
         # Run the process command with --tree argument
@@ -263,8 +263,8 @@ class TestOlmstedCLI:
     def test_pcp_with_trees_short_option(self):
         """Test PCP data processing with -t short option for trees."""
         # Input and output paths
-        input_clones = self.test_data_dir / "pcp" / "pcp.csv"
-        input_trees = self.test_data_dir / "pcp" / "trees.csv"
+        input_clones = self.test_data_dir / "pcp" / "input-pcp.csv"
+        input_trees = self.test_data_dir / "pcp" / "input-trees.csv"
         output_file = Path(self.temp_dir) / "pcp_with_trees.json"
 
         # Run the process command with -t short option
@@ -310,8 +310,8 @@ class TestOlmstedCLI:
         counterpart for the rationale on splitting shape from
         validation coverage.
         """
-        input_clones = self.test_data_dir / "pcp" / "pcp.csv"
-        input_trees = self.test_data_dir / "pcp" / "trees.csv"
+        input_clones = self.test_data_dir / "pcp" / "input-pcp.csv"
+        input_trees = self.test_data_dir / "pcp" / "input-trees.csv"
         output_dir = Path(self.temp_dir) / "pcp_output"
 
         cmd = [
@@ -336,8 +336,8 @@ class TestOlmstedCLI:
         Pure shape check — no `--validate`. See the AIRR counterpart for
         the rationale on splitting shape from inline-validation coverage.
         """
-        input_clones = self.test_data_dir / "pcp" / "pcp.csv"
-        input_trees = self.test_data_dir / "pcp" / "trees.csv"
+        input_clones = self.test_data_dir / "pcp" / "input-pcp.csv"
+        input_trees = self.test_data_dir / "pcp" / "input-trees.csv"
         output_file = Path(self.temp_dir) / "pcp_consolidated.json"
 
         cmd = [
@@ -368,8 +368,8 @@ class TestOlmstedCLI:
         test passes despite the known PCP time-tree drift (see issue
         #20 and `test_validate_pcp_consolidated_golden_output`).
         """
-        input_clones = self.test_data_dir / "pcp" / "pcp.csv"
-        input_trees = self.test_data_dir / "pcp" / "trees.csv"
+        input_clones = self.test_data_dir / "pcp" / "input-pcp.csv"
+        input_trees = self.test_data_dir / "pcp" / "input-trees.csv"
         output_file = Path(self.temp_dir) / "pcp_inline_validated.json"
 
         cmd = [
@@ -391,7 +391,7 @@ class TestOlmstedCLI:
     def test_auto_format_detection_airr(self):
         """Test automatic format detection for AIRR JSON files."""
         # Input and output paths
-        input_file = self.test_data_dir / "airr" / "airr.json"
+        input_file = self.test_data_dir / "airr" / "input-airr.json"
         output_dir = Path(self.temp_dir) / "auto_airr_output"
 
         # Run without specifying format using subcommand
@@ -421,7 +421,7 @@ class TestOlmstedCLI:
     def test_auto_format_detection_pcp(self):
         """Test automatic format detection for PCP CSV files."""
         # Input and output paths
-        input_clones = self.test_data_dir / "pcp" / "pcp.csv"
+        input_clones = self.test_data_dir / "pcp" / "input-pcp.csv"
         output_dir = Path(self.temp_dir) / "auto_pcp_output"
 
         # Run without specifying format using subcommand
@@ -485,8 +485,8 @@ class TestOlmstedCLI:
         """Test processing of paired heavy/light chain PCP data using two-clone architecture."""
         # Use test paired PCP data subset
         paired_pcp_dir = self.test_data_dir / "pcp-paired"
-        input_clones = paired_pcp_dir / "pcp.csv"
-        input_trees = paired_pcp_dir / "trees.csv"
+        input_clones = paired_pcp_dir / "input-pcp.csv"
+        input_trees = paired_pcp_dir / "input-trees.csv"
 
         if not input_clones.exists():
             pytest.skip("Paired PCP test data not available")

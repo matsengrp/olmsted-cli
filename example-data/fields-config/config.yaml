@@ -5,10 +5,10 @@
 # This config exercises the full field_metadata system with bogus metrics
 # at each combination of level × type.
 #
-# Use with any of the test-fields example data:
-#   olmsted enrich -i olmsted-test-fields.json -o enriched.json -c test-fields-config.yaml
-#   olmsted process -i airr-test-fields.json -o output.json -c test-fields-config.yaml
-#   olmsted process -i pcp-test-fields.csv -t trees-test-fields.csv -o output.json -c test-fields-config.yaml
+# Use with any of the fields-config example data:
+#   olmsted enrich -i input-olmsted.json -o enriched.json -c config.yaml
+#   olmsted process -i input-airr.json -o output.json -c config.yaml
+#   olmsted process -i input-pcp.csv -t input-trees.csv -o output.json -c config.yaml
 
 custom_fields:
   # === Clone level ===

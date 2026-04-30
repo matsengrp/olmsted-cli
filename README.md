@@ -543,7 +543,7 @@ The repository includes example data for both formats:
 ```bash
 # Clone repository to access examples
 git clone https://github.com/matsengrp/olmsted-cli.git
-cd olmsted-cli/example_data
+cd olmsted-cli/example-data
 
 # AIRR format examples
 ls airr/

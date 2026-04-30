@@ -24,8 +24,8 @@ def _run_pcp_process(tmp_path: Path) -> dict:
         [
             "olmsted", "process",
             "-f", "pcp",
-            "-i", str(REPO_ROOT / "example_data/pcp/pcp.csv"),
-            "-t", str(REPO_ROOT / "example_data/pcp/trees.csv"),
+            "-i", str(REPO_ROOT / "example-data/pcp/input-pcp.csv"),
+            "-t", str(REPO_ROOT / "example-data/pcp/input-trees.csv"),
             "-o", str(out),
             "--seed", "42",
             "-q",
@@ -41,7 +41,7 @@ def _run_airr_process(tmp_path: Path) -> dict:
         [
             "olmsted", "process",
             "-f", "airr",
-            "-i", str(REPO_ROOT / "example_data/airr/airr.json"),
+            "-i", str(REPO_ROOT / "example-data/airr/input-airr.json"),
             "-o", str(out),
             "--seed", "42",
             "-q",
@@ -126,7 +126,7 @@ class TestAirrOutputShape:
         data = _run_airr_process(tmp_path)
         for tree in data["trees"]:
             assert tree.get("tree_id"), "tree_id should be non-empty"
-        # The example_data/airr input always supplies tree_id, so all trees
+        # The example-data/airr input always supplies tree_id, so all trees
         # here exercise the pass-through path; the fallback path is covered
         # by test_tree_id_fallback_to_ident_when_input_missing below.
 

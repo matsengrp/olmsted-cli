@@ -26,7 +26,7 @@ class TestBuildConfigOlmsted:
         """build-config on Olmsted JSON produces valid YAML with field entries."""
         result = subprocess.run(
             ["olmsted", "build-config", "-i",
-             "example_data/mutations/mutations-olmsted.json"],
+             "example-data/mutations/input-olmsted.json"],
             capture_output=True, text=True,
         )
         assert result.returncode == 0
@@ -44,7 +44,7 @@ class TestBuildConfigOlmsted:
         try:
             result = subprocess.run(
                 ["olmsted", "build-config", "-i",
-                 "example_data/mutations/mutations-olmsted.json",
+                 "example-data/mutations/input-olmsted.json",
                  "-o", out_path],
                 capture_output=True, text=True,
             )
@@ -61,7 +61,7 @@ class TestBuildConfigOlmsted:
         """Continuous mutation fields show range comments."""
         result = subprocess.run(
             ["olmsted", "build-config", "-i",
-             "example_data/mutations/mutations-olmsted.json"],
+             "example-data/mutations/input-olmsted.json"],
             capture_output=True, text=True,
         )
         assert "range in data:" in result.stdout
@@ -70,7 +70,7 @@ class TestBuildConfigOlmsted:
         """Output includes commented-out processing options."""
         result = subprocess.run(
             ["olmsted", "build-config", "-i",
-             "example_data/mutations/mutations-olmsted.json"],
+             "example-data/mutations/input-olmsted.json"],
             capture_output=True, text=True,
         )
         assert "Processing Options" in result.stdout
@@ -79,7 +79,7 @@ class TestBuildConfigOlmsted:
         """Output includes cross-format alias reference."""
         result = subprocess.run(
             ["olmsted", "build-config", "-i",
-             "example_data/mutations/mutations-olmsted.json"],
+             "example-data/mutations/input-olmsted.json"],
             capture_output=True, text=True,
         )
         assert "output_name" in result.stdout
@@ -89,7 +89,7 @@ class TestBuildConfigOlmsted:
         """Output includes output_name documentation and alias reference."""
         result = subprocess.run(
             ["olmsted", "build-config", "-i",
-             "example_data/mutations/mutations-olmsted.json"],
+             "example-data/mutations/input-olmsted.json"],
             capture_output=True, text=True,
         )
         assert "output_name" in result.stdout
@@ -100,7 +100,7 @@ class TestBuildConfigOlmsted:
         """AIRR fields with aliases get output_name suggestions."""
         result = subprocess.run(
             ["olmsted", "build-config", "-i",
-             "example_data/airr/airr.json"],
+             "example-data/airr/input-airr.json"],
             capture_output=True, text=True,
         )
         # rearrangement_count should have output_name: unique_seqs_count
@@ -119,8 +119,8 @@ class TestBuildConfigPcp:
         """build-config on raw PCP CSV + tree CSV discovers fields."""
         result = subprocess.run(
             ["olmsted", "build-config", "-i",
-             "example_data/pcp/pcp.csv",
-             "-t", "example_data/pcp/trees.csv"],
+             "example-data/pcp/input-pcp.csv",
+             "-t", "example-data/pcp/input-trees.csv"],
             capture_output=True, text=True,
         )
         assert result.returncode == 0
@@ -133,8 +133,8 @@ class TestBuildConfigPcp:
         """build-config on PCP with extra columns discovers them."""
         result = subprocess.run(
             ["olmsted", "build-config", "-i",
-             "example_data/test-fields/pcp-test-fields.csv",
-             "-t", "example_data/test-fields/trees-test-fields.csv"],
+             "example-data/fields-config/input-pcp.csv",
+             "-t", "example-data/fields-config/input-trees.csv"],
             capture_output=True, text=True,
         )
         assert result.returncode == 0
@@ -153,8 +153,8 @@ class TestBuildConfigPcp:
         """PCP config template includes compute_metrics option."""
         result = subprocess.run(
             ["olmsted", "build-config", "-i",
-             "example_data/pcp/pcp.csv",
-             "-t", "example_data/pcp/trees.csv"],
+             "example-data/pcp/input-pcp.csv",
+             "-t", "example-data/pcp/input-trees.csv"],
             capture_output=True, text=True,
         )
         assert "compute_metrics" in result.stdout
@@ -165,7 +165,7 @@ class TestBuildConfigAirr:
         """build-config on AIRR JSON discovers fields."""
         result = subprocess.run(
             ["olmsted", "build-config", "-i",
-             "example_data/airr/airr.json"],
+             "example-data/airr/input-airr.json"],
             capture_output=True, text=True,
         )
         assert result.returncode == 0
@@ -178,10 +178,10 @@ class TestBuildConfigNewTypes:
     """Tests for list, json, path detection in build-config output."""
 
     @pytest.fixture(params=[
-        ("example_data/test-fields/olmsted-test-fields.json", None),
-        ("example_data/test-fields/airr-test-fields.json", None),
-        ("example_data/test-fields/pcp-test-fields.csv",
-         "example_data/test-fields/trees-test-fields.csv"),
+        ("example-data/fields-config/input-olmsted.json", None),
+        ("example-data/fields-config/input-airr.json", None),
+        ("example-data/fields-config/input-pcp.csv",
+         "example-data/fields-config/input-trees.csv"),
     ], ids=["olmsted", "airr", "pcp"])
     def build_config_output(self, request):
         input_path, tree_path = request.param
@@ -287,7 +287,7 @@ class TestBuildConfigFormatDetection:
     def test_detects_olmsted(self):
         result = subprocess.run(
             ["olmsted", "build-config", "-i",
-             "example_data/mutations/mutations-olmsted.json"],
+             "example-data/mutations/input-olmsted.json"],
             capture_output=True, text=True,
         )
         assert "OLMSTED" in result.stderr or "OLMSTED" in result.stdout
@@ -295,7 +295,7 @@ class TestBuildConfigFormatDetection:
     def test_detects_pcp(self):
         result = subprocess.run(
             ["olmsted", "build-config", "-i",
-             "example_data/pcp/pcp.csv"],
+             "example-data/pcp/input-pcp.csv"],
             capture_output=True, text=True,
         )
         assert "PCP" in result.stderr or "PCP" in result.stdout
@@ -303,7 +303,7 @@ class TestBuildConfigFormatDetection:
     def test_detects_airr(self):
         result = subprocess.run(
             ["olmsted", "build-config", "-i",
-             "example_data/airr/airr.json"],
+             "example-data/airr/input-airr.json"],
             capture_output=True, text=True,
         )
         assert "AIRR" in result.stderr or "AIRR" in result.stdout
@@ -761,7 +761,7 @@ class TestProcessMatchesBuildConfig:
             # Create olmsted JSON from AIRR
             subprocess.run(
                 ["olmsted", "process", "-f", "airr",
-                 "-i", "example_data/airr/airr.json",
+                 "-i", "example-data/airr/input-airr.json",
                  "-o", olmsted_path, "--seed", "42",
                  "--name", "test", "-q"],
                 capture_output=True, text=True, check=True,
@@ -821,10 +821,10 @@ class TestBuildConfigGolden:
     @pytest.mark.parametrize(
         "scenario,cli_args",
         [
-            ("pcp", ["-f", "pcp", "-i", "example_data/pcp/pcp.csv",
-                     "-t", "example_data/pcp/trees.csv"]),
-            ("airr", ["-i", "example_data/airr/airr.json"]),
-            ("olmsted", ["-i", "example_data/mutations/mutations-olmsted.json"]),
+            ("pcp", ["-f", "pcp", "-i", "example-data/pcp/input-pcp.csv",
+                     "-t", "example-data/pcp/input-trees.csv"]),
+            ("airr", ["-i", "example-data/airr/input-airr.json"]),
+            ("olmsted", ["-i", "example-data/mutations/input-olmsted.json"]),
         ],
     )
     def test_matches_golden(self, scenario, cli_args):

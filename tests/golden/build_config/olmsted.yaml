@@ -1,5 +1,5 @@
 # =============================================================================
-# Field configuration generated from: mutations-olmsted.json
+# Field configuration generated from: input-olmsted.json
 # Detected format: olmsted
 # =============================================================================
 #
@@ -16,7 +16,7 @@
 # Processing Options (uncomment and edit as needed)
 # =============================================================================
 
-# input: example_data/mutations/mutations-olmsted.json
+# input: example-data/mutations/input-olmsted.json
 # output: tagged_output.json
 # mode: add            # add (merge with existing) or overwrite
 

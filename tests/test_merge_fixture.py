@@ -1,4 +1,4 @@
-"""Integration test for `olmsted merge` against the real-data fixture in example_data/merge/.
+"""Integration test for `olmsted merge` against the real-data fixture in example-data/merge/.
 
 The fixture is a 2-clone subset of a DASM2 surprise analysis (top20_olmsted.json) plus
 the matching subset of its mutation scores CSV. It exercises both the happy path
@@ -12,10 +12,13 @@ from pathlib import Path
 
 import pytest
 
+from .test_cli_processing import compare_consolidated_files
+
 REPO_ROOT = Path(__file__).parent.parent
-FIXTURE_DIR = REPO_ROOT / "example_data" / "merge"
+FIXTURE_DIR = REPO_ROOT / "example-data" / "merge"
 FIXTURE_JSON = FIXTURE_DIR / "input-olmsted.json"
-FIXTURE_CSV = FIXTURE_DIR / "mutations.csv"
+FIXTURE_CSV = FIXTURE_DIR / "input-mutations.csv"
+FIXTURE_GOLDEN = FIXTURE_DIR / "merge-olmsted-golden.json"
 
 
 @pytest.fixture(scope="module")
@@ -118,6 +121,35 @@ def test_merge_fixture_output_structure(fixture_files_exist, tmp_path):
     assert enriched_count == 33, (
         f"Expected 33 enriched mutation records, found {enriched_count}"
     )
+
+
+def test_merge_fixture_matches_golden(fixture_files_exist, tmp_path):
+    """Drift test: full merge output matches `merge-olmsted-golden.json`.
+
+    Catches changes the targeted spot-checks above don't reach (field
+    reordering, value drift in any leaf, new fields appearing, etc.).
+    Stripping volatile metadata mirrors the consolidated-process tests.
+    """
+    assert FIXTURE_GOLDEN.exists(), (
+        f"Missing golden: {FIXTURE_GOLDEN}. Regenerate with the command in "
+        f"CLAUDE.md / DEVELOPMENT.md (Regenerating Golden Data)."
+    )
+    out_path = tmp_path / "merged.json"
+
+    subprocess.run(
+        [
+            "olmsted", "merge",
+            "-i", str(FIXTURE_JSON),
+            "--mutations", str(FIXTURE_CSV),
+            "--mutations-use-depth",
+            "-o", str(out_path),
+            "-q",
+        ],
+        check=True, capture_output=True,
+    )
+
+    match, message = compare_consolidated_files(str(FIXTURE_GOLDEN), str(out_path))
+    assert match, f"Merge output drifted from golden:\n{message}"
 
 
 def test_merge_fixture_key_columns_excluded(fixture_files_exist, tmp_path):

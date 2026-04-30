@@ -25,27 +25,27 @@ Minimal datasets with foobar bogus metrics at every field level and type, for te
 
 | File | Format | Contains custom fields in data? |
 |------|--------|---------------------------------|
-| `olmsted-test-fields.json` | Olmsted JSON | Yes — all levels including mutation |
-| `airr-test-fields.json` | AIRR JSON | Yes — clone, node, and mutation levels |
-| `pcp-test-fields.csv` + `trees-test-fields.csv` | PCP CSV | Yes — includes JSON-encoded list/dict columns |
-| `test-fields-config.yaml` | YAML config | Declares all foobar fields for any format |
+| `input-olmsted.json` | Olmsted JSON | Yes — all levels including mutation |
+| `input-airr.json` | AIRR JSON | Yes — clone, node, and mutation levels |
+| `input-pcp.csv` + `input-trees.csv` | PCP CSV | Yes — includes JSON-encoded list/dict columns |
+| `config.yaml` | YAML config | Declares all foobar fields for any format |
 
 ## Usage
 
 ```bash
 # Olmsted JSON: enrich directly
-olmsted enrich -i olmsted-test-fields.json -o enriched.json -c test-fields-config.yaml
+olmsted enrich -i input-olmsted.json -o enriched.json -c config.yaml
 
 # AIRR: process with config
-olmsted process -i airr-test-fields.json -o output.json -c test-fields-config.yaml
+olmsted process -i input-airr.json -o output.json -c config.yaml
 
 # PCP: process with config
-olmsted process -i pcp-test-fields.csv -t trees-test-fields.csv -o output.json -c test-fields-config.yaml
+olmsted process -i input-pcp.csv -t input-trees.csv -o output.json -c config.yaml
 
 # Dump fields from any format
-olmsted build-config -i olmsted-test-fields.json
-olmsted build-config -i airr-test-fields.json
-olmsted build-config -i pcp-test-fields.csv -t trees-test-fields.csv
+olmsted build-config -i input-olmsted.json
+olmsted build-config -i input-airr.json
+olmsted build-config -i input-pcp.csv -t input-trees.csv
 ```
 
 ## New Type Coverage

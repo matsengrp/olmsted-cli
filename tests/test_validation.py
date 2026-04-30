@@ -23,7 +23,7 @@ class TestValidation:
     def test_validate_airr_golden_outputs(self):
         """Validate every split-format AIRR golden file individually."""
         golden_dir = (
-            Path(__file__).parent.parent / "example_data" / "airr" / "split-golden-data"
+            Path(__file__).parent.parent / "example-data" / "airr" / "split-golden-data"
         )
 
         if not golden_dir.exists():
@@ -71,7 +71,7 @@ class TestValidation:
         in issue #20.
         """
         golden_dir = (
-            Path(__file__).parent.parent / "example_data" / "pcp" / "split-golden-data"
+            Path(__file__).parent.parent / "example-data" / "pcp" / "split-golden-data"
         )
 
         if not golden_dir.exists():
@@ -108,7 +108,7 @@ class TestValidation:
         """Test that AIRR consolidated golden output is valid."""
         consolidated_file = (
             Path(__file__).parent.parent
-            / "example_data"
+            / "example-data"
             / "airr"
             / "airr-olmsted-golden.json"
         )
@@ -161,7 +161,7 @@ class TestValidation:
         """
         consolidated_file = (
             Path(__file__).parent.parent
-            / "example_data"
+            / "example-data"
             / "pcp"
             / "pcp-olmsted-golden.json"
         )
