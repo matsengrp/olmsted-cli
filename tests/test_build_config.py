@@ -26,7 +26,7 @@ class TestBuildConfigOlmsted:
         """build-config on Olmsted JSON produces valid YAML with field entries."""
         result = subprocess.run(
             ["olmsted", "build-config", "-i",
-             "example_data/surprise/surprise_subset.json"],
+             "example_data/mutations/mutations-olmsted.json"],
             capture_output=True, text=True,
         )
         assert result.returncode == 0
@@ -44,7 +44,7 @@ class TestBuildConfigOlmsted:
         try:
             result = subprocess.run(
                 ["olmsted", "build-config", "-i",
-                 "example_data/surprise/surprise_subset.json",
+                 "example_data/mutations/mutations-olmsted.json",
                  "-o", out_path],
                 capture_output=True, text=True,
             )
@@ -61,7 +61,7 @@ class TestBuildConfigOlmsted:
         """Continuous mutation fields show range comments."""
         result = subprocess.run(
             ["olmsted", "build-config", "-i",
-             "example_data/surprise/surprise_subset.json"],
+             "example_data/mutations/mutations-olmsted.json"],
             capture_output=True, text=True,
         )
         assert "range in data:" in result.stdout
@@ -70,7 +70,7 @@ class TestBuildConfigOlmsted:
         """Output includes commented-out processing options."""
         result = subprocess.run(
             ["olmsted", "build-config", "-i",
-             "example_data/surprise/surprise_subset.json"],
+             "example_data/mutations/mutations-olmsted.json"],
             capture_output=True, text=True,
         )
         assert "Processing Options" in result.stdout
@@ -79,7 +79,7 @@ class TestBuildConfigOlmsted:
         """Output includes cross-format alias reference."""
         result = subprocess.run(
             ["olmsted", "build-config", "-i",
-             "example_data/surprise/surprise_subset.json"],
+             "example_data/mutations/mutations-olmsted.json"],
             capture_output=True, text=True,
         )
         assert "output_name" in result.stdout
@@ -89,7 +89,7 @@ class TestBuildConfigOlmsted:
         """Output includes output_name documentation and alias reference."""
         result = subprocess.run(
             ["olmsted", "build-config", "-i",
-             "example_data/surprise/surprise_subset.json"],
+             "example_data/mutations/mutations-olmsted.json"],
             capture_output=True, text=True,
         )
         assert "output_name" in result.stdout
@@ -287,7 +287,7 @@ class TestBuildConfigFormatDetection:
     def test_detects_olmsted(self):
         result = subprocess.run(
             ["olmsted", "build-config", "-i",
-             "example_data/surprise/surprise_subset.json"],
+             "example_data/mutations/mutations-olmsted.json"],
             capture_output=True, text=True,
         )
         assert "OLMSTED" in result.stderr or "OLMSTED" in result.stdout
@@ -824,7 +824,7 @@ class TestBuildConfigGolden:
             ("pcp", ["-f", "pcp", "-i", "example_data/pcp/pcp.csv",
                      "-t", "example_data/pcp/trees.csv"]),
             ("airr", ["-i", "example_data/airr/airr.json"]),
-            ("olmsted", ["-i", "example_data/surprise/surprise_subset.json"]),
+            ("olmsted", ["-i", "example_data/mutations/mutations-olmsted.json"]),
         ],
     )
     def test_matches_golden(self, scenario, cli_args):

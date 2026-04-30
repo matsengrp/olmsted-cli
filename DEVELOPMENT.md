@@ -83,11 +83,11 @@ olmsted process -f airr -i example_data/airr/airr.json \
 olmsted process -f pcp -i example_data/pcp/pcp.csv -t example_data/pcp/trees.csv \
   -o example_data/pcp/pcp-olmsted-golden.json --seed 42 --name pcp-example -q
 olmsted process -f pcp -i example_data/pcp-byhand/pcp.csv -t example_data/pcp-byhand/trees.csv \
-  -o example_data/pcp-byhand/pcp-byhand-olmsted-golden.json --seed 42 --name pcp-byhand -q
+  -o example_data/pcp-byhand/pcp-byhand-olmsted-golden.json --seed 42 --name pcp-byhand-example -q
 olmsted process -f pcp -i example_data/pcp-light/pcp.csv -t example_data/pcp-light/trees.csv \
-  -o example_data/pcp-light/pcp-light-olmsted-golden.json --seed 42 --name pcp-light -q
+  -o example_data/pcp-light/pcp-light-olmsted-golden.json --seed 42 --name pcp-light-example -q
 olmsted process -f pcp -i example_data/pcp-paired/pcp.csv -t example_data/pcp-paired/trees.csv \
-  -o example_data/pcp-paired/pcp-paired-olmsted-golden.json --seed 42 --name pcp-paired -q
+  -o example_data/pcp-paired/pcp-paired-olmsted-golden.json --seed 42 --name pcp-paired-example -q
 ```
 
 Split-format goldens (legacy, kept for integrity testing while `--split-files` is supported):
@@ -127,7 +127,7 @@ olmsted-cli/
 │   ├── airr/                 # AIRR format + golden data
 │   ├── pcp/                  # PCP format + golden data
 │   ├── pcp-paired/           # Paired heavy/light PCP
-│   ├── surprise/             # Pre-built Olmsted JSON with mutation-level data
+│   ├── mutations/            # Pre-built Olmsted JSON with mutation-level data
 │   └── test-fields/          # Foobar test data (all types × levels)
 ├── ARCHITECTURE.md           # System architecture
 ├── DEVELOPMENT.md            # This file

@@ -14,7 +14,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).parent.parent
 FIXTURE_DIR = REPO_ROOT / "example_data" / "merge"
-FIXTURE_JSON = FIXTURE_DIR / "olmsted_input.json"
+FIXTURE_JSON = FIXTURE_DIR / "input-olmsted.json"
 FIXTURE_CSV = FIXTURE_DIR / "mutations.csv"
 
 

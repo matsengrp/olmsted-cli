@@ -17,7 +17,7 @@ class TestDetectFileFormat:
         assert detect_file_format("example_data/airr/airr.json") == "airr"
 
     def test_olmsted_json_with_format_tag(self):
-        assert detect_file_format("example_data/surprise/surprise_subset.json") == "olmsted"
+        assert detect_file_format("example_data/mutations/mutations-olmsted.json") == "olmsted"
 
     def test_olmsted_json_consolidated(self):
         assert detect_file_format("example_data/pcp/pcp-olmsted-golden.json") == "olmsted"

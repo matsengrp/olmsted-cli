@@ -11,11 +11,11 @@ This directory contains example datasets for testing and demonstrating the Olmst
 | **pcp-light** | PCP CSV | 8 families | Real BCR data, light chain only dataset | Light chain (IGK) |
 | **pcp-paired** | PCP CSV | 8 families | Real BCR data, paired heavy and light chain data | Heavy (IGH) + Light (IGL/IGK) |
 | **pcp-byhand** | PCP CSV | 3 families | Artificial dataset for testing webapp | Heavy, Light, and Paired |
-| **surprise** | Olmsted JSON | 3 clones | DASM2 surprise analysis data with per-mutation surprise scores | Heavy chain (IGH) |
+| **mutations** | Olmsted JSON | 3 clones | Mutation-level annotation example (DASM2 surprise-analysis subset) | Heavy chain (IGH) |
 
-## Surprise Analysis Data
+## Mutations Data
 
-The `surprise/` directory contains a subset of DASM2 mutation-selection surprise analysis data, pre-built in Olmsted JSON format. This data includes:
+The `mutations/` directory contains a subset of mutation-level annotation data (sourced from DASM2 surprise analysis), pre-built in Olmsted JSON format. This data exercises:
 
 - **Clone-level fields**: `mean_surprise_mutsel`, `num_mutations` (in addition to standard fields)
 - **Mutation-level fields**: `surprise_mutsel`, `surprise_neutral`, `selection_contribution`, `region` (per-mutation scores in `mutations` arrays on tree nodes)
@@ -25,23 +25,23 @@ The `surprise/` directory contains a subset of DASM2 mutation-selection surprise
 
 | File | Description |
 |------|-------------|
-| `surprise_subset.json` | 3-clone Olmsted JSON subset (392 KB) |
-| `surprise_config.yaml` | YAML config with custom field labels for surprise data |
+| `mutations-olmsted.json` | 3-clone Olmsted JSON subset (392 KB) |
+| `mutations-config.yaml` | YAML config with custom field labels |
 
 ### Example Workflow
 
 ```bash
 # 1. See what fields are in the data
-olmsted build-config -i example_data/surprise/surprise_subset.json
+olmsted build-config -i example_data/mutations/mutations-olmsted.json
 
 # 2. Enrich with field_metadata using the provided config
-olmsted enrich -i example_data/surprise/surprise_subset.json \
-  -o enriched.json -c example_data/surprise/surprise_config.yaml
+olmsted enrich -i example_data/mutations/mutations-olmsted.json \
+  -o enriched.json -c example_data/mutations/mutations-config.yaml
 
 # 3. Or generate your own config, edit it, then enrich
-olmsted build-config -i example_data/surprise/surprise_subset.json -o my_config.yaml
+olmsted build-config -i example_data/mutations/mutations-olmsted.json -o my_config.yaml
 # ... edit my_config.yaml ...
-olmsted enrich -i example_data/surprise/surprise_subset.json \
+olmsted enrich -i example_data/mutations/mutations-olmsted.json \
   -o enriched.json -c my_config.yaml
 ```
 
@@ -63,7 +63,7 @@ olmsted process -i example_data/pcp-paired/pcp-paired.csv \
   -t example_data/pcp-paired/trees-paired.csv -o output.json
 
 # Use a YAML config file
-olmsted process -c example_data/surprise/surprise_config.yaml
+olmsted process -c example_data/mutations/mutations-config.yaml
 ```
 
 ## Golden Data
