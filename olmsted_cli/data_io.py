@@ -54,7 +54,7 @@ import gzip
 import io
 import json
 from pathlib import Path
-from typing import Iterator
+from typing import Iterable, Iterator, Literal, Tuple
 
 import yaml
 
@@ -67,18 +67,43 @@ from .constants import (
 )
 from .utils import vprint
 
+# Closed set of values returned by detect_file_format / accepted by open_file's
+# expected_formats. Keeps callers honest at type-check time instead of letting
+# typos like expected_formats=("plc",) silently never match.
+DataFormat = Literal["airr", "pcp", "olmsted", "unknown"]
+JsonOutputFormat = Literal["pretty", "compact", "gzip"]
+OutputKind = Literal["olmsted_json"]
+
 
 # --- compression handling (internal) ---------------------------------------
 
 
+_GZIP_MAGIC = b"\x1f\x8b"
+
+
 def _maybe_unzip(path, mode: str = "rt"):
-    """Open ``path`` with transparent ``.gz`` decompression.
+    """Open ``path`` with transparent decompression.
+
+    Detects gzip by **magic bytes** (``0x1f 0x8b``), not by extension.
+    A ``.gz``-named file that isn't actually gzipped opens plain; a
+    gzipped file without a ``.gz`` extension opens decompressed. This
+    matches the behavior of common tools (``file(1)``, ``gzip -t``) and
+    avoids the surprising ``json.JSONDecodeError`` you'd get from
+    handing a misnamed gzip stream to ``json.load``.
 
     Pure file open — no format detection, no parsing. Internal to
     ``data_io``; callers outside this module use ``open_file`` (or a
     higher-level read wrapper) instead.
     """
-    if str(path).endswith(".gz"):
+    try:
+        with open(path, "rb") as fh:
+            magic = fh.read(2)
+    except OSError:
+        # File doesn't exist / unreadable — fall through and let the
+        # subsequent open() raise the canonical error for the caller.
+        magic = b""
+
+    if magic == _GZIP_MAGIC:
         return gzip.open(path, mode)
     return open(path, mode)
 
@@ -86,7 +111,7 @@ def _maybe_unzip(path, mode: str = "rt"):
 # --- format detection -------------------------------------------------------
 
 
-def detect_file_format(file_path) -> str:
+def detect_file_format(file_path) -> DataFormat:
     """Identify a file's data format by extension + content peek.
 
     Returns one of ``FORMAT_AIRR``, ``FORMAT_PCP``, ``FORMAT_OLMSTED``,
@@ -124,8 +149,16 @@ def detect_file_format(file_path) -> str:
             elif isinstance(data, list):
                 # Multi-dataset AIRR
                 return FORMAT_AIRR
-        except (json.JSONDecodeError, OSError, ValueError):
-            pass
+            vprint.verbose(
+                f"detect_file_format: {file_path} parses as JSON but lacks "
+                f"Olmsted/AIRR markers (no metadata.format='olmsted', no "
+                f"datasets/metadata pair, no dataset_id/clones/ident)."
+            )
+        except (json.JSONDecodeError, OSError, ValueError) as e:
+            vprint.verbose(
+                f"detect_file_format: {file_path} has a JSON-like extension "
+                f"but failed to parse: {e}"
+            )
 
     # If extension didn't help, peek at content for CSV indicators
     try:
@@ -147,6 +180,12 @@ def detect_file_format(file_path) -> str:
                 ]
                 if any(indicator in first_line for indicator in pcp_indicators):
                     return FORMAT_PCP
+                vprint.verbose(
+                    f"detect_file_format: {file_path} content peek found no "
+                    f"PCP column indicators in first line: {first_line!r}"
+                )
+            else:
+                vprint.verbose(f"detect_file_format: {file_path} is empty")
 
     except Exception as e:
         vprint.error(f"Warning: Could not detect format for {file_path}: {e}")
@@ -157,7 +196,7 @@ def detect_file_format(file_path) -> str:
 # --- public open ------------------------------------------------------------
 
 
-def open_file(path, expected_formats=None):
+def open_file(path, expected_formats: Iterable[DataFormat] = None):
     """Open ``path`` (transparent ``.gz``), detect format, validate, return a handle.
 
     Args:
@@ -200,12 +239,11 @@ def read_olmsted_json(path) -> dict:
     Raises ``ValueError`` on any failure.
     """
     handle, _ = open_file(path, expected_formats=(FORMAT_OLMSTED,))
-    try:
-        data = json.load(handle)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"{path}: invalid JSON ({e})") from e
-    finally:
-        handle.close()
+    with handle:
+        try:
+            data = json.load(handle)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"{path}: invalid JSON ({e})") from e
 
     missing = [k for k in OLMSTED_REQUIRED_TOP_LEVEL_KEYS if k not in data]
     if missing:
@@ -218,33 +256,44 @@ def read_olmsted_json(path) -> dict:
 def read_airr_json(path) -> dict:
     """Open + parse an AIRR JSON file. Caller validates AIRR-specific shape."""
     handle, _ = open_file(path, expected_formats=(FORMAT_AIRR,))
-    try:
-        return json.load(handle)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"{path}: invalid JSON ({e})") from e
-    finally:
-        handle.close()
+    with handle:
+        try:
+            return json.load(handle)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"{path}: invalid JSON ({e})") from e
 
 
 def read_pcp_csv_rows(path) -> Iterator[dict]:
     """Iterate dict rows from a PCP CSV (clones-style or trees-style).
 
     Both ``pcp.csv`` and ``trees.csv`` are detected as PCP format; the
-    caller distinguishes by columns. Generator — file closes when the
-    generator is exhausted or garbage-collected.
+    caller distinguishes by columns. The file is opened eagerly (so a
+    missing path raises immediately, not on first iteration); the
+    returned generator owns the handle and closes it on exhaustion.
     """
     handle, _ = open_file(path, expected_formats=(FORMAT_PCP,))
-    with handle:
-        yield from csv.DictReader(handle)
+    return _iter_csv_dict_rows(handle)
 
 
 def read_csv_rows(path) -> Iterator[dict]:
     """Generic CSV reader (transparent ``.gz``). No format detection.
 
-    Use for CSVs that aren't auto-detectable as a known Olmsted format —
-    currently the mutations CSV consumed by ``merge``.
+    Used for CSVs that aren't auto-detectable as a known Olmsted format —
+    currently the mutations CSV consumed by ``merge``. Eager open;
+    returned generator owns the handle (see ``read_pcp_csv_rows``).
     """
-    with _maybe_unzip(path) as handle:
+    return _iter_csv_dict_rows(_maybe_unzip(path))
+
+
+def _iter_csv_dict_rows(handle) -> Iterator[dict]:
+    """Yield ``DictReader`` rows from ``handle`` and close it on exhaustion.
+
+    Split out of ``read_*`` so the outer functions can ``open_file`` /
+    ``_maybe_unzip`` *eagerly* and still hand back a generator. Calling
+    them used to defer the open until first iteration, which hid
+    file-not-found errors until the caller started consuming.
+    """
+    with handle:
         yield from csv.DictReader(handle)
 
 
@@ -257,7 +306,7 @@ def read_yaml_config(path) -> dict:
 # --- high-level writes ------------------------------------------------------
 
 
-def write_file(data, path, output_kind: str = "olmsted_json", **opts) -> str:
+def write_file(data, path, output_kind: OutputKind = "olmsted_json", **opts) -> str:
     """Dispatch to the writer for ``output_kind``. Returns the path written.
 
     Today the only supported kind is ``olmsted_json``. Adding a new
@@ -269,7 +318,27 @@ def write_file(data, path, output_kind: str = "olmsted_json", **opts) -> str:
     raise ValueError(f"Unknown output_kind: {output_kind!r}")
 
 
-def write_olmsted_json(data, output_path, json_format: str = "pretty", default=None) -> str:
+def write_csv(rows, output_path) -> str:
+    """Write a list of dict rows to ``output_path`` as CSV.
+
+    Header is derived from sorted keys of the first row. Rows are
+    materialized via ``DictWriter``. Returns the path written.
+
+    Empty input writes an empty file (no header). Caller is responsible
+    for the columns being homogeneous across rows — extras are silently
+    ignored by ``DictWriter`` (per stdlib behavior).
+    """
+    output_path = str(output_path)
+    with open(output_path, "w", newline="") as fh:
+        if rows:
+            normalized = [dict(r) for r in rows]
+            writer = csv.DictWriter(fh, fieldnames=sorted(normalized[0].keys()))
+            writer.writeheader()
+            writer.writerows(normalized)
+    return output_path
+
+
+def write_olmsted_json(data, output_path, json_format: JsonOutputFormat = "pretty", default=None) -> str:
     """Write Olmsted JSON to ``output_path`` in the requested format.
 
     Three formats:

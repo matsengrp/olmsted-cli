@@ -7,7 +7,6 @@ This module contains functions that depend on other project modules
 project dependencies live in ``utils.py``.
 """
 
-import csv
 import json
 import os
 import uuid
@@ -17,7 +16,7 @@ import yaml
 from tqdm import tqdm
 
 from .build_config import generate_default_config
-from .data_io import write_olmsted_json
+from .data_io import write_csv, write_olmsted_json
 from .field_metadata import generate_field_metadata
 from .schemas import SCHEMA_VERSION, clone_spec, dataset_spec, tree_spec
 from .utils import (  # noqa: F401 — re-exported for backward compatibility
@@ -78,47 +77,37 @@ def coerce_csv_value(val: str):
 
 def write_out(data, dirname, filename, args):
     """
-    Write data to JSON or CSV file with proper formatting and UUID handling.
+    Per-record output dispatcher for the ``process`` command.
+
+    Picks JSON vs CSV based on ``args.csv`` and routes the actual file
+    write through the matching ``data_io`` helper, which owns suffix
+    policy (e.g., ``.gz`` auto-append for gzip JSON) and serialization
+    details. The status message logs the path that was actually written.
 
     Args:
         data: Data to write
         dirname: Directory path
         filename: File name
-        args: Command line arguments (for verbose flag, csv flag, and json_format)
+        args: Command line arguments (for csv flag and json_format)
     """
     # Ensure directory exists
     os.makedirs(dirname, exist_ok=True)
-
-    # Normalize path
     full_path = os.path.normpath(os.path.join(dirname, filename))
 
-    # Get JSON format setting (default to 'pretty' for backward compatibility)
     json_format = getattr(args, "json_format", "pretty")
-
-    # For gzip format, add .gz extension if not already present
-    if json_format == "gzip" and not full_path.endswith(".gz"):
-        full_path = full_path + ".gz"
-
-    # Print status
-    vprint.status(f"writing {full_path}")
 
     # Check if CSV output is requested (for CFT data)
     if hasattr(args, "csv") and args.csv and isinstance(data, list):
-        # Write as CSV
-        with open(full_path, "w") as fh:
-            if data:
-                # Ensure all items are dictionaries
-                data = [{k: v for k, v in d.items()} for d in data]
-                writer = csv.DictWriter(fh, fieldnames=sorted(data[0].keys()))
-                writer.writeheader()
-                writer.writerows(data)
+        written = write_csv(data, full_path)
     elif isinstance(data, (list, dict)):
-        # Write as JSON with selected format
-        write_olmsted_json(data, full_path, json_format=json_format, default=json_rep)
+        written = write_olmsted_json(data, full_path, json_format=json_format, default=json_rep)
     else:
-        # Handle raw string data
+        # Handle raw string data — single inline branch; not worth a helper.
         with open(full_path, "w") as fh:
             fh.write(data)
+        written = full_path
+
+    vprint.status(f"wrote {written}")
 
 
 # Version Constants

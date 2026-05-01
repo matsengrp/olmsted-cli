@@ -164,6 +164,40 @@ def test_tag_reads_gzip_input(tmp_path):
     assert "field_metadata" in data["datasets"][0]
 
 
+def test_merge_reads_gzip_mutations_csv(tmp_path):
+    """`merge` transparently reads a gzipped mutations CSV."""
+    src_csv = EXAMPLE / "merge" / "input-mutations.csv"
+    gz_csv = tmp_path / "input.csv.gz"
+    _gzip_copy(src_csv, gz_csv)
+
+    out = tmp_path / "merged.json"
+    result = subprocess.run(
+        [
+            "olmsted", "merge",
+            "-i", str(EXAMPLE / "merge" / "input-olmsted.json"),
+            "--mutations", str(gz_csv),
+            "--mutations-use-depth",
+            "-o", str(out),
+            "-q",
+        ],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, f"merge failed on .gz mutations: {result.stderr}"
+    assert out.exists()
+    with open(out) as fh:
+        data = json.load(fh)
+    # Spot-check that mutations were merged (same expectation as
+    # test_merge_fixture_output_structure).
+    enriched = sum(
+        1
+        for tree in data["trees"]
+        for node in tree["nodes"]
+        for mut in node.get("mutations", []) or []
+        if "surprise_mutsel" in mut
+    )
+    assert enriched > 0, "Expected at least one enriched mutation from gzipped CSV"
+
+
 def test_merge_reads_gzip_input(tmp_path):
     """`merge` transparently reads a gzipped Olmsted JSON input."""
     src = EXAMPLE / "merge" / "input-olmsted.json"

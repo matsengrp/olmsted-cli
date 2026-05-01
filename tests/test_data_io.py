@@ -19,8 +19,9 @@ from olmsted_cli.data_io import (
     read_olmsted_json,
     read_pcp_csv_rows,
     read_yaml_config,
-    write_olmsted_json,
+    write_csv,
     write_file,
+    write_olmsted_json,
 )
 
 REPO_ROOT = Path(__file__).parent.parent
@@ -61,6 +62,45 @@ def test_open_file_handles_gz(tmp_path):
         data = json.load(handle)
     finally:
         handle.close()
+    assert fmt == FORMAT_OLMSTED
+    assert "datasets" in data
+
+
+def test_open_file_detects_gzip_by_magic_bytes_not_extension(tmp_path):
+    """A gzipped file *without* a `.gz` extension is decompressed
+    correctly. Magic-byte detection (0x1f 0x8b) handles renamed files
+    that filename-based logic would miss."""
+    src = EXAMPLE / "mutations" / "input-olmsted.json"
+    # Note: extension is .json, not .json.gz, but content is gzipped.
+    misnamed = tmp_path / "looks-plain.json"
+    with open(src, "rb") as src_fh, gzip.open(misnamed, "wb") as gz_fh:
+        gz_fh.write(src_fh.read())
+
+    handle, fmt = open_file(misnamed)
+    try:
+        data = json.load(handle)
+    finally:
+        handle.close()
+    assert fmt == FORMAT_OLMSTED
+    assert "datasets" in data
+
+
+def test_open_file_handles_misnamed_gz_extension(tmp_path):
+    """A `.gz`-extension file that *isn't* actually gzipped opens plain.
+    Avoids the misleading 'not a gzipped file' error when someone names
+    a plain JSON with a .gz extension by accident."""
+    src = EXAMPLE / "mutations" / "input-olmsted.json"
+    misnamed = tmp_path / "fake.json.gz"  # .gz extension, plain content
+    misnamed.write_bytes(src.read_bytes())
+
+    handle, fmt = open_file(misnamed)
+    try:
+        data = json.load(handle)
+    finally:
+        handle.close()
+    # Detection went via the .gz-stem-endswith-.json branch and content
+    # peek confirmed olmsted; magic-byte check on _maybe_unzip kept us
+    # from trying to ungzip plain content.
     assert fmt == FORMAT_OLMSTED
     assert "datasets" in data
 
@@ -115,13 +155,14 @@ def test_read_olmsted_json_rejects_airr_file():
 
 
 def test_read_olmsted_json_rejects_malformed_json(tmp_path):
-    """A malformed JSON file fails at format detection (it can't be parsed
-    well enough to find the format tag), so the user-facing message is
-    'Could not infer format' rather than a JSON parse error. Either
-    rejection is acceptable; we just want a fail-fast ValueError."""
+    """Malformed JSON fails at format detection (the parser can't reach
+    the format tag), so detection returns 'unknown' and the
+    expected-format check in `open_file` fires first. The user-facing
+    message points at the format mismatch, not at the JSON syntax —
+    pinned here so we notice if detection ever changes shape."""
     bad = tmp_path / "bad-olmsted.json"
     bad.write_text('{"metadata": {"format": "olmsted"}, "datasets": [BROKEN')
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Expected.*olmsted.*detected 'unknown'"):
         read_olmsted_json(bad)
 
 
@@ -232,6 +273,31 @@ def test_write_file_rejects_unknown_kind(tmp_path):
 
 
 # --- write_olmsted_json (smoke; details covered by test_gzip_io) -----------
+
+
+def test_write_csv_writes_header_and_rows(tmp_path):
+    out = tmp_path / "out.csv"
+    rows = [{"a": "1", "b": "2"}, {"a": "3", "b": "4"}]
+    written = write_csv(rows, out)
+    assert written == str(out)
+    text = out.read_text()
+    assert text.splitlines()[0] == "a,b"
+    assert "1,2" in text and "3,4" in text
+
+
+def test_write_csv_empty_rows_writes_empty_file(tmp_path):
+    """No rows means no header — keeps the dispatcher honest about empty splits."""
+    out = tmp_path / "out.csv"
+    written = write_csv([], out)
+    assert written == str(out)
+    assert out.read_text() == ""
+
+
+def test_read_pcp_csv_rows_eager_open_raises_on_missing(tmp_path):
+    """File-not-found must surface on call, not on first iteration."""
+    missing = tmp_path / "nope.csv"
+    with pytest.raises(FileNotFoundError):
+        read_pcp_csv_rows(missing)
 
 
 def test_write_olmsted_json_pretty_round_trip(tmp_path):

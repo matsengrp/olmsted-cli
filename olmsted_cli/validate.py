@@ -20,6 +20,7 @@ from pathlib import Path
 
 from .constants import (
     CHAIN_COLUMN_ALIASES,
+    FORMAT_PCP,
     KNOWN_PCP_COLUMNS,
     KNOWN_TREE_COLUMNS,
 )
@@ -47,7 +48,7 @@ TREE_REQUIRED_COLUMNS_B = {"family", "newick"}  # alternative names
 
 def _open_csv(filepath):
     """Open a CSV file (plain or gzipped) and return a DictReader + fieldnames."""
-    fh, _ = open_file(filepath, expected_formats=("pcp",))
+    fh, _ = open_file(filepath, expected_formats=(FORMAT_PCP,))
     reader = csv.DictReader(fh)
     return fh, reader
 

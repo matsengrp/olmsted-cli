@@ -75,7 +75,7 @@ from .data_io import open_file
 from .utils import set_verbosity, vprint
 
 
-from .constants import CHAIN_COLUMN_ALIASES, KNOWN_PCP_COLUMNS, KNOWN_TREE_COLUMNS
+from .constants import CHAIN_COLUMN_ALIASES, FORMAT_PCP, KNOWN_PCP_COLUMNS, KNOWN_TREE_COLUMNS
 from .metrics import compute_tree_metrics
 
 
@@ -206,7 +206,7 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
     """
     families = defaultdict(lambda: {"nodes": {}, "edges": [], "family_data": {}})
 
-    handle, _ = open_file(csv_path, expected_formats=("pcp",))
+    handle, _ = open_file(csv_path, expected_formats=(FORMAT_PCP,))
     with handle as file_handle:
         reader = csv.DictReader(file_handle)
 
@@ -891,7 +891,7 @@ def parse_newick_csv(csv_path: str) -> Dict[Any, List[Dict[str, Any]]]:
     """
     newick_trees: Dict[Any, List[Dict[str, Any]]] = {}
 
-    handle, _ = open_file(csv_path, expected_formats=("pcp",))
+    handle, _ = open_file(csv_path, expected_formats=(FORMAT_PCP,))
     with handle as file_handle:
         reader = csv.DictReader(file_handle)
 
