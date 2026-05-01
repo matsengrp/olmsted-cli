@@ -13,20 +13,18 @@ Usage:
 """
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
-from .constants import OLMSTED_REQUIRED_TOP_LEVEL_KEYS
+from .data_io import read_olmsted_json, write_olmsted_json
 from .merge_mutations import apply_mutations_csv
 from .process_utils import (
     add_verbosity_args,
     check_output_id_uniqueness,
     resolve_verbosity,
     retag_datasets_field_metadata,
-    write_olmsted_json,
 )
-from .utils import open_maybe_gzip, set_verbosity, vprint
+from .utils import set_verbosity, vprint
 
 # Config keys merge reads from YAML (beyond custom_fields)
 _MERGE_CONFIG_KEYS = {"input", "mutations", "output"}
@@ -159,18 +157,9 @@ def main():
         sys.exit(1)
 
     try:
-        with open_maybe_gzip(input_path) as f:
-            data = json.load(f)
-    except json.JSONDecodeError as e:
-        vprint.error(f"Error: Invalid JSON in input file: {e}")
-        sys.exit(1)
-
-    missing = [k for k in OLMSTED_REQUIRED_TOP_LEVEL_KEYS if k not in data]
-    if missing:
-        vprint.error(
-            f"Error: Input does not appear to be Olmsted JSON "
-            f"(missing top-level keys: {missing})"
-        )
+        data = read_olmsted_json(input_path)
+    except ValueError as e:
+        vprint.error(f"Error: {e}")
         sys.exit(1)
 
     try:

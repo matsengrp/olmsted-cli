@@ -22,7 +22,6 @@ Matching strategy (in order of preference):
 """
 
 import csv
-import gzip
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -30,7 +29,7 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from .constants import MUTATIONS_CSV_KEY_COLUMNS, MUTATIONS_CSV_NAME_ALIASES
 from .process_utils import coerce_csv_value
-from .utils import vprint
+from .utils import open_maybe_gzip, vprint
 
 # Characters in AA sequences that should not be treated as a mutation event.
 _GAP_AA_CHARS = {"-", ".", "X", "*", "?"}
@@ -119,14 +118,9 @@ def load_mutations_csv(csv_path: str) -> Dict[str, List[Dict[str, Any]]]:
     if not path.exists():
         raise FileNotFoundError(f"Mutations CSV not found: {csv_path}")
 
-    if str(path).endswith(".gz"):
-        file_handle = gzip.open(path, "rt")
-    else:
-        file_handle = open(path, "r")
-
     mutations_by_family: Dict[str, List[Dict[str, Any]]] = {}
 
-    with file_handle:
+    with open_maybe_gzip(path) as file_handle:
         reader = csv.DictReader(file_handle)
         if not reader.fieldnames:
             raise ValueError(f"Mutations CSV has no header: {csv_path}")

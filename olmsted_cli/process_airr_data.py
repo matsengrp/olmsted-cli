@@ -14,6 +14,7 @@ from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from urllib.parse import parse_qs, parse_qsl
 
+from .data_io import read_airr_json
 from .identifier import IdentMinter
 from .metrics import compute_tree_metrics
 from .process_utils import tag_field_metadata
@@ -471,29 +472,28 @@ def main():
     for infile in args.inputs or []:
         vprint.status(f"\nProcessing infile: {str(infile)}")
         try:
-            with open(infile, "r") as fh:
-                dataset = json.load(fh)
-                if args.remove_invalid_clones:
-                    dataset["clones"] = list(
-                        filter(
-                            jsonschema.Draft4Validator(clone_spec).is_valid,
-                            dataset["clones"],
-                        )
+            dataset = read_airr_json(infile)
+            if args.remove_invalid_clones:
+                dataset["clones"] = list(
+                    filter(
+                        jsonschema.Draft4Validator(clone_spec).is_valid,
+                        dataset["clones"],
                     )
-                # Use unified validation from validate module
-                errors = validate_dataset(dataset, verbose=args.verbose)
-                if errors:
-                    error_msg = "Dataset validation failed"
-                    if args.verbose:
-                        vprint.error(f"Dataset validation failed:")
-                        for error in errors:
-                            vprint.error(f"  - {error}")
-                    else:
-                        error_msg += ". Please rerun with `-v` for detailed errors"
-                    raise Exception(error_msg)
-                # Process the dataset, including validation of clones, trees against the AIRR schema
-                dataset = process_dataset(args, dataset, clones_dict, trees)
-                datasets.append(dataset)
+                )
+            # Use unified validation from validate module
+            errors = validate_dataset(dataset, verbose=args.verbose)
+            if errors:
+                error_msg = "Dataset validation failed"
+                if args.verbose:
+                    vprint.error(f"Dataset validation failed:")
+                    for error in errors:
+                        vprint.error(f"  - {error}")
+                else:
+                    error_msg += ". Please rerun with `-v` for detailed errors"
+                raise Exception(error_msg)
+            # Process the dataset, including validation of clones, trees against the AIRR schema
+            dataset = process_dataset(args, dataset, clones_dict, trees)
+            datasets.append(dataset)
         except Exception:
             vprint.error(f"Unable to process infile: {infile}")
             if args.verbose:

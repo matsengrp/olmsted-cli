@@ -186,6 +186,83 @@ def test_merge_reads_gzip_input(tmp_path):
     assert out.exists()
 
 
+# --- compressed inputs to `process` -----------------------------------------
+
+
+def test_process_airr_reads_gz_input(tmp_path):
+    """`process -f airr` accepts a gzipped AIRR JSON input (the gz gap that
+    motivated this PR)."""
+    src = EXAMPLE / "airr" / "input-airr.json"
+    gz_input = tmp_path / "input.json.gz"
+    _gzip_copy(src, gz_input)
+
+    out = tmp_path / "airr_out.json"
+    result = subprocess.run(
+        [
+            "olmsted", "process", "-f", "airr",
+            "-i", str(gz_input),
+            "-o", str(out),
+            "--seed", "42", "--name", "airr-example",
+            "--json-format", "pretty", "-q",
+        ],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, f"process -f airr failed on .gz input: {result.stderr}"
+    # Can't compare to golden directly — `metadata.source_files` records the
+    # temp filename, not the golden's recorded one. Structural sanity instead.
+    data = json.loads(out.read_text())
+    assert "datasets" in data and "clones" in data and "trees" in data
+    assert len(data["trees"]) > 0
+
+
+def test_process_pcp_reads_gz_clones_input(tmp_path):
+    """`process -f pcp -i pcp.csv.gz` accepts a gzipped PCP CSV."""
+    src_clones = EXAMPLE / "pcp" / "input-pcp.csv"
+    gz_clones = tmp_path / "input.csv.gz"
+    _gzip_copy(src_clones, gz_clones)
+
+    out = tmp_path / "pcp_out.json"
+    result = subprocess.run(
+        [
+            "olmsted", "process", "-f", "pcp",
+            "-i", str(gz_clones),
+            "-t", str(EXAMPLE / "pcp" / "input-trees.csv"),
+            "-o", str(out),
+            "--seed", "42", "--name", "pcp-example",
+            "--json-format", "pretty", "-q",
+        ],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, f"process -f pcp failed on .gz clones: {result.stderr}"
+    data = json.loads(out.read_text())
+    assert "datasets" in data and "clones" in data and "trees" in data
+    assert len(data["trees"]) > 0
+
+
+def test_process_pcp_reads_gz_trees_input(tmp_path):
+    """`process -f pcp -t trees.csv.gz` accepts a gzipped trees CSV."""
+    src_trees = EXAMPLE / "pcp" / "input-trees.csv"
+    gz_trees = tmp_path / "trees.csv.gz"
+    _gzip_copy(src_trees, gz_trees)
+
+    out = tmp_path / "pcp_out.json"
+    result = subprocess.run(
+        [
+            "olmsted", "process", "-f", "pcp",
+            "-i", str(EXAMPLE / "pcp" / "input-pcp.csv"),
+            "-t", str(gz_trees),
+            "-o", str(out),
+            "--seed", "42", "--name", "pcp-example",
+            "--json-format", "pretty", "-q",
+        ],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, f"process -f pcp failed on .gz trees: {result.stderr}"
+    data = json.loads(out.read_text())
+    assert "datasets" in data and "clones" in data and "trees" in data
+    assert len(data["trees"]) > 0
+
+
 # --- determinism (gzip header layer only) ---
 
 
@@ -194,7 +271,7 @@ def test_gzip_header_is_deterministic(tmp_path):
     content produce byte-identical files. Useful when piping the same
     structure through gzip twice (the JSON content from process is not yet
     deterministic across runs because of `metadata.created_at`)."""
-    from olmsted_cli.process_utils import write_olmsted_json
+    from olmsted_cli.data_io import write_olmsted_json
 
     data = {"hello": "world", "n": [1, 2, 3]}
     a = tmp_path / "a.json"

@@ -12,7 +12,6 @@ Usage:
 """
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
@@ -50,6 +49,7 @@ from .field_metadata import (
     sample_values,
     sample_values_by_path,
 )
+from .data_io import read_airr_json, read_olmsted_json
 from .format_detection import detect_file_format
 from .utils import add_verbosity_args, resolve_verbosity, set_verbosity, vprint
 
@@ -137,8 +137,7 @@ Examples:
 
 def _load_olmsted(input_path):
     """Load clones and trees from Olmsted JSON."""
-    with open(input_path) as f:
-        data = json.load(f)
+    data = read_olmsted_json(input_path)
 
     all_clones = []
     for ds_clones in data.get("clones", {}).values():
@@ -185,8 +184,7 @@ def _load_airr(input_path):
     # Deferred: process_airr_data pulls in heavy processing dependencies
     from .process_airr_data import process_dataset
 
-    with open(input_path) as f:
-        data = json.load(f)
+    data = read_airr_json(input_path)
 
     # Handle single-dataset or multi-dataset AIRR
     if isinstance(data, list):

@@ -12,13 +12,13 @@ Usage:
 """
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
 # Config keys that tag reads from YAML (beyond custom_fields)
 _TAG_CONFIG_KEYS = {"input", "output", "mode"}
 
+from .data_io import read_olmsted_json, write_olmsted_json
 from .process_data import load_config
 from .process_utils import (
     VerbosePrinter,
@@ -26,9 +26,8 @@ from .process_utils import (
     check_output_id_uniqueness,
     resolve_verbosity,
     retag_datasets_field_metadata,
-    write_olmsted_json,
 )
-from .utils import open_maybe_gzip, set_verbosity, vprint
+from .utils import set_verbosity, vprint
 
 
 def get_args():
@@ -132,18 +131,9 @@ def main():
         sys.exit(1)
 
     try:
-        with open_maybe_gzip(input_path) as f:
-            data = json.load(f)
-    except json.JSONDecodeError as e:
-        vprint.error(f"Error: Invalid JSON in input file: {e}")
-        sys.exit(1)
-
-    # Validate it looks like Olmsted JSON
-    if "datasets" not in data or "clones" not in data:
-        vprint.error(
-            "Error: Input does not appear to be Olmsted JSON "
-            "(missing 'datasets' or 'clones' key)"
-        )
+        data = read_olmsted_json(input_path)
+    except ValueError as e:
+        vprint.error(f"Error: {e}")
         sys.exit(1)
 
     # Custom fields already loaded during arg parsing

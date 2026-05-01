@@ -6,26 +6,11 @@ only on constants and the standard library, so it can be imported by any
 other module without creating circular dependencies.
 """
 
-import gzip
 import json
-from contextlib import contextmanager
 from pathlib import Path
 
 from .constants import FORMAT_AIRR, FORMAT_OLMSTED, FORMAT_PCP, FORMAT_UNKNOWN
-from .utils import vprint
-
-
-@contextmanager
-def _open_file(file_path):
-    """Open a file for reading, transparently handling gzip."""
-    if str(file_path).endswith(".gz"):
-        fh = gzip.open(file_path, "rt")
-    else:
-        fh = open(file_path, "r")
-    try:
-        yield fh
-    finally:
-        fh.close()
+from .utils import open_maybe_gzip, vprint
 
 
 def detect_file_format(file_path):
@@ -51,7 +36,7 @@ def detect_file_format(file_path):
         file_path.suffix.lower() == ".gz" and file_path.stem.endswith(".json")
     ):
         try:
-            with _open_file(file_path) as fh:
+            with open_maybe_gzip(file_path) as fh:
                 data = json.load(fh)
 
             if isinstance(data, dict):
@@ -73,7 +58,7 @@ def detect_file_format(file_path):
 
     # If extension doesn't help, try to peek at content for CSV
     try:
-        with _open_file(file_path) as fh:
+        with open_maybe_gzip(file_path) as fh:
             first_lines = []
             for i, line in enumerate(fh):
                 first_lines.append(line.strip())

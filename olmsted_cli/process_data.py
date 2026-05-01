@@ -16,7 +16,6 @@ Output modes:
 
 import argparse
 import csv
-import gzip
 import json
 import os
 import sys
@@ -62,7 +61,8 @@ from .process_utils import (
     validate_output_data,
     write_out,
 )
-from .utils import set_verbosity, vprint
+from .data_io import read_airr_json, read_yaml_config
+from .utils import open_maybe_gzip, set_verbosity, vprint
 
 
 def validate_airr_file(file_path):
@@ -76,7 +76,7 @@ def validate_airr_file(file_path):
         bool: True if valid AIRR format, False otherwise
     """
     try:
-        with open(file_path, "r") as f:
+        with open_maybe_gzip(file_path) as f:
             data = json.load(f)
 
         # Check for required AIRR fields
@@ -108,13 +108,7 @@ def validate_pcp_file(file_path):
         bool: True if valid PCP format, False otherwise
     """
     try:
-        # Determine if file is gzipped
-        if file_path.endswith(".gz"):
-            file_handle = gzip.open(file_path, "rt")
-        else:
-            file_handle = open(file_path, "r")
-
-        with file_handle:
+        with open_maybe_gzip(file_path) as file_handle:
             reader = csv.DictReader(file_handle)
 
             # Check for required PCP columns
@@ -189,41 +183,40 @@ def process_airr_format(args):
                 vprint.status(f"\nProcessing AIRR file: {infile}")
 
             try:
-                with open(infile, "r") as fh:
-                    dataset = json.load(fh)
+                dataset = read_airr_json(infile)
 
-                    # Filter invalid clones if requested
-                    if airr_args.remove_invalid_clones:
-                        original_count = len(dataset.get("clones", []))
-                        dataset["clones"] = list(
-                            filter(
-                                jsonschema.Draft4Validator(clone_spec).is_valid,
-                                dataset["clones"],
-                            )
+                # Filter invalid clones if requested
+                if airr_args.remove_invalid_clones:
+                    original_count = len(dataset.get("clones", []))
+                    dataset["clones"] = list(
+                        filter(
+                            jsonschema.Draft4Validator(clone_spec).is_valid,
+                            dataset["clones"],
                         )
-                        filtered_count = original_count - len(dataset["clones"])
-                        if filtered_count > 0:
-                            pbar.set_postfix({"filtered": filtered_count})
+                    )
+                    filtered_count = original_count - len(dataset["clones"])
+                    if filtered_count > 0:
+                        pbar.set_postfix({"filtered": filtered_count})
 
-                    # Use unified validation from validate module
-                    errors = validate_dataset(dataset, verbose=airr_args.verbose)
-                    if errors:
-                        error_msg = "Dataset validation failed"
-                        if airr_args.verbose:
-                            vprint.error("Dataset validation failed:")
-                            for error in errors:
-                                vprint.error(f"  - {error}")
-                        else:
-                            error_msg += ". Please rerun with `-v` for detailed errors"
-                        raise Exception(error_msg)
+                # Use unified validation from validate module
+                errors = validate_dataset(dataset, verbose=airr_args.verbose)
+                if errors:
+                    error_msg = "Dataset validation failed"
+                    if airr_args.verbose:
+                        vprint.error("Dataset validation failed:")
+                        for error in errors:
+                            vprint.error(f"  - {error}")
+                    else:
+                        error_msg += ". Please rerun with `-v` for detailed errors"
+                    raise Exception(error_msg)
 
-                    # Process dataset
-                    dataset = process_dataset(airr_args, dataset, clones_dict, trees)
-                    datasets.append(dataset)
+                # Process dataset
+                dataset = process_dataset(airr_args, dataset, clones_dict, trees)
+                datasets.append(dataset)
 
-                    # Update progress bar with clone count
-                    if "clones" in dataset:
-                        pbar.set_postfix({"clones": len(dataset["clones"])})
+                # Update progress bar with clone count
+                if "clones" in dataset:
+                    pbar.set_postfix({"clones": len(dataset["clones"])})
 
             except Exception:
                 vprint.error(f"\nUnable to process AIRR file: {infile}")
@@ -694,8 +687,7 @@ def load_config(config_path):
         sys.exit(1)
 
     try:
-        with open(config_path) as f:
-            raw_config = yaml.safe_load(f)
+        raw_config = read_yaml_config(config_path)
     except yaml.YAMLError as e:
         vprint.error(f"Error: Invalid YAML in config file: {e}")
         sys.exit(1)
