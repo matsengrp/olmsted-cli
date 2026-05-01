@@ -23,7 +23,7 @@ from .constants import (
     KNOWN_PCP_COLUMNS,
     KNOWN_TREE_COLUMNS,
 )
-from .data_io import read_olmsted_json
+from .data_io import open_file, read_olmsted_json
 from .process_utils import (
     VerbosePrinter,
     add_verbosity_args,
@@ -33,7 +33,7 @@ from .process_utils import (
     validate_dataset,
     validate_tree,
 )
-from .utils import open_maybe_gzip, set_verbosity, vprint
+from .utils import set_verbosity, vprint
 
 PCP_REQUIRED_COLUMNS = {"sample_id", "parent_name", "child_name"}
 TREE_REQUIRED_COLUMNS_A = {"family_name", "newick_tree"}
@@ -47,7 +47,7 @@ TREE_REQUIRED_COLUMNS_B = {"family", "newick"}  # alternative names
 
 def _open_csv(filepath):
     """Open a CSV file (plain or gzipped) and return a DictReader + fieldnames."""
-    fh = open_maybe_gzip(filepath)
+    fh, _ = open_file(filepath, expected_formats=("pcp",))
     reader = csv.DictReader(fh)
     return fh, reader
 
@@ -489,11 +489,12 @@ def validate_file(filepath, file_type=None, verbose=1, strict=False,
     if is_csv or file_type == "pcp":
         return _validate_csv_file(filepath, file_type, tree_filepath)
 
-    # JSON validation. Uses open_maybe_gzip directly (not read_olmsted_json)
-    # because validators run on individual record types too (clone, dataset,
-    # tree) which won't have Olmsted top-level keys.
+    # JSON validation. Goes through open_file (any detected format) rather
+    # than read_olmsted_json because validators also accept individual record
+    # types (clone, dataset, tree) which don't carry Olmsted top-level keys.
     try:
-        with open_maybe_gzip(filepath) as f:
+        handle, _ = open_file(filepath)
+        with handle as f:
             data = json.load(f)
     except json.JSONDecodeError as e:
         return False, [f"Failed to parse JSON: {e}"]

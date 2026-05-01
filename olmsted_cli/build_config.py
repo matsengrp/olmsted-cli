@@ -49,8 +49,7 @@ from .field_metadata import (
     sample_values,
     sample_values_by_path,
 )
-from .data_io import read_airr_json, read_olmsted_json
-from .format_detection import detect_file_format
+from .data_io import detect_file_format, read_airr_json, read_olmsted_json
 from .utils import add_verbosity_args, resolve_verbosity, set_verbosity, vprint
 
 

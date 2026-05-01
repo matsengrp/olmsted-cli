@@ -13,49 +13,49 @@ from olmsted_cli.constants import (
     FORMAT_PCP,
 )
 from olmsted_cli.data_io import (
-    open_input,
+    open_file,
     read_airr_json,
     read_csv_rows,
     read_olmsted_json,
     read_pcp_csv_rows,
     read_yaml_config,
     write_olmsted_json,
-    write_output,
+    write_file,
 )
 
 REPO_ROOT = Path(__file__).parent.parent
 EXAMPLE = REPO_ROOT / "example-data"
 
 
-# --- open_input -------------------------------------------------------------
+# --- open_file -------------------------------------------------------------
 
 
-def test_open_input_detects_olmsted():
-    handle, fmt = open_input(EXAMPLE / "mutations" / "input-olmsted.json")
+def test_open_file_detects_olmsted():
+    handle, fmt = open_file(EXAMPLE / "mutations" / "input-olmsted.json")
     handle.close()
     assert fmt == FORMAT_OLMSTED
 
 
-def test_open_input_detects_airr():
-    handle, fmt = open_input(EXAMPLE / "airr" / "input-airr.json")
+def test_open_file_detects_airr():
+    handle, fmt = open_file(EXAMPLE / "airr" / "input-airr.json")
     handle.close()
     assert fmt == FORMAT_AIRR
 
 
-def test_open_input_detects_pcp():
-    handle, fmt = open_input(EXAMPLE / "pcp" / "input-pcp.csv")
+def test_open_file_detects_pcp():
+    handle, fmt = open_file(EXAMPLE / "pcp" / "input-pcp.csv")
     handle.close()
     assert fmt == FORMAT_PCP
 
 
-def test_open_input_handles_gz(tmp_path):
+def test_open_file_handles_gz(tmp_path):
     """A gzipped Olmsted file detects as olmsted and opens for reading."""
     src = EXAMPLE / "mutations" / "input-olmsted.json"
     gz_path = tmp_path / "input.json.gz"
     with open(src, "rb") as src_fh, gzip.open(gz_path, "wb") as gz_fh:
         gz_fh.write(src_fh.read())
 
-    handle, fmt = open_input(gz_path)
+    handle, fmt = open_file(gz_path)
     try:
         # Confirm we can actually read decompressed content
         data = json.load(handle)
@@ -65,22 +65,34 @@ def test_open_input_handles_gz(tmp_path):
     assert "datasets" in data
 
 
-def test_open_input_rejects_unknown_format(tmp_path):
+def test_open_file_returns_unknown_when_no_expected(tmp_path):
+    """Without expected_formats, an unrecognized file opens fine and returns
+    'unknown' as the detected format. Callers that don't care about format
+    (e.g., the validate command's per-record checks) rely on this."""
     bogus = tmp_path / "bogus.txt"
     bogus.write_text("not a recognized format")
-    with pytest.raises(ValueError, match="Could not infer format"):
-        open_input(bogus)
+    handle, fmt = open_file(bogus)
+    handle.close()
+    assert fmt == "unknown"
 
 
-def test_open_input_rejects_expected_mismatch():
+def test_open_file_rejects_unknown_when_expected_set(tmp_path):
+    """With expected_formats given, unknown is treated as a mismatch."""
+    bogus = tmp_path / "bogus.txt"
+    bogus.write_text("not a recognized format")
+    with pytest.raises(ValueError, match="detected 'unknown'"):
+        open_file(bogus, expected_formats=("airr",))
+
+
+def test_open_file_rejects_expected_mismatch():
     """Asking for olmsted on an airr file fails fast."""
     with pytest.raises(ValueError, match="Expected.*olmsted.*detected 'airr'"):
-        open_input(EXAMPLE / "airr" / "input-airr.json", expected_formats=(FORMAT_OLMSTED,))
+        open_file(EXAMPLE / "airr" / "input-airr.json", expected_formats=(FORMAT_OLMSTED,))
 
 
-def test_open_input_accepts_when_in_expected_set():
+def test_open_file_accepts_when_in_expected_set():
     """Multi-format expected_formats works."""
-    handle, fmt = open_input(
+    handle, fmt = open_file(
         EXAMPLE / "airr" / "input-airr.json",
         expected_formats=(FORMAT_AIRR, FORMAT_PCP),
     )
@@ -197,26 +209,26 @@ def test_read_yaml_config_handles_gz(tmp_path):
     assert cfg == {"foo": "bar"}
 
 
-# --- write_output dispatcher ------------------------------------------------
+# --- write_file dispatcher ------------------------------------------------
 
 
-def test_write_output_routes_olmsted_json(tmp_path):
+def test_write_file_routes_olmsted_json(tmp_path):
     out = tmp_path / "out.json"
-    written = write_output({"datasets": [], "clones": {}, "trees": []}, out)
+    written = write_file({"datasets": [], "clones": {}, "trees": []}, out)
     assert written == str(out)
     assert json.loads(out.read_text()) == {"datasets": [], "clones": {}, "trees": []}
 
 
-def test_write_output_passes_through_opts_to_write_olmsted_json(tmp_path):
+def test_write_file_passes_through_opts_to_write_olmsted_json(tmp_path):
     out = tmp_path / "out.json"
-    written = write_output({"x": 1}, out, json_format="gzip")
+    written = write_file({"x": 1}, out, json_format="gzip")
     assert written.endswith(".gz")
     assert Path(written).exists()
 
 
-def test_write_output_rejects_unknown_kind(tmp_path):
+def test_write_file_rejects_unknown_kind(tmp_path):
     with pytest.raises(ValueError, match="Unknown output_kind"):
-        write_output({}, tmp_path / "x.json", output_kind="not_a_real_kind")
+        write_file({}, tmp_path / "x.json", output_kind="not_a_real_kind")
 
 
 # --- write_olmsted_json (smoke; details covered by test_gzip_io) -----------

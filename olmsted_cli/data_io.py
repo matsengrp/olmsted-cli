@@ -1,52 +1,50 @@
 """Centralized I/O for Olmsted data files.
 
-Single home for opening, reading, and writing the file formats this CLI
-consumes (Olmsted JSON, AIRR JSON, PCP CSV, mutations CSV, YAML config)
-and produces (Olmsted JSON in pretty / compact / gzip variants).
-Everywhere else in the codebase reads or writes through this module —
-adding a new format or changing how an existing one is handled means
-editing one place.
+Single home for everything that reads, writes, decompresses, or
+detects-format-of a data file. The rest of the codebase only reaches
+in here — adding a new format or changing how an existing one is
+handled means editing one place.
 
-Read API
---------
+Layering inside the module
+--------------------------
 
-Two layers, mirroring the write side:
+- ``_maybe_unzip(path, mode)`` — internal. Pure compression handling:
+  if the path ends in ``.gz``, open via ``gzip.open``; otherwise plain
+  ``open``. Returns a context-managerable text-mode handle.
 
-- ``open_input(path, expected_formats=None)`` — low-level. Open the file
-  (transparent ``.gz``), detect its format, optionally validate against
-  an expected set, return ``(handle, detected_format)``. Caller parses.
+- ``detect_file_format(path)`` — public. Identify whether a path is
+  Olmsted JSON, AIRR JSON, PCP CSV, or unknown, by extension + content
+  peek. Operates on (logically) plain content; uses ``_maybe_unzip``
+  internally to peek inside ``.gz`` wrappers transparently.
 
-- High-level helpers, one per data format. Thin wrappers today; the
-  value is centralization for future schema-validation, format-version
-  handling, or alternative readers:
+- ``open_file(path, expected_formats=None)`` — public. Orchestrates:
+  detect format → validate against ``expected_formats`` if given →
+  open with ``.gz`` transparency → return ``(handle, detected_format)``.
+  This is the primary read entry point for callers outside data_io.
 
-  - ``read_olmsted_json(path)``        — parsed dict, top-level keys checked
-  - ``read_airr_json(path)``           — parsed dict (caller owns AIRR-shape validation)
-  - ``read_pcp_csv_rows(path)``        — iterates ``DictReader`` rows from a PCP CSV
-  - ``read_csv_rows(path)``            — generic CSV iteration (no format detection)
-  - ``read_yaml_config(path)``         — parsed dict from a YAML config file
+Higher-level read wrappers (also public)
+----------------------------------------
 
-Format detection runs at the boundary; nothing past ``open_input`` needs
-to inspect file extensions or magic bytes.
+Format-specific recipes layered on ``open_file`` — they encapsulate the
+"open + parse + structural-validate" pattern:
+
+- ``read_olmsted_json(path)``     — parsed dict; checks required top-level keys
+- ``read_airr_json(path)``        — parsed dict (caller validates AIRR-shape)
+- ``read_pcp_csv_rows(path)``     — iterates ``DictReader`` rows from PCP CSV
+- ``read_csv_rows(path)``         — generic CSV iteration (no format detection)
+- ``read_yaml_config(path)``      — parsed dict from a YAML config file
 
 Write API
 ---------
 
-- ``write_output(data, path, output_kind="olmsted_json", **opts)`` —
-  dispatcher. Today routes to ``write_olmsted_json``; the extension
-  point for future output kinds (CSV bundles, AIRR-flavored JSON, ...).
+- ``write_file(data, path, output_kind="olmsted_json", **opts)`` —
+  dispatcher. Today routes to ``write_olmsted_json``; extension point
+  for future output kinds.
 
 - ``write_olmsted_json(data, output_path, json_format)`` — direct entry
-  for the only currently-supported output kind. Produces ``pretty`` /
-  ``compact`` / ``gzip`` variants. Gzip writes pin ``mtime=0`` and the
-  embedded filename so the compression layer is byte-deterministic.
-
-Lower-level pieces
-------------------
-
-- ``open_maybe_gzip(path, mode)`` lives in ``utils.py`` (zero project
-  deps). Used here and in format-detection-time validators that can't
-  bootstrap through ``open_input`` because they run *during* detection.
+  for the only currently-supported output kind. Pretty / compact / gzip
+  variants. Gzip writes pin ``mtime=0`` and the embedded filename so
+  the compression layer is byte-deterministic.
 """
 
 from __future__ import annotations
@@ -55,6 +53,7 @@ import csv
 import gzip
 import io
 import json
+from pathlib import Path
 from typing import Iterator
 
 import yaml
@@ -66,21 +65,109 @@ from .constants import (
     FORMAT_UNKNOWN,
     OLMSTED_REQUIRED_TOP_LEVEL_KEYS,
 )
-from .format_detection import detect_file_format
-from .utils import open_maybe_gzip
+from .utils import vprint
 
 
-# --- low-level open ---------------------------------------------------------
+# --- compression handling (internal) ---------------------------------------
 
 
-def open_input(path, expected_formats=None):
+def _maybe_unzip(path, mode: str = "rt"):
+    """Open ``path`` with transparent ``.gz`` decompression.
+
+    Pure file open — no format detection, no parsing. Internal to
+    ``data_io``; callers outside this module use ``open_file`` (or a
+    higher-level read wrapper) instead.
+    """
+    if str(path).endswith(".gz"):
+        return gzip.open(path, mode)
+    return open(path, mode)
+
+
+# --- format detection -------------------------------------------------------
+
+
+def detect_file_format(file_path) -> str:
+    """Identify a file's data format by extension + content peek.
+
+    Returns one of ``FORMAT_AIRR``, ``FORMAT_PCP``, ``FORMAT_OLMSTED``,
+    or ``FORMAT_UNKNOWN``. ``.gz``-wrapped files are inspected
+    transparently via ``_maybe_unzip``; format detection always operates
+    on the (logically) plain content underneath.
+    """
+    file_path = Path(file_path)
+
+    # CSV files are always PCP (by extension)
+    if file_path.suffix.lower() == ".csv":
+        return FORMAT_PCP
+    if file_path.suffix.lower() == ".gz" and file_path.stem.endswith(".csv"):
+        return FORMAT_PCP
+
+    # JSON files need content inspection to distinguish AIRR from Olmsted
+    if file_path.suffix.lower() == ".json" or (
+        file_path.suffix.lower() == ".gz" and file_path.stem.endswith(".json")
+    ):
+        try:
+            with _maybe_unzip(file_path) as fh:
+                data = json.load(fh)
+
+            if isinstance(data, dict):
+                # Explicit format tag in metadata
+                metadata = data.get("metadata", {})
+                if isinstance(metadata, dict) and metadata.get("format") == FORMAT_OLMSTED:
+                    return FORMAT_OLMSTED
+                # Heuristic fallback: Olmsted JSON has "datasets" and "metadata"
+                if "datasets" in data and "metadata" in data:
+                    return FORMAT_OLMSTED
+                # AIRR JSON has "clones" or other standard AIRR keys
+                if "dataset_id" in data or "clones" in data or "ident" in data:
+                    return FORMAT_AIRR
+            elif isinstance(data, list):
+                # Multi-dataset AIRR
+                return FORMAT_AIRR
+        except (json.JSONDecodeError, OSError, ValueError):
+            pass
+
+    # If extension didn't help, peek at content for CSV indicators
+    try:
+        with _maybe_unzip(file_path) as fh:
+            first_lines = []
+            for i, line in enumerate(fh):
+                first_lines.append(line.strip())
+                if i >= 2:
+                    break
+
+            if first_lines:
+                first_line = first_lines[0].lower()
+                pcp_indicators = [
+                    "sample_id",
+                    "parent_name",
+                    "child_name",
+                    "family_name",
+                    "newick",
+                ]
+                if any(indicator in first_line for indicator in pcp_indicators):
+                    return FORMAT_PCP
+
+    except Exception as e:
+        vprint.error(f"Warning: Could not detect format for {file_path}: {e}")
+
+    return FORMAT_UNKNOWN
+
+
+# --- public open ------------------------------------------------------------
+
+
+def open_file(path, expected_formats=None):
     """Open ``path`` (transparent ``.gz``), detect format, validate, return a handle.
 
     Args:
         path: input file path (string or path-like).
         expected_formats: tuple/list of accepted formats (e.g.
             ``(FORMAT_OLMSTED,)`` or ``(FORMAT_AIRR, FORMAT_PCP)``). If
-            ``None``, returns whatever format is detected.
+            ``None``, the caller is signalling "I don't care about the
+            detected format" — the file is opened transparently and any
+            detected format (including ``unknown``) is returned alongside
+            the handle.
 
     Returns:
         Tuple of ``(file_handle, detected_format)``. The caller is
@@ -89,18 +176,17 @@ def open_input(path, expected_formats=None):
         different parsers.
 
     Raises:
-        ValueError: if format is ``unknown``, or if ``expected_formats``
-            is set and the detected format isn't in the list.
+        ValueError: if ``expected_formats`` is set and the detected
+            format isn't in the list (including the case where the
+            format couldn't be inferred).
     """
     detected = detect_file_format(path)
-    if detected == FORMAT_UNKNOWN:
-        raise ValueError(f"Could not infer format of {path}")
     if expected_formats is not None and detected not in expected_formats:
         raise ValueError(
             f"Expected one of {tuple(expected_formats)} but detected "
             f"{detected!r} for {path}"
         )
-    return open_maybe_gzip(path), detected
+    return _maybe_unzip(path), detected
 
 
 # --- high-level reads -------------------------------------------------------
@@ -113,7 +199,7 @@ def read_olmsted_json(path) -> dict:
     required top-level keys (``datasets``, ``clones``, ``trees``).
     Raises ``ValueError`` on any failure.
     """
-    handle, _ = open_input(path, expected_formats=(FORMAT_OLMSTED,))
+    handle, _ = open_file(path, expected_formats=(FORMAT_OLMSTED,))
     try:
         data = json.load(handle)
     except json.JSONDecodeError as e:
@@ -131,7 +217,7 @@ def read_olmsted_json(path) -> dict:
 
 def read_airr_json(path) -> dict:
     """Open + parse an AIRR JSON file. Caller validates AIRR-specific shape."""
-    handle, _ = open_input(path, expected_formats=(FORMAT_AIRR,))
+    handle, _ = open_file(path, expected_formats=(FORMAT_AIRR,))
     try:
         return json.load(handle)
     except json.JSONDecodeError as e:
@@ -147,7 +233,7 @@ def read_pcp_csv_rows(path) -> Iterator[dict]:
     caller distinguishes by columns. Generator — file closes when the
     generator is exhausted or garbage-collected.
     """
-    handle, _ = open_input(path, expected_formats=(FORMAT_PCP,))
+    handle, _ = open_file(path, expected_formats=(FORMAT_PCP,))
     with handle:
         yield from csv.DictReader(handle)
 
@@ -158,20 +244,20 @@ def read_csv_rows(path) -> Iterator[dict]:
     Use for CSVs that aren't auto-detectable as a known Olmsted format —
     currently the mutations CSV consumed by ``merge``.
     """
-    with open_maybe_gzip(path) as handle:
+    with _maybe_unzip(path) as handle:
         yield from csv.DictReader(handle)
 
 
 def read_yaml_config(path) -> dict:
     """Open + parse a YAML config file (transparent ``.gz``)."""
-    with open_maybe_gzip(path) as handle:
+    with _maybe_unzip(path) as handle:
         return yaml.safe_load(handle)
 
 
 # --- high-level writes ------------------------------------------------------
 
 
-def write_output(data, path, output_kind: str = "olmsted_json", **opts) -> str:
+def write_file(data, path, output_kind: str = "olmsted_json", **opts) -> str:
     """Dispatch to the writer for ``output_kind``. Returns the path written.
 
     Today the only supported kind is ``olmsted_json``. Adding a new

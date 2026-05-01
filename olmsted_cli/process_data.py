@@ -48,7 +48,7 @@ from .process_pcp_data import (
     parse_pcp_csv,
     process_pcp_to_olmsted,
 )
-from .format_detection import detect_file_format
+from .data_io import detect_file_format
 from .merge_mutations import apply_mutations_csv
 from .process_utils import (
     VerbosePrinter,
@@ -61,8 +61,8 @@ from .process_utils import (
     validate_output_data,
     write_out,
 )
-from .data_io import read_airr_json, read_yaml_config
-from .utils import open_maybe_gzip, set_verbosity, vprint
+from .data_io import open_file, read_airr_json, read_yaml_config
+from .utils import set_verbosity, vprint
 
 
 def validate_airr_file(file_path):
@@ -76,7 +76,8 @@ def validate_airr_file(file_path):
         bool: True if valid AIRR format, False otherwise
     """
     try:
-        with open_maybe_gzip(file_path) as f:
+        handle, _ = open_file(file_path, expected_formats=(FORMAT_AIRR,))
+        with handle as f:
             data = json.load(f)
 
         # Check for required AIRR fields
@@ -108,7 +109,8 @@ def validate_pcp_file(file_path):
         bool: True if valid PCP format, False otherwise
     """
     try:
-        with open_maybe_gzip(file_path) as file_handle:
+        handle, _ = open_file(file_path, expected_formats=(FORMAT_PCP,))
+        with handle as file_handle:
             reader = csv.DictReader(file_handle)
 
             # Check for required PCP columns
