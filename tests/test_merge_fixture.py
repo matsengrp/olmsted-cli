@@ -40,6 +40,8 @@ def test_merge_fixture_end_to_end(fixture_files_exist, tmp_path):
             "--mutations",
             str(FIXTURE_CSV),
             "--mutations-use-depth",
+
+            "--json-format", "pretty",
             "-o",
             str(out_path),
         ],
@@ -79,6 +81,8 @@ def test_merge_fixture_output_structure(fixture_files_exist, tmp_path):
             "--mutations",
             str(FIXTURE_CSV),
             "--mutations-use-depth",
+
+            "--json-format", "pretty",
             "-o",
             str(out_path),
             "-q",
@@ -142,6 +146,8 @@ def test_merge_fixture_matches_golden(fixture_files_exist, tmp_path):
             "-i", str(FIXTURE_JSON),
             "--mutations", str(FIXTURE_CSV),
             "--mutations-use-depth",
+
+            "--json-format", "pretty",
             "-o", str(out_path),
             "-q",
         ],
@@ -165,6 +171,8 @@ def test_merge_fixture_key_columns_excluded(fixture_files_exist, tmp_path):
             "--mutations",
             str(FIXTURE_CSV),
             "--mutations-use-depth",
+
+            "--json-format", "pretty",
             "-o",
             str(out_path),
             "-q",

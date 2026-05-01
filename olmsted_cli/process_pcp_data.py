@@ -20,7 +20,6 @@ from __future__ import annotations
 import argparse
 import copy
 import csv
-import gzip
 import json
 import html
 import os
@@ -72,10 +71,11 @@ from .process_utils import (
     validate_output_data,
     write_out,
 )
+from .data_io import open_file
 from .utils import set_verbosity, vprint
 
 
-from .constants import CHAIN_COLUMN_ALIASES, KNOWN_PCP_COLUMNS, KNOWN_TREE_COLUMNS
+from .constants import CHAIN_COLUMN_ALIASES, FORMAT_PCP, KNOWN_PCP_COLUMNS, KNOWN_TREE_COLUMNS
 from .metrics import compute_tree_metrics
 
 
@@ -206,13 +206,8 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
     """
     families = defaultdict(lambda: {"nodes": {}, "edges": [], "family_data": {}})
 
-    # Determine if file is gzipped
-    if csv_path.endswith(".gz"):
-        file_handle = gzip.open(csv_path, "rt")
-    else:
-        file_handle = open(csv_path, "r")
-
-    with file_handle:
+    handle, _ = open_file(csv_path, expected_formats=(FORMAT_PCP,))
+    with handle as file_handle:
         reader = csv.DictReader(file_handle)
 
         # Normalize column names (map aliases like v_gene -> v_gene_heavy)
@@ -896,13 +891,8 @@ def parse_newick_csv(csv_path: str) -> Dict[Any, List[Dict[str, Any]]]:
     """
     newick_trees: Dict[Any, List[Dict[str, Any]]] = {}
 
-    # Determine if file is gzipped
-    if csv_path.endswith(".gz"):
-        file_handle = gzip.open(csv_path, "rt")
-    else:
-        file_handle = open(csv_path, "r")
-
-    with file_handle:
+    handle, _ = open_file(csv_path, expected_formats=(FORMAT_PCP,))
+    with handle as file_handle:
         reader = csv.DictReader(file_handle)
 
         # Support alternative column names for backwards compatibility

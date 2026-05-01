@@ -12,13 +12,13 @@ Usage:
 """
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
 # Config keys that tag reads from YAML (beyond custom_fields)
 _TAG_CONFIG_KEYS = {"input", "output", "mode"}
 
+from .data_io import read_olmsted_json, write_olmsted_json
 from .process_data import load_config
 from .process_utils import (
     VerbosePrinter,
@@ -79,9 +79,9 @@ Examples:
     )
     parser.add_argument(
         "--json-format",
-        choices=["pretty", "compact"],
+        choices=["pretty", "compact", "gzip"],
         default="pretty",
-        help="JSON output format (default: pretty)",
+        help="JSON output format (default: pretty). gzip auto-appends .gz to the output path.",
     )
     parser.add_argument(
         "--allow-duplicate-ids",
@@ -131,18 +131,9 @@ def main():
         sys.exit(1)
 
     try:
-        with open(input_path) as f:
-            data = json.load(f)
-    except json.JSONDecodeError as e:
-        vprint.error(f"Error: Invalid JSON in input file: {e}")
-        sys.exit(1)
-
-    # Validate it looks like Olmsted JSON
-    if "datasets" not in data or "clones" not in data:
-        vprint.error(
-            "Error: Input does not appear to be Olmsted JSON "
-            "(missing 'datasets' or 'clones' key)"
-        )
+        data = read_olmsted_json(input_path)
+    except ValueError as e:
+        vprint.error(f"Error: {e}")
         sys.exit(1)
 
     # Custom fields already loaded during arg parsing
@@ -187,11 +178,7 @@ def main():
     # Write output
     output_path = input_path if args.in_place else Path(args.output)
 
-    indent = 2 if args.json_format == "pretty" else None
-    separators = None if args.json_format == "pretty" else (",", ":")
-
-    with open(output_path, "w") as f:
-        json.dump(data, f, indent=indent, separators=separators)
+    output_path = write_olmsted_json(data, output_path, json_format=args.json_format)
 
     vprint.status(f"Tagged data written to: {output_path}")
 

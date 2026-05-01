@@ -8,6 +8,7 @@ from pathlib import Path
 import copy
 from datetime import datetime
 
+from .data_io import read_olmsted_json
 from .identifier import IdentMinter
 from .utils import set_verbosity, vprint
 
@@ -224,13 +225,9 @@ def main():
     
     # Load and parse input data
     try:
-        with open(input_path, 'r') as f:
-            data = json.load(f)
-    except json.JSONDecodeError as e:
-        vprint.error(f"Error: Failed to parse JSON: {e}")
-        sys.exit(1)
-    except Exception as e:
-        vprint.error(f"Error: Failed to read file: {e}")
+        data = read_olmsted_json(input_path)
+    except (ValueError, OSError) as e:
+        vprint.error(f"Error: {e}")
         sys.exit(1)
 
     # Split the data

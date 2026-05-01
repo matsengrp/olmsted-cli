@@ -31,6 +31,7 @@ from argparse import Namespace
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
+from .data_io import read_airr_json, read_olmsted_json
 from .identifier import IdentMinter
 from .types import (
     OlmstedClone,
@@ -102,14 +103,7 @@ class OlmstedData:
         Example:
             data = OlmstedData.from_olmsted_json("output.json")
         """
-        filepath = Path(filepath)
-
-        if filepath.suffix == ".gz":
-            with gzip.open(filepath, "rt") as f:
-                raw_data = json.load(f)
-        else:
-            with open(filepath) as f:
-                raw_data = json.load(f)
+        raw_data = read_olmsted_json(filepath)
 
         return cls(
             datasets=raw_data.get("datasets", []),
@@ -199,15 +193,8 @@ class OlmstedData:
         """
         from .process_airr_data import process_dataset
 
-        filepath = Path(filepath)
-
         # Load AIRR JSON
-        if filepath.suffix == ".gz":
-            with gzip.open(filepath, "rt") as f:
-                airr_data = json.load(f)
-        else:
-            with open(filepath) as f:
-                airr_data = json.load(f)
+        airr_data = read_airr_json(filepath)
 
         args = Namespace(
             minter=IdentMinter(seed=seed),

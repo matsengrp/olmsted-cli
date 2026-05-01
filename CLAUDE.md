@@ -96,27 +96,43 @@ SUGGESTED_FIELD_TYPES["my_field"] = "tooltip"
 
 ### Regenerating Golden Data
 
+All regen commands pass `--json-format pretty` explicitly. Pretty is the
+current default, but pinning it locks in test-friendly formatting if the
+default ever changes. The `gzip` variants below pin the gzip header
+(`mtime=0`, empty filename) so the *compression layer* is deterministic;
+note that the JSON content itself still varies slightly between runs
+(`metadata.created_at`, some field-iteration ordering), so a tracked
+`.json.gz` will show a small diff on every regeneration. Tests compare
+decompressed content, not gzipped bytes.
+
 Consolidated goldens (the canonical single-file output for each dataset):
 
 ```bash
-olmsted process -f airr -i example-data/airr/input-airr.json -o example-data/airr/airr-olmsted-golden.json --seed 42 --name airr-example -q
-olmsted process -f pcp -i example-data/pcp/input-pcp.csv -t example-data/pcp/input-trees.csv -o example-data/pcp/pcp-olmsted-golden.json --seed 42 --name pcp-example -q
-olmsted process -f pcp -i example-data/pcp-byhand/input-pcp.csv -t example-data/pcp-byhand/input-trees.csv -o example-data/pcp-byhand/pcp-byhand-olmsted-golden.json --seed 42 --name pcp-byhand-example -q
-olmsted process -f pcp -i example-data/pcp-light/input-pcp.csv -t example-data/pcp-light/input-trees.csv -o example-data/pcp-light/pcp-light-olmsted-golden.json --seed 42 --name pcp-light-example -q
-olmsted process -f pcp -i example-data/pcp-paired/input-pcp.csv -t example-data/pcp-paired/input-trees.csv -o example-data/pcp-paired/pcp-paired-olmsted-golden.json --seed 42 --name pcp-paired-example -q
+olmsted process -f airr -i example-data/airr/input-airr.json -o example-data/airr/airr-olmsted-golden.json --seed 42 --name airr-example --json-format pretty -q
+olmsted process -f pcp -i example-data/pcp/input-pcp.csv -t example-data/pcp/input-trees.csv -o example-data/pcp/pcp-olmsted-golden.json --seed 42 --name pcp-example --json-format pretty -q
+olmsted process -f pcp -i example-data/pcp-byhand/input-pcp.csv -t example-data/pcp-byhand/input-trees.csv -o example-data/pcp-byhand/pcp-byhand-olmsted-golden.json --seed 42 --name pcp-byhand-example --json-format pretty -q
+olmsted process -f pcp -i example-data/pcp-light/input-pcp.csv -t example-data/pcp-light/input-trees.csv -o example-data/pcp-light/pcp-light-olmsted-golden.json --seed 42 --name pcp-light-example --json-format pretty -q
+olmsted process -f pcp -i example-data/pcp-paired/input-pcp.csv -t example-data/pcp-paired/input-trees.csv -o example-data/pcp-paired/pcp-paired-olmsted-golden.json --seed 42 --name pcp-paired-example --json-format pretty -q
+```
+
+Gzipped consolidated goldens (tracked alongside the plain JSON for `.json.gz` upload coverage):
+
+```bash
+olmsted process -f airr -i example-data/airr/input-airr.json -o example-data/airr/airr-olmsted-golden.json --seed 42 --name airr-example --json-format gzip -q
+olmsted process -f pcp -i example-data/pcp/input-pcp.csv -t example-data/pcp/input-trees.csv -o example-data/pcp/pcp-olmsted-golden.json --seed 42 --name pcp-example --json-format gzip -q
 ```
 
 Split-format goldens (legacy, pinned for integrity testing as long as `--split-files` is supported):
 
 ```bash
-olmsted process -f airr -i example-data/airr/input-airr.json --split-files example-data/airr/split-golden-data --seed 42 --name airr-example -q
-olmsted process -f pcp -i example-data/pcp/input-pcp.csv -t example-data/pcp/input-trees.csv --split-files example-data/pcp/split-golden-data --seed 42 --name pcp-example -q
+olmsted process -f airr -i example-data/airr/input-airr.json --split-files example-data/airr/split-golden-data --seed 42 --name airr-example --json-format pretty -q
+olmsted process -f pcp -i example-data/pcp/input-pcp.csv -t example-data/pcp/input-trees.csv --split-files example-data/pcp/split-golden-data --seed 42 --name pcp-example --json-format pretty -q
 ```
 
 Merge golden (post-merge source-of-truth):
 
 ```bash
-olmsted merge -i example-data/merge/input-olmsted.json --mutations example-data/merge/input-mutations.csv --mutations-use-depth -o example-data/merge/merge-olmsted-golden.json -q
+olmsted merge -i example-data/merge/input-olmsted.json --mutations example-data/merge/input-mutations.csv --mutations-use-depth -o example-data/merge/merge-olmsted-golden.json --json-format pretty -q
 ```
 
 ---

@@ -13,11 +13,10 @@ Usage:
 """
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
-from .constants import OLMSTED_REQUIRED_TOP_LEVEL_KEYS
+from .data_io import read_olmsted_json, write_olmsted_json
 from .merge_mutations import apply_mutations_csv
 from .process_utils import (
     add_verbosity_args,
@@ -102,9 +101,9 @@ Examples:
     )
     parser.add_argument(
         "--json-format",
-        choices=["pretty", "compact"],
+        choices=["pretty", "compact", "gzip"],
         default="pretty",
-        help="JSON output format (default: pretty)",
+        help="JSON output format (default: pretty). gzip auto-appends .gz to the output path.",
     )
     parser.add_argument(
         "--allow-duplicate-ids",
@@ -158,18 +157,9 @@ def main():
         sys.exit(1)
 
     try:
-        with open(input_path) as f:
-            data = json.load(f)
-    except json.JSONDecodeError as e:
-        vprint.error(f"Error: Invalid JSON in input file: {e}")
-        sys.exit(1)
-
-    missing = [k for k in OLMSTED_REQUIRED_TOP_LEVEL_KEYS if k not in data]
-    if missing:
-        vprint.error(
-            f"Error: Input does not appear to be Olmsted JSON "
-            f"(missing top-level keys: {missing})"
-        )
+        data = read_olmsted_json(input_path)
+    except ValueError as e:
+        vprint.error(f"Error: {e}")
         sys.exit(1)
 
     try:
@@ -211,10 +201,7 @@ def main():
         sys.exit(1)
 
     output_path = input_path if args.in_place else Path(args.output)
-    indent = 2 if args.json_format == "pretty" else None
-    separators = None if args.json_format == "pretty" else (",", ":")
-    with open(output_path, "w") as f:
-        json.dump(data, f, indent=indent, separators=separators)
+    output_path = write_olmsted_json(data, output_path, json_format=args.json_format)
 
     vprint.status(f"Merged data written to: {output_path}")
 
