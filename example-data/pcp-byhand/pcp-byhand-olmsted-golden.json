@@ -3,7 +3,7 @@
         "format": "olmsted",
         "format_version": "1.0",
         "schema_version": "2.0.0",
-        "created_at": "2026-04-30T01:25:05.125140+00:00",
+        "created_at": "2026-05-09T01:05:48.881449+00:00",
         "source_format": "pcp",
         "source_files": [
             "input-pcp.csv"
@@ -17,7 +17,7 @@
         "generated_by": {
             "tool": "olmsted-cli",
             "version": "0.2.0",
-            "git_hash": "419c7af"
+            "git_hash": "7a43654"
         },
         "name": "pcp-byhand-example",
         "processing_options": {
@@ -163,7 +163,7 @@
     "clones": {
         "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af": [
             {
-                "clone_id": "family-heavy",
+                "clone_id": "sample-A_family-heavy",
                 "ident": "clone-6a5eb4e0-90d9-e591-ee20-6debc0f4b040",
                 "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "sample-A",
@@ -190,8 +190,9 @@
                 "trees": [
                     {
                         "ident": "tree-4c247208-9d1c-b8f1-5aa4-5bf50526b6fe",
-                        "clone_id": "family-heavy",
-                        "tree_id": "tree-family-heavy",
+                        "clone_id": "sample-A_family-heavy",
+                        "tree_id": "tree-sample-A_family-heavy",
+                        "tree_name": "tree-sample-A_family-heavy",
                         "newick": "(((T1:0.2,T2:0.2)N2:0.1,(T3:0.2,T4:0.2)N3:0.1)N1:0.1,T5:0.2)naive;"
                     }
                 ],
@@ -202,7 +203,7 @@
                 }
             },
             {
-                "clone_id": "family-light-balanced",
+                "clone_id": "sample-B_family-light-balanced",
                 "ident": "clone-6fad0c6f-ef46-f158-7391-728cb379fcec",
                 "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "sample-B",
@@ -229,8 +230,9 @@
                 "trees": [
                     {
                         "ident": "tree-522fac7a-4689-e49a-05d1-9353af02f885",
-                        "clone_id": "family-light-balanced",
-                        "tree_id": "tree-family-light-balanced",
+                        "clone_id": "sample-B_family-light-balanced",
+                        "tree_id": "tree-sample-B_family-light-balanced",
+                        "tree_name": "tree-sample-B_family-light-balanced",
                         "newick": "(((T1:0.2,T2:0.2)N1:0.1,(T3:0.2,T4:0.2)N2:0.1)N3:0.1,((T5:0.2,T6:0.2)N4:0.1,T7:0.2)N5:0.1)naive;"
                     }
                 ],
@@ -241,7 +243,7 @@
                 }
             },
             {
-                "clone_id": "family-paired-imbalanced-heavy",
+                "clone_id": "sample-C_family-paired-imbalanced-heavy",
                 "ident": "clone-bfdd83da-8e95-1048-1ec0-fc750e65bc19-heavy",
                 "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "sample-C",
@@ -268,8 +270,9 @@
                 "trees": [
                     {
                         "ident": "tree-4b9ac338-8bbc-6669-41e6-face81dae39b-heavy",
-                        "clone_id": "family-paired-imbalanced-heavy",
-                        "tree_id": "tree-family-paired-imbalanced-heavy",
+                        "clone_id": "sample-C_family-paired-imbalanced-heavy",
+                        "tree_id": "tree-sample-C_family-paired-imbalanced-heavy",
+                        "tree_name": "tree-sample-C_family-paired-imbalanced-heavy",
                         "newick": "(T1:0.3,(T2:0.3,(T3:0.3,(T4:0.3,(T5:0.3,T6:0.3)N4:0.1)N3:0.1)N2:0.1)N1:0.1)naive;"
                     }
                 ],
@@ -279,10 +282,10 @@
                     "sample_id": "sample-C"
                 },
                 "is_paired": true,
-                "pair_id": "pair-family-paired-imbalanced"
+                "pair_id": "pair-sample-C_family-paired-imbalanced"
             },
             {
-                "clone_id": "family-paired-imbalanced-light",
+                "clone_id": "sample-C_family-paired-imbalanced-light",
                 "ident": "clone-bfdd83da-8e95-1048-1ec0-fc750e65bc19-light",
                 "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "sample-C",
@@ -309,8 +312,9 @@
                 "trees": [
                     {
                         "ident": "tree-4b9ac338-8bbc-6669-41e6-face81dae39b-light",
-                        "clone_id": "family-paired-imbalanced-light",
-                        "tree_id": "tree-family-paired-imbalanced-light",
+                        "clone_id": "sample-C_family-paired-imbalanced-light",
+                        "tree_id": "tree-sample-C_family-paired-imbalanced-light",
+                        "tree_name": "tree-sample-C_family-paired-imbalanced-light",
                         "newick": "(T1:0.3,(T2:0.3,(T3:0.3,(T4:0.3,(T5:0.3,T6:0.3)N4:0.1)N3:0.1)N2:0.1)N1:0.1)naive;"
                     }
                 ],
@@ -320,15 +324,16 @@
                     "sample_id": "sample-C"
                 },
                 "is_paired": true,
-                "pair_id": "pair-family-paired-imbalanced"
+                "pair_id": "pair-sample-C_family-paired-imbalanced"
             }
         ]
     },
     "trees": [
         {
             "ident": "tree-4c247208-9d1c-b8f1-5aa4-5bf50526b6fe",
-            "clone_id": "family-heavy",
-            "tree_id": "tree-family-heavy",
+            "clone_id": "sample-A_family-heavy",
+            "tree_id": "tree-sample-A_family-heavy",
+            "tree_name": "tree-sample-A_family-heavy",
             "newick": "(((T1:0.2,T2:0.2)N2:0.1,(T3:0.2,T4:0.2)N3:0.1)N1:0.1,T5:0.2)naive;",
             "nodes": [
                 {
@@ -487,8 +492,9 @@
         },
         {
             "ident": "tree-522fac7a-4689-e49a-05d1-9353af02f885",
-            "clone_id": "family-light-balanced",
-            "tree_id": "tree-family-light-balanced",
+            "clone_id": "sample-B_family-light-balanced",
+            "tree_id": "tree-sample-B_family-light-balanced",
+            "tree_name": "tree-sample-B_family-light-balanced",
             "newick": "(((T1:0.2,T2:0.2)N1:0.1,(T3:0.2,T4:0.2)N2:0.1)N3:0.1,((T5:0.2,T6:0.2)N4:0.1,T7:0.2)N5:0.1)naive;",
             "nodes": [
                 {
@@ -715,8 +721,9 @@
         },
         {
             "ident": "tree-4b9ac338-8bbc-6669-41e6-face81dae39b-heavy",
-            "clone_id": "family-paired-imbalanced-heavy",
-            "tree_id": "tree-family-paired-imbalanced-heavy",
+            "clone_id": "sample-C_family-paired-imbalanced-heavy",
+            "tree_id": "tree-sample-C_family-paired-imbalanced-heavy",
+            "tree_name": "tree-sample-C_family-paired-imbalanced-heavy",
             "newick": "(T1:0.3,(T2:0.3,(T3:0.3,(T4:0.3,(T5:0.3,T6:0.3)N4:0.1)N3:0.1)N2:0.1)N1:0.1)naive;",
             "nodes": [
                 {
@@ -909,8 +916,9 @@
         },
         {
             "ident": "tree-4b9ac338-8bbc-6669-41e6-face81dae39b-light",
-            "clone_id": "family-paired-imbalanced-light",
-            "tree_id": "tree-family-paired-imbalanced-light",
+            "clone_id": "sample-C_family-paired-imbalanced-light",
+            "tree_id": "tree-sample-C_family-paired-imbalanced-light",
+            "tree_name": "tree-sample-C_family-paired-imbalanced-light",
             "newick": "(T1:0.3,(T2:0.3,(T3:0.3,(T4:0.3,(T5:0.3,T6:0.3)N4:0.1)N3:0.1)N2:0.1)N1:0.1)naive;",
             "nodes": [
                 {

@@ -58,18 +58,8 @@ class TestValidation:
             + "\n".join(validation_errors_time_tree)
         )
 
-    @pytest.mark.xfail(
-        reason="time-tree precision drift on golden PCP, see issue #20",
-        strict=True,
-    )
     def test_validate_pcp_golden_outputs(self):
-        """Validate every split-format PCP golden file individually.
-
-        Currently xfailed for the same reason as
-        ``test_validate_pcp_consolidated_golden_output``: floating-point
-        drift in tree distances trips the time-tree invariant. Tracked
-        in issue #20.
-        """
+        """Validate every split-format PCP golden file individually."""
         golden_dir = (
             Path(__file__).parent.parent / "example-data" / "pcp" / "split-golden-data"
         )
@@ -146,19 +136,8 @@ class TestValidation:
         assert "clones" in data, "Consolidated data should have clones"
         assert "trees" in data, "Consolidated data should have trees"
 
-    @pytest.mark.xfail(
-        reason="time-tree precision drift on golden PCP, see issue #20",
-        strict=True,
-    )
     def test_validate_pcp_consolidated_golden_output(self):
-        """Test that PCP consolidated golden output is valid.
-
-        Currently xfailed: the PCP example tree has a Node5 distance that
-        is floating-point-less-than its parent's, tripping the time-tree
-        invariant check. Tracked in issue #20; this xfail flips to pass
-        automatically once the drift is resolved (alerting us to drop the
-        marker).
-        """
+        """Test that PCP consolidated golden output is valid."""
         consolidated_file = (
             Path(__file__).parent.parent
             / "example-data"

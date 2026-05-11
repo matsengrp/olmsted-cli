@@ -113,11 +113,13 @@ MAX_SAMPLE_PREVIEW = 6
 
 #: Valid data levels for field_metadata.
 #: - family/clone: clonal family level (scatterplot axes, color, facet)
+#: - tree: per-tree-within-clone level (drives the tree dropdown
+#:   color/filter/sort controls when one clone has multiple trees)
 #: - node: tree node level (node properties, tooltips)
 #: - branch: tree branch level (branch coloring, width)
 #: - mutation: per-mutation level (alignment coloring)
 #: "family" is the preferred user-facing name; "clone" is the internal name.
-FIELD_LEVELS = {"clone", "family", "node", "branch", "mutation"}
+FIELD_LEVELS = {"clone", "family", "tree", "node", "branch", "mutation"}
 
 #: Maps user-facing level aliases to canonical internal names.
 #: "family" → "clone" in the output JSON (backward compatible).
@@ -181,6 +183,13 @@ KNOWN_BRANCH_FIELDS = {
     "branch_length": {"type": "continuous", "label": "Branch Length"},
 }
 
+KNOWN_TREE_FIELDS = {
+    "tree_name": {"type": "categorical", "label": "Tree"},
+    "reconstruction_method": {"type": "categorical", "label": "Reconstruction Method"},
+    "downsampling_strategy": {"type": "categorical", "label": "Downsampling Strategy"},
+    "downsampled_count": {"type": "continuous", "label": "Downsampled Count"},
+}
+
 KNOWN_MUTATION_FIELDS = {
     "surprise_mutsel": {"type": "continuous", "label": "Surprise (MutSel)"},
     "surprise_neutral": {"type": "continuous", "label": "Surprise (Neutral)"},
@@ -236,6 +245,7 @@ OLMSTED_REQUIRED_TOP_LEVEL_KEYS = ("datasets", "clones", "trees")
 #: Mapping from level name to its known fields registry.
 KNOWN_FIELDS_BY_LEVEL = {
     "clone": KNOWN_CLONE_FIELDS,
+    "tree": KNOWN_TREE_FIELDS,
     "node": KNOWN_NODE_FIELDS,
     "branch": KNOWN_BRANCH_FIELDS,
     "mutation": KNOWN_MUTATION_FIELDS,
@@ -290,9 +300,22 @@ EXCLUDED_MUTATION_FIELDS = {
     "site",
 }
 
+#: Tree-level fields that are structural identifiers / payload, not
+#: visualization-encoding annotations. Excluded from the tree-level
+#: field_metadata block.
+EXCLUDED_TREE_FIELDS = {
+    "ident",
+    "clone_id",
+    "tree_id",
+    "newick",
+    "nodes",
+    "type",
+}
+
 #: Mapping from level name to its exclusion set.
 EXCLUDED_FIELDS_BY_LEVEL = {
     "clone": EXCLUDED_CLONE_FIELDS,
+    "tree": EXCLUDED_TREE_FIELDS,
     "node": EXCLUDED_NODE_FIELDS,
     "branch": EXCLUDED_BRANCH_FIELDS,
     "mutation": EXCLUDED_MUTATION_FIELDS,
@@ -304,9 +327,15 @@ EXCLUDED_FIELDS_BY_LEVEL = {
 # =============================================================================
 
 #: Known PCP CSV columns handled by the parser. Extra columns are captured
-#: as custom node-level fields.
+#: as custom node-level fields. Role columns (sample/family/tree variants)
+#: are listed here so they're never treated as node-level extras.
 KNOWN_PCP_COLUMNS = {
-    "sample_id", "family", "parent_name", "child_name",
+    # Role columns (sample/family/tree variants — see column_resolution.py)
+    "sample", "sample_id", "sample_name",
+    "family", "family_id", "family_name",
+    "tree", "tree_id", "tree_name",
+    # Edge / topology columns
+    "parent_name", "child_name",
     "parent_heavy", "child_heavy", "parent_light", "child_light",
     "branch_length", "edge_length", "depth", "distance", "sample_count",
     "v_gene_heavy", "d_gene_heavy", "j_gene_heavy",
@@ -328,14 +357,17 @@ KNOWN_PCP_COLUMNS = {
 }
 
 #: Known tree CSV columns handled by the parser. Extra columns are captured
-#: as clone-level fields.
+#: as clone- or tree-level fields (depending on intra-clone variance).
 KNOWN_TREE_COLUMNS = {
-    "family_name", "family", "sample_id",
+    # Role columns (sample/family/tree variants — see column_resolution.py)
+    "sample", "sample_id", "sample_name",
+    "family", "family_id", "family_name",
+    "tree", "tree_id", "tree_name",
+    # Tree topology
     "newick_tree", "newick",
+    # Paired rate scaling (clone-level)
     "rate_scale_heavy", "rate_scale_light",
-    # tree-level reserved columns — recognized and plumbed onto the tree
-    # record (not captured as clone-level extras):
-    "tree_id",
+    # Tree-level metadata recognized by the parser
     "reconstruction_method",
 }
 

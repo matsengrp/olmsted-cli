@@ -20,6 +20,7 @@ from .constants import (
     EXCLUDED_CLONE_FIELDS,
     EXCLUDED_MUTATION_FIELDS,
     EXCLUDED_NODE_FIELDS,
+    EXCLUDED_TREE_FIELDS,
     FIELD_ALIASES,
     FORMAT_AIRR,
     FORMAT_AUTO,
@@ -30,6 +31,7 @@ from .constants import (
     KNOWN_CLONE_FIELDS,
     KNOWN_MUTATION_FIELDS,
     KNOWN_NODE_FIELDS,
+    KNOWN_TREE_FIELDS,
     MAX_NODES_SAMPLE,
     MAX_SAMPLE_HEURISTIC,
     MAX_SAMPLE_PATH,
@@ -39,6 +41,8 @@ from .constants import (
     SUGGESTED_SKIP_FIELDS,
 )
 from .field_metadata import (
+    _classify_tree_extras,
+    _flatten_tree_refs,
     collect_keys,
     collect_mutations,
     collect_nodes,
@@ -417,8 +421,21 @@ def generate_default_config(
     all_mutations = _mutations if _mutations is not None else collect_mutations(trees)
     fields = []
 
+    # --- Tree level ---
+    # Detected by intra-clone variance in clone[].trees[]. Empty for
+    # single-tree-per-clone datasets (most PCP inputs today).
+    tree_level_keys = _classify_tree_extras(clones)
+    tree_refs = _flatten_tree_refs(clones)
+    for field in sorted(tree_level_keys):
+        values = sample_values(tree_refs, field)
+        if not values:
+            continue
+        entry = _field_summary(tree_refs, field, KNOWN_TREE_FIELDS)
+        skip = _should_skip(field, tree_refs, no_skip, skip_all)
+        fields.append(_make_field_entry(field, "tree", entry, skip=skip))
+
     # --- Clone level ---
-    clone_keys = collect_keys(clones) - EXCLUDED_CLONE_FIELDS
+    clone_keys = collect_keys(clones) - EXCLUDED_CLONE_FIELDS - tree_level_keys
     # Check for known fields with dot-paths (e.g., locus → sample.locus)
     for field_name, field_info in KNOWN_CLONE_FIELDS.items():
         if "path" in field_info and field_name not in clone_keys:
@@ -574,6 +591,9 @@ def _get_sample_values_for_field(cf, all_clones, all_nodes, all_mutations):
             return sample_values_by_path(all_clones, KNOWN_CLONE_FIELDS[name]["path"],
                                          max_samples=MAX_SAMPLE_PREVIEW)
         return sample_values(all_clones, name, max_samples=MAX_SAMPLE_PREVIEW)
+    elif level == "tree":
+        return sample_values(_flatten_tree_refs(all_clones), name,
+                             max_samples=MAX_SAMPLE_PREVIEW)
     elif level == "node":
         return sample_values(all_nodes, name, max_samples=MAX_SAMPLE_PREVIEW)
     elif level == "branch":
@@ -635,15 +655,22 @@ def _build_yaml(
     # Level display names and section headers
     level_headers = {
         "clone": "  # --- Family level (clonal family — scatterplot axes, color, facet) ---",
+        "tree": "  # --- Tree level (per-tree-within-clone — tree dropdown color/filter/sort) ---",
         "node": "  # --- Node level (tree node properties, tooltips) ---",
         "branch": "  # --- Branch level (tree branch coloring, width) ---",
         "mutation": "  # --- Mutation level (alignment coloring) ---",
     }
     # Config uses "family" for clone level in YAML
-    level_yaml_names = {"clone": "family", "node": "node", "branch": "branch", "mutation": "mutation"}
+    level_yaml_names = {
+        "clone": "family",
+        "tree": "tree",
+        "node": "node",
+        "branch": "branch",
+        "mutation": "mutation",
+    }
 
     # Separate active and skip entries, preserving order within each level
-    for level in ("clone", "node", "branch", "mutation"):
+    for level in ("clone", "tree", "node", "branch", "mutation"):
         yaml_level = level_yaml_names[level]
         level_fields = [cf for cf in config_fields if cf["level"] == level]
         active = [cf for cf in level_fields if not cf.get("skip")]

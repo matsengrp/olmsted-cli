@@ -26,6 +26,32 @@ See also:
 
 PCP (Parent-Child Pair) format uses one or two CSV files.
 
+### Role columns (sample / family / tree)
+
+Three columns identify the row's clonal-family membership. Each role
+auto-detects across a small family of names; pass `--<role>-col` to
+override.
+
+| Role | Required? | Accepted column names | CLI override |
+|------|-----------|----------------------|--------------|
+| Sample | required (PCP CSV); optional (trees CSV) | `sample`, `sample_id`, `sample_name` | `--sample-col` |
+| Family | required | `family`, `family_id`, `family_name` | `--family-col` |
+| Tree | optional | `tree`, `tree_id`, `tree_name` | `--tree-col` |
+
+Preference order when multiple variants are present: `_id` > bare >
+`_name`. If two variants appear with conflicting values on the same
+row, processing fails with a `Column conflict` error — pass the
+override to disambiguate.
+
+The output clone_id is synthesized as `{sample}_{family}` so families
+that repeat across samples no longer silently merge.
+
+The tree role enables multiple per-row alternate reconstructions of the
+same clonal family. When absent, every `(sample, family)` collapses to a
+single tree (today's common case). When present, rows are grouped by
+`(sample, family, tree)` and each tree value becomes a separate entry
+in `clone.trees[]`.
+
 ### Main CSV (required)
 
 Each row represents one parent-child edge in a phylogenetic tree.
@@ -34,7 +60,8 @@ Each row represents one parent-child edge in a phylogenetic tree.
 
 | Column | Description |
 |--------|-------------|
-| `sample_id` | Sample/dataset identifier |
+| sample role (one of `sample` / `sample_id` / `sample_name`) | Sample identifier |
+| family role (one of `family` / `family_id` / `family_name`) | Clonal family identifier |
 | `parent_name` | Parent node name |
 | `child_name` | Child node name |
 
@@ -42,7 +69,7 @@ Each row represents one parent-child edge in a phylogenetic tree.
 
 | Column | Maps to | Level | Notes |
 |--------|---------|-------|-------|
-| `family` | `clone_id` | family | Defaults to `sample_id` if absent |
+| tree role (`tree` / `tree_id` / `tree_name`) | `tree.tree_name` | tree | Disambiguates rows that belong to alternate reconstructions of the same `(sample, family)`. Omit for single-tree-per-family data. |
 | `parent_heavy` / `child_heavy` | `sequence_alignment` | node | Heavy chain DNA sequences |
 | `parent_light` / `child_light` | `sequence_alignment` (light clone) | node | Light chain DNA sequences (paired data) |
 | `branch_length` or `edge_length` | `length` | branch | Branch length |
@@ -76,28 +103,43 @@ Each row represents one parent-child edge in a phylogenetic tree.
 
 ### Trees CSV (optional)
 
-Each row provides a Newick tree for one clonal family.
+Each row provides a Newick tree for one clonal family. Role columns
+(sample / family / tree) follow the same auto-detection rules as the
+main PCP CSV (see [Role columns](#role-columns-sample--family--tree)
+above).
 
-**Required columns** (one of each pair):
+**Required columns**:
 
 | Column | Description |
 |--------|-------------|
-| `family_name` or `family` | Clonal family ID (matches `family` in main CSV) |
+| family role (`family` / `family_id` / `family_name`) | Clonal family ID (matches the main CSV's family role) |
 | `newick_tree` or `newick` | Newick format tree string |
 
 **Optional columns**:
 
 | Column | Maps to | Level |
 |--------|---------|-------|
-| `sample_id` | Used as composite key with `family_name` | — |
-| `tree_id` | `tree.tree_id` | tree |
+| sample role (`sample` / `sample_id` / `sample_name`) | Composite-key component with family role | — |
+| tree role (`tree` / `tree_id` / `tree_name`) | `tree.tree_name`, drives multi-tree-per-clone grouping | tree |
 | `reconstruction_method` | `tree.reconstruction_method` | tree |
 | `rate_scale_heavy` | `rate_scale_heavy` | family |
 | `rate_scale_light` | `rate_scale_light` | family |
 
-**Extra columns**: Any column not listed above is captured as a family-level (clone-level) field. Same chain suffix convention applies.
+**Extra columns**: Any column not listed above is auto-classified by
+intra-clone variance. A column whose values vary across the trees of at
+least one clone is classified at the **tree** level (drives the tree
+dropdown's color/filter/sort controls); a column that is constant
+within every clone is classified at the **clone** level. Same chain
+suffix convention applies for clone-level extras.
 
-**Multiple trees per family**: The same `(family_name, sample_id)` may appear on multiple rows, one per alternate phylogenetic reconstruction of the family. Each row becomes a separate entry in `clone.trees[]` and in the top-level `trees[]`. Supply a distinct `tree_id` on each row to label the alternate — duplicates within a `(family, sample_id)` pair cause the output uniqueness check to fail (see `--allow-duplicate-ids` to opt out).
+**Multiple trees per family**: Rows are grouped by composite key
+`(sample, family, tree)`. Supply a distinct tree-role value
+(`tree_name` recommended) on each row that belongs to an alternate
+reconstruction of the same `(sample, family)`. Each composite key
+becomes a separate entry in `clone.trees[]` and in the top-level
+`trees[]`. Without a tree role column, every row attaching to the same
+`(sample, family)` is still treated as an alternate reconstruction
+(back-compatible with the older "list-per-key" trees CSV convention).
 
 ### Minimum Viable PCP Data
 
@@ -381,9 +423,15 @@ The `field_metadata` object on each dataset describes available data fields for 
 | Level | Internal key | Source data | Used for |
 |-------|-------------|-------------|----------|
 | **family** | `clone` | Clone/family objects | Scatterplot axes, color, shape, facet |
+| **tree** | `tree` | Per-tree refs in `clone.trees[]` | Tree-dropdown color/filter/sort (multi-tree clones) |
 | **node** | `node` | Tree node objects | Tree node tooltips, properties |
 | **branch** | `branch` | Branch length on nodes | Tree branch coloring, width |
 | **mutation** | `mutation` | `mutations[]` on nodes, or derived by web app | Alignment mutation coloring |
+
+A clone-level extra is auto-promoted to **tree** level when its value
+varies across the trees of at least one clone — single-tree-per-clone
+datasets classify everything as clone-level, preserving today's output
+shape.
 
 ### Derived fields
 

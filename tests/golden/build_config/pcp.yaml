@@ -89,12 +89,12 @@ custom_fields:
     level: family
     type: categorical
     label: "J Gene"
-    # sample values: IGHJ4*02, IGHJ6*02, IGHJ3*01, IGHJ4*02, IGHJ4*02, ...
+    # sample values: IGHJ4*02, IGHJ6*02, IGHJ3*02, IGHJ4*02, IGHJ3*01, ...
   - name: junction_length
     level: family
     type: continuous
     label: "Junction Length"
-    # sample values: 60, 69, 54, 36, 27, ...
+    # sample values: 60, 69, 45, 39, 54, ...
   - name: locus
     level: family
     type: categorical
@@ -104,27 +104,27 @@ custom_fields:
     level: family
     type: continuous
     label: "Mean Mutation Frequency"
-    # sample values: 0.0, 0.3258539273707159, 0.34998525966267896, 0.2677102785558668, 0.34410919540229884, ...
+    # sample values: 0.0, 0.04940923737916219, 0.0757168458781362, 0.029455393091756717, 0.08007054673721341, ...
   - name: sample_id
     level: family
     type: categorical
     label: "Sample"
-    # sample values: sample-igg-1008, sample-igg-0007, sample-igg-705c, sample-igg-4002, sample-igg-5001, ...
+    # sample values: sample-igg-1008, sample-igg-0007, sample-igg-5001, sample-igg-1008, sample-igg-705c, ...
   - name: total_read_count
     level: family
     type: continuous
     label: "Total Read Count"
-    # sample values: 13, 63, 58, 44, 29, ...
+    # sample values: 13, 27, 11, 25, 29, ...
   - name: unique_seqs_count
     level: family
     type: continuous
     label: "Unique Sequences Count"
-    # sample values: 14, 47, 46, 34, 23, ...
+    # sample values: 14, 28, 12, 26, 30, ...
   - name: v_call
     level: family
     type: categorical
     label: "V Gene"
-    # sample values: IGHV3-48*01, IGHV3-73*01, IGHV3-9*01, IGHV3-30*02, IGHV3-53*01, ...
+    # sample values: IGHV3-48*01, IGHV3-73*01, IGHV2-5*02, IGHV3-74*01, IGHV3-9*01, ...
 
   # --- Node level (tree node properties, tooltips) ---
   - name: cluster_multiplicity
@@ -177,7 +177,7 @@ custom_fields:
     skip: true
     type: continuous
     label: "CDR1 Alignment End"
-    # sample values: 96, 96, 96, 96, 96, ...
+    # sample values: 96, 96, 102, 96, 96, ...
   - name: cdr1_alignment_start
     level: family
     skip: true
@@ -189,19 +189,19 @@ custom_fields:
     skip: true
     type: continuous
     label: "CDR2 Alignment End"
-    # sample values: 171, 177, 171, 171, 168, ...
+    # sample values: 171, 177, 174, 171, 171, ...
   - name: cdr2_alignment_start
     level: family
     skip: true
     type: continuous
     label: "CDR2 Alignment Start"
-    # sample values: 150, 150, 150, 150, 150, ...
+    # sample values: 150, 150, 156, 150, 150, ...
   - name: clone_id
     level: family
     skip: true
     type: categorical
     label: "Clone ID"
-    # sample values: 3249, 1297, 741, 470, 160, ...
+    # sample values: sample-igg-1008_3249, sample-igg-0007_1297, sample-igg-5001_1297, sample-igg-1008_1297, sample-igg-705c_741, ...
   - name: d_alignment_end
     level: family
     skip: true
@@ -225,7 +225,7 @@ custom_fields:
     skip: true
     type: categorical
     label: "Ident"
-    # sample values: clone-6a5eb4e0-90d9-e591-ee20-6debc0f4b040, clone-6fad0c6f-ef46-f158-7391-728cb379fcec, clone-bfdd83da-8e95-1048-1ec0-fc750e65bc19, clone-8ad370da-caa2-665c-2cdc-b78f8886901f, clone-d20f0d49-77e8-15c5-ebe4-2927bc6aeb1f, ...
+    # sample values: clone-6a5eb4e0-90d9-e591-ee20-6debc0f4b040, clone-6fad0c6f-ef46-f158-7391-728cb379fcec, clone-bfdd83da-8e95-1048-1ec0-fc750e65bc19, clone-8ad370da-caa2-665c-2cdc-b78f8886901f, clone-8d94ddd8-3411-9628-ac6a-1999d4a60bfb, ...
   - name: j_alignment_end
     level: family
     skip: true
@@ -243,7 +243,7 @@ custom_fields:
     skip: true
     type: continuous
     label: "Junction Start"
-    # sample values: 288, 294, 288, 288, 285, ...
+    # sample values: 288, 294, 291, 288, 288, ...
   - name: v_alignment_end
     level: family
     skip: true

@@ -83,6 +83,18 @@ the JSON content still varies between runs (`metadata.created_at`, some
 field-iteration ordering), so a tracked `.json.gz` will show a small diff
 on every regeneration. Tests compare decompressed content, not bytes.
 
+PCP regen-output expectations (post-issue #23):
+
+- `clones[]` is keyed on `(sample, family)` — so families that repeat
+  across samples (e.g. the pilot PCP data) now emit a clone per
+  `(sample, family)` pair rather than silently merging.
+- `clone_id` is synthesized as `{sample}_{family}` for the same reason.
+- `field_metadata.tree` appears only for datasets where at least one
+  clone has multiple alternate reconstructions (AIRR's
+  `downsampling_strategy`, or PCP inputs with a `tree_name` column).
+- Each tree record carries a `tree_name` field — either the input
+  tree-role value or the synthesized `tree-{clone_id}` fallback.
+
 Consolidated goldens (one per dataset folder):
 
 ```bash
@@ -138,6 +150,7 @@ olmsted-cli/
 │   ├── process_data.py       # Unified processor + YAML config
 │   ├── process_pcp_data.py   # PCP CSV parsing and conversion
 │   ├── process_airr_data.py  # AIRR JSON processing
+│   ├── column_resolution.py  # Auto-detect sample/family/tree role columns in CSV inputs
 │   ├── utils.py              # General-purpose utilities (no project deps)
 │   ├── format_detection.py   # File format detection
 │   ├── process_utils.py      # Processing utilities, output writing, validation
@@ -192,6 +205,7 @@ KNOWN_CLONE_FIELDS["my_field"] = {"type": "continuous", "label": "My Field"}
 
 - **Known columns**: `KNOWN_PCP_COLUMNS` in `constants.py`
 - **Column aliases**: `CHAIN_COLUMN_ALIASES` in `constants.py`
+- **Role-column auto-detection** (sample/family/tree): `column_resolution.py`
 - **Chain partitioning**: `_partition_chain_fields()` in `process_pcp_data.py`
 
 ## Linting

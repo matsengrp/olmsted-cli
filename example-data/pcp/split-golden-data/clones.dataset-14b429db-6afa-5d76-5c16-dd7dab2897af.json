@@ -1,6 +1,6 @@
 [
     {
-        "clone_id": "3249",
+        "clone_id": "sample-igg-1008_3249",
         "ident": "clone-6a5eb4e0-90d9-e591-ee20-6debc0f4b040",
         "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
         "sample_id": "sample-igg-1008",
@@ -27,8 +27,9 @@
         "trees": [
             {
                 "ident": "tree-4c247208-9d1c-b8f1-5aa4-5bf50526b6fe",
-                "clone_id": "3249",
-                "tree_id": "tree-3249",
+                "clone_id": "sample-igg-1008_3249",
+                "tree_id": "tree-sample-igg-1008_3249",
+                "tree_name": "tree-sample-igg-1008_3249",
                 "newick": "(naive:0.0000000778,((1TTGGGTTCTTTTCGATCTTGGG:0.0000000778,((1TGGGTTCGTCTGGAGTCTTGGG:0.0000000778,(1TGGAATTAAGTTTTGTCTTGGG:0.0000000778,1TGCCGTGTTTTGTGTTCTTGGG:0.0000000778)Node6:0.0000000777)Node5:0.0000000777,1TGAATTAGTGTGTCTTCTTGGG:0.0000000778)Node4:0.0000000777)Node3:0.0000000777,1TCCTCTCCCTTTACCTCTTGGG:0.0000000778)Node2:0.0000000777,1TTTGATGGGATGTGGTCTTGGG:0.0000000778)Node1;"
             }
         ],
@@ -39,13 +40,13 @@
         }
     },
     {
-        "clone_id": "1297",
+        "clone_id": "sample-igg-0007_1297",
         "ident": "clone-6fad0c6f-ef46-f158-7391-728cb379fcec",
         "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
         "sample_id": "sample-igg-0007",
-        "unique_seqs_count": 47,
-        "total_read_count": 63,
-        "mean_mut_freq": 0.3258539273707159,
+        "unique_seqs_count": 28,
+        "total_read_count": 27,
+        "mean_mut_freq": 0.04940923737916219,
         "v_alignment_start": 0,
         "v_alignment_end": 0,
         "j_alignment_start": 0,
@@ -66,8 +67,9 @@
         "trees": [
             {
                 "ident": "tree-522fac7a-4689-e49a-05d1-9353af02f885",
-                "clone_id": "1297",
-                "tree_id": "tree-1297",
+                "clone_id": "sample-igg-0007_1297",
+                "tree_id": "tree-sample-igg-0007_1297",
+                "tree_name": "tree-sample-igg-0007_1297",
                 "newick": "(naive:0.0000009965,(((((((1TGGTATAGTATCGGTTCTTGGG:0.0000009965,(1TGGGGTATCATAGAGTCTTGGG:0.0000009965,1TGACTTCCAATGCCTTCTTGGG:0.0000009965)Node9:0.0000009965)Node8:0.0000009965,((1TCCGATACATTCTAGTCTTGGG:0.0000009965,((1TAAAGTTTGTTATGATCTTGGG:0.0000009965,1TCATTTGACCTATCGTCTTGGG:0.0000009965)Node13:0.0000009965,1TTATCTACACTGGCTTCTTGGG:0.0000009965)Node12:0.0000009965)Node11:0.0000009965,1TTGATTCTCTTTAGTTCTTGGG:0.0000009965)Node10:0.0000009965)Node7:0.0000009965,1TCTACTGCACTGCCGTCTTGGG:0.0000009965)Node6:0.0000009965,1TGTCTTCTGGTGCATTCTTGGG:0.0000009965)Node5:0.0000009965,1CAATACTTTCTTGGGGGAGTTT:0.0000009965)Node4:0.0000009965,1TCACGTCGAGTCTTTTCTTGGG:0.0000009965)Node3:0.0000009965,1TTAGCTCGATTGAAGTCTTGGG:0.0245579158)Node2:0.0000009965,1TGCCATGGCGTGCAATCTTGGG:0.0000009965)Node1;"
             }
         ],
@@ -78,13 +80,93 @@
         }
     },
     {
-        "clone_id": "741",
+        "clone_id": "sample-igg-5001_1297",
         "ident": "clone-bfdd83da-8e95-1048-1ec0-fc750e65bc19",
         "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
+        "sample_id": "sample-igg-5001",
+        "unique_seqs_count": 12,
+        "total_read_count": 11,
+        "mean_mut_freq": 0.0757168458781362,
+        "v_alignment_start": 0,
+        "v_alignment_end": 0,
+        "j_alignment_start": 0,
+        "j_alignment_end": 0,
+        "cdr1_alignment_start": 75,
+        "cdr1_alignment_end": 102,
+        "cdr2_alignment_start": 156,
+        "cdr2_alignment_end": 174,
+        "junction_start": 291,
+        "junction_length": 45,
+        "v_call": "IGHV2-5*02",
+        "d_call": "",
+        "j_call": "IGHJ3*02",
+        "d_alignment_start": 0,
+        "d_alignment_end": 0,
+        "germline_alignment": "CAGATCACCTTGAAGGAGTCTGGTCCTACGCTGGTGAAACCCACACAGACCCTCACGCTGACCTGCACCTTCTCTGGGTTCTCACTCAGCACTAGTGGAGTGGGTGTGGGCTGGATCCGTCAGCCCCCAGGAAAGGCCCTGGAGTGGCTTGCACTCATTTATTGGGATGATGATAAGCGCTACAGCCCATCTCTGAAGAGCAGGCTCACCATCACCAAGGACACCTCCAAAAACCAGGTGGTCCTTACAATGACCAACATGGACCCTGTGGACACAGCCACATATTACTGTGCACACCAGGGGTATTACTATGGTTCGGGGAGGGCTGCTTTTGATATCTGGGGCCAAGGGACAATGGTCACCGTCTCTTCA",
+        "has_seed": false,
+        "trees": [
+            {
+                "ident": "tree-4b9ac338-8bbc-6669-41e6-face81dae39b",
+                "clone_id": "sample-igg-5001_1297",
+                "tree_id": "tree-sample-igg-5001_1297",
+                "tree_name": "tree-sample-igg-5001_1297",
+                "newick": "(naive:0.0026922818,(((1TACGGTGGCATGAGTTCTTGGG:0.0000009964,1TTAGGTGGTCTGGGGTCTTGGG:0.0000009964)Node4:0.0000009964,1TGTTCTGGAATAAGGTCTTGGG:0.0000009964)Node3:0.0000009964,(1TGGTTTGATGTGTGGTCTTGGG:0.0000009964,1TTAACTAGGGTATTTTCTTGGG:0.0000009964)Node5:0.0000009964)Node2:0.0000009964,1TACAGTTATTTTGCGTCTTGGG:0.0000009964)Node1;"
+            }
+        ],
+        "sample": {
+            "ident": "clone-bfdd83da-8e95-1048-1ec0-fc750e65bc19",
+            "locus": "igh",
+            "sample_id": "sample-igg-5001"
+        }
+    },
+    {
+        "clone_id": "sample-igg-1008_1297",
+        "ident": "clone-8ad370da-caa2-665c-2cdc-b78f8886901f",
+        "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
+        "sample_id": "sample-igg-1008",
+        "unique_seqs_count": 26,
+        "total_read_count": 25,
+        "mean_mut_freq": 0.029455393091756717,
+        "v_alignment_start": 0,
+        "v_alignment_end": 0,
+        "j_alignment_start": 0,
+        "j_alignment_end": 0,
+        "cdr1_alignment_start": 75,
+        "cdr1_alignment_end": 96,
+        "cdr2_alignment_start": 150,
+        "cdr2_alignment_end": 171,
+        "junction_start": 288,
+        "junction_length": 39,
+        "v_call": "IGHV3-74*01",
+        "d_call": "",
+        "j_call": "IGHJ4*02",
+        "d_alignment_start": 0,
+        "d_alignment_end": 0,
+        "germline_alignment": "GAGGTGCAGCTGGTGGAGTCCGGGGGAGGCTTAGTTCAGCCTGGGGGGTCCCTGAGACTCTCCTGTGCAGCCTCTGGATTCACCTTCAGTAGCTACTGGATGCACTGGGTCCGCCAAGCTCCAGGGAAGGGGCTGGTGTGGGTCTCACGTATTAATAGTGATGGGAGTAGCACAAGCTACGCGGACTCCGTGAAGGGCCGATTCACCATCTCCAGAGACAACGCCAAGAACACGCTGTATCTGCAAATGAACAGTCTGAGAGCCGAGGACACGGCTGTGTATTACTGTGCAAGAGATTCTCGGGCTTTAGCAGCTCGGGGACTTGACTACTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCA",
+        "has_seed": false,
+        "trees": [
+            {
+                "ident": "tree-cc42c52c-6fb9-faa8-b57f-3933f1ac3d30",
+                "clone_id": "sample-igg-1008_1297",
+                "tree_id": "tree-sample-igg-1008_1297",
+                "tree_name": "tree-sample-igg-1008_1297",
+                "newick": "(naive:0.0284064488,(1TGCCGTGGTGTGCCGTCTTGGG:0.0000009989,((1TCGAGTCGTATTTGGTCTTGGG:0.0000009989,1TACCTTAGCGTCGGTTCTTGGG:0.0000009989)Node4:0.0000009989,1TGGAATACCATAAATTCTTGGG:0.0000009989)Node3:0.0000009989)Node2:0.0000009989,((((1TTACTTCGTGTCGTATCTTGGG:0.0000009989,1TATCCTTGCATCGTGTCTTGGG:0.0000009989)Node8:0.0000009989,1TTGGATATGGTGATCTCTTGGG:0.0000009989)Node7:0.0000009989,1TTGCATATGATCAGTTCTTGGG:0.0000009989)Node6:0.0000009989,((((1TCTGTTAGAGTGATCTCTTGGG:0.0000009989,1TATGTTAGGATTAGCTCTTGGG:0.0000009989)Node12:0.0000009989,1TCATATGCTGTGTGGTCTTGGG:0.0000009989)Node11:0.0000009989,1TATCTTGCCTTAGCGTCTTGGG:0.0000009989)Node10:0.0000009989,1TTGAATGAAGTTATGTCTTGGG:0.0000009989)Node9:0.0000009989)Node5:0.0027533179)Node1;"
+            }
+        ],
+        "sample": {
+            "ident": "clone-8ad370da-caa2-665c-2cdc-b78f8886901f",
+            "locus": "igh",
+            "sample_id": "sample-igg-1008"
+        }
+    },
+    {
+        "clone_id": "sample-igg-705c_741",
+        "ident": "clone-8d94ddd8-3411-9628-ac6a-1999d4a60bfb",
+        "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
         "sample_id": "sample-igg-705c",
-        "unique_seqs_count": 46,
-        "total_read_count": 58,
-        "mean_mut_freq": 0.34998525966267896,
+        "unique_seqs_count": 30,
+        "total_read_count": 29,
+        "mean_mut_freq": 0.08007054673721341,
         "v_alignment_start": 0,
         "v_alignment_end": 0,
         "j_alignment_start": 0,
@@ -104,26 +186,147 @@
         "has_seed": false,
         "trees": [
             {
-                "ident": "tree-4b9ac338-8bbc-6669-41e6-face81dae39b",
-                "clone_id": "741",
-                "tree_id": "tree-741",
+                "ident": "tree-654906d9-16e2-5db5-4643-0490059032c0",
+                "clone_id": "sample-igg-705c_741",
+                "tree_id": "tree-sample-igg-705c_741",
+                "tree_name": "tree-sample-igg-705c_741",
                 "newick": "(naive:0.0572101688,((((((((((((1TCGAGTCTTGTCAACTCTTGGG:0.0000009991,1TTCACTAGGGTAGTCTCTTGGG:0.0000009991)Node13:0.0000009991,1TCACATGGGATGTAGTCTTGGG:0.0000009991)Node12:0.0000009991,1TTCAATGGTGTTGCTTCTTGGG:0.0000009991)Node11:0.0000009991,1TGTGATGGTCTATGGTCTTGGG:0.0000009991)Node10:0.0000009991,1TCCGGTTTGCTGCGATCTTGGG:0.0000009991)Node9:0.0000009991,1TGCAATTTCGTAGGGTCTTGGG:0.0000009991)Node8:0.0000009991,1TTCGTTGATGTATGCTCTTGGG:0.0000009991)Node7:0.0000009991,1TGTGTTGGAATCTATTCTTGGG:0.0000009991)Node6:0.0000009991,1TCGTTTGCTTTAGTGTCTTGGG:0.0000009991)Node5:0.0000009991,1TGGCCTACAGTCGGTTCTTGGG:0.0000009991)Node4:0.0000009991,(1TTGGTTTGGTTCGTGTCTTGGG:0.0000009991,1TTTATTGGGCTAGACTCTTGGG:0.0000009991)Node14:0.0000009991)Node3:0.0000009991,1TGGGATTACATAATGTCTTGGG:0.0000009991)Node2:0.0000009991,1TTCTGTGGAGTTTGATCTTGGG:0.0000009991)Node1;"
             }
         ],
         "sample": {
-            "ident": "clone-bfdd83da-8e95-1048-1ec0-fc750e65bc19",
+            "ident": "clone-8d94ddd8-3411-9628-ac6a-1999d4a60bfb",
             "locus": "igh",
             "sample_id": "sample-igg-705c"
         }
     },
     {
-        "clone_id": "470",
-        "ident": "clone-8ad370da-caa2-665c-2cdc-b78f8886901f",
+        "clone_id": "sample-igg-201c_741",
+        "ident": "clone-e1d3a8ff-b4f1-0ab0-8d02-82857d1389c0",
+        "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
+        "sample_id": "sample-igg-201c",
+        "unique_seqs_count": 4,
+        "total_read_count": 3,
+        "mean_mut_freq": 0.0,
+        "v_alignment_start": 0,
+        "v_alignment_end": 0,
+        "j_alignment_start": 0,
+        "j_alignment_end": 0,
+        "cdr1_alignment_start": 75,
+        "cdr1_alignment_end": 96,
+        "cdr2_alignment_start": 150,
+        "cdr2_alignment_end": 171,
+        "junction_start": 288,
+        "junction_length": 39,
+        "v_call": "IGHV3-9*01",
+        "d_call": "",
+        "j_call": "IGHJ4*02",
+        "d_alignment_start": 0,
+        "d_alignment_end": 0,
+        "germline_alignment": "GAAGTGCAGCTGGTGGAGTCTGGGGGAGGCTTGGTACAGCCTGGCAGGTCCCTGAGACTCTCCTGTGCAGCCTCTGGATTCACCTTTGATGATTATGCCATGCACTGGGTCCGGCAAGCTCCAGGGAAGGGCCTGGAGTGGGTCTCAGGTATTAGTTGGAATAGTGGTAGCATAGGCTATGCGGACTCTGTGAAGGGCCGATTCACCATCTCCAGAGACAACGCCAAGAACTCCCTGTATCTGCAAATGAACAGTCTGAGAGCTGAGGACACGGCCTTGTATTACTGTGCAAAAGATATGGGGTTCGGGGAGTTATACATCTTTGACTACTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCA",
+        "has_seed": false,
+        "trees": [
+            {
+                "ident": "tree-5d82ca72-029f-eb0a-694b-97f7c2233755",
+                "clone_id": "sample-igg-201c_741",
+                "tree_id": "tree-sample-igg-201c_741",
+                "tree_name": "tree-sample-igg-201c_741",
+                "newick": "(naive:0.0000001405,1TAGAATGGGGTTTCTTCTTGGG:0.0000001405,1TTTGCTCGATTGCCGTCTTGGG:0.0000001405)Node1;"
+            }
+        ],
+        "sample": {
+            "ident": "clone-e1d3a8ff-b4f1-0ab0-8d02-82857d1389c0",
+            "locus": "igh",
+            "sample_id": "sample-igg-201c"
+        }
+    },
+    {
+        "clone_id": "sample-igg-2008_741",
+        "ident": "clone-143527ad-141d-ad82-5ee2-7683978b2905",
+        "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
+        "sample_id": "sample-igg-2008",
+        "unique_seqs_count": 16,
+        "total_read_count": 15,
+        "mean_mut_freq": 0.02666666666666667,
+        "v_alignment_start": 0,
+        "v_alignment_end": 0,
+        "j_alignment_start": 0,
+        "j_alignment_end": 0,
+        "cdr1_alignment_start": 75,
+        "cdr1_alignment_end": 96,
+        "cdr2_alignment_start": 150,
+        "cdr2_alignment_end": 177,
+        "junction_start": 294,
+        "junction_length": 45,
+        "v_call": "IGHV3-15*01",
+        "d_call": "",
+        "j_call": "IGHJ6*03",
+        "d_alignment_start": 0,
+        "d_alignment_end": 0,
+        "germline_alignment": "GAGGTGCAGCTGGTGGAGTCTGGGGGAGGCTTGGTAAAGCCTGGGGGGTCCCTTAGACTCTCCTGTGCAGCCTCTGGATTCACTTTCAGTAACGCCTGGATGAGCTGGGTCCGCCAGGCTCCAGGGAAGGGGCTGGAGTGGGTTGGCCGTATTAAAAGCAAAACTGATGGTGGGACAACAGACTACGCTGCACCCGTGAAAGGCAGATTCACCATCTCAAGAGATGATTCAAAAAACACGCTGTATCTGCAAATGAACAGCCTGAAAACCGAGGACACAGCCGTGTATTACTGTACCACAACGGAATACGATTTTTGGAGTGGTTACTACTACATGGACGTCTGGGGCAAAGGGACCACGGTCACCGTCTCCTCA",
+        "has_seed": false,
+        "trees": [
+            {
+                "ident": "tree-122c6f7f-bd3e-46f6-0113-bb7303ccdfef",
+                "clone_id": "sample-igg-2008_741",
+                "tree_id": "tree-sample-igg-2008_741",
+                "tree_name": "tree-sample-igg-2008_741",
+                "newick": "(naive:0.0276561930,(((1TCACATGGATTTAAATCTTGGG:0.0000009991,(1TAAAATGAATTGGTTTCTTGGG:0.0000009991,(1TGGGATGGTTTCTTGTCTTGGG:0.0000009991,1TTGAATAAAGTACGGTCTTGGG:0.0000009991)Node6:0.0000009991)Node5:0.0000009991)Node4:0.0000009991,1TCATGTAAAGTCGGCTCTTGGG:0.0000009991)Node3:0.0000009991,1TACAATCTCATGACGTCTTGGG:0.0000009991)Node2:0.0000009991,(1TCTGTTAAGTTTGCCTCTTGGG:0.0000009991,1TCCGTTGGCTTGATATCTTGGG:0.0000009991)Node7:0.0000009991)Node1;"
+            }
+        ],
+        "sample": {
+            "ident": "clone-143527ad-141d-ad82-5ee2-7683978b2905",
+            "locus": "igh",
+            "sample_id": "sample-igg-2008"
+        }
+    },
+    {
+        "clone_id": "sample-igg-1008_741",
+        "ident": "clone-649adb59-d0c9-dfa7-81a5-9d756e4ee282",
+        "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
+        "sample_id": "sample-igg-1008",
+        "unique_seqs_count": 12,
+        "total_read_count": 11,
+        "mean_mut_freq": 0.0027548209366391185,
+        "v_alignment_start": 0,
+        "v_alignment_end": 0,
+        "j_alignment_start": 0,
+        "j_alignment_end": 0,
+        "cdr1_alignment_start": 75,
+        "cdr1_alignment_end": 102,
+        "cdr2_alignment_start": 156,
+        "cdr2_alignment_end": 174,
+        "junction_start": 291,
+        "junction_length": 36,
+        "v_call": "IGHV2-5*02",
+        "d_call": "",
+        "j_call": "IGHJ4*02",
+        "d_alignment_start": 0,
+        "d_alignment_end": 0,
+        "germline_alignment": "CAGATCACCTTGAAGGAGTCTGGTCCTACGCTGGTGAAACCCACACAGACCCTCACGCTGACCTGCACCTTCTCTGGGTTCTCACTCAGCACTAGTGGAGTGGGTGTGGGCTGGATCCGTCAGCCCCCAGGAAAGGCCCTGGAGTGGCTTGCACTCATTTATTGGGATGATGATAAGCGCTACAGCCCATCTCTGAAGAGCAGGCTCACCATCACCAAGGACACCTCCAAAAACCAGGTGGTCCTTACAATGACCAACATGGACCCTGTGGACACAGCCACATATTACTGTGCACACAGACGAAAGGGATACAGCTATGGTTACGTCTACTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCA",
+        "has_seed": false,
+        "trees": [
+            {
+                "ident": "tree-c3e192a2-1a85-2141-6fd5-9ab9c29fe5af",
+                "clone_id": "sample-igg-1008_741",
+                "tree_id": "tree-sample-igg-1008_741",
+                "tree_name": "tree-sample-igg-1008_741",
+                "newick": "(naive:0.0027591353,((1TTGCTTGTGCTTTGTTCTTGGG:0.0000009963,(1TGTGGTCTAGTTGTCTCTTGGG:0.0000009963,1TCCTCTGGGTTTGCGTCTTGGG:0.0000009963)Node4:0.0000009963)Node3:0.0000009963,1TAGGATTTGTTCTAGTCTTGGG:0.0000009963)Node2:0.0000009963,(1TAAGGTTTAATAGGCTCTTGGG:0.0000009963,1TGGAATGCGCTGTTTTCTTGGG:0.0000009963)Node5:0.0000009963)Node1;"
+            }
+        ],
+        "sample": {
+            "ident": "clone-649adb59-d0c9-dfa7-81a5-9d756e4ee282",
+            "locus": "igh",
+            "sample_id": "sample-igg-1008"
+        }
+    },
+    {
+        "clone_id": "sample-igg-4002_470",
+        "ident": "clone-c9d235f3-341d-19b6-246f-7fa44d5352eb",
         "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
         "sample_id": "sample-igg-4002",
-        "unique_seqs_count": 34,
-        "total_read_count": 44,
-        "mean_mut_freq": 0.2677102785558668,
+        "unique_seqs_count": 10,
+        "total_read_count": 9,
+        "mean_mut_freq": 0.12777777777777777,
         "v_alignment_start": 0,
         "v_alignment_end": 0,
         "j_alignment_start": 0,
@@ -143,26 +346,147 @@
         "has_seed": false,
         "trees": [
             {
-                "ident": "tree-8d94ddd8-3411-9628-ac6a-1999d4a60bfb",
-                "clone_id": "470",
-                "tree_id": "tree-470",
+                "ident": "tree-638d3467-4353-f020-3b8d-cde69a574892",
+                "clone_id": "sample-igg-4002_470",
+                "tree_id": "tree-sample-igg-4002_470",
+                "tree_name": "tree-sample-igg-4002_470",
                 "newick": "(naive:0.1515168735,((1TGGGTTACTATGGAGTCTTGGG:0.0000010000,(1TAACGTGTAGTGTGGTCTTGGG:0.0000010000,1TTACGTCATCTTAGGTCTTGGG:0.0000010000)Node4:0.0000010000)Node3:0.0000010000,1TTAGATTAAGATGATCTCTTGG:0.0000010000)Node2:0.0000010000,1TGTAATGGGATTCGTTCTTGGG:0.0000010000)Node1;"
             }
         ],
         "sample": {
-            "ident": "clone-8ad370da-caa2-665c-2cdc-b78f8886901f",
+            "ident": "clone-c9d235f3-341d-19b6-246f-7fa44d5352eb",
             "locus": "igh",
             "sample_id": "sample-igg-4002"
         }
     },
     {
-        "clone_id": "160",
-        "ident": "clone-d20f0d49-77e8-15c5-ebe4-2927bc6aeb1f",
+        "clone_id": "sample-igg-5001_470",
+        "ident": "clone-7203131a-562f-2f97-2600-262560e653e4",
         "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
         "sample_id": "sample-igg-5001",
-        "unique_seqs_count": 23,
-        "total_read_count": 29,
-        "mean_mut_freq": 0.34410919540229884,
+        "unique_seqs_count": 14,
+        "total_read_count": 13,
+        "mean_mut_freq": 0.08443377350940377,
+        "v_alignment_start": 0,
+        "v_alignment_end": 0,
+        "j_alignment_start": 0,
+        "j_alignment_end": 0,
+        "cdr1_alignment_start": 75,
+        "cdr1_alignment_end": 96,
+        "cdr2_alignment_start": 150,
+        "cdr2_alignment_end": 171,
+        "junction_start": 288,
+        "junction_length": 33,
+        "v_call": "IGHV3-64*01",
+        "d_call": "",
+        "j_call": "IGHJ2*01",
+        "d_alignment_start": 0,
+        "d_alignment_end": 0,
+        "germline_alignment": "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNGTCCCTGAGACTCTCCTGTGCAGCCTCTGGATTCACCTTCAGTAGCTATGCTATGCACTGGGTCCGCCAGGCTCCAGGGAAGGGACTGGAATATGTTTCAGCTATTAGTAGTAATGGGGGTAGCACATATTATGCAAACTCTGTGAAGGGCAGATTCACCATCTCCAGAGACAATTCCAAGAACACGCTGTATCTTCAAATGGGCAGCCTGAGAGCTGAGGACATGGCTGTGTATTACTGTGCGAGAGGTCCACGTTTGGGGGGGTACTTCGATCTCTGGGGCCGTGGCACCCTGGTCACTGTCTCCTCA",
+        "has_seed": false,
+        "trees": [
+            {
+                "ident": "tree-0439a72b-ba3b-8f9c-b110-04b80e2b9f95",
+                "clone_id": "sample-igg-5001_470",
+                "tree_id": "tree-sample-igg-5001_470",
+                "tree_name": "tree-sample-igg-5001_470",
+                "newick": "(naive:0.1077863754,(1TGCGATACGGTGGGTTCTTGGG:0.0000009977,((1TTAAGTGTTCTAATCTCTTGGG:0.0000009977,1TGGGTTGAGGTTCTTTCTTGGG:0.0000009977)Node4:0.0000009977,(1TTCGATAAAGTCTGGTCTTGGG:0.0000009977,(1TGCAGTGCATTCGATCTTGGGG:0.0000009977,1TACGCTAGCTTATCATCTTGGG:0.0000009977)Node6:0.0000009977)Node5:0.0000009977)Node3:0.0000009977)Node2:0.0000009977,1TCTGCTACGTTTGATTCTTGGG:0.0032288495)Node1;"
+            }
+        ],
+        "sample": {
+            "ident": "clone-7203131a-562f-2f97-2600-262560e653e4",
+            "locus": "igh",
+            "sample_id": "sample-igg-5001"
+        }
+    },
+    {
+        "clone_id": "sample-igg-0007_470",
+        "ident": "clone-f0694c1d-c614-7a6d-bb32-a5de5349a587",
+        "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
+        "sample_id": "sample-igg-0007",
+        "unique_seqs_count": 20,
+        "total_read_count": 19,
+        "mean_mut_freq": 0.07741046831955924,
+        "v_alignment_start": 0,
+        "v_alignment_end": 0,
+        "j_alignment_start": 0,
+        "j_alignment_end": 0,
+        "cdr1_alignment_start": 75,
+        "cdr1_alignment_end": 96,
+        "cdr2_alignment_start": 150,
+        "cdr2_alignment_end": 171,
+        "junction_start": 288,
+        "junction_length": 39,
+        "v_call": "IGHV3-30*18",
+        "d_call": "",
+        "j_call": "IGHJ4*02",
+        "d_alignment_start": 0,
+        "d_alignment_end": 0,
+        "germline_alignment": "CAGGTGCAGCTGGTGGAGTCTGGGGGAGGCGTGGTCCAGCCTGGGAGGTCCCTGAGACTCTCCTGTGCAGCCTCTGGATTCACCTTCAGTAGCTATGGCATGCACTGGGTCCGCCAGGCTCCAGGCAAGGGGCTGGAGTGGGTGGCAGTTATATCATATGATGGAAGTAATAAATACTATGCAGACTCCGTGAAGGGCCGATTCACCATCTCCAGAGACAATTCCAAGAACACGCTGTATCTGCAAATGAACAGCCTGAGAGCTGAGGACACGGCTGTGTATTACTGTGCGAAAGAAGTGACTCCAAAAGCAGCAGCTGGTAGTGACTACTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCA",
+        "has_seed": false,
+        "trees": [
+            {
+                "ident": "tree-0c29513f-8d41-8df5-ac4c-443d4871fe23",
+                "clone_id": "sample-igg-0007_470",
+                "tree_id": "tree-sample-igg-0007_470",
+                "tree_name": "tree-sample-igg-0007_470",
+                "newick": "(naive:0.0841772511,(((((1TTCAATTTAGTCTGCTCTTGGG:0.0000009986,1TCGGGTATTATGATGTCTTGGG:0.0000009986)Node6:0.0000009986,(1TGATATACGCTGATGTCTTGGG:0.0000009986,1TTATTTCGAGTTGCCTCTTGGG:0.0000009986)Node7:0.0000009986)Node5:0.0000009986,((1TGTACTGCAATGCACTCTTGGG:0.0000009986,1TTCGATCCGGTGAGCTCTTGGG:0.0000009986)Node9:0.0000009986,1TGACGTGTTCTGAAGTCTTGGG:0.0000009986)Node8:0.0000009986)Node4:0.0000009986,1TGCGGTTGTCTTTGCTCTTGGG:0.0000009986)Node3:0.0000009986,1TAGTGTGGAATAGGTTCTTGGG:0.0000009986)Node2:0.0000009986,1TCAGCTGCCTTACGGTCTTGGG:0.0027536028)Node1;"
+            }
+        ],
+        "sample": {
+            "ident": "clone-f0694c1d-c614-7a6d-bb32-a5de5349a587",
+            "locus": "igh",
+            "sample_id": "sample-igg-0007"
+        }
+    },
+    {
+        "clone_id": "sample-igg-1013_470",
+        "ident": "clone-385290b2-fc89-9e16-e340-2d43f11bea47",
+        "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
+        "sample_id": "sample-igg-1013",
+        "unique_seqs_count": 4,
+        "total_read_count": 3,
+        "mean_mut_freq": 0.0392156862745098,
+        "v_alignment_start": 0,
+        "v_alignment_end": 0,
+        "j_alignment_start": 0,
+        "j_alignment_end": 0,
+        "cdr1_alignment_start": 75,
+        "cdr1_alignment_end": 96,
+        "cdr2_alignment_start": 150,
+        "cdr2_alignment_end": 171,
+        "junction_start": 288,
+        "junction_length": 33,
+        "v_call": "IGHV1-69*12",
+        "d_call": "",
+        "j_call": "IGHJ5*02",
+        "d_alignment_start": 0,
+        "d_alignment_end": 0,
+        "germline_alignment": "CAGGTCCAGCTGGTGCAGTCTGGGGCTGAGGTGAAGAAGCCTGGGTCCTCGGTGAAGGTCTCCTGCAAGGCTTCTGGAGGCACCTTCAGCAGCTATGCTATCAGCTGGGTGCGACAGGCCCCTGGACAAGGGCTTGAGTGGATGGGAGGGATCATCCCTATCTTTGGTACAGCAAACTACGCACAGAAGTTCCAGGGCAGAGTCACGATTACCGCGGACGAATCCACGAGCACAGCCTACATGGAGCTGAGCAGCCTGAGATCTGAGGACACGGCCGTGTATTACTGTGCGAGAGGCCGATTAATAGCCCCCGGGTTCGACCCCTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCA",
+        "has_seed": false,
+        "trees": [
+            {
+                "ident": "tree-5397d15f-ff5d-f373-c644-e50ae70d4757",
+                "clone_id": "sample-igg-1013_470",
+                "tree_id": "tree-sample-igg-1013_470",
+                "tree_name": "tree-sample-igg-1013_470",
+                "newick": "(naive:0.0414367690,1TAAACTCGACTATAGTCTTGGG:0.0000010000,1TACAATGCTATGATTTCTTGGG:0.0000010000)Node1;"
+            }
+        ],
+        "sample": {
+            "ident": "clone-385290b2-fc89-9e16-e340-2d43f11bea47",
+            "locus": "igh",
+            "sample_id": "sample-igg-1013"
+        }
+    },
+    {
+        "clone_id": "sample-igg-5001_160",
+        "ident": "clone-67ee9892-af26-b70c-5728-00ade4eb7599",
+        "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
+        "sample_id": "sample-igg-5001",
+        "unique_seqs_count": 14,
+        "total_read_count": 13,
+        "mean_mut_freq": 0.08333333333333333,
         "v_alignment_start": 0,
         "v_alignment_end": 0,
         "j_alignment_start": 0,
@@ -182,26 +506,107 @@
         "has_seed": false,
         "trees": [
             {
-                "ident": "tree-e1d3a8ff-b4f1-0ab0-8d02-82857d1389c0",
-                "clone_id": "160",
-                "tree_id": "tree-160",
+                "ident": "tree-3ebb9203-9734-6dee-aa6c-0abe8e8f690d",
+                "clone_id": "sample-igg-5001_160",
+                "tree_id": "tree-sample-igg-5001_160",
+                "tree_name": "tree-sample-igg-5001_160",
                 "newick": "(naive:0.0934134975,(((1TTTTGATACGCTTAGTTCTTGG:0.0000010000,1TTGTTCGAATCTTGGGGGAGGA:0.0000010000)Node4:0.0000010000,(1TATGGTATGGTCTTTTCTTGGG:0.0000010000,1TGGATTGTTCTAGCATCTTGGG:0.0000010000)Node5:0.0000010000)Node3:0.0000010000,(1TCCGCTCGCGTTTGCTCTTGGG:0.0000010000,1TTGGATGACGTCCGGTCTTGGG:0.0000010000)Node6:0.0000010000)Node2:0.0000010000,1TTTTCTTAAATGCGGTCTTGGG:0.0000010000)Node1;"
             }
         ],
         "sample": {
-            "ident": "clone-d20f0d49-77e8-15c5-ebe4-2927bc6aeb1f",
+            "ident": "clone-67ee9892-af26-b70c-5728-00ade4eb7599",
             "locus": "igh",
             "sample_id": "sample-igg-5001"
         }
     },
     {
-        "clone_id": "1553",
-        "ident": "clone-12e70729-8abf-66ae-3611-fd397f3f50ce",
+        "clone_id": "sample-igg-201c_160",
+        "ident": "clone-871665bc-856b-88db-b6a4-ac19e20e90f2",
+        "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
+        "sample_id": "sample-igg-201c",
+        "unique_seqs_count": 6,
+        "total_read_count": 5,
+        "mean_mut_freq": 0.02849002849002849,
+        "v_alignment_start": 0,
+        "v_alignment_end": 0,
+        "j_alignment_start": 0,
+        "j_alignment_end": 0,
+        "cdr1_alignment_start": 75,
+        "cdr1_alignment_end": 96,
+        "cdr2_alignment_start": 150,
+        "cdr2_alignment_end": 171,
+        "junction_start": 288,
+        "junction_length": 27,
+        "v_call": "IGHV3-30-3*01",
+        "d_call": "",
+        "j_call": "IGHJ4*02",
+        "d_alignment_start": 0,
+        "d_alignment_end": 0,
+        "germline_alignment": "CAGGTGCAGCTGGTGGAGTCTGGGGGAGGCGTGGTCCAGCCTGGGAGGTCCCTGAGACTCTCCTGTGCAGCCTCTGGATTCACCTTCAGTAGCTATGCTATGCACTGGGTCCGCCAGGCTCCAGGCAAGGGGCTGGAGTGGGTGGCAGTTATATCATATGATGGAAGCAATAAATACTACGCAGACTCCGTGAAGGGCCGATTCACCATCTCCAGAGACAATTCCAAGAACACGCTGTATCTGCAAATGAACAGCCTGAGAGCTGAGGACACGGCTGTGTATTACTGTGCGAGAGATTGGGCTGGTACGCTTGACTACTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCA",
+        "has_seed": false,
+        "trees": [
+            {
+                "ident": "tree-376d1d56-79ef-60c2-7b62-3d2ef11be6cb",
+                "clone_id": "sample-igg-201c_160",
+                "tree_id": "tree-sample-igg-201c_160",
+                "tree_name": "tree-sample-igg-201c_160",
+                "newick": "(naive:0.0294655986,(1TGTGGTTGTCTGGATTCTTGGG:0.0000010000,1TGTTGTGGAATAGTCTCTTGGG:0.0000010000)Node2:0.0000010000,1TGCCCTAATGTAGGCTCTTGGG:0.0000010000)Node1;"
+            }
+        ],
+        "sample": {
+            "ident": "clone-871665bc-856b-88db-b6a4-ac19e20e90f2",
+            "locus": "igh",
+            "sample_id": "sample-igg-201c"
+        }
+    },
+    {
+        "clone_id": "sample-igg-0007_160",
+        "ident": "clone-08ce0adc-fee1-2533-2af7-74a94066dbd5",
+        "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
+        "sample_id": "sample-igg-0007",
+        "unique_seqs_count": 12,
+        "total_read_count": 11,
+        "mean_mut_freq": 0.03361344537815126,
+        "v_alignment_start": 0,
+        "v_alignment_end": 0,
+        "j_alignment_start": 0,
+        "j_alignment_end": 0,
+        "cdr1_alignment_start": 75,
+        "cdr1_alignment_end": 102,
+        "cdr2_alignment_start": 156,
+        "cdr2_alignment_end": 174,
+        "junction_start": 291,
+        "junction_length": 30,
+        "v_call": "IGHV4-61*02",
+        "d_call": "",
+        "j_call": "IGHJ4*02",
+        "d_alignment_start": 0,
+        "d_alignment_end": 0,
+        "germline_alignment": "CAGGTGCAGCTGCAGGAGTCGGGCCCAGGACTGGTGAAGCCTTCACAGACCCTGTCCCTCACCTGCACTGTCTCTGGTGGCTCCATCAGCAGTGGTAGTTACTACTGGAGCTGGATCCGGCAGCCCGCCGGGAAGGGACTGGAGTGGATTGGGCGTATCTATACCAGTGGGAGCACCAACTACAACCCCTCCCTCAAGAGTCGAGTCACCATATCAGTAGACACGTCCAAGAACCAGTTCTCCCTGAAGCTGAGCTCTGTGACCGCCGCAGACACGGCCGTGTATTACTGTGCGAGAGATCACGGGGCTGACTACTTTGACTACTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCA",
+        "has_seed": false,
+        "trees": [
+            {
+                "ident": "tree-2e1ba22a-698b-b8a4-c360-0edfaf1a76d8",
+                "clone_id": "sample-igg-0007_160",
+                "tree_id": "tree-sample-igg-0007_160",
+                "tree_name": "tree-sample-igg-0007_160",
+                "newick": "(naive:0.0354364196,(1TACCCTGTCATGATTTCTTGGG:0.0000010000,(1TAGGCTACGTTGACGTCTTGGG:0.0000010000,1TAGATTCGGCTCGCGTCTTGGG:0.0000010000)Node3:0.0000010000)Node2:0.0000010000,((1TTACTTCGAGTTCGTTCTTGGG:0.0000010000,1TGGCCTGCTTTGTTGTCTTGGG:0.0000010000)Node5:0.0000010000,1TGTAATTGCCTTATTTCTTGGG:0.0000010000)Node4:0.0000010000)Node1;"
+            }
+        ],
+        "sample": {
+            "ident": "clone-08ce0adc-fee1-2533-2af7-74a94066dbd5",
+            "locus": "igh",
+            "sample_id": "sample-igg-0007"
+        }
+    },
+    {
+        "clone_id": "sample-igg-602c_1553",
+        "ident": "clone-2f73e9d6-1d97-b884-4e48-6269289d5a1a",
         "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
         "sample_id": "sample-igg-602c",
-        "unique_seqs_count": 30,
-        "total_read_count": 37,
-        "mean_mut_freq": 0.6621999999999999,
+        "unique_seqs_count": 6,
+        "total_read_count": 5,
+        "mean_mut_freq": 0.05555555555555555,
         "v_alignment_start": 0,
         "v_alignment_end": 0,
         "j_alignment_start": 0,
@@ -221,26 +626,107 @@
         "has_seed": false,
         "trees": [
             {
-                "ident": "tree-143527ad-141d-ad82-5ee2-7683978b2905",
-                "clone_id": "1553",
-                "tree_id": "tree-1553",
+                "ident": "tree-ad6976d4-8d00-af56-c046-6ef80924812f",
+                "clone_id": "sample-igg-602c_1553",
+                "tree_id": "tree-sample-igg-602c_1553",
+                "tree_name": "tree-sample-igg-602c_1553",
                 "newick": "(naive:0.0595366340,1TGGATTCGGTTACAGTCTTGGG:0.0000010000,(1TGTTCTCAGCTTTACTCTTGGG:0.0000010000,1TGAGGTTGTGTGGTATCTTGGG:0.0000010000)Node2:0.0000010000)Node1;"
             }
         ],
         "sample": {
-            "ident": "clone-12e70729-8abf-66ae-3611-fd397f3f50ce",
+            "ident": "clone-2f73e9d6-1d97-b884-4e48-6269289d5a1a",
             "locus": "igh",
             "sample_id": "sample-igg-602c"
         }
     },
     {
-        "clone_id": "1219",
-        "ident": "clone-b3598fe2-630b-536f-74e7-274c35d14209",
+        "clone_id": "sample-igg-1008_1553",
+        "ident": "clone-8fbd9834-d0c1-9bd6-15a7-e603e19b3b21",
+        "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
+        "sample_id": "sample-igg-1008",
+        "unique_seqs_count": 14,
+        "total_read_count": 13,
+        "mean_mut_freq": 0.023999999999999997,
+        "v_alignment_start": 0,
+        "v_alignment_end": 0,
+        "j_alignment_start": 0,
+        "j_alignment_end": 0,
+        "cdr1_alignment_start": 75,
+        "cdr1_alignment_end": 102,
+        "cdr2_alignment_start": 156,
+        "cdr2_alignment_end": 180,
+        "junction_start": 297,
+        "junction_length": 42,
+        "v_call": "IGHV6-1*01",
+        "d_call": "",
+        "j_call": "IGHJ6*02",
+        "d_alignment_start": 0,
+        "d_alignment_end": 0,
+        "germline_alignment": "CAGGTACAGCTGCAGCAGTCAGGTCCAGGACTGGTGAAGCCCTCGCAGACCCTCTCACTCACCTGTGCCATCTCCGGGGACAGTGTCTCTAGCAACAGTGCTGCTTGGAACTGGATCAGGCAGTCCCCATCGAGAGGCCTTGAGTGGCTGGGAAGGACATACTACAGGTCCAAGTGGTATAATGATTATGCAGTATCTGTGAAAAGTCGAATAACCATCAACCCAGACACATCCAAGAACCAGTTCTCCCTGCAGCTGAACTCTGTGACTCCCGAGGACACGGCTGTGTATTACTGTGCAAGAGTTAGATATAGCAGCTCGTCCCTGGACGGTATGGACGTCTGGGGCCAAGGGACCACGGTCACCGTCTCCTCA",
+        "has_seed": false,
+        "trees": [
+            {
+                "ident": "tree-f1f94793-7e38-164c-9c47-024cfc1a9019",
+                "clone_id": "sample-igg-1008_1553",
+                "tree_id": "tree-sample-igg-1008_1553",
+                "tree_name": "tree-sample-igg-1008_1553",
+                "newick": "(naive:0.0246988857,(1TGGGATCACCTGTTCTCTTGGG:0.0000009994,((1TTCGTTCCCCTTGTTTCTTGGG:0.0000009994,1TAAAGTGGCCTCGGATCTTGGG:0.0000009994)Node4:0.0000009994,1TACGCTTCCTTCTCGTTGGATC:0.0000009994)Node3:0.0000009994)Node2:0.0000009994,(1TATCATTAGTTAGGGTCTTGGG:0.0000009994,(1TCTACTCCCGTCAGCTCTTGGG:0.0000009994,1TAACATCTCATATCGTCTTGGG:0.0000009994)Node6:0.0000009994)Node5:0.0000009994)Node1;"
+            }
+        ],
+        "sample": {
+            "ident": "clone-8fbd9834-d0c1-9bd6-15a7-e603e19b3b21",
+            "locus": "igh",
+            "sample_id": "sample-igg-1008"
+        }
+    },
+    {
+        "clone_id": "sample-igg-201c_1553",
+        "ident": "clone-78da9d75-7d2f-226d-8bb6-a60a861d693d",
+        "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
+        "sample_id": "sample-igg-201c",
+        "unique_seqs_count": 20,
+        "total_read_count": 19,
+        "mean_mut_freq": 0.02933333333333333,
+        "v_alignment_start": 0,
+        "v_alignment_end": 0,
+        "j_alignment_start": 0,
+        "j_alignment_end": 0,
+        "cdr1_alignment_start": 75,
+        "cdr1_alignment_end": 96,
+        "cdr2_alignment_start": 150,
+        "cdr2_alignment_end": 171,
+        "junction_start": 288,
+        "junction_length": 51,
+        "v_call": "IGHV3-23*01",
+        "d_call": "",
+        "j_call": "IGHJ3*02",
+        "d_alignment_start": 0,
+        "d_alignment_end": 0,
+        "germline_alignment": "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNTACGCAGACTCCGTGAAGGGCCGGTTCACCATCTCCAGAGACAATTCCAAGAACACGCTGTATCTGCAAATGAACAGCCTGAGAGCCGAGGACACGGCCGTATATTACTGTGCGAAAGGGACCCTTTCATATTGTAGTGGTGGTAGCTGCTATGCTTTTGATATCTGGGGCCAAGGGACAATGGTCACCGTCTCTTCA",
+        "has_seed": false,
+        "trees": [
+            {
+                "ident": "tree-1009d173-85e1-5593-e2ec-8a895954ecab",
+                "clone_id": "sample-igg-201c_1553",
+                "tree_id": "tree-sample-igg-201c_1553",
+                "tree_name": "tree-sample-igg-201c_1553",
+                "newick": "(naive:0.0598594208,(1TTGTATGACATGGACTCTTGGG:0.0000010000,((1TAGTTTCTCGTAGCGTCTTGGG:0.0000010000,(1TCCGGTCTCTTGACATCTTGGG:0.0000010000,1TCACATGTGTTTGTCTCTTGGG:0.0000010000)Node5:0.0000010000)Node4:0.0000010000,1TGGGCTAATCTTTCGTCTTGGG:0.0000010000)Node3:0.0000010000)Node2:0.0000010000,((1TGTTATCAACTCGAGTCTTGGG:0.0000010000,((1TTCTATCGATTAGTATCTTGGG:0.0000010000,1TGACGTGTGTTCGGTTCTTGGG:0.0000010000)Node9:0.0000010000,1TGACATTCCATTGATTCTTGGG:0.0000010000)Node8:0.0000010000)Node7:0.0000010000,1TGTGTTCCGTTTTTATCTTGGG:0.0000010000)Node6:0.0000010000)Node1;"
+            }
+        ],
+        "sample": {
+            "ident": "clone-78da9d75-7d2f-226d-8bb6-a60a861d693d",
+            "locus": "igh",
+            "sample_id": "sample-igg-201c"
+        }
+    },
+    {
+        "clone_id": "sample-igg-5001_1219",
+        "ident": "clone-62d9bbec-629f-2492-ac74-9933576e517b",
         "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
         "sample_id": "sample-igg-5001",
-        "unique_seqs_count": 44,
-        "total_read_count": 62,
-        "mean_mut_freq": 0.3821698134336713,
+        "unique_seqs_count": 4,
+        "total_read_count": 3,
+        "mean_mut_freq": 0.018970189701897018,
         "v_alignment_start": 0,
         "v_alignment_end": 0,
         "j_alignment_start": 0,
@@ -260,26 +746,227 @@
         "has_seed": false,
         "trees": [
             {
-                "ident": "tree-122c6f7f-bd3e-46f6-0113-bb7303ccdfef",
-                "clone_id": "1219",
-                "tree_id": "tree-1219",
+                "ident": "tree-1f9dbf6c-d601-bcfa-ec02-57c72ee6a2e9",
+                "clone_id": "sample-igg-5001_1219",
+                "tree_id": "tree-sample-igg-5001_1219",
+                "tree_name": "tree-sample-igg-5001_1219",
                 "newick": "(naive:0.0193693556,1TTGACTACTGTACTCTCTTGGG:0.0000010000,1TGATGTGAGTTCGCCTCTTGGG:0.0000010000)Node1;"
             }
         ],
         "sample": {
-            "ident": "clone-b3598fe2-630b-536f-74e7-274c35d14209",
+            "ident": "clone-62d9bbec-629f-2492-ac74-9933576e517b",
             "locus": "igh",
             "sample_id": "sample-igg-5001"
         }
     },
     {
-        "clone_id": "1391",
-        "ident": "clone-649adb59-d0c9-dfa7-81a5-9d756e4ee282",
+        "clone_id": "sample-igg-1008_1219",
+        "ident": "clone-fd9fb08d-c288-9549-4fb5-89b0ae8f84e2",
+        "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
+        "sample_id": "sample-igg-1008",
+        "unique_seqs_count": 16,
+        "total_read_count": 15,
+        "mean_mut_freq": 0.0027548209366391185,
+        "v_alignment_start": 0,
+        "v_alignment_end": 0,
+        "j_alignment_start": 0,
+        "j_alignment_end": 0,
+        "cdr1_alignment_start": 75,
+        "cdr1_alignment_end": 96,
+        "cdr2_alignment_start": 150,
+        "cdr2_alignment_end": 171,
+        "junction_start": 288,
+        "junction_length": 39,
+        "v_call": "IGHV3-9*01",
+        "d_call": "",
+        "j_call": "IGHJ4*02",
+        "d_alignment_start": 0,
+        "d_alignment_end": 0,
+        "germline_alignment": "GAAGTGCAGCTGGTGGAGTCTGGGGGAGGCTTGGTACAGCCTGGCAGGTCCCTGAGACTCTCCTGTGCAGCCTCTGGATTCACCTTTGATGATTATGCCATGCACTGGGTCCGGCAAGCTCCAGGGAAGGGCCTGGAGTGGGTCTCAGGTATTAGTTGGAATAGTGGTAGCATAGGCTATGCGGACTCTGTGAAGGGCCGATTCACCATCTCCAGAGACAACGCCAAGAACTCCCTGTATCTGCAAATGAACAGTCTGAGAGCTGAGGACACGGCCTTGTATTACTGTGCAAAAACGGCAAATATAGCAGTGGCTGGTTCCCTTGACTACTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCA",
+        "has_seed": false,
+        "trees": [
+            {
+                "ident": "tree-a374a336-cf46-e293-6442-a706dd45bf92",
+                "clone_id": "sample-igg-1008_1219",
+                "tree_id": "tree-sample-igg-1008_1219",
+                "tree_name": "tree-sample-igg-1008_1219",
+                "newick": "(naive:0.0027536054,1TGCATTTTGGTGGTGTCTTGGG:0.0000009949,(((((1TTCGGTTCTGTTGGCTCTTGGG:0.0000009949,(1TGGAATCCGGTCAGGTCTTGGG:0.0000009949,1TGTGCTTAGGTTGCGTCTTGGG:0.0000009949)Node7:0.0000009949)Node6:0.0000009949,1TGTGCTTAAGTGCTGTCTTGGG:0.0000009949)Node5:0.0000009949,1TGGAATCCGGTCGGGTCTTGGG:0.0000009949)Node4:0.0000009949,1TGTGGTGCACTTACATCTTGGG:0.0000009949)Node3:0.0000009949,1TGCCATCATTGTGTCTTGGGGA:0.0000009949)Node2:0.0000009949)Node1;"
+            }
+        ],
+        "sample": {
+            "ident": "clone-fd9fb08d-c288-9549-4fb5-89b0ae8f84e2",
+            "locus": "igh",
+            "sample_id": "sample-igg-1008"
+        }
+    },
+    {
+        "clone_id": "sample-igg-602c_1219",
+        "ident": "clone-01d9c707-2d15-2467-da16-79235b76f33b",
+        "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
+        "sample_id": "sample-igg-602c",
+        "unique_seqs_count": 14,
+        "total_read_count": 13,
+        "mean_mut_freq": 0.06221198156682028,
+        "v_alignment_start": 0,
+        "v_alignment_end": 0,
+        "j_alignment_start": 0,
+        "j_alignment_end": 0,
+        "cdr1_alignment_start": 75,
+        "cdr1_alignment_end": 96,
+        "cdr2_alignment_start": 150,
+        "cdr2_alignment_end": 171,
+        "junction_start": 288,
+        "junction_length": 48,
+        "v_call": "IGHV3-30*01",
+        "d_call": "",
+        "j_call": "IGHJ4*02",
+        "d_alignment_start": 0,
+        "d_alignment_end": 0,
+        "germline_alignment": "CAGGTGCAGCTGGTGGAGTCTGGGGGAGGCGTGGTCCAGCCTGGGAGGTCCCTGAGACTCTCCTGTGCAGCCTCTGGATTCACCTTCAGTAGCTATGCTATGCACTGGGTCCGCCAGGCTCCAGGCAAGGGGCTAGAGTGGGTGGCAGTTATATCATATGATGGAAGTAATAAATACTACGCAGACTCCGTGAAGGGCCGATTCACCATCTCCAGAGACAATTCCAAGAACACGCTGTATCTGCAAATGAACAGCCTGAGAGCTGAGGACACGGCTGTGTATTACTGTGCGAGAGATTGCCGCCCACTCCTGACTACATCCGTGATTGCTATTTGTGACTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCA",
+        "has_seed": false,
+        "trees": [
+            {
+                "ident": "tree-684cf07a-9267-14a4-86ef-7f22aa22d934",
+                "clone_id": "sample-igg-602c_1219",
+                "tree_id": "tree-sample-igg-602c_1219",
+                "tree_name": "tree-sample-igg-602c_1219",
+                "newick": "(naive:0.0668097078,(((((1TAAGTGAGCTGTTGTCTTGGGG:0.0000010000,1TTACCTCCGATTCGATCTTGGG:0.0000010000)Node6:0.0000010000,1TATTCTAAAGTTACTTCTTGGG:0.0000010000)Node5:0.0000010000,1TAGTATAGCTTGTAATCTTGGG:0.0000010000)Node4:0.0000010000,1TGTATTACCTTCATGTCTTGGG:0.0000010000)Node3:0.0000010000,1TGCACTATGGTCTTGTCTTGGG:0.0000010000)Node2:0.0000010000,1TCGAATCCAGTGCCGTCTTGGG:0.0000010000)Node1;"
+            }
+        ],
+        "sample": {
+            "ident": "clone-01d9c707-2d15-2467-da16-79235b76f33b",
+            "locus": "igh",
+            "sample_id": "sample-igg-602c"
+        }
+    },
+    {
+        "clone_id": "sample-igg-2008_1219",
+        "ident": "clone-60889925-b314-0741-761b-29c74049d37d",
+        "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
+        "sample_id": "sample-igg-2008",
+        "unique_seqs_count": 10,
+        "total_read_count": 9,
+        "mean_mut_freq": 0.020671834625323,
+        "v_alignment_start": 0,
+        "v_alignment_end": 0,
+        "j_alignment_start": 0,
+        "j_alignment_end": 0,
+        "cdr1_alignment_start": 75,
+        "cdr1_alignment_end": 99,
+        "cdr2_alignment_start": 153,
+        "cdr2_alignment_end": 171,
+        "junction_start": 288,
+        "junction_length": 63,
+        "v_call": "IGHV4-4*02",
+        "d_call": "",
+        "j_call": "IGHJ6*03",
+        "d_alignment_start": 0,
+        "d_alignment_end": 0,
+        "germline_alignment": "CAGGTGCAGCTGCAGGAGTCGGGCCCAGGACTGGTGAAGCCTTCGGGGACCCTGTCCCTCACCTGCGCTGTCTCTGGTGGCTCCATCAGCAGTAGTAACTGGTGGAGTTGGGTCCGCCAGCCCCCAGGGAAGGGGCTGGAGTGGATTGGGGAAATCTATCATAGTGGGAGCACCAACTACAACCCGTCCCTCAAGAGTCGAGTCACCATATCAGTAGACAAGTCCAAGAACCAGTTCTCCCTGAAGCTGAGCTCTGTGACCGCCGCGGACACGGCCGTGTATTACTGTGCGAGAGATCACGTGGTGGGATATTGTAGTAGTACCAGCTGCCACTACTACTACTACATGGACGTCTGGGGCAAAGGGACCACGGTCACCGTCTCCTCA",
+        "has_seed": false,
+        "trees": [
+            {
+                "ident": "tree-27f6563d-c175-8e5c-5226-a27d4e4b3876",
+                "clone_id": "sample-igg-2008_1219",
+                "tree_id": "tree-sample-igg-2008_1219",
+                "tree_name": "tree-sample-igg-2008_1219",
+                "newick": "(naive:0.0212278080,((1TGTATTTCCGTCTGTTCTTAGG:0.0000010000,1TCGGTTCTTGTGATGTCTTGGG:0.0000010000)Node3:0.0000010000,(1TGGTGTTATGTGTGGTCTTGGG:0.0000010000,1TTGGGTTGCATGTGTTCTTGGG:0.0000010000)Node4:0.0000010000)Node2:0.0000010000,1TAGTGTGTGTTCGGGTCTTGGG:0.0000010000)Node1;"
+            }
+        ],
+        "sample": {
+            "ident": "clone-60889925-b314-0741-761b-29c74049d37d",
+            "locus": "igh",
+            "sample_id": "sample-igg-2008"
+        }
+    },
+    {
+        "clone_id": "sample-igg-201c_1219",
+        "ident": "clone-eb73ead5-a87b-4aa9-218a-c768a29881d7",
         "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
         "sample_id": "sample-igg-201c",
-        "unique_seqs_count": 30,
-        "total_read_count": 38,
-        "mean_mut_freq": 0.3661254482334052,
+        "unique_seqs_count": 20,
+        "total_read_count": 19,
+        "mean_mut_freq": 0.046070460704607054,
+        "v_alignment_start": 0,
+        "v_alignment_end": 0,
+        "j_alignment_start": 0,
+        "j_alignment_end": 0,
+        "cdr1_alignment_start": 75,
+        "cdr1_alignment_end": 96,
+        "cdr2_alignment_start": 150,
+        "cdr2_alignment_end": 171,
+        "junction_start": 288,
+        "junction_length": 45,
+        "v_call": "IGHV3-30-3*01",
+        "d_call": "",
+        "j_call": "IGHJ6*02",
+        "d_alignment_start": 0,
+        "d_alignment_end": 0,
+        "germline_alignment": "CAGGTGCAGCTGGTGGAGTCTGGGGGAGGCGTGGTCCAGCCTGGGAGGTCCCTGAGACTCTCCTGTGCAGCCTCTGGATTCACCTTCAGTAGCTATGCTATGCACTGGGTCCGCCAGGCTCCAGGCAAGGGGCTGGAGTGGGTGGCAGTTATATCATATGATGGAAGCAATAAATACTACGCAGACTCCGTGAAGGGCCGATTCACCATCTCCAGAGACAATTCCAAGAACACGCTGTATCTGCAAATGAACAGCCTGAGAGCTGAGGACACGGCTGTGTATTACTGTGCGAAGACGAACACCCCGGGCCTACGGTACTACTACGGTATGGACGTCTGGGGCCAAGGGACCACGGTCACCGTCTCCTCA",
+        "has_seed": false,
+        "trees": [
+            {
+                "ident": "tree-774e66d4-afbe-0c43-a9f8-a772fcb2ef6c",
+                "clone_id": "sample-igg-201c_1219",
+                "tree_id": "tree-sample-igg-201c_1219",
+                "tree_name": "tree-sample-igg-201c_1219",
+                "newick": "(naive:0.0487548540,(((1TAAGTTCGTCTGTTTTCTTGGG:0.0000010000,1TAGAGTAACGTGATGTCTTGGG:0.0000010000)Node4:0.0000010000,1TCTCATTTGGTTAACTCTTGGG:0.0000010000)Node3:0.0000010000,1TCTATTCGGATTGTCTCTTGGG:0.0000010000)Node2:0.0000010000,(1TGACATTGCTTGAGTTCTTGGG:0.0000010000,((((1TACTATCGAATGACATCTTGGG:0.0000010000,1TCAGGTCTTTTGTCGTCTTGGG:0.0000010000)Node9:0.0000010000,1TCCCATGTCGTTTTTTCTTGGG:0.0000010000)Node8:0.0000010000,1TGTCCTTAGGTACCGTCTTGGG:0.0000010000)Node7:0.0000010000,1TCCCCTCGCGTGCTGTCTTGGG:0.0000010000)Node6:0.0000010000)Node5:0.0000010000)Node1;"
+            }
+        ],
+        "sample": {
+            "ident": "clone-eb73ead5-a87b-4aa9-218a-c768a29881d7",
+            "locus": "igh",
+            "sample_id": "sample-igg-201c"
+        }
+    },
+    {
+        "clone_id": "sample-igg-4002_1219",
+        "ident": "clone-1c0078af-6829-d129-1f62-d83a0a51e0f1",
+        "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
+        "sample_id": "sample-igg-4002",
+        "unique_seqs_count": 4,
+        "total_read_count": 3,
+        "mean_mut_freq": 0.03733333333333333,
+        "v_alignment_start": 0,
+        "v_alignment_end": 0,
+        "j_alignment_start": 0,
+        "j_alignment_end": 0,
+        "cdr1_alignment_start": 75,
+        "cdr1_alignment_end": 96,
+        "cdr2_alignment_start": 150,
+        "cdr2_alignment_end": 171,
+        "junction_start": 288,
+        "junction_length": 51,
+        "v_call": "IGHV1-46*01",
+        "d_call": "",
+        "j_call": "IGHJ3*02",
+        "d_alignment_start": 0,
+        "d_alignment_end": 0,
+        "germline_alignment": "CAGGTGCAGCTGGTGCAGTCTGGGGCTGAGGTGAAGAAGCCTGGGGCCTCAGTGAAGGTTTCCTGCAAGGCATCTGGATACACCTTCACCAGCTACTATATGCACTGGGTGCGACAGGCCCCTGGACAAGGGCTTGAGTGGATGGGAATAATCAACCCTAGTGGTGGTAGCACAAGCTACGCACAGAAGTTCCAGGGCAGAGTCACCATGACCAGGGACACGTCCACGAGCACAGTCTACATGGAGCTGAGCAGCCTGAGATCTGAGGACACGGCCGTGTATTACTGTGCGAGAGTAGATTGTAGTAGTACCAGCTGCTATGCGAGTGATGCTTTTGATATCTGGGGCCAAGGGACAATGGTCACCGTCTCTTCA",
+        "has_seed": false,
+        "trees": [
+            {
+                "ident": "tree-653a97b8-1c82-d1bb-f23b-61dd1f5f95dc",
+                "clone_id": "sample-igg-4002_1219",
+                "tree_id": "tree-sample-igg-4002_1219",
+                "tree_name": "tree-sample-igg-4002_1219",
+                "newick": "(naive:0.0310395129,1TCCTATCCACTTGGGTCTTGGG:0.0051381356,1TACTCTATCCTTGGTTCTTGGG:0.0111203877)Node1;"
+            }
+        ],
+        "sample": {
+            "ident": "clone-1c0078af-6829-d129-1f62-d83a0a51e0f1",
+            "locus": "igh",
+            "sample_id": "sample-igg-4002"
+        }
+    },
+    {
+        "clone_id": "sample-igg-201c_1391",
+        "ident": "clone-cc27ffe6-6f23-ec5b-2bc0-eb7a407cf152",
+        "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
+        "sample_id": "sample-igg-201c",
+        "unique_seqs_count": 6,
+        "total_read_count": 5,
+        "mean_mut_freq": 0.018666666666666668,
         "v_alignment_start": 0,
         "v_alignment_end": 0,
         "j_alignment_start": 0,
@@ -299,16 +986,137 @@
         "has_seed": false,
         "trees": [
             {
-                "ident": "tree-c9d235f3-341d-19b6-246f-7fa44d5352eb",
-                "clone_id": "1391",
-                "tree_id": "tree-1391",
+                "ident": "tree-d5df516b-827f-c8de-339b-2b9b1d1e8d08",
+                "clone_id": "sample-igg-201c_1391",
+                "tree_id": "tree-sample-igg-201c_1391",
+                "tree_name": "tree-sample-igg-201c_1391",
                 "newick": "(naive:0.0190287512,(1TGCGATGCTTTCTGAGAGTCAT:0.0000010000,1TTAGGTCCCGTGAGCTCTTGGG:0.0000010000)Node2:0.0000010000,1TAGAGTACGTTGGGGTCTTGGG:0.0000010000)Node1;"
             }
         ],
         "sample": {
-            "ident": "clone-649adb59-d0c9-dfa7-81a5-9d756e4ee282",
+            "ident": "clone-cc27ffe6-6f23-ec5b-2bc0-eb7a407cf152",
             "locus": "igh",
             "sample_id": "sample-igg-201c"
+        }
+    },
+    {
+        "clone_id": "sample-igg-1008_1391",
+        "ident": "clone-8e3e1169-f915-01f6-940c-767ae9166e36",
+        "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
+        "sample_id": "sample-igg-1008",
+        "unique_seqs_count": 12,
+        "total_read_count": 11,
+        "mean_mut_freq": 0.04371584699453552,
+        "v_alignment_start": 0,
+        "v_alignment_end": 0,
+        "j_alignment_start": 0,
+        "j_alignment_end": 0,
+        "cdr1_alignment_start": 75,
+        "cdr1_alignment_end": 102,
+        "cdr2_alignment_start": 156,
+        "cdr2_alignment_end": 174,
+        "junction_start": 291,
+        "junction_length": 39,
+        "v_call": "IGHV4-39*01",
+        "d_call": "",
+        "j_call": "IGHJ4*02",
+        "d_alignment_start": 0,
+        "d_alignment_end": 0,
+        "germline_alignment": "CAGCTGCAGCTGCAGGAGTCGGGCCCAGGACTGGTGAAGCCTTCGGAGACCCTGTCCCTCACCTGCACTGTCTCTGGTGGCTCCATCAGCAGTAGTAGTTACTACTGGGGCTGGATCCGCCAGCCCCCAGGGAAGGGGCTGGAGTGGATTGGGAGTATCTATTATAGTGGGAGCACCTACTACAACCCGTCCCTCAAGAGTCGAGTCACCATATCCGTAGACACGTCCAAGAACCAGTTCTCCCTGAAGCTGAGCTCTGTGACCGCCGCAGACACGGCTGTGTATTACTGTGCGAGGCCTTTATGGTTCGGGGAGTCTTACTACTTTGACTACTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCA",
+        "has_seed": false,
+        "trees": [
+            {
+                "ident": "tree-0e14038f-ac80-8a35-ebb7-2c1b76345a46",
+                "clone_id": "sample-igg-1008_1391",
+                "tree_id": "tree-sample-igg-1008_1391",
+                "tree_name": "tree-sample-igg-1008_1391",
+                "newick": "(naive:0.0461878766,((1TAAATTCGATTTCACTCTTGGG:0.0000010000,1TGGATTGAAATCGGTTCTTGGG:0.0000010000)Node3:0.0000010000,((1TAGAATCATGTGTGGTCTTGGG:0.0000010000,1TGGGGTATGTTTAGATCTTGGG:0.0000010000)Node5:0.0000010000,1TAAGTTCTGAGAGTCCTGGATC:0.0000010000)Node4:0.0000010000)Node2:0.0000010000,1TAAACTGTGCTCAGTTCTTGGG:0.0000010000)Node1;"
+            }
+        ],
+        "sample": {
+            "ident": "clone-8e3e1169-f915-01f6-940c-767ae9166e36",
+            "locus": "igh",
+            "sample_id": "sample-igg-1008"
+        }
+    },
+    {
+        "clone_id": "sample-igg-4002_1391",
+        "ident": "clone-6ef381ad-883b-2397-3734-77a8445aef93",
+        "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
+        "sample_id": "sample-igg-4002",
+        "unique_seqs_count": 6,
+        "total_read_count": 5,
+        "mean_mut_freq": 0.10405643738977072,
+        "v_alignment_start": 0,
+        "v_alignment_end": 0,
+        "j_alignment_start": 0,
+        "j_alignment_end": 0,
+        "cdr1_alignment_start": 75,
+        "cdr1_alignment_end": 96,
+        "cdr2_alignment_start": 150,
+        "cdr2_alignment_end": 171,
+        "junction_start": 288,
+        "junction_length": 54,
+        "v_call": "IGHV1-69*12",
+        "d_call": "",
+        "j_call": "IGHJ3*02",
+        "d_alignment_start": 0,
+        "d_alignment_end": 0,
+        "germline_alignment": "CAGGTCCAGCTGGTGCAGTCTGGGGCTGAGGTGAAGAAGCCTGGGTCCTCGGTGAAGGTCTCCTGCAAGGCTTCTGGAGGCACCTTCAGCAGCTATGCTATCAGCTGGGTGCGACAGGCCCCTGGACAAGGGCTTGAGTGGATGGGAGGGATCATCCCTATCTTTGGTACAGCAAACTACGCACAGAAGTTCCAGGGCAGAGTCACGATTACCGCGGACGAATCCACGAGCACAGCCTACATGGAGCTGAGCAGCCTGAGATCTGAGGACACGGCCGTGTATTACTGTGCGAGAGTGGTTTGTAGTGGTGGTAGCTGCTACTCCGAATTTGATGCTTTTGATATCTGGGGCCAAGGGACAATGGTCACCGTCTCTTCA",
+        "has_seed": false,
+        "trees": [
+            {
+                "ident": "tree-2cea4fb5-578e-13af-c10b-350fff8f29a3",
+                "clone_id": "sample-igg-4002_1391",
+                "tree_id": "tree-sample-igg-4002_1391",
+                "tree_name": "tree-sample-igg-4002_1391",
+                "newick": "(naive:0.1363832364,(1TCGGATTACTTTCGGTCTTGGG:0.0000011513,1TCAGGTCACGTTAAATCTTGGG:0.0000011513)Node2:0.0013966388,1TGGCATGTAGTGGTTTCTTGGG:0.0039728170)Node1;"
+            }
+        ],
+        "sample": {
+            "ident": "clone-6ef381ad-883b-2397-3734-77a8445aef93",
+            "locus": "igh",
+            "sample_id": "sample-igg-4002"
+        }
+    },
+    {
+        "clone_id": "sample-igg-5001_1391",
+        "ident": "clone-10d5e2b0-ff53-267d-0e5f-15cdd6283612",
+        "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
+        "sample_id": "sample-igg-5001",
+        "unique_seqs_count": 18,
+        "total_read_count": 17,
+        "mean_mut_freq": 0.08130081300813008,
+        "v_alignment_start": 0,
+        "v_alignment_end": 0,
+        "j_alignment_start": 0,
+        "j_alignment_end": 0,
+        "cdr1_alignment_start": 75,
+        "cdr1_alignment_end": 96,
+        "cdr2_alignment_start": 150,
+        "cdr2_alignment_end": 168,
+        "junction_start": 285,
+        "junction_length": 48,
+        "v_call": "IGHV4-59*01",
+        "d_call": "",
+        "j_call": "IGHJ4*02",
+        "d_alignment_start": 0,
+        "d_alignment_end": 0,
+        "germline_alignment": "CAGGTGCAGCTGCAGGAGTCGGGCCCAGGACTGGTGAAGCCTTCGGAGACCCTGTCCCTCACCTGCACTGTCTCTGGTGGCTCCATCAGTAGTTACTACTGGAGCTGGATCCGGCAGCCCCCAGGGAAGGGACTGGAGTGGATTGGGTATATCTATTACAGTGGGAGCACCAACTACAACCCCTCCCTCAAGAGTCGAGTCACCATATCAGTAGACACGTCCAAGAACCAGTTCTCCCTGAAGCTGAGCTCTGTGACCGCTGCGGACACGGCCGTGTATTACTGTGCGAGACGACGATGGGAGGCGTCGACTTCTTCATTTTTGGAGCTTGACTACTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCA",
+        "has_seed": false,
+        "trees": [
+            {
+                "ident": "tree-4e789983-4517-bda3-11cf-1d3f636ac5dc",
+                "clone_id": "sample-igg-5001_1391",
+                "tree_id": "tree-sample-igg-5001_1391",
+                "tree_name": "tree-sample-igg-5001_1391",
+                "newick": "(naive:0.0899779189,((1TACACTCACGTCTGTTCTTGGG:0.0000010000,1TCGAGTGAAATGCAATCTTGGG:0.0000010000)Node3:0.0000010000,1TGCGCTTCAGTTCGTTCTTGGG:0.0000010000)Node2:0.0000010000,((1TACATTCACCTCCGTTCTTGGG:0.0000010000,(((1TTTCCTGAAATGATCTCTTGGG:0.0000010000,1TGGAGTACCGTGGGGTCTTGGG:0.0000010000)Node8:0.0000010000,1TAGCCTTAGCTTGACTCTTGGG:0.0000010000)Node7:0.0000010000,1TACAATGAGTTGGTGTCTTGGG:0.0000010000)Node6:0.0000010000)Node5:0.0000010000,1TTAGGTATGGTACGTTCTTGGG:0.0000010000)Node4:0.0000010000)Node1;"
+            }
+        ],
+        "sample": {
+            "ident": "clone-10d5e2b0-ff53-267d-0e5f-15cdd6283612",
+            "locus": "igh",
+            "sample_id": "sample-igg-5001"
         }
     }
 ]

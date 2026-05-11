@@ -9,6 +9,7 @@ import tempfile
 import pytest
 
 from olmsted_cli.process_pcp_data import (
+    PCP_NO_TREE_SENTINEL,
     _normalize_column_names,
     _partition_chain_fields,
     parse_pcp_csv,
@@ -161,7 +162,7 @@ class TestPcpExtraColumns:
             },
         ])
         families = parse_pcp_csv(str(pcp_file))
-        fam = families["f1"]
+        fam = families[("s1", "f1", PCP_NO_TREE_SENTINEL)]
         leaf = fam["nodes"]["leaf1"]
         assert leaf["my_score"] == 3.14
         assert leaf["my_label"] == "interesting"
@@ -177,7 +178,7 @@ class TestPcpExtraColumns:
             },
         ])
         trees = parse_newick_csv(str(tree_file))
-        tree_entries = trees[("f1", "s1")]
+        tree_entries = trees[("s1", "f1", PCP_NO_TREE_SENTINEL)]
         # parse_newick_csv returns a list-per-key (each list element is
         # one row of the tree CSV; multiple entries = alternate
         # reconstructions of the same clonal family).
@@ -194,7 +195,7 @@ class TestPcpExtraColumns:
             f.write("0,s1,f1,naive,leaf1,ATCG,ATGG,0.01,True,True\n")
 
         families = parse_pcp_csv(str(pcp_file))
-        leaf = families["f1"]["nodes"]["leaf1"]
+        leaf = families[("s1", "f1", PCP_NO_TREE_SENTINEL)]["nodes"]["leaf1"]
         assert "" not in leaf
         assert 0 not in leaf
 

@@ -352,16 +352,22 @@ def process_pcp_format(args):
         if hasattr(args, "seed") and args.seed is not None:
             vprint.status(f"Using deterministic UUIDs with seed: {args.seed}")
 
+        column_overrides = {
+            "sample_override": getattr(args, "sample_col", None),
+            "family_override": getattr(args, "family_col", None),
+            "tree_override": getattr(args, "tree_col", None),
+        }
+
         # Parse PCP families with progress bar
         vprint.status("Parsing PCP CSV...")
-        pcp_families = parse_pcp_csv(pcp_file)
+        pcp_families = parse_pcp_csv(pcp_file, **column_overrides)
         vprint.status(f"Found {len(pcp_families)} families")
 
         # Parse Newick trees if provided with progress bar
         newick_trees = None
         if trees_file:
             vprint.status(f"Processing Newick trees: {trees_file}")
-            newick_trees = parse_newick_csv(trees_file)
+            newick_trees = parse_newick_csv(trees_file, **column_overrides)
             vprint.status(f"Found {len(newick_trees)} trees")
 
         # Convert to Olmsted format with progress bar
@@ -501,6 +507,31 @@ Examples:
         choices=[FORMAT_AIRR, FORMAT_PCP, FORMAT_AUTO],
         default=FORMAT_AUTO,
         help="Input format (default: auto-detect)",
+    )
+
+    # --- Column overrides (PCP CSV inputs) ---
+    column_group = parser.add_argument_group(
+        "PCP CSV column overrides",
+        "Override the auto-detected column names. By default the parser\n"
+        "accepts any of {sample, sample_id, sample_name},\n"
+        "{family, family_id, family_name}, {tree, tree_id, tree_name},\n"
+        "preferring '_id' > bare > '_name' when multiple are present.",
+    )
+    column_group.add_argument(
+        "--sample-col",
+        dest="sample_col",
+        help="Column name supplying the sample identifier (PCP / trees CSV).",
+    )
+    column_group.add_argument(
+        "--family-col",
+        dest="family_col",
+        help="Column name supplying the family identifier (PCP / trees CSV).",
+    )
+    column_group.add_argument(
+        "--tree-col",
+        dest="tree_col",
+        help="Column name supplying the per-tree identifier within a family. "
+        "Optional — when absent, every family has at most one tree.",
     )
 
     # --- Mutations CSV options ---
@@ -661,6 +692,9 @@ _CONFIG_KEY_MAP = {
     "lbi_tau": "lbi_tau",
     "standardize_names": "standardize_names",
     "capture_all": "capture_all",
+    "sample_col": "sample_col",
+    "family_col": "family_col",
+    "tree_col": "tree_col",
 }
 
 # Valid config keys (including custom_fields which is handled separately)
