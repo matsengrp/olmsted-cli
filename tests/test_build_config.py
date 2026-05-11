@@ -248,6 +248,46 @@ class TestBuildConfigNewTypes:
         assert "demoted from node to mutation level" in build_config_output
 
 
+class TestBuildConfigTreeLevel:
+    """Tree-level coverage across all three fields-config formats.
+
+    `clone-A` (AIRR / Olmsted) and `fam-1` (PCP) each carry two trees
+    with `foobar_method` / `foobar_tree_score` differing across the
+    pair, so the variance classifier promotes them to ``tree`` level.
+    """
+
+    @pytest.fixture(params=[
+        ("example-data/fields-config/input-olmsted.json", None),
+        ("example-data/fields-config/input-airr.json", None),
+        ("example-data/fields-config/input-pcp.csv",
+         "example-data/fields-config/input-trees.csv"),
+    ], ids=["olmsted", "airr", "pcp"])
+    def build_config_output(self, request):
+        input_path, tree_path = request.param
+        cmd = ["olmsted", "build-config", "-i", input_path]
+        if tree_path:
+            cmd += ["-t", tree_path]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        assert result.returncode == 0
+        return result.stdout
+
+    def test_tree_level_section_present(self, build_config_output):
+        assert "Tree level" in build_config_output
+
+    def test_tree_level_fields_emitted(self, build_config_output):
+        lines = build_config_output.split("\n")
+        for name in ("foobar_method", "foobar_tree_score"):
+            for i, line in enumerate(lines):
+                if f"name: {name}" in line:
+                    block = "\n".join(lines[i:i + 5])
+                    assert "level: tree" in block, (
+                        f"{name} should be at tree level:\n{block}"
+                    )
+                    break
+            else:
+                pytest.fail(f"{name} not found in build-config output")
+
+
 class TestLooksLikeLocalPath:
     """Tests for _looks_like_local_path heuristic."""
 

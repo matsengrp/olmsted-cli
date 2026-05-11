@@ -11,6 +11,9 @@ Minimal datasets with foobar bogus metrics at every field level and type, for te
 | **clone** | `foobar_note` | tooltip | Bogus clone description |
 | **clone** | `foobar_params` | json | Bogus structured parameters (tooltip display) |
 | **clone** | `foobar_path` | categorical | Local file path (auto-skipped) |
+| **tree** | `foobar_method` | categorical | Bogus reconstruction method (varies across trees of `clone-A` / `fam-1`) |
+| **tree** | `foobar_tree_score` | continuous | Bogus per-tree numeric score |
+| **tree** | `foobar_tree_note` | tooltip | Bogus per-tree description |
 | **node** | `foobar_weight` | continuous | Bogus numeric node metric |
 | **node** | `foobar_class` | categorical | Bogus node classification |
 | **node** | `foobar_description` | tooltip | Bogus node description |
@@ -47,6 +50,18 @@ olmsted build-config -i input-olmsted.json
 olmsted build-config -i input-airr.json
 olmsted build-config -i input-pcp.csv -t input-trees.csv
 ```
+
+## Tree-level Coverage
+
+`clone-A` (AIRR / Olmsted JSON) and `fam-1` (PCP) each have **two trees**
+with different reconstruction methods. Tree-level foobar fields differ
+across those two trees, so the variance classifier auto-promotes them to
+`field_metadata.tree`. `clone-B` / `fam-2` have a single tree each — the
+same tree-level fields are still present (as constants), exercising the
+custom-fields-only path.
+
+The PCP CSVs disambiguate the two trees via a `tree_name` column on both
+`input-pcp.csv` (per-row) and `input-trees.csv` (per-tree).
 
 ## New Type Coverage
 

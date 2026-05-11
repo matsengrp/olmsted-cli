@@ -39,6 +39,26 @@ custom_fields:
     skip: true
     label: "Foobar Path"
 
+  # === Tree level ===
+  # Drives the per-clone tree dropdown when one clone has multiple
+  # alternate reconstructions. Auto-detection promotes any extra column
+  # that varies across the trees of at least one clone.
+  - name: foobar_method
+    level: tree
+    type: categorical
+    label: "Foobar Reconstruction Method"
+
+  - name: foobar_tree_score
+    level: tree
+    type: continuous
+    label: "Foobar Tree Score"
+
+  - name: foobar_tree_note
+    level: tree
+    type: categorical
+    display: tooltip
+    label: "Foobar Tree Note"
+
   # === Node level ===
   - name: foobar_weight
     level: node

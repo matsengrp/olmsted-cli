@@ -1617,6 +1617,7 @@ def _build_tree_ref(
     newick: str,
     csv_tree_id: Optional[str],
     reconstruction_method: Optional[str],
+    extras: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Build a tree record (``clone.trees[]`` entry or the header of a
     top-level ``trees[]`` entry) with the identifier and semantic columns.
@@ -1651,6 +1652,12 @@ def _build_tree_ref(
     }
     if reconstruction_method:
         record["reconstruction_method"] = reconstruction_method
+    if extras:
+        # Tree-csv extras live on the per-tree record so the variance
+        # classifier (field_metadata._classify_tree_extras) can see them
+        # and promote tree-level fields out of the clone-level pass.
+        for k, v in extras.items():
+            record.setdefault(k, v)
     return record
 
 
@@ -2236,6 +2243,7 @@ def _process_family_tree(
                 newick=newick,
                 csv_tree_id=csv_tree_id,
                 reconstruction_method=reconstruction_method,
+                extras=extra_tree_fields,
             )
         ],
         # Denormalized sample reference for webapp convenience
@@ -2310,6 +2318,7 @@ def _process_family_tree(
                     newick=newick,  # Same topology, different sequences
                     csv_tree_id=csv_tree_id,
                     reconstruction_method=reconstruction_method,
+                    extras=extra_tree_fields,
                 )
             ],
             "sample": {
@@ -2341,6 +2350,7 @@ def _process_family_tree(
             newick=newick,
             csv_tree_id=csv_tree_id,
             reconstruction_method=reconstruction_method,
+            extras=extra_tree_fields,
         ),
         "nodes": nodes_array_heavy,
     }
@@ -2360,6 +2370,7 @@ def _process_family_tree(
                 newick=newick,  # Same topology, different sequences in nodes
                 csv_tree_id=csv_tree_id,
                 reconstruction_method=reconstruction_method,
+                extras=extra_tree_fields,
             ),
             "nodes": nodes_array_light,
         }

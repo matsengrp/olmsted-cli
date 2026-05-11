@@ -3,9 +3,15 @@
   "ident": "dataset-test-fields-airr",
   "type": "airr.dataset",
   "schema_version": "2.0.0",
-  "build": {"commit": "test", "time": "2026-03-29"},
+  "build": {
+    "commit": "test",
+    "time": "2026-03-29"
+  },
   "subjects": [
-    {"subject_id": "subject-1", "ident": "subject-ident-1"}
+    {
+      "subject_id": "subject-1",
+      "ident": "subject-ident-1"
+    }
   ],
   "samples": [
     {
@@ -41,7 +47,10 @@
       "foobar_category": "group-alpha",
       "foobar_note": "This clone has interesting properties",
       "foobar_path": "/data/raw/sample-1/clone-A.fasta",
-      "foobar_params": {"method": "parsimony", "bootstrap": 100},
+      "foobar_params": {
+        "method": "parsimony",
+        "bootstrap": 100
+      },
       "trees": [
         {
           "tree_id": "parsimony",
@@ -62,7 +71,12 @@
               "foobar_weight": 1.0,
               "foobar_class": "internal",
               "foobar_description": "Root node",
-              "foobar_per_site_score": [0.0, 0.0, 0.0, 0.0],
+              "foobar_per_site_score": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
               "foobar_sparse_aa": {}
             },
             "node1": {
@@ -79,8 +93,15 @@
               "foobar_weight": 2.5,
               "foobar_class": "internal",
               "foobar_description": "Internal node",
-              "foobar_per_site_score": [0.1, 0.0, 0.3, 0.0],
-              "foobar_sparse_aa": {"2": "V"}
+              "foobar_per_site_score": [
+                0.1,
+                0.0,
+                0.3,
+                0.0
+              ],
+              "foobar_sparse_aa": {
+                "2": "V"
+              }
             },
             "leaf1": {
               "sequence_id": "leaf1",
@@ -97,8 +118,16 @@
               "foobar_weight": 5.0,
               "foobar_class": "high-confidence",
               "foobar_description": "Abundant leaf",
-              "foobar_per_site_score": [0.0, 0.0, 0.5, 0.95],
-              "foobar_sparse_aa": {"2": "L", "3": "W"},
+              "foobar_per_site_score": [
+                0.0,
+                0.0,
+                0.5,
+                0.95
+              ],
+              "foobar_sparse_aa": {
+                "2": "L",
+                "3": "W"
+              },
               "mutations": [
                 {
                   "site": 9,
@@ -128,8 +157,15 @@
               "foobar_weight": 1.2,
               "foobar_class": "low-confidence",
               "foobar_description": "Rare leaf",
-              "foobar_per_site_score": [0.0, 0.0, 0.1, 0.55],
-              "foobar_sparse_aa": {"3": "*"},
+              "foobar_per_site_score": [
+                0.0,
+                0.0,
+                0.1,
+                0.55
+              ],
+              "foobar_sparse_aa": {
+                "3": "*"
+              },
               "mutations": [
                 {
                   "site": 10,
@@ -143,6 +179,142 @@
                   "foobar_tier": "low"
                 }
               ]
+            }
+          },
+          "foobar_method": "parsimony",
+          "foobar_tree_score": 0.78,
+          "foobar_tree_note": "Maximum-parsimony reconstruction"
+        },
+        {
+          "tree_id": "ml",
+          "ident": "tree-A-ml",
+          "newick": "((leaf1:0.02,leaf2:0.03)mrca-1:0.01)naive:0.0;",
+          "foobar_method": "ml",
+          "foobar_tree_score": 0.91,
+          "foobar_tree_note": "Maximum-likelihood reconstruction",
+          "nodes": {
+            "naive": {
+              "sequence_id": "naive",
+              "parent": null,
+              "type": "root",
+              "sequence_alignment": "ATCGATCGATCG",
+              "sequence_alignment_aa": "IDID",
+              "distance": 0.0,
+              "length": 0.0,
+              "multiplicity": 1,
+              "lbi": 0.5,
+              "lbr": 0.0,
+              "foobar_weight": 1.0,
+              "foobar_class": "internal",
+              "foobar_description": "Root node",
+              "foobar_per_site_score": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
+              "foobar_sparse_aa": {}
+            },
+            "leaf1": {
+              "sequence_id": "leaf1",
+              "parent": "mrca-1",
+              "type": "leaf",
+              "sequence_alignment": "ATCGATCGTTGG",
+              "sequence_alignment_aa": "IDIW",
+              "distance": 0.03,
+              "length": 0.02,
+              "multiplicity": 3,
+              "timepoint_id": "day30",
+              "lbi": 0.9,
+              "lbr": 1.125,
+              "foobar_weight": 5.0,
+              "foobar_class": "high-confidence",
+              "foobar_description": "Abundant leaf",
+              "foobar_per_site_score": [
+                0.0,
+                0.0,
+                0.5,
+                0.95
+              ],
+              "foobar_sparse_aa": {
+                "2": "L",
+                "3": "W"
+              },
+              "mutations": [
+                {
+                  "site": 9,
+                  "parent_aa": "I",
+                  "child_aa": "W",
+                  "surprise_mutsel": 6.2,
+                  "surprise_neutral": 4.1,
+                  "selection_contribution": 2.1,
+                  "region": "CDR3",
+                  "foobar_impact": 0.95,
+                  "foobar_tier": "high"
+                }
+              ]
+            },
+            "leaf2": {
+              "sequence_id": "leaf2",
+              "parent": "mrca-1",
+              "type": "leaf",
+              "sequence_alignment": "ATCGATCGTTAG",
+              "sequence_alignment_aa": "IDI*",
+              "distance": 0.04,
+              "length": 0.03,
+              "multiplicity": 1,
+              "timepoint_id": "day30",
+              "lbi": 0.3,
+              "lbr": 0.375,
+              "foobar_weight": 1.2,
+              "foobar_class": "low-confidence",
+              "foobar_description": "Rare leaf",
+              "foobar_per_site_score": [
+                0.0,
+                0.0,
+                0.1,
+                0.55
+              ],
+              "foobar_sparse_aa": {
+                "3": "*"
+              },
+              "mutations": [
+                {
+                  "site": 10,
+                  "parent_aa": "F",
+                  "child_aa": "*",
+                  "surprise_mutsel": 12.5,
+                  "surprise_neutral": 10.8,
+                  "selection_contribution": 1.7,
+                  "region": "CDR3",
+                  "foobar_impact": 0.1,
+                  "foobar_tier": "low"
+                }
+              ]
+            },
+            "mrca-1": {
+              "sequence_id": "mrca-1",
+              "parent": "naive",
+              "type": "internal",
+              "sequence_alignment": "ATCGATCGTTCG",
+              "sequence_alignment_aa": "IDIF",
+              "distance": 0.01,
+              "length": 0.01,
+              "multiplicity": 0,
+              "lbi": 0.8,
+              "lbr": 1.6,
+              "foobar_weight": 2.5,
+              "foobar_class": "internal",
+              "foobar_description": "Internal node",
+              "foobar_per_site_score": [
+                0.1,
+                0.0,
+                0.3,
+                0.0
+              ],
+              "foobar_sparse_aa": {
+                "2": "V"
+              }
             }
           }
         }
@@ -171,7 +343,10 @@
       "foobar_category": "group-beta",
       "foobar_note": "Another clone with custom metrics",
       "foobar_path": "/data/raw/sample-1/clone-B.fasta",
-      "foobar_params": {"method": "ml", "bootstrap": 500},
+      "foobar_params": {
+        "method": "ml",
+        "bootstrap": 500
+      },
       "trees": [
         {
           "tree_id": "parsimony",
@@ -192,7 +367,12 @@
               "foobar_weight": 1.0,
               "foobar_class": "internal",
               "foobar_description": "Root of clone B",
-              "foobar_per_site_score": [0.0, 0.0, 0.0, 0.0],
+              "foobar_per_site_score": [
+                0.0,
+                0.0,
+                0.0,
+                0.0
+              ],
               "foobar_sparse_aa": {}
             },
             "leaf3": {
@@ -210,8 +390,15 @@
               "foobar_weight": 3.3,
               "foobar_class": "high-confidence",
               "foobar_description": "Only leaf in clone B",
-              "foobar_per_site_score": [0.0, 0.72, 0.0, 0.0],
-              "foobar_sparse_aa": {"1": "N"},
+              "foobar_per_site_score": [
+                0.0,
+                0.72,
+                0.0,
+                0.0
+              ],
+              "foobar_sparse_aa": {
+                "1": "N"
+              },
               "mutations": [
                 {
                   "site": 4,
@@ -226,7 +413,10 @@
                 }
               ]
             }
-          }
+          },
+          "foobar_method": "parsimony",
+          "foobar_tree_score": 0.65,
+          "foobar_tree_note": "Singleton-clone reconstruction"
         }
       ]
     }

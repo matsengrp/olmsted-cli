@@ -1,5 +1,8 @@
-sample_id,family,parent_name,child_name,parent_heavy,child_heavy,branch_length,depth,distance,v_gene_heavy,j_gene_heavy,cdr1_codon_start_heavy,cdr1_codon_end_heavy,cdr2_codon_start_heavy,cdr2_codon_end_heavy,cdr3_codon_start_heavy,cdr3_codon_end_heavy,parent_is_naive,child_is_leaf,foobar_weight,foobar_class,foobar_per_site_score,foobar_sparse_aa
-sample-1,fam-1,naive,node1,ATCGATCGATCG,ATCGATCGTTCG,0.01,1,0.01,IGHV3-48*01,IGHJ4*02,1,3,4,6,7,12,True,False,1.0,internal,"[0.1, 0.0, 0.3, 0.0]","{""2"": ""V""}"
-sample-1,fam-1,node1,leaf1,ATCGATCGTTCG,ATCGATCGTTGG,0.02,2,0.03,IGHV3-48*01,IGHJ4*02,1,3,4,6,7,12,False,True,5.0,high-confidence,"[0.0, 0.0, 0.5, 0.95]","{""2"": ""L"", ""3"": ""W""}"
-sample-1,fam-1,node1,leaf2,ATCGATCGTTCG,ATCGATCGTTAG,0.03,2,0.04,IGHV3-48*01,IGHJ4*02,1,3,4,6,7,12,False,True,1.2,low-confidence,"[0.0, 0.0, 0.1, 0.55]","{""3"": ""*""}"
-sample-1,fam-2,naive,leaf3,GCTAGCTAGCTA,GCTAACTAGCTA,0.05,1,0.05,IGHV1-18*01,IGHJ6*02,1,3,4,6,7,12,True,True,3.3,high-confidence,"[0.0, 0.72, 0.0, 0.0]","{""1"": ""N""}"
+sample_id,family,tree_name,parent_name,child_name,parent_heavy,child_heavy,branch_length,depth,distance,v_gene_heavy,j_gene_heavy,cdr1_codon_start_heavy,cdr1_codon_end_heavy,cdr2_codon_start_heavy,cdr2_codon_end_heavy,cdr3_codon_start_heavy,cdr3_codon_end_heavy,parent_is_naive,child_is_leaf,foobar_weight,foobar_class,foobar_per_site_score,foobar_sparse_aa
+sample-1,fam-1,T_a,naive,node1,ATCGATCGATCG,ATCGATCGTTCG,0.01,1,0.01,IGHV3-48*01,IGHJ4*02,1,3,4,6,7,12,True,False,1.0,internal,"[0.1, 0.0, 0.3, 0.0]","{""2"": ""V""}"
+sample-1,fam-1,T_a,node1,leaf1,ATCGATCGTTCG,ATCGATCGTTGG,0.02,2,0.03,IGHV3-48*01,IGHJ4*02,1,3,4,6,7,12,False,True,5.0,high-confidence,"[0.0, 0.0, 0.5, 0.95]","{""2"": ""L"", ""3"": ""W""}"
+sample-1,fam-1,T_a,node1,leaf2,ATCGATCGTTCG,ATCGATCGTTAG,0.03,2,0.04,IGHV3-48*01,IGHJ4*02,1,3,4,6,7,12,False,True,1.2,low-confidence,"[0.0, 0.0, 0.1, 0.55]","{""3"": ""*""}"
+sample-1,fam-1,T_b,naive,mrca-1,ATCGATCGATCG,ATCGATCGTTCG,0.01,1,0.01,IGHV3-48*01,IGHJ4*02,1,3,4,6,7,12,True,False,1.0,internal,"[0.1, 0.0, 0.3, 0.0]","{""2"": ""V""}"
+sample-1,fam-1,T_b,mrca-1,leaf1,ATCGATCGTTCG,ATCGATCGTTGG,0.02,2,0.03,IGHV3-48*01,IGHJ4*02,1,3,4,6,7,12,False,True,5.0,high-confidence,"[0.0, 0.0, 0.5, 0.95]","{""2"": ""L"", ""3"": ""W""}"
+sample-1,fam-1,T_b,mrca-1,leaf2,ATCGATCGTTCG,ATCGATCGTTAG,0.03,2,0.04,IGHV3-48*01,IGHJ4*02,1,3,4,6,7,12,False,True,1.2,low-confidence,"[0.0, 0.0, 0.1, 0.55]","{""3"": ""*""}"
+sample-1,fam-2,T_a,naive,leaf3,GCTAGCTAGCTA,GCTAACTAGCTA,0.05,1,0.05,IGHV1-18*01,IGHJ6*02,1,3,4,6,7,12,True,True,3.3,high-confidence,"[0.0, 0.72, 0.0, 0.0]","{""1"": ""N""}"
