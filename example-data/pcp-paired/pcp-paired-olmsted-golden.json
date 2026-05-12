@@ -3,7 +3,7 @@
         "format": "olmsted",
         "format_version": "1.0",
         "schema_version": "2.0.0",
-        "created_at": "2026-04-30T01:25:09.352333+00:00",
+        "created_at": "2026-05-12T21:24:08.330288+00:00",
         "source_format": "pcp",
         "source_files": [
             "input-pcp.csv"
@@ -17,7 +17,7 @@
         "generated_by": {
             "tool": "olmsted-cli",
             "version": "0.2.0",
-            "git_hash": "419c7af"
+            "git_hash": "e567a18"
         },
         "name": "pcp-paired-example",
         "processing_options": {
@@ -163,7 +163,7 @@
     "clones": {
         "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af": [
             {
-                "clone_id": "269773-igl-103817-heavy",
+                "clone_id": "d2_269773-igl-103817-heavy",
                 "ident": "clone-6a5eb4e0-90d9-e591-ee20-6debc0f4b040-heavy",
                 "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d2",
@@ -190,8 +190,9 @@
                 "trees": [
                     {
                         "ident": "tree-4c247208-9d1c-b8f1-5aa4-5bf50526b6fe-heavy",
-                        "clone_id": "269773-igl-103817-heavy",
-                        "tree_id": "tree-269773-igl-103817-heavy",
+                        "clone_id": "d2_269773-igl-103817-heavy",
+                        "tree_id": "tree-d2_269773-igl-103817-heavy",
+                        "tree_name": "tree-d2_269773-igl-103817-heavy",
                         "newick": "(naive:0.0371190701,CATGCCTTCTATGTGG-1-1287189_contig_h:0.0035084051,CTTCTCTAGGGCACTA-1-1287181_contig_h:0.0358868997)Node1;"
                     }
                 ],
@@ -201,10 +202,10 @@
                     "sample_id": "d2"
                 },
                 "is_paired": true,
-                "pair_id": "pair-269773-igl-103817"
+                "pair_id": "pair-d2_269773-igl-103817"
             },
             {
-                "clone_id": "269773-igl-103817-light",
+                "clone_id": "d2_269773-igl-103817-light",
                 "ident": "clone-6a5eb4e0-90d9-e591-ee20-6debc0f4b040-light",
                 "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d2",
@@ -231,8 +232,9 @@
                 "trees": [
                     {
                         "ident": "tree-4c247208-9d1c-b8f1-5aa4-5bf50526b6fe-light",
-                        "clone_id": "269773-igl-103817-light",
-                        "tree_id": "tree-269773-igl-103817-light",
+                        "clone_id": "d2_269773-igl-103817-light",
+                        "tree_id": "tree-d2_269773-igl-103817-light",
+                        "tree_name": "tree-d2_269773-igl-103817-light",
                         "newick": "(naive:0.0371190701,CATGCCTTCTATGTGG-1-1287189_contig_h:0.0035084051,CTTCTCTAGGGCACTA-1-1287181_contig_h:0.0358868997)Node1;"
                     }
                 ],
@@ -242,10 +244,10 @@
                     "sample_id": "d2"
                 },
                 "is_paired": true,
-                "pair_id": "pair-269773-igl-103817"
+                "pair_id": "pair-d2_269773-igl-103817"
             },
             {
-                "clone_id": "7420-igk-7420-heavy",
+                "clone_id": "d4_7420-igk-7420-heavy",
                 "ident": "clone-6fad0c6f-ef46-f158-7391-728cb379fcec-heavy",
                 "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d4",
@@ -272,8 +274,9 @@
                 "trees": [
                     {
                         "ident": "tree-522fac7a-4689-e49a-05d1-9353af02f885-heavy",
-                        "clone_id": "7420-igk-7420-heavy",
-                        "tree_id": "tree-7420-igk-7420-heavy",
+                        "clone_id": "d4_7420-igk-7420-heavy",
+                        "tree_id": "tree-d4_7420-igk-7420-heavy",
+                        "tree_name": "tree-d4_7420-igk-7420-heavy",
                         "newick": "(naive:0.0411968415,CAAGAAATCTCTAGGA-1-1287165_contig_h:0.0000010000,CTTGGCTTCGAATCCA-1-1287164_contig_h:0.0000010000)Node1;"
                     }
                 ],
@@ -283,10 +286,10 @@
                     "sample_id": "d4"
                 },
                 "is_paired": true,
-                "pair_id": "pair-7420-igk-7420"
+                "pair_id": "pair-d4_7420-igk-7420"
             },
             {
-                "clone_id": "7420-igk-7420-light",
+                "clone_id": "d4_7420-igk-7420-light",
                 "ident": "clone-6fad0c6f-ef46-f158-7391-728cb379fcec-light",
                 "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d4",
@@ -313,8 +316,9 @@
                 "trees": [
                     {
                         "ident": "tree-522fac7a-4689-e49a-05d1-9353af02f885-light",
-                        "clone_id": "7420-igk-7420-light",
-                        "tree_id": "tree-7420-igk-7420-light",
+                        "clone_id": "d4_7420-igk-7420-light",
+                        "tree_id": "tree-d4_7420-igk-7420-light",
+                        "tree_name": "tree-d4_7420-igk-7420-light",
                         "newick": "(naive:0.0411968415,CAAGAAATCTCTAGGA-1-1287165_contig_h:0.0000010000,CTTGGCTTCGAATCCA-1-1287164_contig_h:0.0000010000)Node1;"
                     }
                 ],
@@ -324,10 +328,10 @@
                     "sample_id": "d4"
                 },
                 "is_paired": true,
-                "pair_id": "pair-7420-igk-7420"
+                "pair_id": "pair-d4_7420-igk-7420"
             },
             {
-                "clone_id": "129355-igk-129355-heavy",
+                "clone_id": "d1_129355-igk-129355-heavy",
                 "ident": "clone-bfdd83da-8e95-1048-1ec0-fc750e65bc19-heavy",
                 "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d1",
@@ -354,8 +358,9 @@
                 "trees": [
                     {
                         "ident": "tree-4b9ac338-8bbc-6669-41e6-face81dae39b-heavy",
-                        "clone_id": "129355-igk-129355-heavy",
-                        "tree_id": "tree-129355-igk-129355-heavy",
+                        "clone_id": "d1_129355-igk-129355-heavy",
+                        "tree_id": "tree-d1_129355-igk-129355-heavy",
+                        "tree_name": "tree-d1_129355-igk-129355-heavy",
                         "newick": "(naive:0.1114025085,AACACGTTCAGCTCTC-1-1279051_contig_h:0.0000010000,TATCAGGCACATCCGG-1-1279051_contig_h:0.0000010000)Node1;"
                     }
                 ],
@@ -365,10 +370,10 @@
                     "sample_id": "d1"
                 },
                 "is_paired": true,
-                "pair_id": "pair-129355-igk-129355"
+                "pair_id": "pair-d1_129355-igk-129355"
             },
             {
-                "clone_id": "129355-igk-129355-light",
+                "clone_id": "d1_129355-igk-129355-light",
                 "ident": "clone-bfdd83da-8e95-1048-1ec0-fc750e65bc19-light",
                 "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d1",
@@ -395,8 +400,9 @@
                 "trees": [
                     {
                         "ident": "tree-4b9ac338-8bbc-6669-41e6-face81dae39b-light",
-                        "clone_id": "129355-igk-129355-light",
-                        "tree_id": "tree-129355-igk-129355-light",
+                        "clone_id": "d1_129355-igk-129355-light",
+                        "tree_id": "tree-d1_129355-igk-129355-light",
+                        "tree_name": "tree-d1_129355-igk-129355-light",
                         "newick": "(naive:0.1114025085,AACACGTTCAGCTCTC-1-1279051_contig_h:0.0000010000,TATCAGGCACATCCGG-1-1279051_contig_h:0.0000010000)Node1;"
                     }
                 ],
@@ -406,10 +412,10 @@
                     "sample_id": "d1"
                 },
                 "is_paired": true,
-                "pair_id": "pair-129355-igk-129355"
+                "pair_id": "pair-d1_129355-igk-129355"
             },
             {
-                "clone_id": "10002-igk-10002-heavy",
+                "clone_id": "d4_10002-igk-10002-heavy",
                 "ident": "clone-8ad370da-caa2-665c-2cdc-b78f8886901f-heavy",
                 "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d4",
@@ -436,8 +442,9 @@
                 "trees": [
                     {
                         "ident": "tree-cc42c52c-6fb9-faa8-b57f-3933f1ac3d30-heavy",
-                        "clone_id": "10002-igk-10002-heavy",
-                        "tree_id": "tree-10002-igk-10002-heavy",
+                        "clone_id": "d4_10002-igk-10002-heavy",
+                        "tree_id": "tree-d4_10002-igk-10002-heavy",
+                        "tree_name": "tree-d4_10002-igk-10002-heavy",
                         "newick": "(naive:0.1391505237,ACCAGTAGTATAGGGC-1-1287173_contig_h:0.0000010000,AGGTCATTCTCAAGTG-1-1279071_contig_h:0.0000010000)Node1;"
                     }
                 ],
@@ -447,10 +454,10 @@
                     "sample_id": "d4"
                 },
                 "is_paired": true,
-                "pair_id": "pair-10002-igk-10002"
+                "pair_id": "pair-d4_10002-igk-10002"
             },
             {
-                "clone_id": "10002-igk-10002-light",
+                "clone_id": "d4_10002-igk-10002-light",
                 "ident": "clone-8ad370da-caa2-665c-2cdc-b78f8886901f-light",
                 "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d4",
@@ -477,8 +484,9 @@
                 "trees": [
                     {
                         "ident": "tree-cc42c52c-6fb9-faa8-b57f-3933f1ac3d30-light",
-                        "clone_id": "10002-igk-10002-light",
-                        "tree_id": "tree-10002-igk-10002-light",
+                        "clone_id": "d4_10002-igk-10002-light",
+                        "tree_id": "tree-d4_10002-igk-10002-light",
+                        "tree_name": "tree-d4_10002-igk-10002-light",
                         "newick": "(naive:0.1391505237,ACCAGTAGTATAGGGC-1-1287173_contig_h:0.0000010000,AGGTCATTCTCAAGTG-1-1279071_contig_h:0.0000010000)Node1;"
                     }
                 ],
@@ -488,10 +496,10 @@
                     "sample_id": "d4"
                 },
                 "is_paired": true,
-                "pair_id": "pair-10002-igk-10002"
+                "pair_id": "pair-d4_10002-igk-10002"
             },
             {
-                "clone_id": "100043-igk-100043-heavy",
+                "clone_id": "d4_100043-igk-100043-heavy",
                 "ident": "clone-8d94ddd8-3411-9628-ac6a-1999d4a60bfb-heavy",
                 "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d4",
@@ -518,8 +526,9 @@
                 "trees": [
                     {
                         "ident": "tree-d20f0d49-77e8-15c5-ebe4-2927bc6aeb1f-heavy",
-                        "clone_id": "100043-igk-100043-heavy",
-                        "tree_id": "tree-100043-igk-100043-heavy",
+                        "clone_id": "d4_100043-igk-100043-heavy",
+                        "tree_id": "tree-d4_100043-igk-100043-heavy",
+                        "tree_name": "tree-d4_100043-igk-100043-heavy",
                         "newick": "(naive:0.0192269308,CAAGATCAGGATATAC-1-1287166_contig_h:0.0265335543,(CACAGTAAGAATCTCC-1-1287173_contig_h:0.0462882865,CATATGGGTCTCCACT-1-1287175_contig_h:0.0207484588)Node2:0.0166240098)Node1;"
                     }
                 ],
@@ -529,10 +538,10 @@
                     "sample_id": "d4"
                 },
                 "is_paired": true,
-                "pair_id": "pair-100043-igk-100043"
+                "pair_id": "pair-d4_100043-igk-100043"
             },
             {
-                "clone_id": "100043-igk-100043-light",
+                "clone_id": "d4_100043-igk-100043-light",
                 "ident": "clone-8d94ddd8-3411-9628-ac6a-1999d4a60bfb-light",
                 "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d4",
@@ -559,8 +568,9 @@
                 "trees": [
                     {
                         "ident": "tree-d20f0d49-77e8-15c5-ebe4-2927bc6aeb1f-light",
-                        "clone_id": "100043-igk-100043-light",
-                        "tree_id": "tree-100043-igk-100043-light",
+                        "clone_id": "d4_100043-igk-100043-light",
+                        "tree_id": "tree-d4_100043-igk-100043-light",
+                        "tree_name": "tree-d4_100043-igk-100043-light",
                         "newick": "(naive:0.0192269308,CAAGATCAGGATATAC-1-1287166_contig_h:0.0265335543,(CACAGTAAGAATCTCC-1-1287173_contig_h:0.0462882865,CATATGGGTCTCCACT-1-1287175_contig_h:0.0207484588)Node2:0.0166240098)Node1;"
                     }
                 ],
@@ -570,10 +580,10 @@
                     "sample_id": "d4"
                 },
                 "is_paired": true,
-                "pair_id": "pair-100043-igk-100043"
+                "pair_id": "pair-d4_100043-igk-100043"
             },
             {
-                "clone_id": "100044-igk-100044-heavy",
+                "clone_id": "d1_100044-igk-100044-heavy",
                 "ident": "clone-654906d9-16e2-5db5-4643-0490059032c0-heavy",
                 "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d1",
@@ -600,8 +610,9 @@
                 "trees": [
                     {
                         "ident": "tree-e1d3a8ff-b4f1-0ab0-8d02-82857d1389c0-heavy",
-                        "clone_id": "100044-igk-100044-heavy",
-                        "tree_id": "tree-100044-igk-100044-heavy",
+                        "clone_id": "d1_100044-igk-100044-heavy",
+                        "tree_id": "tree-d1_100044-igk-100044-heavy",
+                        "tree_name": "tree-d1_100044-igk-100044-heavy",
                         "newick": "(naive:0.0748163090,TATCAGGGTACCGCTG-1-1287207_contig_h:0.0202811672,TTGCCGTCAGCGTTCG-1-1287207_contig_h:0.0112865740)Node1;"
                     }
                 ],
@@ -611,10 +622,10 @@
                     "sample_id": "d1"
                 },
                 "is_paired": true,
-                "pair_id": "pair-100044-igk-100044"
+                "pair_id": "pair-d1_100044-igk-100044"
             },
             {
-                "clone_id": "100044-igk-100044-light",
+                "clone_id": "d1_100044-igk-100044-light",
                 "ident": "clone-654906d9-16e2-5db5-4643-0490059032c0-light",
                 "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d1",
@@ -641,8 +652,9 @@
                 "trees": [
                     {
                         "ident": "tree-e1d3a8ff-b4f1-0ab0-8d02-82857d1389c0-light",
-                        "clone_id": "100044-igk-100044-light",
-                        "tree_id": "tree-100044-igk-100044-light",
+                        "clone_id": "d1_100044-igk-100044-light",
+                        "tree_id": "tree-d1_100044-igk-100044-light",
+                        "tree_name": "tree-d1_100044-igk-100044-light",
                         "newick": "(naive:0.0748163090,TATCAGGGTACCGCTG-1-1287207_contig_h:0.0202811672,TTGCCGTCAGCGTTCG-1-1287207_contig_h:0.0112865740)Node1;"
                     }
                 ],
@@ -652,10 +664,10 @@
                     "sample_id": "d1"
                 },
                 "is_paired": true,
-                "pair_id": "pair-100044-igk-100044"
+                "pair_id": "pair-d1_100044-igk-100044"
             },
             {
-                "clone_id": "100022-igk-100022-heavy",
+                "clone_id": "d1_100022-igk-100022-heavy",
                 "ident": "clone-12e70729-8abf-66ae-3611-fd397f3f50ce-heavy",
                 "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d1",
@@ -682,8 +694,9 @@
                 "trees": [
                     {
                         "ident": "tree-5d82ca72-029f-eb0a-694b-97f7c2233755-heavy",
-                        "clone_id": "100022-igk-100022-heavy",
-                        "tree_id": "tree-100022-igk-100022-heavy",
+                        "clone_id": "d1_100022-igk-100022-heavy",
+                        "tree_id": "tree-d1_100022-igk-100022-heavy",
+                        "tree_name": "tree-d1_100022-igk-100022-heavy",
                         "newick": "(naive:0.0026716620,TATTACCGTAAGCACG-1-1279053_contig_h:0.0164266473,TCCCGATCATGAAGTA-1-1287203_contig_h:0.0240107961)Node1;"
                     }
                 ],
@@ -693,10 +706,10 @@
                     "sample_id": "d1"
                 },
                 "is_paired": true,
-                "pair_id": "pair-100022-igk-100022"
+                "pair_id": "pair-d1_100022-igk-100022"
             },
             {
-                "clone_id": "100022-igk-100022-light",
+                "clone_id": "d1_100022-igk-100022-light",
                 "ident": "clone-12e70729-8abf-66ae-3611-fd397f3f50ce-light",
                 "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d1",
@@ -723,8 +736,9 @@
                 "trees": [
                     {
                         "ident": "tree-5d82ca72-029f-eb0a-694b-97f7c2233755-light",
-                        "clone_id": "100022-igk-100022-light",
-                        "tree_id": "tree-100022-igk-100022-light",
+                        "clone_id": "d1_100022-igk-100022-light",
+                        "tree_id": "tree-d1_100022-igk-100022-light",
+                        "tree_name": "tree-d1_100022-igk-100022-light",
                         "newick": "(naive:0.0026716620,TATTACCGTAAGCACG-1-1279053_contig_h:0.0164266473,TCCCGATCATGAAGTA-1-1287203_contig_h:0.0240107961)Node1;"
                     }
                 ],
@@ -734,10 +748,10 @@
                     "sample_id": "d1"
                 },
                 "is_paired": true,
-                "pair_id": "pair-100022-igk-100022"
+                "pair_id": "pair-d1_100022-igk-100022"
             },
             {
-                "clone_id": "100025-igk-100025-heavy",
+                "clone_id": "d4_100025-igk-100025-heavy",
                 "ident": "clone-143527ad-141d-ad82-5ee2-7683978b2905-heavy",
                 "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d4",
@@ -764,8 +778,9 @@
                 "trees": [
                     {
                         "ident": "tree-b3598fe2-630b-536f-74e7-274c35d14209-heavy",
-                        "clone_id": "100025-igk-100025-heavy",
-                        "tree_id": "tree-100025-igk-100025-heavy",
+                        "clone_id": "d4_100025-igk-100025-heavy",
+                        "tree_id": "tree-d4_100025-igk-100025-heavy",
+                        "tree_name": "tree-d4_100025-igk-100025-heavy",
                         "newick": "(naive:0.0411551789,AACTCCCAGTAGTGCG-1-1287174_contig_h:0.0219898797,GGCCGATCAAGAAGAG-1-1279079_contig_h:0.0665045107)Node1;"
                     }
                 ],
@@ -775,10 +790,10 @@
                     "sample_id": "d4"
                 },
                 "is_paired": true,
-                "pair_id": "pair-100025-igk-100025"
+                "pair_id": "pair-d4_100025-igk-100025"
             },
             {
-                "clone_id": "100025-igk-100025-light",
+                "clone_id": "d4_100025-igk-100025-light",
                 "ident": "clone-143527ad-141d-ad82-5ee2-7683978b2905-light",
                 "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
                 "sample_id": "d4",
@@ -805,8 +820,9 @@
                 "trees": [
                     {
                         "ident": "tree-b3598fe2-630b-536f-74e7-274c35d14209-light",
-                        "clone_id": "100025-igk-100025-light",
-                        "tree_id": "tree-100025-igk-100025-light",
+                        "clone_id": "d4_100025-igk-100025-light",
+                        "tree_id": "tree-d4_100025-igk-100025-light",
+                        "tree_name": "tree-d4_100025-igk-100025-light",
                         "newick": "(naive:0.0411551789,AACTCCCAGTAGTGCG-1-1287174_contig_h:0.0219898797,GGCCGATCAAGAAGAG-1-1279079_contig_h:0.0665045107)Node1;"
                     }
                 ],
@@ -816,15 +832,16 @@
                     "sample_id": "d4"
                 },
                 "is_paired": true,
-                "pair_id": "pair-100025-igk-100025"
+                "pair_id": "pair-d4_100025-igk-100025"
             }
         ]
     },
     "trees": [
         {
             "ident": "tree-4c247208-9d1c-b8f1-5aa4-5bf50526b6fe-heavy",
-            "clone_id": "269773-igl-103817-heavy",
-            "tree_id": "tree-269773-igl-103817-heavy",
+            "clone_id": "d2_269773-igl-103817-heavy",
+            "tree_id": "tree-d2_269773-igl-103817-heavy",
+            "tree_name": "tree-d2_269773-igl-103817-heavy",
             "newick": "(naive:0.0371190701,CATGCCTTCTATGTGG-1-1287189_contig_h:0.0035084051,CTTCTCTAGGGCACTA-1-1287181_contig_h:0.0358868997)Node1;",
             "nodes": [
                 {
@@ -898,8 +915,9 @@
         },
         {
             "ident": "tree-4c247208-9d1c-b8f1-5aa4-5bf50526b6fe-light",
-            "clone_id": "269773-igl-103817-light",
-            "tree_id": "tree-269773-igl-103817-light",
+            "clone_id": "d2_269773-igl-103817-light",
+            "tree_id": "tree-d2_269773-igl-103817-light",
+            "tree_name": "tree-d2_269773-igl-103817-light",
             "newick": "(naive:0.0371190701,CATGCCTTCTATGTGG-1-1287189_contig_h:0.0035084051,CTTCTCTAGGGCACTA-1-1287181_contig_h:0.0358868997)Node1;",
             "nodes": [
                 {
@@ -973,8 +991,9 @@
         },
         {
             "ident": "tree-522fac7a-4689-e49a-05d1-9353af02f885-heavy",
-            "clone_id": "7420-igk-7420-heavy",
-            "tree_id": "tree-7420-igk-7420-heavy",
+            "clone_id": "d4_7420-igk-7420-heavy",
+            "tree_id": "tree-d4_7420-igk-7420-heavy",
+            "tree_name": "tree-d4_7420-igk-7420-heavy",
             "newick": "(naive:0.0411968415,CAAGAAATCTCTAGGA-1-1287165_contig_h:0.0000010000,CTTGGCTTCGAATCCA-1-1287164_contig_h:0.0000010000)Node1;",
             "nodes": [
                 {
@@ -1048,8 +1067,9 @@
         },
         {
             "ident": "tree-522fac7a-4689-e49a-05d1-9353af02f885-light",
-            "clone_id": "7420-igk-7420-light",
-            "tree_id": "tree-7420-igk-7420-light",
+            "clone_id": "d4_7420-igk-7420-light",
+            "tree_id": "tree-d4_7420-igk-7420-light",
+            "tree_name": "tree-d4_7420-igk-7420-light",
             "newick": "(naive:0.0411968415,CAAGAAATCTCTAGGA-1-1287165_contig_h:0.0000010000,CTTGGCTTCGAATCCA-1-1287164_contig_h:0.0000010000)Node1;",
             "nodes": [
                 {
@@ -1123,8 +1143,9 @@
         },
         {
             "ident": "tree-4b9ac338-8bbc-6669-41e6-face81dae39b-heavy",
-            "clone_id": "129355-igk-129355-heavy",
-            "tree_id": "tree-129355-igk-129355-heavy",
+            "clone_id": "d1_129355-igk-129355-heavy",
+            "tree_id": "tree-d1_129355-igk-129355-heavy",
+            "tree_name": "tree-d1_129355-igk-129355-heavy",
             "newick": "(naive:0.1114025085,AACACGTTCAGCTCTC-1-1279051_contig_h:0.0000010000,TATCAGGCACATCCGG-1-1279051_contig_h:0.0000010000)Node1;",
             "nodes": [
                 {
@@ -1198,8 +1219,9 @@
         },
         {
             "ident": "tree-4b9ac338-8bbc-6669-41e6-face81dae39b-light",
-            "clone_id": "129355-igk-129355-light",
-            "tree_id": "tree-129355-igk-129355-light",
+            "clone_id": "d1_129355-igk-129355-light",
+            "tree_id": "tree-d1_129355-igk-129355-light",
+            "tree_name": "tree-d1_129355-igk-129355-light",
             "newick": "(naive:0.1114025085,AACACGTTCAGCTCTC-1-1279051_contig_h:0.0000010000,TATCAGGCACATCCGG-1-1279051_contig_h:0.0000010000)Node1;",
             "nodes": [
                 {
@@ -1273,8 +1295,9 @@
         },
         {
             "ident": "tree-cc42c52c-6fb9-faa8-b57f-3933f1ac3d30-heavy",
-            "clone_id": "10002-igk-10002-heavy",
-            "tree_id": "tree-10002-igk-10002-heavy",
+            "clone_id": "d4_10002-igk-10002-heavy",
+            "tree_id": "tree-d4_10002-igk-10002-heavy",
+            "tree_name": "tree-d4_10002-igk-10002-heavy",
             "newick": "(naive:0.1391505237,ACCAGTAGTATAGGGC-1-1287173_contig_h:0.0000010000,AGGTCATTCTCAAGTG-1-1279071_contig_h:0.0000010000)Node1;",
             "nodes": [
                 {
@@ -1348,8 +1371,9 @@
         },
         {
             "ident": "tree-cc42c52c-6fb9-faa8-b57f-3933f1ac3d30-light",
-            "clone_id": "10002-igk-10002-light",
-            "tree_id": "tree-10002-igk-10002-light",
+            "clone_id": "d4_10002-igk-10002-light",
+            "tree_id": "tree-d4_10002-igk-10002-light",
+            "tree_name": "tree-d4_10002-igk-10002-light",
             "newick": "(naive:0.1391505237,ACCAGTAGTATAGGGC-1-1287173_contig_h:0.0000010000,AGGTCATTCTCAAGTG-1-1279071_contig_h:0.0000010000)Node1;",
             "nodes": [
                 {
@@ -1423,8 +1447,9 @@
         },
         {
             "ident": "tree-d20f0d49-77e8-15c5-ebe4-2927bc6aeb1f-heavy",
-            "clone_id": "100043-igk-100043-heavy",
-            "tree_id": "tree-100043-igk-100043-heavy",
+            "clone_id": "d4_100043-igk-100043-heavy",
+            "tree_id": "tree-d4_100043-igk-100043-heavy",
+            "tree_name": "tree-d4_100043-igk-100043-heavy",
             "newick": "(naive:0.0192269308,CAAGATCAGGATATAC-1-1287166_contig_h:0.0265335543,(CACAGTAAGAATCTCC-1-1287173_contig_h:0.0462882865,CATATGGGTCTCCACT-1-1287175_contig_h:0.0207484588)Node2:0.0166240098)Node1;",
             "nodes": [
                 {
@@ -1532,8 +1557,9 @@
         },
         {
             "ident": "tree-d20f0d49-77e8-15c5-ebe4-2927bc6aeb1f-light",
-            "clone_id": "100043-igk-100043-light",
-            "tree_id": "tree-100043-igk-100043-light",
+            "clone_id": "d4_100043-igk-100043-light",
+            "tree_id": "tree-d4_100043-igk-100043-light",
+            "tree_name": "tree-d4_100043-igk-100043-light",
             "newick": "(naive:0.0192269308,CAAGATCAGGATATAC-1-1287166_contig_h:0.0265335543,(CACAGTAAGAATCTCC-1-1287173_contig_h:0.0462882865,CATATGGGTCTCCACT-1-1287175_contig_h:0.0207484588)Node2:0.0166240098)Node1;",
             "nodes": [
                 {
@@ -1641,8 +1667,9 @@
         },
         {
             "ident": "tree-e1d3a8ff-b4f1-0ab0-8d02-82857d1389c0-heavy",
-            "clone_id": "100044-igk-100044-heavy",
-            "tree_id": "tree-100044-igk-100044-heavy",
+            "clone_id": "d1_100044-igk-100044-heavy",
+            "tree_id": "tree-d1_100044-igk-100044-heavy",
+            "tree_name": "tree-d1_100044-igk-100044-heavy",
             "newick": "(naive:0.0748163090,TATCAGGGTACCGCTG-1-1287207_contig_h:0.0202811672,TTGCCGTCAGCGTTCG-1-1287207_contig_h:0.0112865740)Node1;",
             "nodes": [
                 {
@@ -1716,8 +1743,9 @@
         },
         {
             "ident": "tree-e1d3a8ff-b4f1-0ab0-8d02-82857d1389c0-light",
-            "clone_id": "100044-igk-100044-light",
-            "tree_id": "tree-100044-igk-100044-light",
+            "clone_id": "d1_100044-igk-100044-light",
+            "tree_id": "tree-d1_100044-igk-100044-light",
+            "tree_name": "tree-d1_100044-igk-100044-light",
             "newick": "(naive:0.0748163090,TATCAGGGTACCGCTG-1-1287207_contig_h:0.0202811672,TTGCCGTCAGCGTTCG-1-1287207_contig_h:0.0112865740)Node1;",
             "nodes": [
                 {
@@ -1791,8 +1819,9 @@
         },
         {
             "ident": "tree-5d82ca72-029f-eb0a-694b-97f7c2233755-heavy",
-            "clone_id": "100022-igk-100022-heavy",
-            "tree_id": "tree-100022-igk-100022-heavy",
+            "clone_id": "d1_100022-igk-100022-heavy",
+            "tree_id": "tree-d1_100022-igk-100022-heavy",
+            "tree_name": "tree-d1_100022-igk-100022-heavy",
             "newick": "(naive:0.0026716620,TATTACCGTAAGCACG-1-1279053_contig_h:0.0164266473,TCCCGATCATGAAGTA-1-1287203_contig_h:0.0240107961)Node1;",
             "nodes": [
                 {
@@ -1866,8 +1895,9 @@
         },
         {
             "ident": "tree-5d82ca72-029f-eb0a-694b-97f7c2233755-light",
-            "clone_id": "100022-igk-100022-light",
-            "tree_id": "tree-100022-igk-100022-light",
+            "clone_id": "d1_100022-igk-100022-light",
+            "tree_id": "tree-d1_100022-igk-100022-light",
+            "tree_name": "tree-d1_100022-igk-100022-light",
             "newick": "(naive:0.0026716620,TATTACCGTAAGCACG-1-1279053_contig_h:0.0164266473,TCCCGATCATGAAGTA-1-1287203_contig_h:0.0240107961)Node1;",
             "nodes": [
                 {
@@ -1941,8 +1971,9 @@
         },
         {
             "ident": "tree-b3598fe2-630b-536f-74e7-274c35d14209-heavy",
-            "clone_id": "100025-igk-100025-heavy",
-            "tree_id": "tree-100025-igk-100025-heavy",
+            "clone_id": "d4_100025-igk-100025-heavy",
+            "tree_id": "tree-d4_100025-igk-100025-heavy",
+            "tree_name": "tree-d4_100025-igk-100025-heavy",
             "newick": "(naive:0.0411551789,AACTCCCAGTAGTGCG-1-1287174_contig_h:0.0219898797,GGCCGATCAAGAAGAG-1-1279079_contig_h:0.0665045107)Node1;",
             "nodes": [
                 {
@@ -2016,8 +2047,9 @@
         },
         {
             "ident": "tree-b3598fe2-630b-536f-74e7-274c35d14209-light",
-            "clone_id": "100025-igk-100025-light",
-            "tree_id": "tree-100025-igk-100025-light",
+            "clone_id": "d4_100025-igk-100025-light",
+            "tree_id": "tree-d4_100025-igk-100025-light",
+            "tree_name": "tree-d4_100025-igk-100025-light",
             "newick": "(naive:0.0411551789,AACTCCCAGTAGTGCG-1-1287174_contig_h:0.0219898797,GGCCGATCAAGAAGAG-1-1279079_contig_h:0.0665045107)Node1;",
             "nodes": [
                 {

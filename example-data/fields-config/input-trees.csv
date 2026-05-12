@@ -1,3 +1,4 @@
-family_name,sample_id,newick_tree,foobar_score,foobar_category,foobar_path,foobar_params
-fam-1,sample-1,"((leaf1:0.02,leaf2:0.03)node1:0.01)naive:0.0;",42.5,group-alpha,/data/raw/sample-1/fam-1.fasta,"{""method"": ""parsimony"", ""bootstrap"": 100}"
-fam-2,sample-1,"(leaf3:0.05)naive:0.0;",88.1,group-beta,/data/raw/sample-1/fam-2.fasta,"{""method"": ""ml"", ""bootstrap"": 500}"
+family_name,sample_id,tree_name,newick_tree,foobar_score,foobar_category,foobar_path,foobar_params,foobar_method,foobar_tree_score,foobar_tree_note
+fam-1,sample-1,T_a,"((leaf1:0.02,leaf2:0.03)node1:0.01)naive:0.0;",42.5,group-alpha,/data/raw/sample-1/fam-1.fasta,"{""method"": ""parsimony"", ""bootstrap"": 100}",parsimony,0.78,"Maximum-parsimony reconstruction"
+fam-1,sample-1,T_b,"((leaf1:0.02,leaf2:0.03)mrca-1:0.01)naive:0.0;",42.5,group-alpha,/data/raw/sample-1/fam-1.fasta,"{""method"": ""parsimony"", ""bootstrap"": 100}",ml,0.91,"Maximum-likelihood reconstruction"
+fam-2,sample-1,T_a,"(leaf3:0.05)naive:0.0;",88.1,group-beta,/data/raw/sample-1/fam-2.fasta,"{""method"": ""ml"", ""bootstrap"": 500}",parsimony,0.65,"Singleton-clone reconstruction"

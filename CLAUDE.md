@@ -42,6 +42,7 @@ olmsted-cli is a Python CLI tool that processes immunological data (AIRR JSON an
 | User-facing | Internal | Notes |
 |-------------|----------|-------|
 | `family` | `clone` | Clonal family level. Configs use "family", output JSON uses "clone" |
+| `tree_name` | `tree_name` | Per-tree-within-clone identifier; drives the webapp's tree dropdown when one clone has multiple alternate reconstructions |
 | `skip: true` | (field excluded) | Custom field keyword to exclude from metadata |
 | `field_metadata` | `field_metadata` | Dict on each dataset describing available fields |
 
@@ -57,6 +58,7 @@ See `ARCHITECTURE.md#identifier-conventions` for the full rules and per-field un
 ### Field Levels
 
 - **family/clone**: Clonal family level (scatterplot axes, color, facet)
+- **tree**: Per-tree-within-clone level (drives the tree dropdown's color/filter/sort controls; only populated when at least one clone has trees that disagree on the field's value)
 - **node**: Tree node level (node properties, tooltips)
 - **branch**: Tree branch level (branch coloring, width)
 - **mutation**: Per-mutation level (alignment coloring)

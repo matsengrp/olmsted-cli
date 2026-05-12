@@ -34,10 +34,12 @@ from .constants import (
     EXCLUDED_CLONE_FIELDS,
     EXCLUDED_MUTATION_FIELDS,
     EXCLUDED_NODE_FIELDS,
+    EXCLUDED_TREE_FIELDS,
     KNOWN_BRANCH_FIELDS,
     KNOWN_CLONE_FIELDS,
     KNOWN_MUTATION_FIELDS,
     KNOWN_NODE_FIELDS,
+    KNOWN_TREE_FIELDS,
     MAX_MUTATIONS,
     MAX_NODES_QUICK,
     MAX_NODES_SAMPLE,
@@ -316,6 +318,7 @@ def entry_from_known(known: Dict) -> Dict:
 def generate_clone_metadata(
     clones: List[Dict],
     custom_fields: Optional[List[Dict]] = None,
+    exclude: Optional[set] = None,
 ) -> Dict[str, Dict[str, str]]:
     """
     Generate field metadata for clone-level fields.
@@ -326,6 +329,10 @@ def generate_clone_metadata(
     Args:
         clones: List of clone dictionaries.
         custom_fields: Optional custom field declarations (level=="clone" only).
+        exclude: Optional set of field names to exclude from clone-level
+            auto-detection (typically those classified as tree-level by
+            :func:`classify_tree_extras`). Custom fields at level=clone
+            still take effect for these names.
 
     Returns:
         Dict mapping field_name -> {"type": ..., "label": ...}
@@ -345,6 +352,8 @@ def generate_clone_metadata(
 
     # Filter out excluded fields
     candidate_keys = all_keys - EXCLUDED_CLONE_FIELDS
+    if exclude:
+        candidate_keys -= set(exclude)
 
     for key in sorted(candidate_keys):
         if key in KNOWN_CLONE_FIELDS:
@@ -364,6 +373,123 @@ def generate_clone_metadata(
 
     _apply_suggestions(metadata)
     _apply_custom_fields(metadata, custom_fields, "clone", clones)
+
+    return metadata
+
+
+def _hashable_for_distinct(v: Any) -> Any:
+    """Return a hashable token suitable for set-membership distinctness checks.
+
+    Tree-level field values are typically scalar, but lists/dicts can
+    leak through (e.g. JSON-encoded extras). Wrap unhashable types in a
+    repr so they still compare distinctly.
+    """
+    try:
+        hash(v)
+        return v
+    except TypeError:
+        return ("__unhashable__", repr(v))
+
+
+_MISSING = object()
+
+
+def classify_tree_extras(clones: List[Dict]) -> set:
+    """Identify fields that vary across trees within at least one clone.
+
+    Walks each clone's ``trees[]`` list. A field is tree-level for the
+    whole dataset if any clone has two or more trees that disagree on
+    its value (NaN/missing-as-distinct).
+
+    Single-tree-per-clone datasets trivially classify everything as
+    clone-level (no intra-clone variance possible).
+
+    Args:
+        clones: List of clone dictionaries with ``trees[]`` populated
+            with trimmed tree-ref dicts.
+
+    Returns:
+        Set of field names that should be treated as tree-level.
+    """
+    tree_level_keys: set = set()
+
+    candidate_keys: set = set()
+    for clone in clones:
+        for tree_ref in clone.get("trees", []) or []:
+            if isinstance(tree_ref, dict):
+                candidate_keys.update(tree_ref.keys())
+    candidate_keys -= EXCLUDED_TREE_FIELDS
+
+    for clone in clones:
+        clone_trees = clone.get("trees", []) or []
+        if len(clone_trees) < 2:
+            continue
+        for key in candidate_keys - tree_level_keys:
+            distinct = {
+                _hashable_for_distinct(t.get(key, _MISSING))
+                for t in clone_trees
+                if isinstance(t, dict)
+            }
+            if len(distinct) > 1:
+                tree_level_keys.add(key)
+
+    return tree_level_keys
+
+
+def flatten_tree_refs(clones: List[Dict]) -> List[Dict]:
+    """Flatten ``clone[].trees[]`` (dict refs only) into a single list."""
+    refs: List[Dict] = []
+    for clone in clones:
+        for tree_ref in clone.get("trees", []) or []:
+            if isinstance(tree_ref, dict):
+                refs.append(tree_ref)
+    return refs
+
+
+def generate_tree_metadata(
+    clones: List[Dict],
+    custom_fields: Optional[List[Dict]] = None,
+    tree_level_keys: Optional[set] = None,
+) -> Dict[str, Dict[str, str]]:
+    """Generate field metadata for tree-level fields.
+
+    Tree-level fields are those that vary across trees within the same
+    clone. They drive the webapp's tree-dropdown color/filter/sort
+    controls.
+
+    Args:
+        clones: List of clone dicts with ``trees[]`` populated.
+        custom_fields: Optional custom field declarations (level=="tree" only).
+        tree_level_keys: Pre-computed result of :func:`classify_tree_extras`,
+            passed in by ``generate_field_metadata`` to avoid a second
+            walk over every tree. When ``None``, the classifier runs
+            here.
+
+    Returns:
+        Dict mapping field_name -> {"type": ..., "label": ..., "range"?: [...]}.
+    """
+    tree_refs = flatten_tree_refs(clones)
+    if tree_level_keys is None:
+        tree_level_keys = classify_tree_extras(clones)
+
+    metadata: Dict[str, Dict[str, Any]] = {}
+    for key in sorted(tree_level_keys):
+        values = sample_values(tree_refs, key)
+        if not values:
+            continue
+        if key in KNOWN_TREE_FIELDS:
+            entry = entry_from_known(KNOWN_TREE_FIELDS[key])
+        else:
+            field_type = infer_field_type(values)
+            entry = _make_entry(field_type, humanize_label(key))
+        if entry["type"] == "continuous":
+            field_range = compute_range(tree_refs, key)
+            if field_range:
+                entry["range"] = field_range
+        metadata[key] = entry
+
+    _apply_suggestions(metadata)
+    _apply_custom_fields(metadata, custom_fields, "tree", tree_refs)
 
     return metadata
 
@@ -603,9 +729,22 @@ def generate_field_metadata(
 
     result = {}
 
-    clone_meta = generate_clone_metadata(clones, custom_fields)
+    # Compute tree-level keys first so they can be excluded from
+    # clone-level auto-detection. Single-tree-per-clone datasets get an
+    # empty set here and classify everything as clone-level.
+    tree_level_keys = classify_tree_extras(clones)
+
+    clone_meta = generate_clone_metadata(
+        clones, custom_fields, exclude=tree_level_keys
+    )
     if clone_meta:
         result["clone"] = clone_meta
+
+    tree_meta = generate_tree_metadata(
+        clones, custom_fields, tree_level_keys=tree_level_keys
+    )
+    if tree_meta:
+        result["tree"] = tree_meta
 
     node_meta = generate_node_metadata(trees, custom_fields)
     if node_meta:

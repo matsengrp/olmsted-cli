@@ -75,8 +75,18 @@ from .data_io import open_file
 from .utils import set_verbosity, vprint
 
 
+from .column_resolution import (
+    check_row_role_conflicts,
+    find_present_variants,
+    resolve_role_columns,
+)
 from .constants import CHAIN_COLUMN_ALIASES, FORMAT_PCP, KNOWN_PCP_COLUMNS, KNOWN_TREE_COLUMNS
 from .metrics import compute_tree_metrics
+
+#: Sentinel placeholder for the "tree" component of a composite family key
+#: when the input has no per-tree column. Keeps the dict-key shape uniform
+#: so downstream consumers can always unpack ``(sample, family, tree)``.
+PCP_NO_TREE_SENTINEL = "__no_tree__"
 
 
 def _normalize_column_names(fieldnames):
@@ -166,7 +176,13 @@ def infer_locus_from_v_gene(v_gene: str) -> Optional[str]:
     return None
 
 
-def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
+def parse_pcp_csv(
+    csv_path: str,
+    *,
+    sample_override: Optional[str] = None,
+    family_override: Optional[str] = None,
+    tree_override: Optional[str] = None,
+) -> Dict[str, Any]:
     """
     Parse PCP CSV file and return a dict of families with rich immunological data.
 
@@ -197,12 +213,17 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
     - light_chain_type: "kappa" or "lambda"
 
     Returns:
-        dict: {family_id: {
-            nodes: {node_id: node_data},
-            edges: [(parent, child, length)],
-            family_data: {v_gene, d_gene, j_gene, gene_positions, cdr_positions, etc.},
-            is_paired: bool  # True if light chain data is present
-        }}
+        dict: ``{(sample_id, family_id, tree_id): family_block}`` where
+        ``tree_id`` is the per-tree identifier (or
+        :data:`PCP_NO_TREE_SENTINEL` when the input has no tree column),
+        and each ``family_block`` is::
+
+            {
+                "nodes": {node_id: node_data},
+                "edges": [(parent, child, length)],
+                "family_data": {sample_id, v_gene, ..., family_id, tree_id},
+                "is_paired": bool,
+            }
     """
     families = defaultdict(lambda: {"nodes": {}, "edges": [], "family_data": {}})
 
@@ -212,14 +233,30 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
 
         # Normalize column names (map aliases like v_gene -> v_gene_heavy)
         column_map, column_notifications = _normalize_column_names(reader.fieldnames)
-        normalized_fieldnames = {column_map.get(c, c) for c in reader.fieldnames if c}
+        normalized_field_list = [
+            column_map.get(c, c) for c in reader.fieldnames if c
+        ]
+        normalized_fieldnames = set(normalized_field_list)
 
         # Report column remapping
         for note in column_notifications:
             vprint.verbose(f"  Note: {note}")
 
-        # Validate required columns (flexible format support)
-        required_cols = {"sample_id", "parent_name", "child_name"}
+        # Resolve sample / family / tree role columns from the header.
+        # Required roles (sample, family) raise on missing; tree is optional.
+        resolved = resolve_role_columns(
+            normalized_field_list,
+            sample_override=sample_override,
+            family_override=family_override,
+            tree_override=tree_override,
+        )
+        present_variants = find_present_variants(normalized_field_list)
+        sample_col = resolved["sample"]
+        family_col = resolved["family"]
+        tree_col = resolved["tree"]
+
+        # Validate the remaining required (non-role) columns.
+        required_cols = {"parent_name", "child_name"}
         if not required_cols.issubset(normalized_fieldnames):
             missing = required_cols - normalized_fieldnames
             raise ValueError(f"Missing required columns: {missing}")
@@ -244,10 +281,12 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
         for pcp_index, raw_row in enumerate(reader):
             # Apply column name normalization
             row = {column_map.get(k, k): v for k, v in raw_row.items() if k}
-            sample_id = row["sample_id"]
-            family_id = row.get(
-                "family", sample_id
-            )  # Use family if available, fallback to sample_id
+            check_row_role_conflicts(row, present_variants)
+            sample_id = row[sample_col]
+            family_id = row.get(family_col, sample_id)
+            tree_id = row.get(tree_col, "") if tree_col else ""
+            tree_key = tree_id if tree_id else PCP_NO_TREE_SENTINEL
+            composite_key = (sample_id, family_id, tree_key)
             parent = row["parent_name"]
             child = row["child_name"]
 
@@ -375,12 +414,14 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
                 else 0
             ) if row_is_paired else 0
 
-            # Store family-level data from the first row seen for each family.
-            # Guard: only populate once to avoid silent overwrites from later
-            # rows that may have incomplete or inconsistent gene call data.
-            if not families[family_id]["family_data"]:
-                families[family_id]["family_data"] = {
+            # Store family-level data from the first row seen for each
+            # composite key. Guard: only populate once to avoid silent
+            # overwrites from later rows with incomplete data.
+            if not families[composite_key]["family_data"]:
+                families[composite_key]["family_data"] = {
                     "sample_id": sample_id,
+                    "family_id": family_id,
+                    "tree_id": tree_id if tree_col else None,
                     "v_gene": v_gene,
                     "d_gene": d_gene,
                     "j_gene": j_gene,
@@ -406,10 +447,10 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
                     "cdr3_end_light": cdr3_end_light,
                     "light_chain_type": light_chain_type,
                 }
-                families[family_id]["is_paired"] = is_paired
+                families[composite_key]["is_paired"] = is_paired
 
             # Add parent node if not already present
-            if parent not in families[family_id]["nodes"]:
+            if parent not in families[composite_key]["nodes"]:
                 parent_node_data = {
                     "sequence_id": parent,
                     "multiplicity": 0,
@@ -433,10 +474,10 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
                     val = row.get(col, "")
                     if val != "":
                         parent_node_data[col] = coerce_csv_value(val)
-                families[family_id]["nodes"][parent] = parent_node_data
+                families[composite_key]["nodes"][parent] = parent_node_data
 
             # Add child node if not already present
-            if child not in families[family_id]["nodes"]:
+            if child not in families[composite_key]["nodes"]:
                 child_node_data = {
                     "sequence_id": child,
                     "pcp_index": pcp_index,
@@ -457,14 +498,14 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
                     val = row.get(col, "")
                     if val != "":
                         child_node_data[col] = coerce_csv_value(val)
-                families[family_id]["nodes"][child] = child_node_data
+                families[composite_key]["nodes"][child] = child_node_data
             else:
                 # Update multiplicity if node appears multiple times
-                families[family_id]["nodes"][child]["multiplicity"] += sample_count
+                families[composite_key]["nodes"][child]["multiplicity"] += sample_count
 
             # Update parent node distance/length if this parent appears as a child in another row
-            if parent in families[family_id]["nodes"]:
-                parent_node = families[family_id]["nodes"][parent]
+            if parent in families[composite_key]["nodes"]:
+                parent_node = families[composite_key]["nodes"][parent]
                 # Only update if not already set (and not naive)
                 if parent_node["distance"] is None and not parent_node["is_naive"]:
                     # We need to find the row where this parent is a child to get its distance
@@ -472,28 +513,28 @@ def parse_pcp_csv(csv_path: str) -> Dict[str, Any]:
                     pass
                 # Add distance data
                 if distance > 0:
-                    families[family_id]["nodes"][child]["distances"].append(distance)
+                    families[composite_key]["nodes"][child]["distances"].append(distance)
                 # Update distance and length if this edge provides better data
                 if distance > 0:
-                    families[family_id]["nodes"][child]["distance"] = distance
+                    families[composite_key]["nodes"][child]["distance"] = distance
                 if branch_length > 0:
-                    families[family_id]["nodes"][child]["length"] = branch_length
+                    families[composite_key]["nodes"][child]["length"] = branch_length
 
             # Add edge
-            families[family_id]["edges"].append((parent, child, edge_length))
+            families[composite_key]["edges"].append((parent, child, edge_length))
 
     # Post-process to ensure all nodes have correct distance/length values
-    for family_id, family_data in families.items():
+    for family_data in families.values():
         _fix_node_distances_and_lengths(family_data)
 
-    # Post-process to correctly determine is_paired per-family
+    # Post-process to correctly determine is_paired per composite key.
     # The global is_paired flag is based on CSV columns, but we need to check actual data
-    for family_id, family_data in families.items():
-        # Check if ANY node in this family has non-empty light chain sequence
+    for family_data in families.values():
+        # Check if ANY node has non-empty light chain sequence
         has_light_data = False
         for node_data in family_data["nodes"].values():
             light_seq = node_data.get("sequence_alignment_light", "")
-            if light_seq:  # Non-empty light chain sequence
+            if light_seq:
                 has_light_data = True
                 break
 
@@ -653,7 +694,7 @@ def parse_newick_tree(newick_string):
     return nodes, edges, root_node_id
 
 
-def merge_tree_topology_with_pcp(pcp_family_data, newick_string, warn_disagreements=False, family_id=None):
+def merge_tree_topology_with_pcp(pcp_family_data, newick_string, warn_disagreements=False, clone_id=None):
     """
     Merge complete tree topology from Newick with PCP data.
 
@@ -665,7 +706,7 @@ def merge_tree_topology_with_pcp(pcp_family_data, newick_string, warn_disagreeme
         pcp_family_data: Family data from parse_pcp_csv
         newick_string: Newick tree string for this family
         warn_disagreements: If True, print warnings when tree and PCP data disagree
-        family_id: Family identifier for warning messages
+        clone_id: Clone identifier for warning messages (``{sample}_{family}``).
 
     Returns:
         dict: Updated family data with complete topology
@@ -782,8 +823,8 @@ def merge_tree_topology_with_pcp(pcp_family_data, newick_string, warn_disagreeme
 
     # Print warnings if requested and disagreements were found
     if warn_disagreements and disagreements:
-        display_id = family_id if family_id else pcp_family_data.get("family_data", {}).get("sample_id", "unknown")
-        vprint.error(f"\nWarning: Found {len(disagreements)} disagreement(s) in family {display_id}:")
+        display_id = clone_id if clone_id else pcp_family_data.get("family_data", {}).get("sample_id", "unknown")
+        vprint.error(f"\nWarning: Found {len(disagreements)} disagreement(s) in clone {display_id}:")
         for i, disagree in enumerate(disagreements, 1):
             if disagree["type"] == "branch_length":
                 vprint.error(f"  {i}. Branch length mismatch for edge {disagree['edge'][0]} -> {disagree['edge'][1]}:")
@@ -849,40 +890,49 @@ def merge_tree_topology_with_pcp(pcp_family_data, newick_string, warn_disagreeme
     }
 
 
-def parse_newick_csv(csv_path: str) -> Dict[Any, List[Dict[str, Any]]]:
-    """Parse a CSV of Newick trees into a list-per-family-key mapping.
+def parse_newick_csv(
+    csv_path: str,
+    *,
+    sample_override: Optional[str] = None,
+    family_override: Optional[str] = None,
+    tree_override: Optional[str] = None,
+) -> Dict[Any, List[Dict[str, Any]]]:
+    """Parse a CSV of Newick trees into a list-per-composite-key mapping.
 
     Required columns:
 
-    - ``family_name`` (or ``family``) — clonal family identifier.
+    - One of ``family``, ``family_id``, ``family_name`` — clonal family
+      identifier (auto-detected; ``--family-col`` overrides).
     - ``newick_tree`` (or ``newick``) — Newick topology string.
 
     Optional reserved columns (handled here, not captured as clone-level
     extras):
 
-    - ``sample_id`` — when present, the key is
-      ``(family_name, sample_id)``; otherwise just ``family_name``.
-    - ``tree_id`` — per-tree identifier. Enables multiple alternate
-      reconstructions for the same ``(family, sample_id)``. When absent,
-      a fallback is synthesized downstream.
+    - One of ``sample``, ``sample_id``, ``sample_name`` — when present,
+      contributes to the composite key (``--sample-col`` overrides).
+    - One of ``tree``, ``tree_id``, ``tree_name`` — per-tree identifier.
+      Enables multiple alternate reconstructions for the same
+      ``(family, sample)``. When absent, a single tree per family is
+      assumed (``--tree-col`` overrides).
     - ``reconstruction_method`` — written to ``tree.reconstruction_method``
       on the output.
     - ``rate_scale_heavy`` / ``rate_scale_light`` — paired-format rate
       scaling factors; promoted to clone-level fields.
 
-    Any other columns are captured as clone-level extras (same chain
-    suffix convention as PCP CSV extras — see
-    ``_partition_chain_fields``).
+    Any other columns are captured as extras and later classified by the
+    field-metadata generator into clone-level (constant within each
+    clone) or tree-level (varying across trees of the same clone).
 
     Returns:
-        A mapping from family-key to a list of tree-data dicts. The key is
-        ``(family_name, sample_id)`` if a ``sample_id`` column is present,
-        else just ``family_name``. Each list entry is one row of the CSV
-        and has the shape::
+        A mapping from composite key to a list of tree-data dicts. The
+        key is ``(sample_id, family_id, tree_id)`` matching the shape
+        used by :func:`parse_pcp_csv`; ``tree_id`` is
+        :data:`PCP_NO_TREE_SENTINEL` when no tree column is present.
+        Each list entry has the shape::
 
             {
                 "newick": str,                       # required
-                "tree_id": Optional[str],            # only when column present + non-empty
+                "tree_id": Optional[str],            # only when present + non-empty
                 "reconstruction_method": Optional[str],
                 "rate_scale_heavy": float,           # paired only
                 "rate_scale_light": float,           # paired only
@@ -895,50 +945,52 @@ def parse_newick_csv(csv_path: str) -> Dict[Any, List[Dict[str, Any]]]:
     with handle as file_handle:
         reader = csv.DictReader(file_handle)
 
-        # Support alternative column names for backwards compatibility
-        # Check for newick column (paired format uses "newick", regular uses "newick_tree")
+        fieldnames = [c for c in (reader.fieldnames or []) if c]
+
+        # Newick column auto-detection (separate from role columns).
         newick_col = None
-        if "newick" in reader.fieldnames:
+        if "newick" in fieldnames:
             newick_col = "newick"
-        elif "newick_tree" in reader.fieldnames:
+        elif "newick_tree" in fieldnames:
             newick_col = "newick_tree"
-
-        # Check for family column (paired format uses "family", regular uses "family_name")
-        family_col = None
-        if "family" in reader.fieldnames:
-            family_col = "family"
-        elif "family_name" in reader.fieldnames:
-            family_col = "family_name"
-
-        # Validate we have required columns
         if newick_col is None:
             raise ValueError("Missing required column: 'newick_tree' or 'newick'")
-        if family_col is None:
-            raise ValueError("Missing required column: 'family_name' or 'family'")
 
-        # Check if sample_id column exists
-        has_sample_id = "sample_id" in reader.fieldnames
+        # Trees CSV: family required; sample optional (may be implicit
+        # from the companion PCP CSV); tree optional.
+        resolved = resolve_role_columns(
+            fieldnames,
+            sample_override=sample_override,
+            family_override=family_override,
+            tree_override=tree_override,
+            required_roles=("family",),
+        )
+        present_variants = find_present_variants(fieldnames)
+        sample_col = resolved["sample"]
+        family_col = resolved["family"]
+        tree_col = resolved["tree"]
 
-        # Check for rate scaling columns (paired format)
         has_rate_scale = (
-            "rate_scale_heavy" in reader.fieldnames
-            or "rate_scale_light" in reader.fieldnames
+            "rate_scale_heavy" in fieldnames
+            or "rate_scale_light" in fieldnames
         )
 
-        # Identify extra columns for clone-level data.
-        # Filter out empty/None column names (e.g., unnamed index columns).
+        role_cols = {sample_col, family_col} | ({tree_col} if tree_col else set())
         extra_columns = {
-            c for c in reader.fieldnames if c and c not in KNOWN_TREE_COLUMNS
+            c for c in fieldnames if c not in KNOWN_TREE_COLUMNS and c not in role_cols
         }
 
         for row in reader:
-            family_name = row[family_col]
-            newick_tree = row[newick_col]
+            check_row_role_conflicts(row, present_variants)
+            sample_id = row[sample_col] if sample_col else None
+            family_id = row[family_col]
+            tree_id_val = row.get(tree_col, "") if tree_col else ""
+            tree_key = tree_id_val if tree_id_val else PCP_NO_TREE_SENTINEL
+            composite_key = (sample_id, family_id, tree_key)
 
+            newick_tree = row[newick_col]
             tree_data: Dict[str, Any] = {"newick": newick_tree}
 
-            # Reserved tree-level columns
-            tree_id_val = row.get("tree_id")
             if tree_id_val:
                 tree_data["tree_id"] = tree_id_val
 
@@ -954,18 +1006,12 @@ def parse_newick_csv(csv_path: str) -> Dict[Any, List[Dict[str, Any]]]:
                     float(row["rate_scale_light"]) if row.get("rate_scale_light") else 1.0
                 )
 
-            # Capture extra columns as clone-level fields
             for col in extra_columns:
                 val = row.get(col, "")
                 if val != "":
                     tree_data[col] = coerce_csv_value(val)
 
-            if has_sample_id:
-                key = (family_name, row["sample_id"])
-            else:
-                key = family_name
-
-            newick_trees.setdefault(key, []).append(tree_data)
+            newick_trees.setdefault(composite_key, []).append(tree_data)
 
     return newick_trees
 
@@ -1287,7 +1333,7 @@ def align_and_calculate_mutations(
 
 
 def log_mutation_frequency_debug(
-    family_id: str,
+    clone_id: str,
     germline_alignment: str,
     debug_info: list,
     skipped_nodes: list,
@@ -1304,7 +1350,7 @@ def log_mutation_frequency_debug(
     frequency calculation, improving code readability and maintainability.
 
     Args:
-        family_id: Family identifier
+        clone_id: Clone identifier (``{sample}_{family}``) for the debug header.
         germline_alignment: Germline DNA sequence
         debug_info: List of dicts with per-node debug information
         skipped_nodes: List of dicts with skipped node information
@@ -1321,7 +1367,7 @@ def log_mutation_frequency_debug(
     if vprint.level < 3:
         return
 
-    vprint.debug(f"\n=== DEBUG: mean_mut_freq calculation for family {family_id} ({chain_label}) ===")
+    vprint.debug(f"\n=== DEBUG: mean_mut_freq calculation for clone {clone_id} ({chain_label}) ===")
     vprint.debug(f"Germline length: {len(germline_alignment)} nt")
 
     # Translate germline to amino acids
@@ -1566,16 +1612,20 @@ class TreeProcessingConfig:
 def _build_tree_ref(
     *,
     tree_ident: str,
-    family_id: str,
+    clone_id: str,
     chain: Optional[Literal["heavy", "light"]] = None,
     newick: str,
     csv_tree_id: Optional[str],
     reconstruction_method: Optional[str],
+    extras: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Build a tree record (``clone.trees[]`` entry or the header of a
     top-level ``trees[]`` entry) with the identifier and semantic columns.
 
     Args:
+        clone_id: Synthesized clone identifier (e.g. ``"{sample}_{family}"``),
+            used to populate ``record["clone_id"]`` and to synthesize a
+            fallback ``tree_id`` when ``csv_tree_id`` is absent.
         chain: ``"heavy"`` or ``"light"`` for paired data (adds the
             corresponding suffix to ``ident``/``clone_id``/``tree_id``);
             ``None`` for single-chain data (no suffix).
@@ -1583,8 +1633,8 @@ def _build_tree_ref(
     ``tree_id`` resolves in this order:
     1. ``csv_tree_id`` when the tree CSV supplied a value (paired data
        appends the chain suffix).
-    2. Synthesized ``tree-{family_id}`` (paired:
-       ``tree-{family_id}-heavy`` / ``-light``).
+    2. Synthesized ``tree-{clone_id}`` (paired:
+       ``tree-{clone_id}-heavy`` / ``-light``).
 
     ``reconstruction_method`` is only included on the output record when
     the input supplied one — never fabricated.
@@ -1594,16 +1644,23 @@ def _build_tree_ref(
     if csv_tree_id:
         resolved_tree_id = f"{csv_tree_id}{suffix}"
     else:
-        resolved_tree_id = f"tree-{family_id}{suffix}"
+        resolved_tree_id = f"tree-{clone_id}{suffix}"
 
     record: Dict[str, Any] = {
         "ident": f"{tree_ident}{suffix}",
-        "clone_id": f"{family_id}{suffix}",
+        "clone_id": f"{clone_id}{suffix}",
         "tree_id": resolved_tree_id,
+        "tree_name": csv_tree_id if csv_tree_id else resolved_tree_id,
         "newick": newick,
     }
     if reconstruction_method:
         record["reconstruction_method"] = reconstruction_method
+    if extras:
+        # Tree-csv extras live on the per-tree record so the variance
+        # classifier (field_metadata.classify_tree_extras) can see them
+        # and promote tree-level fields out of the clone-level pass.
+        for k, v in extras.items():
+            record.setdefault(k, v)
     return record
 
 
@@ -1612,12 +1669,12 @@ def _process_family_tree(
     family_data: Dict[str, Any],
     tree_entry: Dict[str, Any],
     dataset_id: str,
-    family_id: str,
+    clone_id: str,
     clone_ident: str,
     tree_ident: str,
     config: TreeProcessingConfig,
 ) -> Optional[Tuple[Dict[str, Any], Optional[Dict[str, Any]], Dict[str, Any], Optional[Dict[str, Any]]]]:
-    """Process one (family, tree) pair.
+    """Process one (clone, tree) pair.
 
     Returns ``(heavy_clone, light_clone, heavy_tree, light_tree)`` where:
 
@@ -1628,6 +1685,11 @@ def _process_family_tree(
     - ``heavy_tree`` is the full top-level tree record (including the
       ``nodes`` array).
     - ``light_tree`` is the equivalent for light, or ``None`` when not paired.
+
+    Args:
+        clone_id: Synthesized clone identifier (``{sample}_{family}``),
+            used both as the structural ``clone_id`` on output records
+            and as a display identifier in warning messages.
 
     Returns ``None`` when the tree should be skipped (e.g. malformed root
     node, missing germline).
@@ -1652,7 +1714,7 @@ def _process_family_tree(
 
     if newick:
         # Use complete tree topology from Newick
-        family_data = merge_tree_topology_with_pcp(family_data, newick, config.warn_disagreements, family_id)
+        family_data = merge_tree_topology_with_pcp(family_data, newick, config.warn_disagreements, clone_id)
     else:
         # Fallback to building tree from PCP edges only
         newick = build_newick_from_edges(family_data["nodes"], family_data["edges"])
@@ -1660,9 +1722,16 @@ def _process_family_tree(
     # Store rate scaling in family data for later use
     family_data["family_data"]["rate_scale_heavy"] = rate_scale_heavy
     family_data["family_data"]["rate_scale_light"] = rate_scale_light
-    # Store extra tree columns as clone-level custom fields
-    if extra_tree_fields:
-        family_data["family_data"]["_extra_clone_fields"] = extra_tree_fields
+
+    # Partition tree-CSV extras by chain suffix. Heavy trees receive
+    # shared + heavy items (suffix stripped); light trees receive
+    # shared + light items. ``_hoist_clone_invariant_extras`` (run after
+    # process_pcp_to_olmsted finishes) moves the clone-invariant subset
+    # from these tree records up to the clone dict, so each extra has a
+    # single canonical location: clone or trees, never both.
+    extra_shared, extra_heavy, extra_light = _partition_chain_fields(extra_tree_fields)
+    tree_extras_heavy = {**extra_shared, **extra_heavy}
+    tree_extras_light = {**extra_shared, **extra_light}
 
     # Refresh family_meta in case merge_tree_topology_with_pcp replaced it
     family_meta = family_data.get("family_data", {})
@@ -1794,7 +1863,7 @@ def _process_family_tree(
             processed_nodes_light[tree_root]["parent"] = None
 
     # Calculate cluster multiplicity for heavy chain (always computed)
-    vprint.verbose(f"  Computing cluster multiplicity for family {family_id}")
+    vprint.verbose(f"  Computing cluster multiplicity for clone {clone_id}")
     cluster_mult_values = compute_cluster_multiplicity_for_tree(processed_nodes_heavy, family_data["edges"], tree_root)
     for node_id in processed_nodes_heavy:
         processed_nodes_heavy[node_id]["cluster_multiplicity"] = cluster_mult_values.get(node_id, 0)
@@ -1807,7 +1876,7 @@ def _process_family_tree(
 
     # Calculate phylogenetic metrics if requested (computed for both heavy and light)
     if config.compute_metrics:
-        vprint.verbose(f"  Computing metrics for family {family_id} (tau={config.lbi_tau})")
+        vprint.verbose(f"  Computing metrics for clone {clone_id} (tau={config.lbi_tau})")
         compute_tree_metrics(
             processed_nodes_heavy, family_data["edges"], tree_root, tau=config.lbi_tau
         )
@@ -1883,7 +1952,7 @@ def _process_family_tree(
     v_alignment_start = family_meta.get("v_gene_start")
     if v_alignment_start is None:
         vprint.print(
-            f"WARNING: Family {family_id} missing v_gene_start position, defaulting to 0. "
+            f"WARNING: Clone {clone_id} missing v_gene_start position, defaulting to 0. "
             "Gene region visualization may be incorrect.",
             min_level=2
         )
@@ -1892,7 +1961,7 @@ def _process_family_tree(
     v_alignment_end = family_meta.get("v_gene_end")
     if v_alignment_end is None:
         vprint.print(
-            f"WARNING: Family {family_id} missing v_gene_end position, defaulting to 0. "
+            f"WARNING: Clone {clone_id} missing v_gene_end position, defaulting to 0. "
             "Gene region visualization may be incorrect.",
             min_level=2
         )
@@ -1902,7 +1971,7 @@ def _process_family_tree(
     d_alignment_start = family_meta.get("d_gene_start")
     if d_alignment_start is None:
         vprint.print(
-            f"WARNING: Family {family_id} missing d_gene_start position, defaulting to 0. "
+            f"WARNING: Clone {clone_id} missing d_gene_start position, defaulting to 0. "
             "Gene region visualization may be incorrect.",
             min_level=2
         )
@@ -1911,7 +1980,7 @@ def _process_family_tree(
     d_alignment_end = family_meta.get("d_gene_end")
     if d_alignment_end is None:
         vprint.print(
-            f"WARNING: Family {family_id} missing d_gene_end position, defaulting to 0. "
+            f"WARNING: Clone {clone_id} missing d_gene_end position, defaulting to 0. "
             "Gene region visualization may be incorrect.",
             min_level=2
         )
@@ -1921,7 +1990,7 @@ def _process_family_tree(
     j_alignment_start = family_meta.get("j_gene_start")
     if j_alignment_start is None:
         vprint.print(
-            f"WARNING: Family {family_id} missing j_gene_start position, defaulting to 0. "
+            f"WARNING: Clone {clone_id} missing j_gene_start position, defaulting to 0. "
             "Gene region visualization may be incorrect.",
             min_level=2
         )
@@ -1930,7 +1999,7 @@ def _process_family_tree(
     j_alignment_end = family_meta.get("j_gene_end")
     if j_alignment_end is None:
         vprint.print(
-            f"WARNING: Family {family_id} missing j_gene_end position, defaulting to 0. "
+            f"WARNING: Clone {clone_id} missing j_gene_end position, defaulting to 0. "
             "Gene region visualization may be incorrect.",
             min_level=2
         )
@@ -1964,7 +2033,7 @@ def _process_family_tree(
     root_nodes_heavy = [n for n in processed_nodes_heavy.values() if n.get("type") == "root"]
     if len(root_nodes_heavy) != 1:
         vprint.print(
-            f"WARNING: Family {family_id} has {len(root_nodes_heavy)} root nodes (expected 1). "
+            f"WARNING: Clone {clone_id} has {len(root_nodes_heavy)} root nodes (expected 1). "
             "This may indicate malformed data. Skipping this tree.",
             min_level=1
         )
@@ -1973,7 +2042,7 @@ def _process_family_tree(
     germline_alignment = root_nodes_heavy[0].get("sequence_alignment", "")
     if not germline_alignment:
         vprint.print(
-            f"WARNING: Family {family_id} root node missing sequence_alignment. "
+            f"WARNING: Clone {clone_id} root node missing sequence_alignment. "
             "Cannot calculate mutation frequency. Skipping this tree.",
             min_level=1
         )
@@ -1985,7 +2054,7 @@ def _process_family_tree(
         root_nodes_light = [n for n in processed_nodes_light.values() if n.get("type") == "root"]
         if len(root_nodes_light) != 1:
             vprint.print(
-                f"WARNING: Family {family_id} light chain has {len(root_nodes_light)} root nodes (expected 1). "
+                f"WARNING: Clone {clone_id} light chain has {len(root_nodes_light)} root nodes (expected 1). "
                 "This may indicate malformed paired data. Skipping this tree.",
                 min_level=1
             )
@@ -1994,7 +2063,7 @@ def _process_family_tree(
         germline_alignment_light = root_nodes_light[0].get("sequence_alignment", "")
         if not germline_alignment_light:
             vprint.print(
-                f"WARNING: Family {family_id} light chain root node missing sequence_alignment. "
+                f"WARNING: Clone {clone_id} light chain root node missing sequence_alignment. "
                 "Cannot calculate mutation frequency for paired data. Skipping this tree.",
                 min_level=1
             )
@@ -2101,7 +2170,7 @@ def _process_family_tree(
 
     # Log debug information (only at debug verbosity level)
     log_mutation_frequency_debug(
-        family_id=family_id,
+        clone_id=clone_id,
         germline_alignment=germline_alignment,
         debug_info=debug_info_heavy,
         skipped_nodes=skipped_nodes_heavy,
@@ -2138,7 +2207,7 @@ def _process_family_tree(
                     total_sequences_light += multiplicity
 
         mean_mut_freq_light = total_mut_freq_light / total_sequences_light if total_sequences_light > 0 else 0.0
-        vprint.debug(f"\n=== Light chain mean_mut_freq for family {family_id} ===")
+        vprint.debug(f"\n=== Light chain mean_mut_freq for clone {clone_id} ===")
         vprint.debug(f"Total mutation frequency (weighted): {total_mut_freq_light:.6f}")
         vprint.debug(f"Total leaf sequences: {total_sequences_light}")
         vprint.debug(f"Mean mutation frequency (light): {mean_mut_freq_light:.6f}")
@@ -2148,12 +2217,12 @@ def _process_family_tree(
     # Generate pair_id for paired data (links heavy and light clone entries)
     pair_id = None
     if is_paired:
-        # Use family_id as base for pair_id to ensure consistency
-        pair_id = f"pair-{family_id}"
+        # Use clone_id as base for pair_id to ensure consistency
+        pair_id = f"pair-{clone_id}"
 
     # Create heavy chain clone
     clone_heavy = {
-        "clone_id": family_id if not is_paired else f"{family_id}-heavy",
+        "clone_id": clone_id if not is_paired else f"{clone_id}-heavy",
         "ident": clone_ident if not is_paired else f"{clone_ident}-heavy",
         "dataset_id": dataset_id,
         "sample_id": original_sample_id,
@@ -2184,11 +2253,12 @@ def _process_family_tree(
         "trees": [
             _build_tree_ref(
                 tree_ident=tree_ident,
-                family_id=family_id,
+                clone_id=clone_id,
                 chain="heavy" if is_paired else None,
                 newick=newick,
                 csv_tree_id=csv_tree_id,
                 reconstruction_method=reconstruction_method,
+                extras=tree_extras_heavy,
             )
         ],
         # Denormalized sample reference for webapp convenience
@@ -2204,15 +2274,6 @@ def _process_family_tree(
         clone_heavy["is_paired"] = True
         clone_heavy["pair_id"] = pair_id
 
-    # Add extra clone-level fields from tree CSV
-    # Partition by chain suffix: _heavy → heavy only, _light → light only, neither → shared
-    extra_clone_raw = family_meta.get("_extra_clone_fields", {})
-    extra_shared, extra_heavy, extra_light = _partition_chain_fields(extra_clone_raw)
-    for k, v in extra_shared.items():
-        clone_heavy[k] = v
-    for k, v in extra_heavy.items():
-        clone_heavy[k] = v
-
     # Create light chain clone (if paired data)
     clone_light: Optional[Dict[str, Any]] = None
     if is_paired:
@@ -2227,7 +2288,7 @@ def _process_family_tree(
             light_locus = None
 
         clone_light = {
-            "clone_id": f"{family_id}-light",
+            "clone_id": f"{clone_id}-light",
             "ident": f"{clone_ident}-light",
             "dataset_id": dataset_id,
             "sample_id": original_sample_id,
@@ -2258,11 +2319,12 @@ def _process_family_tree(
             "trees": [
                 _build_tree_ref(
                     tree_ident=tree_ident,
-                    family_id=family_id,
+                    clone_id=clone_id,
                     chain="light",
                     newick=newick,  # Same topology, different sequences
                     csv_tree_id=csv_tree_id,
                     reconstruction_method=reconstruction_method,
+                    extras=tree_extras_light,
                 )
             ],
             "sample": {
@@ -2274,12 +2336,6 @@ def _process_family_tree(
             "pair_id": pair_id,
         }
 
-        # Add extra clone-level fields from tree CSV (shared + light-only)
-        for k, v in extra_shared.items():
-            clone_light[k] = v
-        for k, v in extra_light.items():
-            clone_light[k] = v
-
     # Convert heavy chain nodes to array format (required by webapp)
     nodes_array_heavy = []
     for node_id, node_data in processed_nodes_heavy.items():
@@ -2289,11 +2345,12 @@ def _process_family_tree(
     tree_heavy = {
         **_build_tree_ref(
             tree_ident=tree_ident,
-            family_id=family_id,
+            clone_id=clone_id,
             chain="heavy" if is_paired else None,
             newick=newick,
             csv_tree_id=csv_tree_id,
             reconstruction_method=reconstruction_method,
+            extras=tree_extras_heavy,
         ),
         "nodes": nodes_array_heavy,
     }
@@ -2308,16 +2365,101 @@ def _process_family_tree(
         tree_light = {
             **_build_tree_ref(
                 tree_ident=tree_ident,
-                family_id=family_id,
+                clone_id=clone_id,
                 chain="light",
                 newick=newick,  # Same topology, different sequences in nodes
                 csv_tree_id=csv_tree_id,
                 reconstruction_method=reconstruction_method,
+                extras=tree_extras_light,
             ),
             "nodes": nodes_array_light,
         }
 
     return clone_heavy, clone_light, tree_heavy, tree_light
+
+
+_HOIST_STRUCTURAL_KEYS = {
+    "ident", "clone_id", "tree_id", "tree_name", "newick",
+    "nodes", "type", "reconstruction_method",
+}
+
+
+def _hoist_clone_invariant_extras(
+    clones_dict: Dict[str, List[Dict[str, Any]]],
+    trees: List[Dict[str, Any]],
+) -> None:
+    """Move clone-level tree-CSV extras from per-tree records to the clone.
+
+    Tree-CSV extras initially live on every per-tree record (placed there
+    by ``_build_tree_ref(extras=...)`` so the variance classifier can see
+    them). For fields that are constant across **every** clone's trees in
+    the dataset, that placement is structurally wrong — they're really
+    clone-level data, redundantly repeated on each tree. This pass picks
+    those out and moves them up to the clone dict, then strips them from
+    the tree records.
+
+    Crucially, the "tree-level" decision is made at dataset scope: if a
+    field varies across any clone's trees, it stays on per-tree records
+    even on clones where it happens to be trivially constant (e.g.
+    single-tree clones). Otherwise the field would live in two
+    different locations depending on the clone — inconsistent with
+    ``field_metadata.tree``.
+
+    Result: each tree-CSV extra has a single canonical location across
+    the dataset:
+
+    - **Constant in every clone** → clone dict only.
+    - **Varies in any clone** → per-tree records only (the variance
+      classifier picks it up as a tree-level field).
+
+    Tree records mutated in place — both the trimmed refs in
+    ``clone["trees"]`` and the full records in the top-level ``trees``
+    list — so the two stay in sync.
+    """
+    trees_by_clone_id: Dict[str, List[Dict[str, Any]]] = {}
+    for tree in trees:
+        trees_by_clone_id.setdefault(tree["clone_id"], []).append(tree)
+
+    # First pass: which keys vary within any clone's trees?
+    # These keys must stay on per-tree records dataset-wide.
+    dataset_tree_level_keys: set = set()
+    for ds_clones in clones_dict.values():
+        for clone in ds_clones:
+            clone_trees = trees_by_clone_id.get(clone["clone_id"], [])
+            if len(clone_trees) < 2:
+                continue
+            candidate_keys: set = set()
+            for tree in clone_trees:
+                candidate_keys.update(tree.keys())
+            candidate_keys -= _HOIST_STRUCTURAL_KEYS
+            for key in candidate_keys - dataset_tree_level_keys:
+                values = [tree.get(key) for tree in clone_trees]
+                if any(v != values[0] for v in values):
+                    dataset_tree_level_keys.add(key)
+
+    # Second pass: hoist clone-level (= not-tree-level) keys onto each
+    # clone, strip from the clone's tree records.
+    for ds_clones in clones_dict.values():
+        for clone in ds_clones:
+            clone_trees_full = trees_by_clone_id.get(clone["clone_id"], [])
+            if not clone_trees_full:
+                continue
+            clone_trees_refs = clone.get("trees", []) or []
+
+            candidate_keys = set()
+            for tree in clone_trees_full:
+                candidate_keys.update(tree.keys())
+            candidate_keys -= _HOIST_STRUCTURAL_KEYS
+            hoist_keys = candidate_keys - dataset_tree_level_keys
+
+            for key in hoist_keys:
+                clone[key] = clone_trees_full[0].get(key)
+            for tree in clone_trees_full:
+                for key in hoist_keys:
+                    tree.pop(key, None)
+            for tree_ref in clone_trees_refs:
+                for key in hoist_keys:
+                    tree_ref.pop(key, None)
 
 
 def process_pcp_to_olmsted(
@@ -2387,6 +2529,15 @@ def process_pcp_to_olmsted(
     # placeholder records (subject_id="pcp-subject", timepoint="merged").
     # The webapp is expected to render "<unspecified>" for unset reference
     # fields.
+    # parse_pcp_csv returns one entry per composite key
+    # ``(sample, family, tree)``. Group those by ``(sample, family)`` so
+    # each biological clonal family becomes one clone with its trees
+    # collected together.
+    clones_grouped: Dict[Tuple[Any, Any], List[Tuple[Any, Any, Any]]] = {}
+    for composite_key in pcp_families.keys():
+        sample_k, family_k, _tree_k = composite_key
+        clones_grouped.setdefault((sample_k, family_k), []).append(composite_key)
+
     dataset = {
         "ident": dataset_ident,
         "dataset_id": dataset_id,
@@ -2395,7 +2546,7 @@ def process_pcp_to_olmsted(
         "subjects": [],
         "samples": [],
         "seeds": [],
-        "clone_count": len(pcp_families),
+        "clone_count": len(clones_grouped),
         "subjects_count": 0,
         "timepoints_count": 0,
     }
@@ -2404,26 +2555,36 @@ def process_pcp_to_olmsted(
     if name:
         dataset["name"] = name
 
-    # Process each family with progress bar
-    family_items = list(pcp_families.items())
-    with tqdm(family_items, desc="Processing families", unit="family", disable=len(family_items) == 1) as pbar:
-        for family_idx, (family_id, family_data) in enumerate(pbar):
+    grouped_items = list(clones_grouped.items())
+    with tqdm(
+        grouped_items,
+        desc="Processing families",
+        unit="family",
+        disable=len(grouped_items) == 1,
+    ) as pbar:
+        for (sample_id, family_id), composite_keys in pbar:
             clone_ident = minter.mint("clone")
+            # Synthesize a fully-qualified clone_id so families that
+            # repeat across samples no longer silently merge. Falls back
+            # to the family value alone for inputs without a sample
+            # column (sample_id == None).
+            synthesized_clone_id = (
+                f"{sample_id}_{family_id}" if sample_id is not None else family_id
+            )
 
-            # Get sample_id from family data. sample_id is a required PCP
-            # CSV column, so family_meta always has it under normal input.
-            family_meta = family_data.get("family_data", {})
-            original_sample_id = family_meta.get("sample_id")
+            # Pull the canonical family_data from the first composite key
+            # in the group (every entry in the group shares the same
+            # biological family-level metadata).
+            first_family_data = pcp_families[composite_keys[0]]
+            family_meta = first_family_data.get("family_data", {})
+            original_sample_id = family_meta.get("sample_id", sample_id)
 
-            # Create sample if not already present
             sample_exists = any(
                 s["sample_id"] == original_sample_id for s in dataset["samples"]
             )
             if not sample_exists:
-                # Infer locus from V gene call
                 v_gene = family_meta.get("v_gene", "")
                 locus = infer_locus_from_v_gene(v_gene)
-
                 dataset["samples"].append(
                     {
                         "ident": minter.mint("sample"),
@@ -2432,72 +2593,92 @@ def process_pcp_to_olmsted(
                     }
                 )
 
-            # Look up tree entries for this family. parse_newick_csv returns a
-            # list-per-key; multiple entries mean alternate reconstructions of
-            # the same clonal family.
-            tree_entries: List[Dict[str, Any]] = []
-            if newick_trees:
-                composite_key = (family_id, original_sample_id)
-                if composite_key in newick_trees:
-                    tree_entries = newick_trees[composite_key]
-                elif family_id in newick_trees:
-                    tree_entries = newick_trees[family_id]
-
-            # Fall back to a single "empty" tree entry when no CSV trees are
-            # supplied; the helper handles the build_newick_from_edges
-            # fallback internally.
-            tree_entries_normalized = tree_entries if tree_entries else [{}]
-
-            # The helper mutates family_data during topology merge + node
-            # processing, so take a pristine copy and deep-copy per tree
-            # iteration.
-            family_data_pristine = copy.deepcopy(family_data)
-
             canonical_heavy_clone: Optional[Dict[str, Any]] = None
             canonical_light_clone: Optional[Dict[str, Any]] = None
-            for tree_idx, tree_entry in enumerate(tree_entries_normalized):
-                family_data_this = copy.deepcopy(family_data_pristine)
-                per_tree_ident = minter.mint("tree")
 
-                result = _process_family_tree(
-                    family_data=family_data_this,
-                    tree_entry=tree_entry,
-                    dataset_id=dataset_id,
-                    family_id=family_id,
-                    clone_ident=clone_ident,
-                    tree_ident=per_tree_ident,
-                    config=tree_config,
-                )
-                if result is None:
-                    # Helper decided to skip this tree (e.g. missing germline).
-                    # Keep processing remaining trees for the family.
-                    continue
+            for composite_key in composite_keys:
+                family_data = pcp_families[composite_key]
+                # _process_family_tree mutates family_data during topology
+                # merge — keep a pristine deep copy so subsequent trees in
+                # the same clone group start clean.
+                family_data_pristine = copy.deepcopy(family_data)
 
-                heavy_clone, light_clone, heavy_tree, light_tree = result
+                tree_entries: List[Dict[str, Any]] = []
+                if newick_trees:
+                    _, fkey, tkey = composite_key
+                    if tkey == PCP_NO_TREE_SENTINEL:
+                        # PCP CSV had no tree column → the trees CSV
+                        # supplies tree-level disambiguation alone.
+                        # Gather every tree row keyed on
+                        # ``(sample, family, *)`` so each becomes one
+                        # alternate reconstruction of this clone.
+                        for k, v in newick_trees.items():
+                            ks, kf, _kt = k
+                            if kf == fkey and ks in (sample_id, None):
+                                tree_entries.extend(v)
+                    elif composite_key in newick_trees:
+                        tree_entries = newick_trees[composite_key]
+                    else:
+                        # Trees CSV may lack a sample column; the parser
+                        # then keys on (None, family, tree).
+                        tree_entries = newick_trees.get((None, fkey, tkey), [])
 
-                if canonical_heavy_clone is None:
-                    # First successful tree for this family: use the helper's
-                    # clone dicts as canonical (already have one tree ref
-                    # inline).
-                    canonical_heavy_clone = heavy_clone
-                    clones_dict[dataset_id].append(canonical_heavy_clone)
-                    if light_clone is not None:
-                        canonical_light_clone = light_clone
-                        clones_dict[dataset_id].append(canonical_light_clone)
-                else:
-                    # Subsequent alternate reconstruction: extend the existing
-                    # clone's trees[] with just the reference (no nodes).
-                    canonical_heavy_clone["trees"].append(
-                        {k: v for k, v in heavy_tree.items() if k != "nodes"}
-                    )
-                    if canonical_light_clone is not None and light_tree is not None:
-                        canonical_light_clone["trees"].append(
-                            {k: v for k, v in light_tree.items() if k != "nodes"}
+                    # Flag the silent fallback. When the user supplied a
+                    # trees CSV but no row matches this composite key,
+                    # we build the tree from PCP edges alone — easy to
+                    # miss without a notice, since the output is
+                    # still structurally valid.
+                    if not tree_entries:
+                        vprint.status(
+                            f"  Warning: clone {synthesized_clone_id} "
+                            f"(composite key {composite_key}) had no "
+                            f"matching row in the trees CSV; falling "
+                            f"back to building the topology from PCP edges."
                         )
 
-                trees.append(heavy_tree)
-                if light_tree is not None:
-                    trees.append(light_tree)
+                tree_entries_normalized = tree_entries if tree_entries else [{}]
+
+                for tree_entry in tree_entries_normalized:
+                    family_data_this = copy.deepcopy(family_data_pristine)
+                    per_tree_ident = minter.mint("tree")
+
+                    result = _process_family_tree(
+                        family_data=family_data_this,
+                        tree_entry=tree_entry,
+                        dataset_id=dataset_id,
+                        clone_id=synthesized_clone_id,
+                        clone_ident=clone_ident,
+                        tree_ident=per_tree_ident,
+                        config=tree_config,
+                    )
+                    if result is None:
+                        continue
+
+                    heavy_clone, light_clone, heavy_tree, light_tree = result
+
+                    if canonical_heavy_clone is None:
+                        canonical_heavy_clone = heavy_clone
+                        clones_dict[dataset_id].append(canonical_heavy_clone)
+                        if light_clone is not None:
+                            canonical_light_clone = light_clone
+                            clones_dict[dataset_id].append(canonical_light_clone)
+                    else:
+                        canonical_heavy_clone["trees"].append(
+                            {k: v for k, v in heavy_tree.items() if k != "nodes"}
+                        )
+                        if canonical_light_clone is not None and light_tree is not None:
+                            canonical_light_clone["trees"].append(
+                                {k: v for k, v in light_tree.items() if k != "nodes"}
+                            )
+
+                    trees.append(heavy_tree)
+                    if light_tree is not None:
+                        trees.append(light_tree)
+
+    # Tree-CSV extras have lived on every per-tree record so far so the
+    # variance classifier could see them. Hoist clone-invariant ones up
+    # to their clone (and strip from trees) before field_metadata runs.
+    _hoist_clone_invariant_extras(clones_dict, trees)
 
     # Generate field_metadata (uses generate_default_config when no config provided)
     dataset_clones = clones_dict.get(dataset_id, [])
@@ -2595,6 +2776,21 @@ def get_args():
         default="truncate",
         help="Method for aligning sequences of different lengths for mutation frequency calculation (default: truncate - compare only overlapping region, pad - pad shorter sequence with gap characters)",
     )
+    parser.add_argument(
+        "--sample-col",
+        dest="sample_col",
+        help="CSV column supplying the sample identifier (auto-detected from sample/sample_id/sample_name).",
+    )
+    parser.add_argument(
+        "--family-col",
+        dest="family_col",
+        help="CSV column supplying the family identifier (auto-detected from family/family_id/family_name).",
+    )
+    parser.add_argument(
+        "--tree-col",
+        dest="tree_col",
+        help="CSV column supplying the per-tree identifier within a family (auto-detected from tree/tree_id/tree_name). Optional.",
+    )
     # Removed --output-format option - now only outputs AIRR format
     return parser.parse_args()
 
@@ -2640,18 +2836,24 @@ def main():
     minter = IdentMinter(seed=args.seed)
 
     try:
+        column_overrides = {
+            "sample_override": getattr(args, "sample_col", None),
+            "family_override": getattr(args, "family_col", None),
+            "tree_override": getattr(args, "tree_col", None),
+        }
+
         # Parse PCP CSV
         vprint.status(f"Processing PCP CSV: {args.input_pcp}")
         if args.seed is not None:
             vprint.status(f"Using deterministic UUIDs with seed: {args.seed}")
-        pcp_families = parse_pcp_csv(args.input_pcp)
+        pcp_families = parse_pcp_csv(args.input_pcp, **column_overrides)
         vprint.status(f"Found {len(pcp_families)} families")
 
         # Parse Newick trees if provided
         newick_trees = None
         if args.input_trees:
             vprint.status(f"Processing Newick trees: {args.input_trees}")
-            newick_trees = parse_newick_csv(args.input_trees)
+            newick_trees = parse_newick_csv(args.input_trees, **column_overrides)
             vprint.status(f"Found {len(newick_trees)} trees")
 
         # Convert to Olmsted format

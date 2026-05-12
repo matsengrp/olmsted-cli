@@ -21,32 +21,42 @@
             },
             {
                 "ident": "sample-03b48e72-5fe5-6184-fe38-a8c99e147a2a",
-                "sample_id": "sample-igg-705c",
-                "locus": "igh"
-            },
-            {
-                "ident": "sample-cc42c52c-6fb9-faa8-b57f-3933f1ac3d30",
-                "sample_id": "sample-igg-4002",
-                "locus": "igh"
-            },
-            {
-                "ident": "sample-654906d9-16e2-5db5-4643-0490059032c0",
                 "sample_id": "sample-igg-5001",
                 "locus": "igh"
             },
             {
-                "ident": "sample-5d82ca72-029f-eb0a-694b-97f7c2233755",
-                "sample_id": "sample-igg-602c",
+                "ident": "sample-d20f0d49-77e8-15c5-ebe4-2927bc6aeb1f",
+                "sample_id": "sample-igg-705c",
                 "locus": "igh"
             },
             {
-                "ident": "sample-c3e192a2-1a85-2141-6fd5-9ab9c29fe5af",
+                "ident": "sample-12e70729-8abf-66ae-3611-fd397f3f50ce",
                 "sample_id": "sample-igg-201c",
+                "locus": "igh"
+            },
+            {
+                "ident": "sample-b3598fe2-630b-536f-74e7-274c35d14209",
+                "sample_id": "sample-igg-2008",
+                "locus": "igh"
+            },
+            {
+                "ident": "sample-38df5d3a-b824-4bde-6380-04ee71f7ed33",
+                "sample_id": "sample-igg-4002",
+                "locus": "igh"
+            },
+            {
+                "ident": "sample-94bd161f-9c23-89b9-1818-256c5b50d8cf",
+                "sample_id": "sample-igg-1013",
+                "locus": "igh"
+            },
+            {
+                "ident": "sample-14da2945-bb79-e29b-bcc6-7ecd3d99df7e",
+                "sample_id": "sample-igg-602c",
                 "locus": "igh"
             }
         ],
         "seeds": [],
-        "clone_count": 8,
+        "clone_count": 28,
         "subjects_count": 0,
         "timepoints_count": 0,
         "name": "pcp-example",

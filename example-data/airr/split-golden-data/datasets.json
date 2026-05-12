@@ -109,6 +109,13 @@
                     "label": "V Gene"
                 }
             },
+            "tree": {
+                "downsampling_strategy": {
+                    "type": "categorical",
+                    "display": "dropdown",
+                    "label": "Downsampling Strategy"
+                }
+            },
             "node": {
                 "cluster_multiplicity": {
                     "type": "continuous",
