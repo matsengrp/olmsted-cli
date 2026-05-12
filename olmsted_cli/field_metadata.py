@@ -331,7 +331,7 @@ def generate_clone_metadata(
         custom_fields: Optional custom field declarations (level=="clone" only).
         exclude: Optional set of field names to exclude from clone-level
             auto-detection (typically those classified as tree-level by
-            :func:`_classify_tree_extras`). Custom fields at level=clone
+            :func:`classify_tree_extras`). Custom fields at level=clone
             still take effect for these names.
 
     Returns:
@@ -394,10 +394,7 @@ def _hashable_for_distinct(v: Any) -> Any:
 _MISSING = object()
 
 
-def _classify_tree_extras(
-    clones: List[Dict],
-    trees: Optional[List[Dict]] = None,
-) -> set:
+def classify_tree_extras(clones: List[Dict]) -> set:
     """Identify fields that vary across trees within at least one clone.
 
     Walks each clone's ``trees[]`` list. A field is tree-level for the
@@ -410,12 +407,10 @@ def _classify_tree_extras(
     Args:
         clones: List of clone dictionaries with ``trees[]`` populated
             with trimmed tree-ref dicts.
-        trees: Unused; accepted so call sites can pass both consistently.
 
     Returns:
         Set of field names that should be treated as tree-level.
     """
-    del trees  # only the per-clone refs are needed
     tree_level_keys: set = set()
 
     candidate_keys: set = set()
@@ -441,7 +436,7 @@ def _classify_tree_extras(
     return tree_level_keys
 
 
-def _flatten_tree_refs(clones: List[Dict]) -> List[Dict]:
+def flatten_tree_refs(clones: List[Dict]) -> List[Dict]:
     """Flatten ``clone[].trees[]`` (dict refs only) into a single list."""
     refs: List[Dict] = []
     for clone in clones:
@@ -452,9 +447,9 @@ def _flatten_tree_refs(clones: List[Dict]) -> List[Dict]:
 
 
 def generate_tree_metadata(
-    trees: List[Dict],
     clones: List[Dict],
     custom_fields: Optional[List[Dict]] = None,
+    tree_level_keys: Optional[set] = None,
 ) -> Dict[str, Dict[str, str]]:
     """Generate field metadata for tree-level fields.
 
@@ -463,17 +458,19 @@ def generate_tree_metadata(
     controls.
 
     Args:
-        trees: Unused (per-tree node payload not needed at this level);
-            kept for symmetry with sibling generators.
         clones: List of clone dicts with ``trees[]`` populated.
         custom_fields: Optional custom field declarations (level=="tree" only).
+        tree_level_keys: Pre-computed result of :func:`classify_tree_extras`,
+            passed in by ``generate_field_metadata`` to avoid a second
+            walk over every tree. When ``None``, the classifier runs
+            here.
 
     Returns:
         Dict mapping field_name -> {"type": ..., "label": ..., "range"?: [...]}.
     """
-    del trees  # tree refs come from clones[].trees, not the full trees list
-    tree_refs = _flatten_tree_refs(clones)
-    tree_level_keys = _classify_tree_extras(clones)
+    tree_refs = flatten_tree_refs(clones)
+    if tree_level_keys is None:
+        tree_level_keys = classify_tree_extras(clones)
 
     metadata: Dict[str, Dict[str, Any]] = {}
     for key in sorted(tree_level_keys):
@@ -735,7 +732,7 @@ def generate_field_metadata(
     # Compute tree-level keys first so they can be excluded from
     # clone-level auto-detection. Single-tree-per-clone datasets get an
     # empty set here and classify everything as clone-level.
-    tree_level_keys = _classify_tree_extras(clones)
+    tree_level_keys = classify_tree_extras(clones)
 
     clone_meta = generate_clone_metadata(
         clones, custom_fields, exclude=tree_level_keys
@@ -743,7 +740,9 @@ def generate_field_metadata(
     if clone_meta:
         result["clone"] = clone_meta
 
-    tree_meta = generate_tree_metadata(trees, clones, custom_fields)
+    tree_meta = generate_tree_metadata(
+        clones, custom_fields, tree_level_keys=tree_level_keys
+    )
     if tree_meta:
         result["tree"] = tree_meta
 

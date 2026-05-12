@@ -41,8 +41,8 @@ from .constants import (
     SUGGESTED_SKIP_FIELDS,
 )
 from .field_metadata import (
-    _classify_tree_extras,
-    _flatten_tree_refs,
+    classify_tree_extras,
+    flatten_tree_refs,
     collect_keys,
     collect_mutations,
     collect_nodes,
@@ -424,8 +424,8 @@ def generate_default_config(
     # --- Tree level ---
     # Detected by intra-clone variance in clone[].trees[]. Empty for
     # single-tree-per-clone datasets (most PCP inputs today).
-    tree_level_keys = _classify_tree_extras(clones)
-    tree_refs = _flatten_tree_refs(clones)
+    tree_level_keys = classify_tree_extras(clones)
+    tree_refs = flatten_tree_refs(clones)
     for field in sorted(tree_level_keys):
         values = sample_values(tree_refs, field)
         if not values:
@@ -592,7 +592,7 @@ def _get_sample_values_for_field(cf, all_clones, all_nodes, all_mutations):
                                          max_samples=MAX_SAMPLE_PREVIEW)
         return sample_values(all_clones, name, max_samples=MAX_SAMPLE_PREVIEW)
     elif level == "tree":
-        return sample_values(_flatten_tree_refs(all_clones), name,
+        return sample_values(flatten_tree_refs(all_clones), name,
                              max_samples=MAX_SAMPLE_PREVIEW)
     elif level == "node":
         return sample_values(all_nodes, name, max_samples=MAX_SAMPLE_PREVIEW)

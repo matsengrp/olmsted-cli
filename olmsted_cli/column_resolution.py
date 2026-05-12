@@ -14,15 +14,21 @@ present with different values on the same row) is a value-level concern
 handled by :func:`check_row_role_conflicts`.
 """
 
+from typing import Literal, Tuple
+
+#: Closed set of role names recognized by the resolver. Used as a Literal
+#: type alias and as a runtime tuple for assertions.
+Role = Literal["sample", "family", "tree"]
+
 #: Canonical column-name variants for each role, in preference order.
-ROLE_VARIANTS = {
+ROLE_VARIANTS: dict = {
     "sample": ("sample_id", "sample", "sample_name"),
     "family": ("family_id", "family", "family_name"),
     "tree": ("tree_id", "tree", "tree_name"),
 }
 
-REQUIRED_ROLES = ("sample", "family")
-OPTIONAL_ROLES = ("tree",)
+REQUIRED_ROLES: Tuple[Role, ...] = ("sample", "family")
+OPTIONAL_ROLES: Tuple[Role, ...] = ("tree",)
 
 
 class RoleColumnNotFound(Exception):
@@ -39,7 +45,7 @@ def resolve_role_columns(
     sample_override=None,
     family_override=None,
     tree_override=None,
-    required_roles=REQUIRED_ROLES,
+    required_roles: Tuple[Role, ...] = REQUIRED_ROLES,
 ):
     """Map each role to its actual CSV column.
 

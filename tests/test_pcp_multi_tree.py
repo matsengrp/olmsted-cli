@@ -17,12 +17,14 @@ from pathlib import Path
 
 import pytest
 
+from olmsted_cli.column_resolution import RoleColumnConflict
+from olmsted_cli.identifier import IdentMinter
 from olmsted_cli.process_pcp_data import (
     PCP_NO_TREE_SENTINEL,
     parse_newick_csv,
     parse_pcp_csv,
+    process_pcp_to_olmsted,
 )
-from olmsted_cli.column_resolution import RoleColumnConflict
 
 
 # Minimal multi-tree PCP CSV: one sample, one family, two reconstruction
@@ -47,6 +49,27 @@ def _write(tmp_path: Path, name: str, content: str) -> Path:
     path = tmp_path / name
     path.write_text(content)
     return path
+
+
+def _process_inline(tmp_path, pcp_text, trees_text, *, name="inline-test", **kwargs):
+    """Run the full PCP → Olmsted pipeline in-process on inline CSV strings.
+
+    Returns ``(datasets, clones_dict, trees)`` exactly as
+    :func:`process_pcp_to_olmsted` returns them. Use when the test
+    checks pipeline output shape, not CLI/argparse behavior — keeps
+    runtime in-process rather than shelling out.
+    """
+    pcp = _write(tmp_path, "input-pcp.csv", pcp_text)
+    trees = _write(tmp_path, "input-trees.csv", trees_text)
+    pcp_families = parse_pcp_csv(str(pcp), **kwargs)
+    newick_trees = parse_newick_csv(str(trees), **kwargs)
+    return process_pcp_to_olmsted(
+        pcp_families,
+        newick_trees,
+        minter=IdentMinter(seed=42),
+        name=name,
+        verbosity=0,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -91,23 +114,10 @@ def test_parse_newick_csv_emits_composite_keys(tmp_path):
 
 
 def test_process_emits_one_clone_with_two_trees(tmp_path):
-    pcp = _write(tmp_path, "input-pcp.csv", PCP_CSV_MULTI)
-    trees = _write(tmp_path, "input-trees.csv", TREES_CSV_MULTI)
-    out = tmp_path / "out.json"
-
-    subprocess.run(
-        [
-            "olmsted", "process", "-f", "pcp",
-            "-i", str(pcp), "-t", str(trees),
-            "-o", str(out),
-            "--seed", "42", "--name", "multi-tree-test", "-q",
-        ],
-        check=True, capture_output=True,
+    datasets, clones_dict, trees = _process_inline(
+        tmp_path, PCP_CSV_MULTI, TREES_CSV_MULTI, name="multi-tree-test"
     )
-
-    data = json.loads(out.read_text())
-    clones_by_dataset = data["clones"]
-    all_clones = [c for clist in clones_by_dataset.values() for c in clist]
+    all_clones = [c for clist in clones_dict.values() for c in clist]
     assert len(all_clones) == 1, f"expected 1 clone, got {len(all_clones)}"
     clone = all_clones[0]
     assert clone["sample_id"] == "S1"
@@ -117,14 +127,14 @@ def test_process_emits_one_clone_with_two_trees(tmp_path):
     assert tree_names == ["T_a", "T_b"]
 
     # Top-level trees array carries both reconstructions, with full nodes.
-    assert len(data["trees"]) == 2
+    assert len(trees) == 2
     leaf_names_per_tree = {
         t["tree_name"]: sorted(
             n["sequence_id"]
             for n in t.get("nodes", [])
             if n.get("type") == "leaf"
         )
-        for t in data["trees"]
+        for t in trees
     }
     # Tip names (L1, L2) match across both reconstructions.
     assert leaf_names_per_tree["T_a"] == ["L1", "L2"]
@@ -132,22 +142,10 @@ def test_process_emits_one_clone_with_two_trees(tmp_path):
 
 
 def test_field_metadata_tree_populated_for_multi_tree(tmp_path):
-    pcp = _write(tmp_path, "input-pcp.csv", PCP_CSV_MULTI)
-    trees = _write(tmp_path, "input-trees.csv", TREES_CSV_MULTI)
-    out = tmp_path / "out.json"
-
-    subprocess.run(
-        [
-            "olmsted", "process", "-f", "pcp",
-            "-i", str(pcp), "-t", str(trees),
-            "-o", str(out),
-            "--seed", "42", "--name", "multi-tree-test", "-q",
-        ],
-        check=True, capture_output=True,
+    datasets, _, _ = _process_inline(
+        tmp_path, PCP_CSV_MULTI, TREES_CSV_MULTI, name="multi-tree-test"
     )
-
-    data = json.loads(out.read_text())
-    fm = data["datasets"][0]["field_metadata"]
+    fm = datasets[0]["field_metadata"]
     assert "tree" in fm, f"expected field_metadata.tree, got levels {list(fm)}"
     # tree_name and reconstruction_method both differ between T_a/T_b.
     assert "tree_name" in fm["tree"]
@@ -170,24 +168,13 @@ def _swap_column_header(csv_text: str, old: str, new: str) -> str:
 
 def test_family_id_column_variant_auto_detected(tmp_path):
     """``family_id`` (instead of bare ``family``) is auto-detected."""
-    pcp = _write(tmp_path, "input-pcp.csv",
-                 _swap_column_header(PCP_CSV_MULTI, "family", "family_id"))
-    trees = _write(tmp_path, "input-trees.csv",
-                   _swap_column_header(TREES_CSV_MULTI, "family_name", "family_id"))
-    out = tmp_path / "out.json"
-
-    subprocess.run(
-        [
-            "olmsted", "process", "-f", "pcp",
-            "-i", str(pcp), "-t", str(trees),
-            "-o", str(out),
-            "--seed", "42", "--name", "variant-test", "-q",
-        ],
-        check=True, capture_output=True,
+    _, clones_dict, _ = _process_inline(
+        tmp_path,
+        _swap_column_header(PCP_CSV_MULTI, "family", "family_id"),
+        _swap_column_header(TREES_CSV_MULTI, "family_name", "family_id"),
+        name="variant-test",
     )
-
-    data = json.loads(out.read_text())
-    all_clones = [c for clist in data["clones"].values() for c in clist]
+    all_clones = [c for clist in clones_dict.values() for c in clist]
     assert len(all_clones) == 1
     assert all_clones[0]["clone_id"] == "S1_F1"
 
