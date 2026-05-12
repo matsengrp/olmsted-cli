@@ -141,6 +141,43 @@ def test_process_emits_one_clone_with_two_trees(tmp_path):
     assert leaf_names_per_tree["T_b"] == ["L1", "L2"]
 
 
+def test_tree_csv_extras_live_in_one_location(tmp_path):
+    """A tree-CSV extra ends up on the clone OR on the trees, never both.
+
+    Constant-across-trees fields belong on the clone (one source of truth).
+    Varying fields belong on each tree (so the variance classifier can
+    see them). The hoist pass in ``process_pcp_to_olmsted`` enforces
+    this separation — without it, the clone dict ends up with
+    last-write-wins values for varying fields.
+    """
+    # Add a clone-invariant extra `foobar_lab` and a varying extra
+    # `foobar_method` to the trees CSV. Both should land in exactly
+    # one place per the contract above.
+    pcp = _write(tmp_path, "input-pcp.csv", PCP_CSV_MULTI)
+    trees_text = (
+        "family_name,sample_id,tree_name,newick_tree,foobar_lab,foobar_method\n"
+        'F1,S1,T_a,"((L1:0.2,L2:0.2)mrca-1:0.1)naive;",MatsenLab,parsimony\n'
+        'F1,S1,T_b,"((L1:0.2,L2:0.2)N1:0.1)naive;",MatsenLab,bcrlarch\n'
+    )
+    trees = _write(tmp_path, "input-trees.csv", trees_text)
+
+    pcp_families = parse_pcp_csv(str(pcp))
+    newick_trees = parse_newick_csv(str(trees))
+    _, clones_dict, top_trees = process_pcp_to_olmsted(
+        pcp_families, newick_trees, minter=IdentMinter(seed=42), verbosity=0,
+    )
+
+    clone = next(c for cs in clones_dict.values() for c in cs)
+    # Clone-invariant field → on clone only
+    assert clone.get("foobar_lab") == "MatsenLab"
+    assert all("foobar_lab" not in t for t in clone["trees"])
+    assert all("foobar_lab" not in t for t in top_trees)
+    # Varying field → on trees only
+    assert "foobar_method" not in clone
+    methods = sorted(t["foobar_method"] for t in top_trees)
+    assert methods == ["bcrlarch", "parsimony"]
+
+
 def test_field_metadata_tree_populated_for_multi_tree(tmp_path):
     datasets, _, _ = _process_inline(
         tmp_path, PCP_CSV_MULTI, TREES_CSV_MULTI, name="multi-tree-test"

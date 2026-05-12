@@ -1722,9 +1722,16 @@ def _process_family_tree(
     # Store rate scaling in family data for later use
     family_data["family_data"]["rate_scale_heavy"] = rate_scale_heavy
     family_data["family_data"]["rate_scale_light"] = rate_scale_light
-    # Store extra tree columns as clone-level custom fields
-    if extra_tree_fields:
-        family_data["family_data"]["_extra_clone_fields"] = extra_tree_fields
+
+    # Partition tree-CSV extras by chain suffix. Heavy trees receive
+    # shared + heavy items (suffix stripped); light trees receive
+    # shared + light items. ``_hoist_clone_invariant_extras`` (run after
+    # process_pcp_to_olmsted finishes) moves the clone-invariant subset
+    # from these tree records up to the clone dict, so each extra has a
+    # single canonical location: clone or trees, never both.
+    extra_shared, extra_heavy, extra_light = _partition_chain_fields(extra_tree_fields)
+    tree_extras_heavy = {**extra_shared, **extra_heavy}
+    tree_extras_light = {**extra_shared, **extra_light}
 
     # Refresh family_meta in case merge_tree_topology_with_pcp replaced it
     family_meta = family_data.get("family_data", {})
@@ -2251,7 +2258,7 @@ def _process_family_tree(
                 newick=newick,
                 csv_tree_id=csv_tree_id,
                 reconstruction_method=reconstruction_method,
-                extras=extra_tree_fields,
+                extras=tree_extras_heavy,
             )
         ],
         # Denormalized sample reference for webapp convenience
@@ -2266,15 +2273,6 @@ def _process_family_tree(
     if is_paired:
         clone_heavy["is_paired"] = True
         clone_heavy["pair_id"] = pair_id
-
-    # Add extra clone-level fields from tree CSV
-    # Partition by chain suffix: _heavy → heavy only, _light → light only, neither → shared
-    extra_clone_raw = family_meta.get("_extra_clone_fields", {})
-    extra_shared, extra_heavy, extra_light = _partition_chain_fields(extra_clone_raw)
-    for k, v in extra_shared.items():
-        clone_heavy[k] = v
-    for k, v in extra_heavy.items():
-        clone_heavy[k] = v
 
     # Create light chain clone (if paired data)
     clone_light: Optional[Dict[str, Any]] = None
@@ -2326,7 +2324,7 @@ def _process_family_tree(
                     newick=newick,  # Same topology, different sequences
                     csv_tree_id=csv_tree_id,
                     reconstruction_method=reconstruction_method,
-                    extras=extra_tree_fields,
+                    extras=tree_extras_light,
                 )
             ],
             "sample": {
@@ -2337,12 +2335,6 @@ def _process_family_tree(
             "is_paired": True,
             "pair_id": pair_id,
         }
-
-        # Add extra clone-level fields from tree CSV (shared + light-only)
-        for k, v in extra_shared.items():
-            clone_light[k] = v
-        for k, v in extra_light.items():
-            clone_light[k] = v
 
     # Convert heavy chain nodes to array format (required by webapp)
     nodes_array_heavy = []
@@ -2358,7 +2350,7 @@ def _process_family_tree(
             newick=newick,
             csv_tree_id=csv_tree_id,
             reconstruction_method=reconstruction_method,
-            extras=extra_tree_fields,
+            extras=tree_extras_heavy,
         ),
         "nodes": nodes_array_heavy,
     }
@@ -2378,12 +2370,96 @@ def _process_family_tree(
                 newick=newick,  # Same topology, different sequences in nodes
                 csv_tree_id=csv_tree_id,
                 reconstruction_method=reconstruction_method,
-                extras=extra_tree_fields,
+                extras=tree_extras_light,
             ),
             "nodes": nodes_array_light,
         }
 
     return clone_heavy, clone_light, tree_heavy, tree_light
+
+
+_HOIST_STRUCTURAL_KEYS = {
+    "ident", "clone_id", "tree_id", "tree_name", "newick",
+    "nodes", "type", "reconstruction_method",
+}
+
+
+def _hoist_clone_invariant_extras(
+    clones_dict: Dict[str, List[Dict[str, Any]]],
+    trees: List[Dict[str, Any]],
+) -> None:
+    """Move clone-level tree-CSV extras from per-tree records to the clone.
+
+    Tree-CSV extras initially live on every per-tree record (placed there
+    by ``_build_tree_ref(extras=...)`` so the variance classifier can see
+    them). For fields that are constant across **every** clone's trees in
+    the dataset, that placement is structurally wrong — they're really
+    clone-level data, redundantly repeated on each tree. This pass picks
+    those out and moves them up to the clone dict, then strips them from
+    the tree records.
+
+    Crucially, the "tree-level" decision is made at dataset scope: if a
+    field varies across any clone's trees, it stays on per-tree records
+    even on clones where it happens to be trivially constant (e.g.
+    single-tree clones). Otherwise the field would live in two
+    different locations depending on the clone — inconsistent with
+    ``field_metadata.tree``.
+
+    Result: each tree-CSV extra has a single canonical location across
+    the dataset:
+
+    - **Constant in every clone** → clone dict only.
+    - **Varies in any clone** → per-tree records only (the variance
+      classifier picks it up as a tree-level field).
+
+    Tree records mutated in place — both the trimmed refs in
+    ``clone["trees"]`` and the full records in the top-level ``trees``
+    list — so the two stay in sync.
+    """
+    trees_by_clone_id: Dict[str, List[Dict[str, Any]]] = {}
+    for tree in trees:
+        trees_by_clone_id.setdefault(tree["clone_id"], []).append(tree)
+
+    # First pass: which keys vary within any clone's trees?
+    # These keys must stay on per-tree records dataset-wide.
+    dataset_tree_level_keys: set = set()
+    for ds_clones in clones_dict.values():
+        for clone in ds_clones:
+            clone_trees = trees_by_clone_id.get(clone["clone_id"], [])
+            if len(clone_trees) < 2:
+                continue
+            candidate_keys: set = set()
+            for tree in clone_trees:
+                candidate_keys.update(tree.keys())
+            candidate_keys -= _HOIST_STRUCTURAL_KEYS
+            for key in candidate_keys - dataset_tree_level_keys:
+                values = [tree.get(key) for tree in clone_trees]
+                if any(v != values[0] for v in values):
+                    dataset_tree_level_keys.add(key)
+
+    # Second pass: hoist clone-level (= not-tree-level) keys onto each
+    # clone, strip from the clone's tree records.
+    for ds_clones in clones_dict.values():
+        for clone in ds_clones:
+            clone_trees_full = trees_by_clone_id.get(clone["clone_id"], [])
+            if not clone_trees_full:
+                continue
+            clone_trees_refs = clone.get("trees", []) or []
+
+            candidate_keys = set()
+            for tree in clone_trees_full:
+                candidate_keys.update(tree.keys())
+            candidate_keys -= _HOIST_STRUCTURAL_KEYS
+            hoist_keys = candidate_keys - dataset_tree_level_keys
+
+            for key in hoist_keys:
+                clone[key] = clone_trees_full[0].get(key)
+            for tree in clone_trees_full:
+                for key in hoist_keys:
+                    tree.pop(key, None)
+            for tree_ref in clone_trees_refs:
+                for key in hoist_keys:
+                    tree_ref.pop(key, None)
 
 
 def process_pcp_to_olmsted(
@@ -2547,6 +2623,19 @@ def process_pcp_to_olmsted(
                         # then keys on (None, family, tree).
                         tree_entries = newick_trees.get((None, fkey, tkey), [])
 
+                    # Flag the silent fallback. When the user supplied a
+                    # trees CSV but no row matches this composite key,
+                    # we build the tree from PCP edges alone — easy to
+                    # miss without a notice, since the output is
+                    # still structurally valid.
+                    if not tree_entries:
+                        vprint.status(
+                            f"  Warning: clone {synthesized_clone_id} "
+                            f"(composite key {composite_key}) had no "
+                            f"matching row in the trees CSV; falling "
+                            f"back to building the topology from PCP edges."
+                        )
+
                 tree_entries_normalized = tree_entries if tree_entries else [{}]
 
                 for tree_entry in tree_entries_normalized:
@@ -2585,6 +2674,11 @@ def process_pcp_to_olmsted(
                     trees.append(heavy_tree)
                     if light_tree is not None:
                         trees.append(light_tree)
+
+    # Tree-CSV extras have lived on every per-tree record so far so the
+    # variance classifier could see them. Hoist clone-invariant ones up
+    # to their clone (and strip from trees) before field_metadata runs.
+    _hoist_clone_invariant_extras(clones_dict, trees)
 
     # Generate field_metadata (uses generate_default_config when no config provided)
     dataset_clones = clones_dict.get(dataset_id, [])
