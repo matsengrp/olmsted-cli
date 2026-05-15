@@ -261,9 +261,11 @@ def test_accumulator_field_metadata_levels_and_ranges():
     assert "clone" in fm
     assert fm["clone"]["unique_seqs_count"]["type"] == "continuous"
 
-    # Node-level "score" range spans batches and is continuous
+    # Node-level "score" is continuous but doesn't get a range key
+    # (matches the legacy generate_node_metadata, which only emits range
+    # at tree and mutation levels).
     assert fm["node"]["score"]["type"] == "continuous"
-    assert fm["node"]["score"]["range"] == [1.0, 5.0]
+    assert "range" not in fm["node"]["score"]
 
     # Mutation-level surprise_mutsel range spans the two batches
     assert fm["mutation"]["surprise_mutsel"]["type"] == "continuous"

@@ -38,30 +38,40 @@ from .constants import (
     MUTATION_ENCODINGS,
     normalize_level,
 )
+from .data_io import detect_file_format, open_file, read_airr_json, read_yaml_config
+from .identifier import IdentMinter
+from .merge_mutations import apply_mutations_csv
 from .process_airr_data import (
     clone_spec,
     process_dataset,
 )
-from .identifier import IdentMinter
 from .process_pcp_data import (
+    TreeProcessingConfig,
+    _group_pcp_families_by_clone,
+    iter_pcp_clone_groups,
     parse_newick_csv,
     parse_pcp_csv,
     process_pcp_to_olmsted,
 )
-from .data_io import detect_file_format
-from .merge_mutations import apply_mutations_csv
 from .process_utils import (
-    VerbosePrinter,
+    SCHEMA_VERSION,
     add_verbosity_args,
     check_output_id_uniqueness,
     create_consolidated_data,
     resolve_verbosity,
     retag_datasets_field_metadata,
+    unpack_encoded_mutations,
     validate_dataset,
     validate_output_data,
     write_out,
 )
-from .data_io import open_file, read_airr_json, read_yaml_config
+from .streaming import (
+    BatchAccumulator,
+    BatchSpooler,
+    DuplicateIdError,
+    apply_dataset_hoist,
+    write_olmsted_json_streaming,
+)
 from .utils import set_verbosity, vprint
 
 
@@ -244,7 +254,9 @@ def process_airr_format(args):
             vprint.error(f"Error: {e}")
             sys.exit(1)
         retag_datasets_field_metadata(
-            datasets, clones_dict, trees,
+            datasets,
+            clones_dict,
+            trees,
             custom_fields=getattr(args, "custom_fields", None),
         )
 
@@ -253,7 +265,8 @@ def process_airr_format(args):
     # downstream are impossible.
     try:
         check_output_id_uniqueness(
-            datasets, clones_dict,
+            datasets,
+            clones_dict,
             allow_duplicates=getattr(args, "allow_duplicate_ids", False),
         )
     except ValueError as e:
@@ -301,6 +314,141 @@ def process_airr_format(args):
         os.makedirs(output_dir, exist_ok=True)
         vprint.status(f"Writing Olmsted JSON output to {args.output}")
         write_out(consolidated_data, output_dir, output_file, airr_args)
+
+
+def _should_stream_pcp(args) -> bool:
+    """Decide whether ``process_pcp_format`` runs the streaming pipeline.
+
+    Streaming is the default for the canonical single-file output path.
+    Bail out to the legacy in-memory path when:
+
+    - ``--batch-size 0`` — explicit opt-out.
+    - ``--split-files`` — multi-file output predates streaming and has a
+      different write shape.
+    - ``--mutations`` — phase 4 wires per-batch mutation merge; until
+      then the merge must see all trees at once.
+    - ``--validate`` — phase 4 will add per-batch validation that
+      accumulates errors and reports at finalize; today
+      ``validate_output_data`` consumes the whole assembled output.
+    """
+    if getattr(args, "batch_size", 0) <= 0:
+        return False
+    if getattr(args, "split_files", None):
+        return False
+    if getattr(args, "mutations", None):
+        return False
+    if getattr(args, "validate", False):
+        return False
+    return True
+
+
+def _process_pcp_streaming(args, pcp_families, newick_trees, minter, input_files):
+    """Streaming PCP pipeline: bound peak memory via per-batch spool + stitch.
+
+    Mirrors the assembly the legacy ``process_pcp_to_olmsted`` does (dataset
+    mint, sample dedup, tree-csv hoist, ``field_metadata`` generation) but
+    in a streaming shape:
+
+    1. Build the dataset stub up front; the iterator appends to
+       ``dataset["samples"]`` as it discovers sample IDs.
+    2. For each batch from :func:`iter_pcp_clone_groups`, apply any
+       user-declared encoded-mutation unpacking, observe the batch in the
+       :class:`BatchAccumulator` (which folds evidence, ID-uniqueness
+       sets, and tree-level variance), and spool the un-hoisted clones
+       and trees.
+    3. Apply :func:`apply_dataset_hoist` against the spool to enforce
+       the dataset-scope ``_hoist_clone_invariant_extras`` decision.
+    4. Finalize ``field_metadata`` and ``processing_info`` from the
+       accumulator; stream the consolidated JSON to ``args.output``.
+    """
+    vprint.status(f"Streaming with --batch-size={args.batch_size}")
+
+    dataset_id = minter.mint("dataset")
+    dataset_ident = minter.mint("dataset")
+
+    clones_grouped = _group_pcp_families_by_clone(pcp_families)
+    dataset = {
+        "ident": dataset_ident,
+        "dataset_id": dataset_id,
+        "schema_version": SCHEMA_VERSION,
+        "build": {"commit": "pcp-import", "time": ""},
+        "subjects": [],
+        "samples": [],
+        "seeds": [],
+        "clone_count": len(clones_grouped),
+        "subjects_count": 0,
+        "timepoints_count": 0,
+    }
+    if getattr(args, "name", None):
+        dataset["name"] = args.name
+
+    tree_config = TreeProcessingConfig(
+        compute_metrics=getattr(args, "compute_metrics", False),
+        lbi_tau=getattr(args, "lbi_tau", 0.0125),
+        standardize_names=getattr(args, "standardize_names", False),
+        warn_disagreements=args.warnings,
+    )
+
+    custom_fields = getattr(args, "custom_fields", None)
+    allow_dup = getattr(args, "allow_duplicate_ids", False)
+    accumulator = BatchAccumulator(allow_duplicate_ids=allow_dup)
+    accumulator.register_dataset(dataset_id)
+
+    with BatchSpooler() as spooler:
+        try:
+            for batch_clones, batch_trees in iter_pcp_clone_groups(
+                pcp_families,
+                newick_trees,
+                minter,
+                dataset_id,
+                dataset["samples"],
+                tree_config,
+                batch_size=args.batch_size,
+            ):
+                if custom_fields:
+                    unpack_encoded_mutations(batch_trees, custom_fields)
+                accumulator.observe_batch(dataset_id, batch_clones, batch_trees)
+                spooler.write_batch(dataset_id, batch_clones, batch_trees)
+        except DuplicateIdError as e:
+            vprint.error(f"Error: {e}")
+            sys.exit(1)
+
+        for warning in accumulator.duplicate_warnings:
+            vprint.error(f"Warning: {warning}")
+
+        apply_dataset_hoist(
+            spooler, dataset_id, accumulator.tree_level_keys(dataset_id)
+        )
+
+        dataset["field_metadata"] = accumulator.finalize_field_metadata(
+            dataset_id, custom_fields
+        )
+
+        # Build the metadata wrapper via create_consolidated_data so the
+        # processing_options / source_format / generated_by sections stay
+        # in lockstep with the legacy path. The empty trees/clones args
+        # produce zeroed totals which we then overwrite with the
+        # accumulator's running counts.
+        wrapper = create_consolidated_data(
+            [dataset],
+            {dataset_id: []},
+            [],
+            input_files,
+            FORMAT_PCP,
+            args,
+        )
+        wrapper["metadata"]["processing_info"] = accumulator.finalize_totals()
+
+        output_dir = os.path.dirname(args.output) or "."
+        os.makedirs(output_dir, exist_ok=True)
+        vprint.status(f"Writing Olmsted JSON output to {args.output}")
+        write_olmsted_json_streaming(
+            wrapper["metadata"],
+            wrapper["datasets"],
+            spooler,
+            args.output,
+            json_format=getattr(args, "json_format", "pretty"),
+        )
 
 
 def process_pcp_format(args):
@@ -370,6 +518,20 @@ def process_pcp_format(args):
             newick_trees = parse_newick_csv(trees_file, **column_overrides)
             vprint.status(f"Found {len(newick_trees)} trees")
 
+        # Streaming pipeline (#26): bound peak memory by spooling each
+        # batch's clones/trees to disk and stream-stitching the final
+        # consolidated JSON. Falls back to the legacy in-memory path
+        # when the caller wants split-file output, mutations merge, or
+        # output validation — phase 4 lifts the mutations and validation
+        # restrictions; split-file output stays on legacy because it has
+        # a fundamentally different write shape.
+        if _should_stream_pcp(args):
+            _process_pcp_streaming(
+                args, pcp_families, newick_trees, minter, args.inputs
+            )
+            vprint.status("Processing complete!")
+            return
+
         # Convert to Olmsted format with progress bar
         vprint.status("Converting to Olmsted format...")
         datasets, clones_dict, trees = process_pcp_to_olmsted(
@@ -400,7 +562,9 @@ def process_pcp_format(args):
                 vprint.error(f"Error: {e}")
                 sys.exit(1)
             retag_datasets_field_metadata(
-                datasets, clones_dict, trees,
+                datasets,
+                clones_dict,
+                trees,
                 custom_fields=getattr(args, "custom_fields", None),
             )
 
@@ -408,7 +572,8 @@ def process_pcp_format(args):
         # downgrades collisions to a warning.
         try:
             check_output_id_uniqueness(
-                datasets, clones_dict,
+                datasets,
+                clones_dict,
                 allow_duplicates=getattr(args, "allow_duplicate_ids", False),
             )
         except ValueError as e:
@@ -629,6 +794,16 @@ Examples:
         metavar="DIR",
         help="Output split files instead of single Olmsted JSON (legacy)",
     )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=50,
+        metavar="N",
+        help="Number of clonal families to process per batch (PCP format only). "
+        "Bounds peak memory by spooling each batch's clones/trees to disk and "
+        "stream-stitching the final consolidated JSON. Default: 50. Pass 0 to "
+        "disable batching and use the legacy one-shot path.",
+    )
 
     # --- Validation ---
     parser.add_argument(
@@ -695,6 +870,7 @@ _CONFIG_KEY_MAP = {
     "sample_col": "sample_col",
     "family_col": "family_col",
     "tree_col": "tree_col",
+    "batch_size": "batch_size",
 }
 
 # Valid config keys (including custom_fields which is handled separately)

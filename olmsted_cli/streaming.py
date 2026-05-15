@@ -60,6 +60,7 @@ from .constants import (
 from .field_metadata import (
     _apply_custom_fields,
     _apply_suggestions,
+    _get_nested_value,
     _make_entry,
     entry_from_known,
     humanize_label,
@@ -357,6 +358,18 @@ class BatchAccumulator:
                 continue
             clone_level.record(key, value)
 
+        # Path-based known clone fields (e.g. ``locus`` → ``sample.locus``).
+        # The legacy ``generate_clone_metadata`` resolves these via
+        # ``sample_values_by_path``; do the same incrementally so the
+        # streaming finalize sees evidence for them.
+        for fname, finfo in KNOWN_CLONE_FIELDS.items():
+            path = finfo.get("path")
+            if not path or fname in clone:
+                continue
+            value = _get_nested_value(clone, path)
+            if value is not None:
+                clone_level.record(fname, value)
+
         # Tree-level classification: each clone's trees array is fully
         # contained in this batch (iter_pcp_clone_groups guarantees alt
         # reconstructions co-emit), so any intra-clone variance here is the
@@ -449,12 +462,7 @@ class BatchAccumulator:
         state = self._require_state(dataset_id)
         result: Dict[str, Dict[str, Dict[str, Any]]] = {}
 
-        clone_meta = self._level_metadata(
-            state,
-            "clone",
-            custom_fields,
-            exclude_keys=state.tree_level_keys,
-        )
+        clone_meta = self._clone_level_metadata(state, custom_fields)
         if clone_meta:
             result["clone"] = clone_meta
 
@@ -502,7 +510,55 @@ class BatchAccumulator:
     def samples_for(self, dataset_id: str) -> List[Dict[str, Any]]:
         return list(self._require_state(dataset_id).samples)
 
+    def tree_level_keys(self, dataset_id: str) -> Set[str]:
+        """Snapshot of dataset-scope keys whose value varies within some clone's trees."""
+        return set(self._require_state(dataset_id).tree_level_keys)
+
     # ----- metadata helpers ----------------------------------------------
+
+    def _clone_level_metadata(
+        self,
+        state: _DatasetState,
+        custom_fields: Optional[List[Dict[str, Any]]],
+    ) -> Dict[str, Dict[str, Any]]:
+        """Build clone-level metadata, including tree-csv extras that hoist.
+
+        A tree-csv extra hoists to the clone when it's *not* in
+        ``state.tree_level_keys`` — i.e. no clone's alt-reconstructions
+        disagreed on its value, so the value is clone-invariant by the
+        same rule ``_hoist_clone_invariant_extras`` enforces on the legacy
+        path.  Evidence for those keys lives under the ``tree`` level (the
+        ``_observe_clone`` walk records via tree refs).
+        """
+        clone_state = state.levels["clone"]
+        tree_state = state.levels["tree"]
+
+        # Structural tree keys never hoist to clone (mirrors
+        # ``process_pcp_data._HOIST_STRUCTURAL_KEYS``).  Without this
+        # filter, ``tree_name`` would appear at clone level on
+        # single-tree-per-clone datasets.
+        hoist_keys = tree_state.keys - state.tree_level_keys - HOIST_STRUCTURAL_KEYS
+        universe = (clone_state.keys | hoist_keys) - EXCLUDED_CLONE_FIELDS
+
+        # Clone level mirrors ``generate_clone_metadata`` — no range key.
+        metadata: Dict[str, Dict[str, Any]] = {}
+        for key in sorted(universe):
+            evidence = clone_state.type_evidence.get(key)
+            if evidence is None or evidence.total() == 0:
+                evidence = tree_state.type_evidence.get(key)
+            if evidence is None or evidence.total() == 0:
+                continue
+
+            if key in KNOWN_CLONE_FIELDS:
+                entry = entry_from_known(KNOWN_CLONE_FIELDS[key])
+            else:
+                entry = _make_entry(evidence.infer(), humanize_label(key))
+
+            metadata[key] = entry
+
+        _apply_suggestions(metadata)
+        _apply_custom_fields(metadata, custom_fields, "clone", None)
+        return metadata
 
     def _level_metadata(
         self,
@@ -525,6 +581,20 @@ class BatchAccumulator:
         if demoted_sources:
             candidate = candidate - demoted_sources
 
+        # Node-level skips keys that belong on the branch level (e.g.
+        # ``length``).  Mirrors the ``elif key in KNOWN_BRANCH_FIELDS:
+        # continue`` branch in ``generate_node_metadata``.
+        cross_level_skip: Set[str] = set()
+        if level == "node":
+            cross_level_skip = set(KNOWN_BRANCH_FIELDS)
+        candidate = candidate - cross_level_skip
+
+        # Match the legacy generators: only tree and mutation levels
+        # attach a continuous ``range``.  Clone/node/branch ranges aren't
+        # consumed by the webapp's color-scale paths today and would
+        # diff existing field_metadata output.
+        emit_range = level in ("tree", "mutation")
+
         metadata: Dict[str, Dict[str, Any]] = {}
         for key in sorted(candidate):
             if key in known:
@@ -532,7 +602,7 @@ class BatchAccumulator:
                 if evidence is None or evidence.total() == 0:
                     continue
                 entry = entry_from_known(known[key])
-                if entry["type"] == "continuous":
+                if emit_range and entry["type"] == "continuous":
                     rng = level_state.range_evidence.get(key)
                     if rng:
                         as_list = rng.as_list()
@@ -547,7 +617,7 @@ class BatchAccumulator:
                     continue
                 field_type = evidence.infer()
                 entry = _make_entry(field_type, humanize_label(key))
-                if field_type == "continuous":
+                if emit_range and field_type == "continuous":
                     rng = level_state.range_evidence.get(key)
                     if rng:
                         as_list = rng.as_list()
@@ -711,6 +781,12 @@ class BatchSpooler:
         for path in self._trees_files.get(dataset_id, []):
             yield from _read_jsonl(path)
 
+    def clone_paths(self, dataset_id: str) -> List[Path]:
+        return list(self._clones_files.get(dataset_id, []))
+
+    def tree_paths(self, dataset_id: str) -> List[Path]:
+        return list(self._trees_files.get(dataset_id, []))
+
 
 def _safe_filename(value: str) -> str:
     return "".join(c if c.isalnum() or c in "-_." else "_" for c in value)[:80]
@@ -730,6 +806,138 @@ def _read_jsonl(path: Path) -> Iterator[Dict[str, Any]]:
             if not line:
                 continue
             yield json.loads(line)
+
+
+# Structural keys on tree records that should never be hoisted onto a clone.
+# Kept in lockstep with ``process_pcp_data._HOIST_STRUCTURAL_KEYS``.
+HOIST_STRUCTURAL_KEYS: Set[str] = {
+    "ident",
+    "clone_id",
+    "tree_id",
+    "tree_name",
+    "newick",
+    "nodes",
+    "type",
+    "reconstruction_method",
+}
+
+
+def apply_dataset_hoist(
+    spooler: BatchSpooler,
+    dataset_id: str,
+    tree_level_keys: Set[str],
+) -> None:
+    """Rewrite spooled clones and trees to apply the dataset-scope hoist.
+
+    Streaming wrote each batch's clones and trees un-hoisted (tree-csv
+    extras on every tree record).  Once every batch has been observed,
+    the accumulator knows which keys are dataset-tree-level — keys whose
+    value varied within at least one clone's alt-reconstructions.  The
+    rest are clone-invariant by the same rule
+    ``_hoist_clone_invariant_extras`` enforces on the legacy path.
+
+    For each spooled clone we hoist the non-tree-level keys that are
+    constant across its trees up to the clone dict and strip them from
+    both the trimmed tree refs in ``clone["trees"]`` and the matching
+    full tree records.  The hoist set is per-clone (key may hoist on
+    clone A and not clone B if A's trees agree but B's don't) — but
+    keys in ``tree_level_keys`` never hoist, even when a clone happens to
+    have only one tree.
+
+    Bounded memory: one record at a time plus a per-clone
+    ``{clone_id: hoist_keys}`` map.
+    """
+    clone_hoist_map: Dict[str, Set[str]] = {}
+
+    for path in spooler.clone_paths(dataset_id):
+        _rewrite_jsonl(
+            path,
+            lambda clone: _hoist_one_clone(clone, tree_level_keys, clone_hoist_map),
+        )
+    for path in spooler.tree_paths(dataset_id):
+        _rewrite_jsonl(
+            path,
+            lambda tree: _strip_hoisted_keys_on_tree(tree, clone_hoist_map),
+        )
+
+
+def _hoist_one_clone(
+    clone: Dict[str, Any],
+    tree_level_keys: Set[str],
+    clone_hoist_map: Dict[str, Set[str]],
+) -> Dict[str, Any]:
+    tree_refs = clone.get("trees") or []
+    dict_refs = [ref for ref in tree_refs if isinstance(ref, dict)]
+    if not dict_refs:
+        return clone
+
+    candidate_keys: Set[str] = set()
+    for ref in dict_refs:
+        candidate_keys.update(ref.keys())
+    candidate_keys -= HOIST_STRUCTURAL_KEYS
+    candidate_keys -= tree_level_keys
+
+    hoist_keys: Set[str] = set()
+    for key in candidate_keys:
+        values = [_hoist_hashable(ref.get(key, _HOIST_MISSING)) for ref in dict_refs]
+        if len(set(values)) == 1:
+            hoist_keys.add(key)
+
+    if hoist_keys:
+        first = dict_refs[0]
+        for key in hoist_keys:
+            clone[key] = first.get(key)
+            for ref in dict_refs:
+                ref.pop(key, None)
+        clone_id = clone.get("clone_id")
+        if clone_id is not None:
+            clone_hoist_map[clone_id] = hoist_keys
+
+    return clone
+
+
+def _strip_hoisted_keys_on_tree(
+    tree: Dict[str, Any],
+    clone_hoist_map: Dict[str, Set[str]],
+) -> Dict[str, Any]:
+    clone_id = tree.get("clone_id")
+    if clone_id is None:
+        return tree
+    hoist_keys = clone_hoist_map.get(clone_id)
+    if not hoist_keys:
+        return tree
+    for key in hoist_keys:
+        tree.pop(key, None)
+    return tree
+
+
+def _rewrite_jsonl(path: Path, transform) -> None:
+    """Read a JSONL file, apply ``transform`` to each record, write back in place."""
+    tmp = path.with_name(path.name + ".rewrite")
+    with path.open("r", encoding="utf-8") as ifh, tmp.open(
+        "w", encoding="utf-8"
+    ) as ofh:
+        for line in ifh:
+            line = line.strip()
+            if not line:
+                continue
+            record = json.loads(line)
+            record = transform(record)
+            json.dump(record, ofh, separators=(",", ":"), default=str)
+            ofh.write("\n")
+    tmp.replace(path)
+
+
+_HOIST_MISSING = object()
+
+
+def _hoist_hashable(value: Any) -> Any:
+    """Make value hashable for distinctness checks (mirrors classify_tree_extras)."""
+    try:
+        hash(value)
+        return value
+    except TypeError:
+        return ("__unhashable__", repr(value))
 
 
 # =============================================================================
