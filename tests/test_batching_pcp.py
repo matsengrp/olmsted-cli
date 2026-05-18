@@ -202,12 +202,12 @@ def test_streaming_default_path_uses_streaming_for_pcp(tmp_path):
     )
     assert _should_stream_pcp(args) is True
 
-    # Mutations: streaming bypassed (phase 4 wires this).
+    # Mutations: stays on streaming after phase 4 wired per-batch merge.
     args.mutations = "x.csv"
-    assert _should_stream_pcp(args) is False
+    assert _should_stream_pcp(args) is True
     args.mutations = None
 
-    # Validate: streaming bypassed.
+    # Validate: streaming bypassed until per-batch validation lands.
     args.validate = True
     assert _should_stream_pcp(args) is False
     args.validate = False

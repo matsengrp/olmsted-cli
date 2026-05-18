@@ -50,6 +50,7 @@ from .constants import (
     EXCLUDED_MUTATION_FIELDS,
     EXCLUDED_NODE_FIELDS,
     EXCLUDED_TREE_FIELDS,
+    FIELD_ALIASES,
     KNOWN_BRANCH_FIELDS,
     KNOWN_CLONE_FIELDS,
     KNOWN_MUTATION_FIELDS,
@@ -261,6 +262,13 @@ class _DatasetState:
     tree_count: int = 0
     leaf_count: int = 0
     has_aa_sequences: bool = False
+    # PCP-style tree-csv extras: when True, tree-level keys constant
+    # across every clone's trees migrate to clone-level in the output
+    # JSON (and the matching field_metadata).  AIRR data places these
+    # fields on trees natively — the streaming wrapper skips the data
+    # hoist AND turns this off so ``_clone_level_metadata`` doesn't
+    # absorb tree extras into clone-level metadata.
+    hoist_tree_extras_to_clone: bool = True
 
 
 class DuplicateIdError(ValueError):
@@ -292,11 +300,14 @@ class BatchAccumulator:
     def duplicate_warnings(self) -> List[str]:
         return list(self._duplicate_warnings)
 
-    def register_dataset(self, dataset_id: str) -> None:
+    def register_dataset(
+        self, dataset_id: str, *, hoist_tree_extras_to_clone: bool = True
+    ) -> None:
         if dataset_id in self._dataset_ids:
             self._on_duplicate(f"duplicate dataset_id: {dataset_id!r}")
         self._dataset_ids.add(dataset_id)
-        self._datasets.setdefault(dataset_id, _DatasetState())
+        state = self._datasets.setdefault(dataset_id, _DatasetState())
+        state.hoist_tree_extras_to_clone = hoist_tree_extras_to_clone
 
     def add_samples(self, dataset_id: str, samples: Iterable[Dict[str, Any]]) -> None:
         """Append sample dicts to the dataset, deduplicated by ``sample_id``.
@@ -448,6 +459,33 @@ class BatchAccumulator:
 
     # ----- finalize -------------------------------------------------------
 
+    @staticmethod
+    def _apply_field_aliases(
+        metadata: Dict[str, Dict[str, Any]],
+        custom_fields: Optional[List[Dict[str, Any]]],
+    ) -> None:
+        """Apply ``FIELD_ALIASES`` to ``metadata`` for the auto-config path.
+
+        Mirrors the effective outcome of ``generate_default_config`` +
+        ``_apply_custom_fields`` on the legacy path: alias source keys
+        (e.g. ``rearrangement_count``) rename to their canonical target
+        (``unique_seqs_count``).  When the target was also discovered in
+        the data its own entry takes precedence — same as the legacy
+        iteration where the explicit target entry overwrites the
+        aliased one.
+
+        Skipped when the caller supplied ``custom_fields`` (the user's
+        config already controls naming).
+        """
+        if custom_fields is not None:
+            return
+        for source, target in FIELD_ALIASES.items():
+            if source == target or source not in metadata:
+                continue
+            if target not in metadata:
+                metadata[target] = metadata[source]
+            del metadata[source]
+
     def finalize_field_metadata(
         self,
         dataset_id: str,
@@ -533,11 +571,16 @@ class BatchAccumulator:
         clone_state = state.levels["clone"]
         tree_state = state.levels["tree"]
 
-        # Structural tree keys never hoist to clone (mirrors
-        # ``process_pcp_data._HOIST_STRUCTURAL_KEYS``).  Without this
-        # filter, ``tree_name`` would appear at clone level on
-        # single-tree-per-clone datasets.
-        hoist_keys = tree_state.keys - state.tree_level_keys - HOIST_STRUCTURAL_KEYS
+        # PCP-style tree-csv extras hoist to clone level when constant
+        # across every clone's trees (``state.tree_level_keys`` captures
+        # the inverse).  AIRR places these fields on trees natively and
+        # turns the flag off so they stay out of clone metadata.
+        # Structural tree keys never hoist either way (mirrors
+        # ``process_pcp_data._HOIST_STRUCTURAL_KEYS``).
+        if state.hoist_tree_extras_to_clone:
+            hoist_keys = tree_state.keys - state.tree_level_keys - HOIST_STRUCTURAL_KEYS
+        else:
+            hoist_keys = set()
         universe = (clone_state.keys | hoist_keys) - EXCLUDED_CLONE_FIELDS
 
         # Clone level mirrors ``generate_clone_metadata`` — no range key.
@@ -557,6 +600,7 @@ class BatchAccumulator:
             metadata[key] = entry
 
         _apply_suggestions(metadata)
+        self._apply_field_aliases(metadata, custom_fields)
         _apply_custom_fields(metadata, custom_fields, "clone", None)
         return metadata
 
@@ -626,6 +670,7 @@ class BatchAccumulator:
                 metadata[key] = entry
 
         _apply_suggestions(metadata)
+        self._apply_field_aliases(metadata, custom_fields)
         _apply_custom_fields(metadata, custom_fields, level, None)
         return metadata
 
@@ -659,6 +704,7 @@ class BatchAccumulator:
             metadata[key] = entry
 
         _apply_suggestions(metadata)
+        self._apply_field_aliases(metadata, custom_fields)
         _apply_custom_fields(metadata, custom_fields, "tree", None)
         return metadata
 
@@ -679,6 +725,7 @@ class BatchAccumulator:
                     "aa", "Parent Amino Acid", display="tooltip"
                 )
             _apply_suggestions(metadata)
+            self._apply_field_aliases(metadata, custom_fields)
             _apply_custom_fields(metadata, custom_fields, "mutation", None)
             return metadata
 
