@@ -775,16 +775,25 @@ def process_pcp_format(args):
         # Streaming pipeline (#26): bound peak memory by spooling each
         # batch's clones/trees to disk and stream-stitching the final
         # consolidated JSON. Falls back to the legacy in-memory path
-        # when the caller wants split-file output, mutations merge, or
-        # output validation — phase 4 lifts the mutations and validation
-        # restrictions; split-file output stays on legacy because it has
-        # a fundamentally different write shape.
+        # when the caller wants split-file output or output validation
+        # (phase 5 will wire per-batch validation).
         if _should_stream_pcp(args):
-            _process_pcp_streaming(
-                args, pcp_families, newick_trees, minter, args.inputs
+            # Single-batch fast path: when the whole input fits in one
+            # batch, the spool round-trip costs more than the legacy
+            # in-memory path saves. Routing through ``process_pcp_to_olmsted``
+            # avoids the temp-file write+read for small inputs while
+            # producing identical output.
+            n_families = len(_group_pcp_families_by_clone(pcp_families))
+            if n_families > args.batch_size:
+                _process_pcp_streaming(
+                    args, pcp_families, newick_trees, minter, args.inputs
+                )
+                vprint.status("Processing complete!")
+                return
+            vprint.verbose(
+                f"  Single-batch fast path: {n_families} families "
+                f"<= --batch-size {args.batch_size}; using in-memory pipeline."
             )
-            vprint.status("Processing complete!")
-            return
 
         # Convert to Olmsted format with progress bar
         vprint.status("Converting to Olmsted format...")

@@ -37,6 +37,25 @@ olmsted-cli is a Python CLI tool that processes immunological data (AIRR JSON an
 - **Tests for every new feature** — unit tests for logic, integration tests for CLI commands
 - `constants.py` and `types.py` have **no dependencies** on other project modules
 
+## Streaming pipeline (#26)
+
+`olmsted process` runs through a streaming pipeline by default (PCP and
+AIRR), bounded by `--batch-size N` (default 50). Each batch's clones
+and trees are spooled to JSONL temp files; the final consolidated JSON
+is stream-stitched with `metadata` first. Primitives live in
+`olmsted_cli/streaming.py` — `FieldTypeEvidence` / `RangeEvidence`,
+`BatchAccumulator`, `BatchSpooler`, `write_olmsted_json_streaming`.
+
+The pipeline falls back to the legacy in-memory path when:
+
+- `--batch-size 0` (explicit opt-out)
+- `--split-files` (multi-file output)
+- `--validate` (per-batch validation not yet wired)
+- Input fits in one batch (single-batch fast path — skips spool round-trip)
+
+See `ARCHITECTURE.md#streaming-pipeline` for the data flow and
+`tests/test_streaming.py` + `tests/test_batching_*.py` for coverage.
+
 ## Terminology
 
 | User-facing | Internal | Notes |

@@ -122,6 +122,7 @@ olmsted process -i input.csv -f pcp -o output.json
 | `--strict-validation` | Exit with error if validation fails |
 | `--allow-duplicate-ids` | Downgrade duplicate-`*_id` errors to warnings and pass data through unchanged. Without this flag, processing fails when `dataset_id`, `clone_id`, `tree_id`, `sample_id`, or `subject_id` collide within their natural uniqueness scope. |
 | `--seed INT` | Random seed for deterministic UUID generation |
+| `--batch-size N` | Clonal families per streaming batch (default: 50). Bounds peak memory by spooling each batch's clones/trees to disk and stream-stitching the final consolidated JSON. Pass `0` to disable streaming and use the legacy one-shot path. Small inputs (n_families ≤ batch_size) skip the spool automatically. |
 | `-v, --verbose {0,1,2,3}` | Verbosity: 0=quiet, 1=normal (default), 2=verbose, 3=debug |
 | `-q, --quiet` | Quiet mode - only show errors (equivalent to `-v 0`) |
 | `-w, --warnings` | Show warnings when tree and PCP data disagree (PCP only) |

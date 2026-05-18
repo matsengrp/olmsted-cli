@@ -11,6 +11,7 @@ See also:
 - [Overview](#overview)
 - [Module Dependency Hierarchy](#module-dependency-hierarchy)
 - [Processing Pipelines](#processing-pipelines)
+- [Streaming Pipeline](#streaming-pipeline)
 - [Mutations CSV Merge](#mutations-csv-merge)
 - [Field Metadata System](#field-metadata-system)
 - [YAML Config System](#yaml-config-system)
@@ -95,26 +96,28 @@ detect_file_format()
     │       ├── parse_newick_csv()
     │       │   └── Extra columns captured as family-level fields
     │       │
-    │       ├── process_pcp_to_olmsted()
-    │       │   ├── merge_tree_topology_with_pcp()
-    │       │   ├── Node processing (heavy + light chain partitioning)
-    │       │   ├── _partition_chain_fields() for extras
-    │       │   ├── compute_tree_metrics() if --compute-metrics
-    │       │   ├── mean_mut_freq calculation
-    │       │   └── tag_field_metadata()
-    │       │
-    │       └── create_consolidated_data() → write_out()
+    │       ├── _should_stream_pcp(args)?
+    │       │   ├── yes + n_families > batch_size →
+    │       │   │     _process_pcp_streaming() — see Streaming Pipeline
+    │       │   └── no (or single-batch fast path) →
+    │       │         process_pcp_to_olmsted()
+    │       │           ├── iter_pcp_clone_groups()
+    │       │           ├── _process_clone_group() (heavy + light partitioning,
+    │       │           │     compute_tree_metrics(), mean_mut_freq)
+    │       │           ├── _hoist_clone_invariant_extras()
+    │       │           └── tag_field_metadata()
+    │       │         create_consolidated_data() → write_out()
     │
     └── AIRR: process_airr_format(args)
             │
-            ├── Read JSON, validate
-            ├── process_dataset()
-            │   ├── process_clone()   (position adjustment, sample lookup)
-            │   ├── process_tree()    (tree parsing, node processing)
-            │   ├── compute_tree_metrics() if --compute-metrics
-            │   └── tag_field_metadata()
-            │
-            └── create_consolidated_data() → write_out()
+            ├── _should_stream_airr(args)?
+            │   ├── yes → _process_airr_streaming() — see Streaming Pipeline
+            │   └── no → process_dataset() for each input file
+            │             ├── iter_airr_clones()
+            │             ├── _process_airr_clone() (positions, sample lookup,
+            │             │     process_tree(), compute_tree_metrics())
+            │             └── tag_field_metadata()
+            │           create_consolidated_data() → write_out()
 ```
 
 ### `tag` Command
@@ -189,6 +192,100 @@ _build_yaml()
     │
     └── Skipped fields section (from SUGGESTED_SKIP_FIELDS)
 ```
+
+---
+
+## Streaming Pipeline
+
+`olmsted process` ships with always-on family-batched streaming so peak
+memory tracks `--batch-size` (default 50 families) rather than total
+dataset size. Each batch's clones and trees are spooled to JSONL temp
+files; the final consolidated JSON is written by stream-stitching
+`metadata` → `datasets` → `clones` → `trees` directly from disk.
+
+```
+parse_pcp_csv() / read_airr_json()
+    │
+    ▼
+BatchAccumulator.register_dataset(dataset_id, hoist_tree_extras_to_clone=?)
+    └── PCP: True   (tree-csv extras hoist to clone-level)
+        AIRR: False (tree-level fields live on trees natively)
+    │
+    ▼
+begin_merge(mutations_csv)            (optional, --mutations)
+    │
+    ▼
+for batch in iter_pcp_clone_groups | iter_airr_clones(batch_size=N):
+    ├── unpack_encoded_mutations()    (if user passed custom_fields with encoding)
+    ├── apply_mutations_to_trees()    (if --mutations)
+    ├── BatchAccumulator.observe_batch()
+    │     └── folds in field-type/range evidence, ID-uniqueness sets,
+    │         running totals, tree-level-variance keys
+    └── BatchSpooler.write_batch()    (JSONL, one record per line)
+    │
+    ▼
+finalize_merge(merge_ctx) + report_merge_stats()    (if --mutations)
+    │
+    ▼
+apply_dataset_hoist(spooler, dataset_id, tree_level_keys)    (PCP only)
+    └── rewrites spool JSONL: keys constant across a clone's trees
+        AND not in tree_level_keys move from trees to the clone
+    │
+    ▼
+BatchAccumulator.finalize_field_metadata(dataset_id, custom_fields)
+    └── mirrors generate_field_metadata's shape; applies FIELD_ALIASES
+        when custom_fields is None (rearrangement_count → unique_seqs_count, …)
+    │
+    ▼
+create_consolidated_data() builds the metadata wrapper;
+    accumulator.finalize_totals() overrides processing_info
+    │
+    ▼
+write_olmsted_json_streaming()
+    └── emits {metadata, datasets, clones, trees} in canonical key order,
+        stream-stitching clones/trees from spooler. gzip output pins
+        mtime=0 + empty filename (same determinism guarantee as the
+        legacy data_io.write_olmsted_json).
+```
+
+### Fallback to the legacy in-memory path
+
+`_should_stream_pcp` / `_should_stream_airr` route through
+`process_pcp_to_olmsted` / `process_dataset` + `write_out` when:
+
+| Condition | Why |
+|---|---|
+| `--batch-size 0` | Explicit opt-out. |
+| `--split-files DIR` | Multi-file output has a different write shape. |
+| `--validate` | Per-batch validation isn't wired yet; `validate_output_data` consumes the whole assembled output. |
+| Single-batch fast path (PCP only): `n_families ≤ batch_size` | Spool round-trip would cost more than the in-memory pipeline; skipped automatically. |
+
+### Per-batch correctness notes
+
+- **Type inference** uses `FieldTypeEvidence` counters across all batches,
+  so a value contradicting the inferred type later (e.g. a string
+  arriving after 50 ints) still flips the result. The legacy
+  sample-capped path can miss this.
+- **Ranges** track running `(min, max, count)` via `RangeEvidence`; merged
+  across batches.
+- **Tree-level classification** is per-clone (variance within one
+  clone's trees) — the iterator guarantees a clone's alt
+  reconstructions co-emit in one batch, so per-batch classification is
+  correct. The union across batches is the dataset-scope answer.
+- **`--mutations`** loads the CSV once via `load_mutations_csv` and
+  threads one `MergeContext` through every batch; `MergeStats` and the
+  `unmatched_family_set` aggregate exactly like a one-shot run would
+  aggregate across trees.
+
+### Key files
+
+| File | Role |
+|---|---|
+| `olmsted_cli/streaming.py` | `FieldTypeEvidence`, `RangeEvidence`, `BatchAccumulator`, `BatchSpooler`, `write_olmsted_json_streaming`, `apply_dataset_hoist` |
+| `olmsted_cli/process_pcp_data.py` | `iter_pcp_clone_groups`, `_process_clone_group`, `_hoist_clone_invariant_extras` |
+| `olmsted_cli/process_airr_data.py` | `iter_airr_clones`, `_process_airr_clone` |
+| `olmsted_cli/process_data.py` | `_should_stream_pcp` / `_should_stream_airr`, `_process_pcp_streaming` / `_process_airr_streaming`, `_begin_mutations_merge` / `_finalize_mutations_merge` |
+| `olmsted_cli/merge_mutations.py` | `MergeContext`, `begin_merge`, `apply_mutations_to_trees`, `finalize_merge`, `report_merge_stats` |
 
 ---
 
