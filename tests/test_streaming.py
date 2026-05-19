@@ -436,6 +436,39 @@ def test_streaming_writer_gzip_is_deterministic(tmp_path):
     assert parsed["clones"]["ds-1"][0]["clone_id"] == "c-a"
 
 
+def test_streaming_writer_compact_emits_well_formed_bytes(tmp_path):
+    """Pin compact-mode bytes for a fixed input.
+
+    ``_emit`` is a hand-rolled JSON streamer; a future edit that
+    drops a comma between top-level keys would produce invalid JSON
+    that still happens to parse if the comma error is in a different
+    spot. Asserting on bytes catches the class of regressions a
+    parse-only test would miss.
+    """
+    metadata = {"format": "olmsted"}
+    datasets = [{"dataset_id": "ds-1", "field_metadata": {}}]
+    out = tmp_path / "compact.json"
+    with BatchSpooler() as spooler:
+        spooler.write_batch(
+            "ds-1",
+            [{"clone_id": "c-a"}, {"clone_id": "c-b"}],
+            [{"tree_id": "t-1"}],
+        )
+        write_olmsted_json_streaming(
+            metadata, datasets, spooler, str(out), json_format="compact"
+        )
+
+    expected = (
+        '{"metadata":{"format":"olmsted"},'
+        '"datasets":[{"dataset_id":"ds-1","field_metadata":{}}],'
+        '"clones":{"ds-1":[{"clone_id":"c-a"},{"clone_id":"c-b"}]},'
+        '"trees":[{"tree_id":"t-1"}]'
+        "}"
+    )
+    actual = out.read_text()
+    assert actual == expected, f"compact streaming bytes drift:\n{actual!r}"
+
+
 def test_streaming_writer_handles_empty_trees(tmp_path):
     metadata = {"format": "olmsted"}
     datasets = [{"dataset_id": "ds-1", "field_metadata": {}}]

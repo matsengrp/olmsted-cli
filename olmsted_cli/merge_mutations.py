@@ -355,6 +355,20 @@ def _has_depth_column(mutations_by_family: Dict[str, List[Dict[str, Any]]]) -> b
     return False
 
 
+# Join-key / integrity columns stripped from each row before it's merged onto
+# a mutation record. ``site``, ``parent_aa``, ``child_aa`` are kept on the
+# mutation itself (they identify the substitution); the rest are read for
+# routing or integrity-checking only and would otherwise pollute the
+# mutation dict downstream.
+_MERGE_EXTRAS_EXCLUDED: Set[str] = {
+    "site",
+    "parent_aa",
+    "child_aa",
+    "node_name",
+    "depth",
+}
+
+
 @dataclass
 class MergeContext:
     """Per-CSV state threaded across one or many ``apply_mutations_to_trees`` calls.
@@ -373,7 +387,6 @@ class MergeContext:
     name_keyed: bool
     honor_depth: bool
     extend_with_depth: bool
-    extras_excluded: Set[str]
 
 
 def begin_merge(
@@ -431,7 +444,6 @@ def begin_merge(
         name_keyed=name_keyed,
         honor_depth=honor_depth,
         extend_with_depth=extend_with_depth,
-        extras_excluded={"site", "parent_aa", "child_aa", "node_name", "depth"},
     )
 
 
@@ -454,7 +466,7 @@ def apply_mutations_to_trees(
             ctx.mutations_by_family,
             ctx.stats,
             ctx.unmatched_family_set,
-            ctx.extras_excluded,
+            _MERGE_EXTRAS_EXCLUDED,
             check_depth=ctx.honor_depth,
             only_listed=only_listed,
         )
@@ -464,7 +476,7 @@ def apply_mutations_to_trees(
             ctx.mutations_by_family,
             ctx.stats,
             ctx.unmatched_family_set,
-            ctx.extras_excluded,
+            _MERGE_EXTRAS_EXCLUDED,
             use_depth=ctx.extend_with_depth,
             only_listed=only_listed,
         )

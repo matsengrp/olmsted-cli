@@ -123,6 +123,74 @@ def test_process_mutations_streaming_attaches_score(tmp_path):
     assert "surprise_mutsel" in fm
 
 
+@pytest.mark.parametrize("batch_size", [1, 10000])
+def test_process_mutations_allow_mismatch_streaming(batch_size, tmp_path):
+    """``--mutations-allow-mismatch`` downgrades integrity-mismatch failures
+    to a warning, across batch sizes.
+
+    The CSV's ``node_name`` column triggers name-keyed mode, where
+    ``parent_aa``/``child_aa`` are integrity checks against the tree's
+    derived mutation.  We provide a row whose ``parent_aa`` disagrees
+    with the actual residue, and verify:
+
+    - Default (no flag) → exit non-zero, mismatch reported.
+    - ``--mutations-allow-mismatch`` → exit 0, warning surfaces, the
+      mismatched row never attaches its score.
+    """
+    pcp_path, _ = _write_inputs(tmp_path)
+
+    # Name-keyed CSV with intentional parent_aa disagreement:
+    # the tree-derived mutation at L1 site 0 is M→V (ATG→GTG); we
+    # claim parent_aa=K, which will fail the integrity check.
+    mutations_path = tmp_path / "mismatch.csv"
+    mutations_path.write_text(
+        "family,node_name,site,parent_aa,child_aa,surprise_mutsel\n"
+        "S1_F1,L1,0,K,R,2.5\n"  # parent_aa=K disagrees with actual M
+        "S1_F2,L2,0,M,V,4.2\n"  # this one is correct
+    )
+
+    out_path = tmp_path / f"out_bs{batch_size}.json"
+
+    base_cmd = [
+        "olmsted", "process",
+        "-f", "pcp",
+        "-i", str(pcp_path),
+        "--mutations", str(mutations_path),
+        "-o", str(out_path),
+        "--seed", "42",
+        "--name", "mismatch-test",
+        "--batch-size", str(batch_size),
+    ]
+
+    fail = subprocess.run(base_cmd, capture_output=True, text=True)
+    assert fail.returncode != 0, (
+        f"streaming should exit non-zero on integrity mismatch by default; "
+        f"stdout={fail.stdout!r} stderr={fail.stderr!r}"
+    )
+
+    pass_cmd = base_cmd + ["--mutations-allow-mismatch"]
+    ok = subprocess.run(pass_cmd, capture_output=True, text=True)
+    assert ok.returncode == 0, (
+        f"--mutations-allow-mismatch should exit 0; "
+        f"stdout={ok.stdout!r} stderr={ok.stderr!r}"
+    )
+
+    combined = ok.stdout + ok.stderr
+    assert "Integrity mismatches: 1" in combined or "integrity mismatch" in combined.lower()
+
+    # Mismatched row never attached its score; correct row did.
+    data = json.loads(out_path.read_text())
+    scores: list = []
+    for tree in data["trees"]:
+        for node in tree.get("nodes", []) or []:
+            for mut in node.get("mutations", []) or []:
+                if "surprise_mutsel" in mut:
+                    scores.append((tree["clone_id"], mut["surprise_mutsel"]))
+    assert scores == [("S1_F2", 4.2)], (
+        f"only the agreeing row should attach a score; got {scores!r}"
+    )
+
+
 def test_process_mutations_streaming_reports_unmatched_family(tmp_path):
     """Unmatched-family warnings accumulate across batches and print at finalize."""
     pcp_path = tmp_path / "input-pcp.csv"

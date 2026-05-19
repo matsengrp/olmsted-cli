@@ -59,12 +59,12 @@ from .constants import (
     normalize_level,
 )
 from .field_metadata import (
-    _apply_custom_fields,
-    _apply_suggestions,
-    _get_nested_value,
-    _make_entry,
+    apply_custom_fields,
+    apply_suggestions,
     entry_from_known,
+    get_nested_value,
     humanize_label,
+    make_entry,
 )
 
 JsonOutputFormat = Literal["pretty", "compact", "gzip"]
@@ -271,8 +271,19 @@ class _DatasetState:
     hoist_tree_extras_to_clone: bool = True
 
 
+DuplicateScope = Literal["dataset_id", "clone_id", "tree_id"]
+
+
 class DuplicateIdError(ValueError):
-    """Raised when a ``*_id`` collision is observed and duplicates aren't allowed."""
+    """Raised when a ``*_id`` collision is observed and duplicates aren't allowed.
+
+    The ``scope`` attribute identifies which kind of identifier collided so
+    callers can branch on it without parsing the string message.
+    """
+
+    def __init__(self, message: str, *, scope: DuplicateScope) -> None:
+        super().__init__(message)
+        self.scope: DuplicateScope = scope
 
 
 class BatchAccumulator:
@@ -304,7 +315,9 @@ class BatchAccumulator:
         self, dataset_id: str, *, hoist_tree_extras_to_clone: bool = True
     ) -> None:
         if dataset_id in self._dataset_ids:
-            self._on_duplicate(f"duplicate dataset_id: {dataset_id!r}")
+            self._on_duplicate(
+                f"duplicate dataset_id: {dataset_id!r}", scope="dataset_id"
+            )
         self._dataset_ids.add(dataset_id)
         state = self._datasets.setdefault(dataset_id, _DatasetState())
         state.hoist_tree_extras_to_clone = hoist_tree_extras_to_clone
@@ -339,11 +352,11 @@ class BatchAccumulator:
 
     # ----- internal helpers ------------------------------------------------
 
-    def _on_duplicate(self, message: str) -> None:
+    def _on_duplicate(self, message: str, *, scope: DuplicateScope) -> None:
         if self._allow_duplicate_ids:
             self._duplicate_warnings.append(message)
             return
-        raise DuplicateIdError(message)
+        raise DuplicateIdError(message, scope=scope)
 
     def _require_state(self, dataset_id: str) -> _DatasetState:
         state = self._datasets.get(dataset_id)
@@ -356,7 +369,9 @@ class BatchAccumulator:
         clone_id = clone.get("clone_id")
         if clone_id is not None:
             if clone_id in state.clone_ids:
-                self._on_duplicate(f"duplicate clone_id: {clone_id!r}")
+                self._on_duplicate(
+                    f"duplicate clone_id: {clone_id!r}", scope="clone_id"
+                )
             state.clone_ids.add(clone_id)
 
         subject_id = clone.get("subject_id")
@@ -377,7 +392,7 @@ class BatchAccumulator:
             path = finfo.get("path")
             if not path or fname in clone:
                 continue
-            value = _get_nested_value(clone, path)
+            value = get_nested_value(clone, path)
             if value is not None:
                 clone_level.record(fname, value)
 
@@ -398,11 +413,15 @@ class BatchAccumulator:
                     tree_level.record(key, ref.get(key))
 
         if len(tree_refs) >= 2:
+            # Match the legacy ``_hoist_clone_invariant_extras`` variance check:
+            # ``tree.get(key)`` (default None) — absent-key and present-None
+            # collapse to the same value, so mixed-presence only counts as
+            # variance when the present value differs from None.
             for key in candidate_keys - state.tree_level_keys:
                 distinct = set()
                 for ref in tree_refs:
                     if isinstance(ref, dict):
-                        v = ref.get(key, _MISSING_MARKER)
+                        v = ref.get(key)
                         try:
                             hash(v)
                             distinct.add(v)
@@ -419,7 +438,8 @@ class BatchAccumulator:
             seen = state.tree_ids_by_clone.setdefault(clone_id, set())
             if tree_id in seen:
                 self._on_duplicate(
-                    f"duplicate tree_id {tree_id!r} within clone {clone_id!r}"
+                    f"duplicate tree_id {tree_id!r} within clone {clone_id!r}",
+                    scope="tree_id",
                 )
             seen.add(tree_id)
 
@@ -464,18 +484,18 @@ class BatchAccumulator:
         metadata: Dict[str, Dict[str, Any]],
         custom_fields: Optional[List[Dict[str, Any]]],
     ) -> None:
-        """Apply ``FIELD_ALIASES`` to ``metadata`` for the auto-config path.
+        """Rename source→target keys per ``FIELD_ALIASES``.
 
-        Mirrors the effective outcome of ``generate_default_config`` +
-        ``_apply_custom_fields`` on the legacy path: alias source keys
-        (e.g. ``rearrangement_count``) rename to their canonical target
-        (``unique_seqs_count``).  When the target was also discovered in
-        the data its own entry takes precedence — same as the legacy
-        iteration where the explicit target entry overwrites the
-        aliased one.
+        Auto-config-path only. Handles the cross-format-alias half of what
+        ``generate_default_config`` + ``apply_custom_fields`` does on the
+        legacy path: when the target was also discovered in the data its
+        entry wins (matches the legacy iteration where the explicit
+        target entry overwrites the aliased source). Does **not** cover
+        mutation-array demotion or skip suggestions — :func:`apply_suggestions`
+        handles the suggestion side; user ``custom_fields`` drive
+        demotion.
 
-        Skipped when the caller supplied ``custom_fields`` (the user's
-        config already controls naming).
+        Skipped when the caller supplied ``custom_fields``.
         """
         if custom_fields is not None:
             return
@@ -595,13 +615,13 @@ class BatchAccumulator:
             if key in KNOWN_CLONE_FIELDS:
                 entry = entry_from_known(KNOWN_CLONE_FIELDS[key])
             else:
-                entry = _make_entry(evidence.infer(), humanize_label(key))
+                entry = make_entry(evidence.infer(), humanize_label(key))
 
             metadata[key] = entry
 
-        _apply_suggestions(metadata)
+        apply_suggestions(metadata)
         self._apply_field_aliases(metadata, custom_fields)
-        _apply_custom_fields(metadata, custom_fields, "clone", None)
+        apply_custom_fields(metadata, custom_fields, "clone", None)
         return metadata
 
     def _level_metadata(
@@ -660,7 +680,7 @@ class BatchAccumulator:
                 if evidence is None or evidence.total() == 0:
                     continue
                 field_type = evidence.infer()
-                entry = _make_entry(field_type, humanize_label(key))
+                entry = make_entry(field_type, humanize_label(key))
                 if emit_range and field_type == "continuous":
                     rng = level_state.range_evidence.get(key)
                     if rng:
@@ -669,9 +689,9 @@ class BatchAccumulator:
                             entry["range"] = as_list
                 metadata[key] = entry
 
-        _apply_suggestions(metadata)
+        apply_suggestions(metadata)
         self._apply_field_aliases(metadata, custom_fields)
-        _apply_custom_fields(metadata, custom_fields, level, None)
+        apply_custom_fields(metadata, custom_fields, level, None)
         return metadata
 
     def _tree_metadata(
@@ -682,7 +702,7 @@ class BatchAccumulator:
         # Tree level only emits fields the variance classifier promoted.
         if not state.tree_level_keys:
             metadata: Dict[str, Dict[str, Any]] = {}
-            _apply_custom_fields(metadata, custom_fields, "tree", None)
+            apply_custom_fields(metadata, custom_fields, "tree", None)
             return metadata
 
         level_state = state.levels["tree"]
@@ -694,7 +714,7 @@ class BatchAccumulator:
             if key in KNOWN_TREE_FIELDS:
                 entry = entry_from_known(KNOWN_TREE_FIELDS[key])
             else:
-                entry = _make_entry(evidence.infer(), humanize_label(key))
+                entry = make_entry(evidence.infer(), humanize_label(key))
             if entry["type"] == "continuous":
                 rng = level_state.range_evidence.get(key)
                 if rng:
@@ -703,9 +723,9 @@ class BatchAccumulator:
                         entry["range"] = as_list
             metadata[key] = entry
 
-        _apply_suggestions(metadata)
+        apply_suggestions(metadata)
         self._apply_field_aliases(metadata, custom_fields)
-        _apply_custom_fields(metadata, custom_fields, "tree", None)
+        apply_custom_fields(metadata, custom_fields, "tree", None)
         return metadata
 
     def _mutation_metadata(
@@ -720,19 +740,18 @@ class BatchAccumulator:
         if not level_state.keys:
             metadata: Dict[str, Dict[str, Any]] = {}
             if state.has_aa_sequences:
-                metadata["child_aa"] = _make_entry("aa", "Child Amino Acid")
-                metadata["parent_aa"] = _make_entry(
+                metadata["child_aa"] = make_entry("aa", "Child Amino Acid")
+                metadata["parent_aa"] = make_entry(
                     "aa", "Parent Amino Acid", display="tooltip"
                 )
-            _apply_suggestions(metadata)
+            apply_suggestions(metadata)
             self._apply_field_aliases(metadata, custom_fields)
-            _apply_custom_fields(metadata, custom_fields, "mutation", None)
+            apply_custom_fields(metadata, custom_fields, "mutation", None)
             return metadata
 
         return self._level_metadata(state, "mutation", custom_fields)
 
 
-_MISSING_MARKER = object()
 
 
 def _collect_demoted_sources(
@@ -918,17 +937,18 @@ def _hoist_one_clone(
     if not dict_refs:
         return clone
 
+    # By the time we get here the accumulator's tree-level variance scan
+    # has already promoted every non-clone-invariant key into
+    # ``tree_level_keys``, so any remaining candidate is guaranteed to agree
+    # within this clone's trees.  Match the legacy
+    # ``_hoist_clone_invariant_extras`` second pass: hoist
+    # ``dict_refs[0].get(key)`` unconditionally (no per-clone agreement
+    # recheck; redundant given the dataset-scope variance filter).
     candidate_keys: Set[str] = set()
     for ref in dict_refs:
         candidate_keys.update(ref.keys())
     candidate_keys -= HOIST_STRUCTURAL_KEYS
-    candidate_keys -= tree_level_keys
-
-    hoist_keys: Set[str] = set()
-    for key in candidate_keys:
-        values = [_hoist_hashable(ref.get(key, _HOIST_MISSING)) for ref in dict_refs]
-        if len(set(values)) == 1:
-            hoist_keys.add(key)
+    hoist_keys = candidate_keys - tree_level_keys
 
     if hoist_keys:
         first = dict_refs[0]
@@ -973,18 +993,6 @@ def _rewrite_jsonl(path: Path, transform) -> None:
             json.dump(record, ofh, separators=(",", ":"), default=str)
             ofh.write("\n")
     tmp.replace(path)
-
-
-_HOIST_MISSING = object()
-
-
-def _hoist_hashable(value: Any) -> Any:
-    """Make value hashable for distinctness checks (mirrors classify_tree_extras)."""
-    try:
-        hash(value)
-        return value
-    except TypeError:
-        return ("__unhashable__", repr(value))
 
 
 # =============================================================================
@@ -1061,7 +1069,11 @@ def _emit(
     fh.write(comma)
 
     fh.write(sp + '"clones"' + colon + "{" + nl)
-    dataset_ids = spooler.dataset_ids()
+    # Drive the clones map from the dataset list, not the spooler — a
+    # dataset that registered but spooled zero batches (e.g. an AIRR
+    # input with empty clones[]) still needs a ``"<id>": []`` entry to
+    # match the legacy output shape.
+    dataset_ids = [d["dataset_id"] for d in datasets if d.get("dataset_id")]
     for i, ds_id in enumerate(dataset_ids):
         fh.write(sp * 2 + json.dumps(ds_id) + colon + "[")
         first = True

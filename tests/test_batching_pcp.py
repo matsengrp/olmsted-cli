@@ -129,14 +129,14 @@ def _build_synthetic_pcp(tmp_path: Path) -> tuple[Path, Path]:
         for tree_name, method_score in [("T_a", 0.5), ("T_b", 0.5)]:
             pcp_lines.append(_pcp_block(family, tree_name, method_score))
             trees_lines.append(
-                f'{family},S1,{tree_name},"(L1:0.2)mrca:0.1)naive;",{method_score}\n'
+                f'{family},S1,{tree_name},"((L1:0.2)mrca:0.1)naive;",{method_score}\n'
             )
 
     # Clone F10: two alt reconstructions with DIFFERENT method_score values
     for tree_name, method_score in [("T_a", 0.1), ("T_b", 0.9)]:
         pcp_lines.append(_pcp_block("F10", tree_name, method_score))
         trees_lines.append(
-            f'F10,S1,{tree_name},"(L1:0.2)mrca:0.1)naive;",{method_score}\n'
+            f'F10,S1,{tree_name},"((L1:0.2)mrca:0.1)naive;",{method_score}\n'
         )
 
     pcp_path = tmp_path / "input-pcp.csv"

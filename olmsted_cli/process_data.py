@@ -391,9 +391,13 @@ def _should_stream_pcp(args) -> bool:
     - ``--batch-size 0`` — explicit opt-out.
     - ``--split-files`` — multi-file output predates streaming and has a
       different write shape.
-    - ``--validate`` — phase 5 will add per-batch validation that
-      accumulates errors and reports at finalize; today
+    - ``--validate`` — per-batch validation isn't wired yet; today
       ``validate_output_data`` consumes the whole assembled output.
+
+    ``process_pcp_format`` applies a further single-batch fast path
+    (``n_families <= --batch-size``) after this check — when the whole
+    input fits in one batch, the spool round-trip would cost more than
+    the in-memory pipeline saves, so the legacy path runs instead.
     """
     if getattr(args, "batch_size", 0) <= 0:
         return False
@@ -503,6 +507,19 @@ def _process_pcp_streaming(args, pcp_families, newick_trees, minter, input_files
         dataset["field_metadata"] = accumulator.finalize_field_metadata(
             dataset_id, custom_fields
         )
+
+        # Streaming-side id-uniqueness check. The accumulator has already
+        # enforced clone_id (within dataset) and tree_id (within clone)
+        # via observe_batch; check_output_id_uniqueness catches the
+        # remaining scopes — dataset_id across datasets[], sample_id
+        # within dataset.samples[], subject_id within dataset.subjects[].
+        try:
+            check_output_id_uniqueness(
+                [dataset], {dataset_id: []}, allow_duplicates=allow_dup
+            )
+        except ValueError as e:
+            vprint.error(f"Error: {e}")
+            sys.exit(1)
 
         # Build the metadata wrapper via create_consolidated_data so the
         # processing_options / source_format / generated_by sections stay
@@ -682,7 +699,19 @@ def _process_airr_streaming(args, airr_args):
                 dataset_id, custom_fields
             )
 
+        # Streaming-side id-uniqueness check. The accumulator has
+        # already enforced clone_id / tree_id during observe_batch;
+        # check_output_id_uniqueness covers dataset_id, sample_id,
+        # subject_id — important for AIRR where input files can carry
+        # duplicates the legacy path would have rejected before write.
         empty_clones = {h["dataset_id"]: [] for h in dataset_headers}
+        try:
+            check_output_id_uniqueness(
+                dataset_headers, empty_clones, allow_duplicates=allow_dup
+            )
+        except ValueError as e:
+            vprint.error(f"Error: {e}")
+            sys.exit(1)
         wrapper = create_consolidated_data(
             dataset_headers,
             empty_clones,
