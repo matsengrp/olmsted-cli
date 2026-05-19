@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import functools
 import html
 import json
 import os
@@ -11,7 +10,7 @@ import pprint
 import sys
 import traceback
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple
 from urllib.parse import parse_qs, parse_qsl
 
 from .data_io import read_airr_json
@@ -206,6 +205,96 @@ def process_clone(args, dataset, clone):
     return ensure_ident(clone, "clone", args.minter)
 
 
+def _process_airr_clone(
+    args: Namespace,
+    dataset: Dict[str, Any],
+    clone: Dict[str, Any],
+) -> Tuple[OlmstedClone, List[OlmstedTree]]:
+    """Process one AIRR clone → ``(clone, [processed_trees])``.
+
+    Runs the per-clone work that the legacy ``process_dataset`` body did:
+    position adjustment + sample denormalization (via ``process_clone``),
+    ``repertoire_id`` assignment, per-tree processing, optional metric
+    computation, and stripping ``nodes`` from the clone's tree refs.
+
+    ``processed_trees`` are the full per-tree records (with ``nodes``) for
+    appending to the top-level ``trees`` list. The clone's own
+    ``cf["trees"]`` is rewritten to the slimmed refs (no ``nodes``).
+    """
+    cf = process_clone(args, dataset, clone)
+    cf["repertoire_id"] = cf["sample_id"]
+
+    processed_trees: List[OlmstedTree] = []
+    for tree in cf["trees"]:
+        processed_tree = process_tree(args, cf["clone_id"], tree)
+        processed_trees.append(processed_tree)
+
+    if getattr(args, "compute_metrics", False):
+        lbi_tau = getattr(args, "lbi_tau", 0.0125)
+        for tree in processed_trees:
+            nodes = tree.get("nodes", {})
+            if not nodes:
+                continue
+            if isinstance(nodes, list):
+                nodes_dict = {n["sequence_id"]: n for n in nodes}
+            else:
+                nodes_dict = nodes
+            edges = []
+            root_id = None
+            for nid, ndata in nodes_dict.items():
+                parent = ndata.get("parent")
+                if parent is None:
+                    root_id = nid
+                else:
+                    length = ndata.get("length", 0.0) or 0.0
+                    edges.append((parent, nid, length))
+            if root_id is None:
+                continue
+
+            compute_tree_metrics(nodes_dict, edges, root_id, tau=lbi_tau)
+
+            if isinstance(tree["nodes"], list):
+                tree["nodes"] = list(nodes_dict.values())
+
+    cf["trees"] = [
+        dict_subset(tree, set(tree.keys()) - {"nodes"}) for tree in processed_trees
+    ]
+
+    return cf, processed_trees
+
+
+def iter_airr_clones(
+    args: Namespace,
+    dataset: Dict[str, Any],
+    *,
+    batch_size: Optional[int] = None,
+) -> Iterator[Tuple[List[OlmstedClone], List[OlmstedTree]]]:
+    """Yield ``(batch_clones, batch_trees)`` as AIRR clones are processed.
+
+    ``batch_size`` counts clones; ``None`` yields a single batch containing
+    every clone. Empty batches are skipped.
+    """
+    batch_clones: List[OlmstedClone] = []
+    batch_trees: List[OlmstedTree] = []
+    in_batch = 0
+
+    for clone in dataset["clones"]:
+        cf, processed_trees = _process_airr_clone(args, dataset, clone)
+        batch_clones.append(cf)
+        batch_trees.extend(processed_trees)
+        in_batch += 1
+
+        if batch_size is not None and in_batch >= batch_size:
+            if batch_clones or batch_trees:
+                yield batch_clones, batch_trees
+            batch_clones = []
+            batch_trees = []
+            in_batch = 0
+
+    if batch_clones or batch_trees:
+        yield batch_clones, batch_trees
+
+
 def process_dataset(
     args: Namespace,
     dataset: Dict[str, Any],
@@ -233,61 +322,13 @@ def process_dataset(
     dataset["timepoints_count"] = len(
         {s["timepoint_id"] for s in dataset.get("samples", []) if s.get("timepoint_id")}
     )
-    clones = list(
-        map(functools.partial(process_clone, args, dataset), dataset["clones"])
-    )
 
-    # Process trees for each clone and set clone_id
-    for cf in clones:
-        # Add repertoire_id field (using sample_id)
-        cf["repertoire_id"] = cf["sample_id"]
-
-        # Process each tree and set clone_id
-        processed_trees = []
-        for tree in cf["trees"]:
-            processed_tree = process_tree(args, cf["clone_id"], tree)
-            processed_trees.append(processed_tree)
-
-        # Compute metrics on trees if requested (LBI, LBR, scaled_affinity)
-        if getattr(args, "compute_metrics", False):
-            lbi_tau = getattr(args, "lbi_tau", 0.0125)
-            for tree in processed_trees:
-                nodes = tree.get("nodes", {})
-                if not nodes:
-                    continue
-                # Build nodes_dict and edges from the tree's node data
-                if isinstance(nodes, list):
-                    nodes_dict = {n["sequence_id"]: n for n in nodes}
-                else:
-                    nodes_dict = nodes
-                edges = []
-                root_id = None
-                for nid, ndata in nodes_dict.items():
-                    parent = ndata.get("parent")
-                    if parent is None:
-                        root_id = nid
-                    else:
-                        length = ndata.get("length", 0.0) or 0.0
-                        edges.append((parent, nid, length))
-                if root_id is None:
-                    continue
-
-                compute_tree_metrics(nodes_dict, edges, root_id, tau=lbi_tau)
-
-                # Write back if nodes was a list
-                if isinstance(tree["nodes"], list):
-                    tree["nodes"] = list(nodes_dict.values())
-
-        # Add processed trees to the main trees list
-        trees.extend(processed_trees)
-
-        # Keep tree references in clones but remove nodes for size
-        cf["trees"] = [
-            dict_subset(tree, set(tree.keys()) - {"nodes"}) for tree in processed_trees
-        ]
+    clones: List[OlmstedClone] = []
+    for batch_clones, batch_trees in iter_airr_clones(args, dataset, batch_size=None):
+        clones.extend(batch_clones)
+        trees.extend(batch_trees)
     clones_dict[dataset["dataset_id"]] = clones
 
-    # Generate field_metadata (uses generate_default_config when no config provided)
     custom_fields = getattr(args, "custom_fields", None)
     dataset["field_metadata"] = tag_field_metadata(clones, trees, custom_fields)
 

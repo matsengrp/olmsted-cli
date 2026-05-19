@@ -21,6 +21,7 @@ import os
 import sys
 import traceback
 from pathlib import Path
+from typing import Any, Dict, List
 
 import jsonschema
 import yaml
@@ -38,30 +39,49 @@ from .constants import (
     MUTATION_ENCODINGS,
     normalize_level,
 )
+from .data_io import detect_file_format, open_file, read_airr_json, read_yaml_config
+from .identifier import IdentMinter
+from .merge_mutations import (
+    apply_mutations_csv,
+    apply_mutations_to_trees,
+    begin_merge,
+    finalize_merge,
+    load_mutations_csv,
+    report_merge_stats,
+)
 from .process_airr_data import (
     clone_spec,
+    ensure_ident,
+    iter_airr_clones,
     process_dataset,
 )
-from .identifier import IdentMinter
 from .process_pcp_data import (
+    TreeProcessingConfig,
+    _group_pcp_families_by_clone,
+    iter_pcp_clone_groups,
     parse_newick_csv,
     parse_pcp_csv,
     process_pcp_to_olmsted,
 )
-from .data_io import detect_file_format
-from .merge_mutations import apply_mutations_csv
 from .process_utils import (
-    VerbosePrinter,
+    SCHEMA_VERSION,
     add_verbosity_args,
     check_output_id_uniqueness,
     create_consolidated_data,
     resolve_verbosity,
     retag_datasets_field_metadata,
+    unpack_encoded_mutations,
     validate_dataset,
     validate_output_data,
     write_out,
 )
-from .data_io import open_file, read_airr_json, read_yaml_config
+from .streaming import (
+    BatchAccumulator,
+    BatchSpooler,
+    DuplicateIdError,
+    apply_dataset_hoist,
+    write_olmsted_json_streaming,
+)
 from .utils import set_verbosity, vprint
 
 
@@ -167,6 +187,12 @@ def process_airr_format(args):
     airr_args.allow_duplicate_ids = getattr(args, "allow_duplicate_ids", False)
     airr_args.json_format = getattr(args, "json_format", "pretty")
 
+    # Streaming pipeline (#26): same fallback conditions as PCP — see
+    # _should_stream_airr / _should_stream_pcp.
+    if _should_stream_airr(args):
+        _process_airr_streaming(args, airr_args)
+        return
+
     # Process using AIRR logic (adapted from process_airr_data.py)
     datasets, clones_dict, trees = [], {}, []
 
@@ -244,7 +270,9 @@ def process_airr_format(args):
             vprint.error(f"Error: {e}")
             sys.exit(1)
         retag_datasets_field_metadata(
-            datasets, clones_dict, trees,
+            datasets,
+            clones_dict,
+            trees,
             custom_fields=getattr(args, "custom_fields", None),
         )
 
@@ -253,7 +281,8 @@ def process_airr_format(args):
     # downstream are impossible.
     try:
         check_output_id_uniqueness(
-            datasets, clones_dict,
+            datasets,
+            clones_dict,
             allow_duplicates=getattr(args, "allow_duplicate_ids", False),
         )
     except ValueError as e:
@@ -301,6 +330,408 @@ def process_airr_format(args):
         os.makedirs(output_dir, exist_ok=True)
         vprint.status(f"Writing Olmsted JSON output to {args.output}")
         write_out(consolidated_data, output_dir, output_file, airr_args)
+
+
+def _begin_mutations_merge(args, mutations_path):
+    """Load the mutations CSV once and open a :class:`MergeContext`.
+
+    Returns ``(merge_ctx, total_csv_rows)`` for the streaming caller to
+    thread through per-batch :func:`apply_mutations_to_trees` calls.
+    When no path is supplied, returns ``(None, 0)``.  ``--mutations-use-depth``
+    mismatch errors surface here as ``sys.exit(1)`` so the batch loop never
+    starts.
+    """
+    if not mutations_path:
+        return None, 0
+    vprint.status(f"Loading mutations CSV: {mutations_path}")
+    mutations_by_family = load_mutations_csv(mutations_path)
+    total_csv_rows = sum(len(rows) for rows in mutations_by_family.values())
+    vprint.status(
+        f"Loaded {total_csv_rows} CSV rows across {len(mutations_by_family)} families"
+    )
+    try:
+        ctx = begin_merge(
+            mutations_by_family,
+            use_depth=getattr(args, "mutations_use_depth", False),
+        )
+    except ValueError as e:
+        vprint.error(f"Error: {e}")
+        sys.exit(1)
+    return ctx, total_csv_rows
+
+
+def _finalize_mutations_merge(args, merge_ctx, total_csv_rows):
+    """Seal a streaming mutations merge: emit the summary lines + raise on mismatch.
+
+    No-op when ``merge_ctx`` is None.  Exits non-zero if any integrity
+    mismatch was recorded and ``--mutations-allow-mismatch`` is off.
+    """
+    if merge_ctx is None:
+        return
+    stats = finalize_merge(merge_ctx)
+    report_merge_stats(stats, total_csv_rows)
+    if stats.integrity_mismatches and not getattr(
+        args, "mutations_allow_mismatch", False
+    ):
+        vprint.error(
+            f"Error: {stats.integrity_mismatches} integrity mismatches between CSV "
+            f"rows and tree mutations. Mismatched rows were skipped "
+            f"(never attached). Re-run with --mutations-allow-mismatch to "
+            f"proceed anyway — but investigate the CSV/tree disagreement first."
+        )
+        sys.exit(1)
+
+
+def _should_stream_pcp(args) -> bool:
+    """Decide whether ``process_pcp_format`` runs the streaming pipeline.
+
+    Streaming is the default for the canonical single-file output path.
+    Bail out to the legacy in-memory path when:
+
+    - ``--batch-size 0`` — explicit opt-out.
+    - ``--split-files`` — multi-file output predates streaming and has a
+      different write shape.
+    - ``--validate`` — per-batch validation isn't wired yet; today
+      ``validate_output_data`` consumes the whole assembled output.
+
+    ``process_pcp_format`` applies a further single-batch fast path
+    (``n_families <= --batch-size``) after this check — when the whole
+    input fits in one batch, the spool round-trip would cost more than
+    the in-memory pipeline saves, so the legacy path runs instead.
+    """
+    if getattr(args, "batch_size", 0) <= 0:
+        return False
+    if getattr(args, "split_files", None):
+        return False
+    if getattr(args, "validate", False):
+        return False
+    return True
+
+
+def _should_stream_airr(args) -> bool:
+    """Decide whether ``process_airr_format`` runs the streaming pipeline.
+
+    Same fallback conditions as PCP — see :func:`_should_stream_pcp`.
+    """
+    return _should_stream_pcp(args)
+
+
+def _process_pcp_streaming(args, pcp_families, newick_trees, minter, input_files):
+    """Streaming PCP pipeline: bound peak memory via per-batch spool + stitch.
+
+    Mirrors the assembly the legacy ``process_pcp_to_olmsted`` does (dataset
+    mint, sample dedup, tree-csv hoist, ``field_metadata`` generation) but
+    in a streaming shape:
+
+    1. Build the dataset stub up front; the iterator appends to
+       ``dataset["samples"]`` as it discovers sample IDs.
+    2. For each batch from :func:`iter_pcp_clone_groups`, apply any
+       user-declared encoded-mutation unpacking, observe the batch in the
+       :class:`BatchAccumulator` (which folds evidence, ID-uniqueness
+       sets, and tree-level variance), and spool the un-hoisted clones
+       and trees.
+    3. Apply :func:`apply_dataset_hoist` against the spool to enforce
+       the dataset-scope ``_hoist_clone_invariant_extras`` decision.
+    4. Finalize ``field_metadata`` and ``processing_info`` from the
+       accumulator; stream the consolidated JSON to ``args.output``.
+    """
+    vprint.status(f"Streaming with --batch-size={args.batch_size}")
+
+    dataset_id = minter.mint("dataset")
+    dataset_ident = minter.mint("dataset")
+
+    clones_grouped = _group_pcp_families_by_clone(pcp_families)
+    dataset = {
+        "ident": dataset_ident,
+        "dataset_id": dataset_id,
+        "schema_version": SCHEMA_VERSION,
+        "build": {"commit": "pcp-import", "time": ""},
+        "subjects": [],
+        "samples": [],
+        "seeds": [],
+        "clone_count": len(clones_grouped),
+        "subjects_count": 0,
+        "timepoints_count": 0,
+    }
+    if getattr(args, "name", None):
+        dataset["name"] = args.name
+
+    tree_config = TreeProcessingConfig(
+        compute_metrics=getattr(args, "compute_metrics", False),
+        lbi_tau=getattr(args, "lbi_tau", 0.0125),
+        standardize_names=getattr(args, "standardize_names", False),
+        warn_disagreements=args.warnings,
+    )
+
+    custom_fields = getattr(args, "custom_fields", None)
+    allow_dup = getattr(args, "allow_duplicate_ids", False)
+    accumulator = BatchAccumulator(allow_duplicate_ids=allow_dup)
+    accumulator.register_dataset(dataset_id)
+
+    mutations_path = getattr(args, "mutations", None)
+    merge_ctx, total_csv_rows = _begin_mutations_merge(args, mutations_path)
+    only_listed = getattr(args, "mutations_listed_only", False)
+
+    with BatchSpooler() as spooler:
+        try:
+            for batch_clones, batch_trees in iter_pcp_clone_groups(
+                pcp_families,
+                newick_trees,
+                minter,
+                dataset_id,
+                dataset["samples"],
+                tree_config,
+                batch_size=args.batch_size,
+            ):
+                if custom_fields:
+                    unpack_encoded_mutations(batch_trees, custom_fields)
+                if merge_ctx is not None:
+                    apply_mutations_to_trees(
+                        merge_ctx, batch_trees, only_listed=only_listed
+                    )
+                accumulator.observe_batch(dataset_id, batch_clones, batch_trees)
+                spooler.write_batch(dataset_id, batch_clones, batch_trees)
+        except DuplicateIdError as e:
+            vprint.error(f"Error: {e}")
+            sys.exit(1)
+
+        _finalize_mutations_merge(args, merge_ctx, total_csv_rows)
+
+        for warning in accumulator.duplicate_warnings:
+            vprint.error(f"Warning: {warning}")
+
+        apply_dataset_hoist(
+            spooler, dataset_id, accumulator.tree_level_keys(dataset_id)
+        )
+
+        dataset["field_metadata"] = accumulator.finalize_field_metadata(
+            dataset_id, custom_fields
+        )
+
+        # Streaming-side id-uniqueness check. The accumulator has already
+        # enforced clone_id (within dataset) and tree_id (within clone)
+        # via observe_batch; check_output_id_uniqueness catches the
+        # remaining scopes — dataset_id across datasets[], sample_id
+        # within dataset.samples[], subject_id within dataset.subjects[].
+        try:
+            check_output_id_uniqueness(
+                [dataset], {dataset_id: []}, allow_duplicates=allow_dup
+            )
+        except ValueError as e:
+            vprint.error(f"Error: {e}")
+            sys.exit(1)
+
+        # Build the metadata wrapper via create_consolidated_data so the
+        # processing_options / source_format / generated_by sections stay
+        # in lockstep with the legacy path. The empty trees/clones args
+        # produce zeroed totals which we then overwrite with the
+        # accumulator's running counts.
+        wrapper = create_consolidated_data(
+            [dataset],
+            {dataset_id: []},
+            [],
+            input_files,
+            FORMAT_PCP,
+            args,
+        )
+        wrapper["metadata"]["processing_info"] = accumulator.finalize_totals()
+
+        output_dir = os.path.dirname(args.output) or "."
+        os.makedirs(output_dir, exist_ok=True)
+        vprint.status(f"Writing Olmsted JSON output to {args.output}")
+        write_olmsted_json_streaming(
+            wrapper["metadata"],
+            wrapper["datasets"],
+            spooler,
+            args.output,
+            json_format=getattr(args, "json_format", "pretty"),
+        )
+
+
+def _process_airr_streaming(args, airr_args):
+    """Streaming AIRR pipeline: per-file dataset stub + per-batch spool.
+
+    Iterates each AIRR input file the same way the legacy
+    ``process_airr_format`` does — reading the dataset, optionally
+    filtering invalid clones, validating the dataset envelope — but
+    consumes the per-file clones via :func:`iter_airr_clones`, so peak
+    memory tracks one batch's worth of parsed trees rather than every
+    clone in every input file.  A shared :class:`BatchAccumulator` and
+    :class:`BatchSpooler` aggregate across files; a single
+    :class:`MergeContext` carries ``--mutations`` state across batches.
+    """
+    vprint.status(f"Streaming with --batch-size={args.batch_size}")
+
+    custom_fields = getattr(airr_args, "custom_fields", None)
+    allow_dup = getattr(airr_args, "allow_duplicate_ids", False)
+    accumulator = BatchAccumulator(allow_duplicate_ids=allow_dup)
+
+    mutations_path = getattr(args, "mutations", None)
+    merge_ctx, total_csv_rows = _begin_mutations_merge(args, mutations_path)
+    only_listed = getattr(args, "mutations_listed_only", False)
+
+    dataset_headers: List[Dict[str, Any]] = []
+
+    with BatchSpooler() as spooler:
+        input_files = airr_args.inputs or []
+        with tqdm(
+            input_files,
+            desc="Processing AIRR files",
+            unit="file",
+            disable=len(input_files) == 1,
+        ) as pbar:
+            for infile in pbar:
+                pbar.set_description(f"Processing {Path(infile).name}")
+                if len(input_files) == 1 or airr_args.verbose:
+                    vprint.status(f"\nProcessing AIRR file: {infile}")
+
+                try:
+                    dataset_in = read_airr_json(infile)
+
+                    if airr_args.remove_invalid_clones:
+                        original_count = len(dataset_in.get("clones", []))
+                        dataset_in["clones"] = list(
+                            filter(
+                                jsonschema.Draft4Validator(clone_spec).is_valid,
+                                dataset_in["clones"],
+                            )
+                        )
+                        filtered_count = original_count - len(dataset_in["clones"])
+                        if filtered_count > 0:
+                            pbar.set_postfix({"filtered": filtered_count})
+
+                    errors = validate_dataset(dataset_in, verbose=airr_args.verbose)
+                    if errors:
+                        error_msg = "Dataset validation failed"
+                        if airr_args.verbose:
+                            vprint.error("Dataset validation failed:")
+                            for error in errors:
+                                vprint.error(f"  - {error}")
+                        else:
+                            error_msg += ". Please rerun with `-v` for detailed errors"
+                        raise Exception(error_msg)
+
+                    dataset_id = dataset_in["dataset_id"]
+                    accumulator.register_dataset(
+                        dataset_id, hoist_tree_extras_to_clone=False
+                    )
+                    accumulator.add_samples(
+                        dataset_id, dataset_in.get("samples", []) or []
+                    )
+
+                    input_clones = dataset_in.get("clones", []) or []
+                    input_clone_count = len(input_clones)
+                    subjects_count = len(
+                        {
+                            cf["subject_id"]
+                            for cf in input_clones
+                            if cf.get("subject_id")
+                        }
+                    )
+                    timepoints_count = len(
+                        {
+                            s["timepoint_id"]
+                            for s in dataset_in.get("samples", []) or []
+                            if s.get("timepoint_id")
+                        }
+                    )
+
+                    for batch_clones, batch_trees in iter_airr_clones(
+                        airr_args,
+                        dataset_in,
+                        batch_size=args.batch_size,
+                    ):
+                        if custom_fields:
+                            unpack_encoded_mutations(batch_trees, custom_fields)
+                        if merge_ctx is not None:
+                            apply_mutations_to_trees(
+                                merge_ctx, batch_trees, only_listed=only_listed
+                            )
+                        try:
+                            accumulator.observe_batch(
+                                dataset_id, batch_clones, batch_trees
+                            )
+                        except DuplicateIdError as e:
+                            vprint.error(f"Error: {e}")
+                            sys.exit(1)
+                        spooler.write_batch(dataset_id, batch_clones, batch_trees)
+
+                    # Build dataset header (input minus consumed clones).
+                    # Mirrors process_dataset's mutations to the dataset dict,
+                    # finalized after iter_airr_clones drained dataset_in["clones"].
+                    dataset_header = {
+                        k: v for k, v in dataset_in.items() if k != "clones"
+                    }
+                    dataset_header["clone_count"] = input_clone_count
+                    dataset_header["subjects_count"] = subjects_count
+                    dataset_header["timepoints_count"] = timepoints_count
+                    dataset_header["schema_version"] = SCHEMA_VERSION
+                    dataset_header = ensure_ident(
+                        dataset_header, "dataset", airr_args.minter
+                    )
+                    dataset_headers.append(dataset_header)
+
+                    if len(input_files) > 1:
+                        pbar.set_postfix({"clones": input_clone_count})
+
+                except Exception:
+                    vprint.error(f"\nUnable to process AIRR file: {infile}")
+                    if airr_args.verbose:
+                        exc_info = sys.exc_info()
+                        traceback.print_exception(*exc_info)
+                    else:
+                        vprint.error("Please rerun with `-v` for detailed errors.")
+                    sys.exit(1)
+
+        _finalize_mutations_merge(args, merge_ctx, total_csv_rows)
+
+        for warning in accumulator.duplicate_warnings:
+            vprint.error(f"Warning: {warning}")
+
+        # AIRR data places tree-level fields on trees natively; the
+        # PCP-style data hoist would strip them from trees and emit
+        # phantom clone-level entries.  The accumulator is configured
+        # with hoist_tree_extras_to_clone=False for this case, so the
+        # finalize step also leaves clone-level metadata alone.
+        for dataset_header in dataset_headers:
+            dataset_id = dataset_header["dataset_id"]
+            dataset_header["field_metadata"] = accumulator.finalize_field_metadata(
+                dataset_id, custom_fields
+            )
+
+        # Streaming-side id-uniqueness check. The accumulator has
+        # already enforced clone_id / tree_id during observe_batch;
+        # check_output_id_uniqueness covers dataset_id, sample_id,
+        # subject_id — important for AIRR where input files can carry
+        # duplicates the legacy path would have rejected before write.
+        empty_clones = {h["dataset_id"]: [] for h in dataset_headers}
+        try:
+            check_output_id_uniqueness(
+                dataset_headers, empty_clones, allow_duplicates=allow_dup
+            )
+        except ValueError as e:
+            vprint.error(f"Error: {e}")
+            sys.exit(1)
+        wrapper = create_consolidated_data(
+            dataset_headers,
+            empty_clones,
+            [],
+            args.inputs,
+            FORMAT_AIRR,
+            args,
+        )
+        wrapper["metadata"]["processing_info"] = accumulator.finalize_totals()
+
+        output_dir = os.path.dirname(args.output) or "."
+        os.makedirs(output_dir, exist_ok=True)
+        vprint.status(f"Writing Olmsted JSON output to {args.output}")
+        write_olmsted_json_streaming(
+            wrapper["metadata"],
+            wrapper["datasets"],
+            spooler,
+            args.output,
+            json_format=getattr(args, "json_format", "pretty"),
+        )
 
 
 def process_pcp_format(args):
@@ -370,6 +801,29 @@ def process_pcp_format(args):
             newick_trees = parse_newick_csv(trees_file, **column_overrides)
             vprint.status(f"Found {len(newick_trees)} trees")
 
+        # Streaming pipeline (#26): bound peak memory by spooling each
+        # batch's clones/trees to disk and stream-stitching the final
+        # consolidated JSON. Falls back to the legacy in-memory path
+        # when the caller wants split-file output or output validation
+        # (phase 5 will wire per-batch validation).
+        if _should_stream_pcp(args):
+            # Single-batch fast path: when the whole input fits in one
+            # batch, the spool round-trip costs more than the legacy
+            # in-memory path saves. Routing through ``process_pcp_to_olmsted``
+            # avoids the temp-file write+read for small inputs while
+            # producing identical output.
+            n_families = len(_group_pcp_families_by_clone(pcp_families))
+            if n_families > args.batch_size:
+                _process_pcp_streaming(
+                    args, pcp_families, newick_trees, minter, args.inputs
+                )
+                vprint.status("Processing complete!")
+                return
+            vprint.verbose(
+                f"  Single-batch fast path: {n_families} families "
+                f"<= --batch-size {args.batch_size}; using in-memory pipeline."
+            )
+
         # Convert to Olmsted format with progress bar
         vprint.status("Converting to Olmsted format...")
         datasets, clones_dict, trees = process_pcp_to_olmsted(
@@ -400,7 +854,9 @@ def process_pcp_format(args):
                 vprint.error(f"Error: {e}")
                 sys.exit(1)
             retag_datasets_field_metadata(
-                datasets, clones_dict, trees,
+                datasets,
+                clones_dict,
+                trees,
                 custom_fields=getattr(args, "custom_fields", None),
             )
 
@@ -408,7 +864,8 @@ def process_pcp_format(args):
         # downgrades collisions to a warning.
         try:
             check_output_id_uniqueness(
-                datasets, clones_dict,
+                datasets,
+                clones_dict,
                 allow_duplicates=getattr(args, "allow_duplicate_ids", False),
             )
         except ValueError as e:
@@ -629,6 +1086,16 @@ Examples:
         metavar="DIR",
         help="Output split files instead of single Olmsted JSON (legacy)",
     )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=50,
+        metavar="N",
+        help="Number of clonal families to process per batch (PCP format only). "
+        "Bounds peak memory by spooling each batch's clones/trees to disk and "
+        "stream-stitching the final consolidated JSON. Default: 50. Pass 0 to "
+        "disable batching and use the legacy one-shot path.",
+    )
 
     # --- Validation ---
     parser.add_argument(
@@ -695,6 +1162,7 @@ _CONFIG_KEY_MAP = {
     "sample_col": "sample_col",
     "family_col": "family_col",
     "tree_col": "tree_col",
+    "batch_size": "batch_size",
 }
 
 # Valid config keys (including custom_fields which is handled separately)

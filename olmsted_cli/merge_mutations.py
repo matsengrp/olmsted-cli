@@ -25,11 +25,11 @@ import csv
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Set, Tuple
 
 from .constants import MUTATIONS_CSV_KEY_COLUMNS, MUTATIONS_CSV_NAME_ALIASES
-from .process_utils import coerce_csv_value
 from .data_io import open_file
+from .process_utils import coerce_csv_value
 from .utils import vprint
 
 # Characters in AA sequences that should not be treated as a mutation event.
@@ -273,7 +273,9 @@ def _compute_node_depths(
     Falls back to directed BFS from the tree root (nodes with no parent) when
     no naive node is found.
     """
-    sid_set = {n["sequence_id"] for n in nodes if isinstance(n, dict) and "sequence_id" in n}
+    sid_set = {
+        n["sequence_id"] for n in nodes if isinstance(n, dict) and "sequence_id" in n
+    }
 
     # Build undirected adjacency for naive-rooted BFS
     adj: Dict[str, List[str]] = {}
@@ -353,6 +355,142 @@ def _has_depth_column(mutations_by_family: Dict[str, List[Dict[str, Any]]]) -> b
     return False
 
 
+# Join-key / integrity columns stripped from each row before it's merged onto
+# a mutation record. ``site``, ``parent_aa``, ``child_aa`` are kept on the
+# mutation itself (they identify the substitution); the rest are read for
+# routing or integrity-checking only and would otherwise pollute the
+# mutation dict downstream.
+_MERGE_EXTRAS_EXCLUDED: Set[str] = {
+    "site",
+    "parent_aa",
+    "child_aa",
+    "node_name",
+    "depth",
+}
+
+
+@dataclass
+class MergeContext:
+    """Per-CSV state threaded across one or many ``apply_mutations_to_trees`` calls.
+
+    The merge command and one-shot PCP/AIRR runs use the legacy
+    ``merge_mutations_into_trees`` wrapper.  The streaming PCP/AIRR
+    pipelines invoke the merge once per batch and share a single context
+    so per-tree counts, integrity-mismatch tallies, and the running
+    ``unmatched_family_set`` aggregate across batches the way a one-shot
+    run would aggregate across trees.
+    """
+
+    mutations_by_family: Dict[str, List[Dict[str, Any]]]
+    stats: MergeStats
+    unmatched_family_set: Set[str]
+    name_keyed: bool
+    honor_depth: bool
+    extend_with_depth: bool
+
+
+def begin_merge(
+    mutations_by_family: Dict[str, List[Dict[str, Any]]],
+    *,
+    use_depth: bool = False,
+) -> MergeContext:
+    """Initialize a ``MergeContext`` from a loaded mutations index.
+
+    Performs the up-front mode-decision and flag validation that
+    ``merge_mutations_into_trees`` used to do inline: chooses
+    name-keyed vs site-keyed mode, validates ``--mutations-use-depth``
+    against the CSV's columns, populates ``stats.match_mode`` and
+    ``stats.disambiguation_columns_used``.
+    """
+    stats = MergeStats()
+    name_keyed = _has_name_column(mutations_by_family)
+    depth_present = _has_depth_column(mutations_by_family)
+
+    if use_depth and not depth_present:
+        raise ValueError(
+            "--mutations-use-depth was passed but the mutations CSV has no "
+            "'depth' column. Either add depth values to the CSV or drop the flag."
+        )
+
+    honor_depth = use_depth and depth_present
+
+    if name_keyed:
+        stats.match_mode = MATCH_MODE_NAME_SITE
+        extend_with_depth = False
+    elif honor_depth:
+        stats.match_mode = MATCH_MODE_SITE_PAA_CAA_DEPTH
+        extend_with_depth = True
+    else:
+        stats.match_mode = MATCH_MODE_SITE_PAA_CAA
+        extend_with_depth = False
+
+    disambig = []
+    if name_keyed:
+        disambig.append("node_name")
+    if honor_depth:
+        disambig.append("depth")
+    stats.disambiguation_columns_used = disambig
+
+    if depth_present and not use_depth:
+        vprint.verbose(
+            "Mutations CSV has a 'depth' column but --mutations-use-depth was "
+            "not set; ignoring depth for both match-key and integrity checks."
+        )
+
+    return MergeContext(
+        mutations_by_family=mutations_by_family,
+        stats=stats,
+        unmatched_family_set=set(mutations_by_family.keys()),
+        name_keyed=name_keyed,
+        honor_depth=honor_depth,
+        extend_with_depth=extend_with_depth,
+    )
+
+
+def apply_mutations_to_trees(
+    ctx: MergeContext,
+    trees: List[Dict[str, Any]],
+    *,
+    only_listed: bool = False,
+) -> None:
+    """Apply the merge to a slice of trees, folding counts into ``ctx.stats``.
+
+    Safe to call repeatedly: the context's stats / unmatched-family set
+    aggregate across calls.  Used by the streaming pipeline to merge one
+    batch at a time without re-loading the CSV or re-deciding the
+    match mode.
+    """
+    if ctx.name_keyed:
+        _merge_name_keyed(
+            trees,
+            ctx.mutations_by_family,
+            ctx.stats,
+            ctx.unmatched_family_set,
+            _MERGE_EXTRAS_EXCLUDED,
+            check_depth=ctx.honor_depth,
+            only_listed=only_listed,
+        )
+    else:
+        _merge_site_keyed(
+            trees,
+            ctx.mutations_by_family,
+            ctx.stats,
+            ctx.unmatched_family_set,
+            _MERGE_EXTRAS_EXCLUDED,
+            use_depth=ctx.extend_with_depth,
+            only_listed=only_listed,
+        )
+
+
+def finalize_merge(ctx: MergeContext) -> MergeStats:
+    """Seal the running stats — populates ``unmatched_families`` / rows."""
+    ctx.stats.unmatched_families = sorted(ctx.unmatched_family_set)
+    ctx.stats.unmatched_family_rows = sum(
+        len(ctx.mutations_by_family[fam]) for fam in ctx.unmatched_family_set
+    )
+    return ctx.stats
+
+
 def merge_mutations_into_trees(
     trees: List[Dict[str, Any]],
     mutations_by_family: Dict[str, List[Dict[str, Any]]],
@@ -398,70 +536,9 @@ def merge_mutations_into_trees(
         A ``MergeStats`` describing what was merged, what was skipped, and
         the chosen match mode.
     """
-    stats = MergeStats()
-    name_keyed = _has_name_column(mutations_by_family)
-    depth_present = _has_depth_column(mutations_by_family)
-
-    # Fail fast if depth was opted in but the column isn't actually there —
-    # the user's intent (use depth) and the data (no depth) are in conflict.
-    if use_depth and not depth_present:
-        raise ValueError(
-            "--mutations-use-depth was passed but the mutations CSV has no "
-            "'depth' column. Either add depth values to the CSV or drop the flag."
-        )
-
-    # Depth is honored (as match key or integrity check) only when opted in.
-    honor_depth = use_depth and depth_present
-
-    if name_keyed:
-        stats.match_mode = MATCH_MODE_NAME_SITE
-        extend_with_depth = False  # depth is integrity-only in this mode
-    elif honor_depth:
-        stats.match_mode = MATCH_MODE_SITE_PAA_CAA_DEPTH
-        extend_with_depth = True
-    else:
-        stats.match_mode = MATCH_MODE_SITE_PAA_CAA
-        extend_with_depth = False
-
-    # Columns used for matching or integrity; surface them in stats/logs.
-    disambig = []
-    if name_keyed:
-        disambig.append("node_name")
-    if honor_depth:
-        disambig.append("depth")
-    stats.disambiguation_columns_used = disambig
-
-    # Note the seen-but-ignored case so the user knows their depth column
-    # isn't silently doing something different than they expect.
-    if depth_present and not use_depth:
-        vprint.verbose(
-            "Mutations CSV has a 'depth' column but --mutations-use-depth was "
-            "not set; ignoring depth for both match-key and integrity checks."
-        )
-
-    unmatched_family_set = set(mutations_by_family.keys())
-
-    # Columns that are part of the join key / integrity, not payload.
-    extras_excluded = {"site", "parent_aa", "child_aa", "node_name", "depth"}
-
-    if name_keyed:
-        _merge_name_keyed(
-            trees, mutations_by_family, stats, unmatched_family_set, extras_excluded,
-            check_depth=honor_depth,
-            only_listed=only_listed,
-        )
-    else:
-        _merge_site_keyed(
-            trees, mutations_by_family, stats, unmatched_family_set, extras_excluded,
-            use_depth=extend_with_depth,
-            only_listed=only_listed,
-        )
-
-    stats.unmatched_families = sorted(unmatched_family_set)
-    stats.unmatched_family_rows = sum(
-        len(mutations_by_family[fam]) for fam in unmatched_family_set
-    )
-    return stats
+    ctx = begin_merge(mutations_by_family, use_depth=use_depth)
+    apply_mutations_to_trees(ctx, trees, only_listed=only_listed)
+    return finalize_merge(ctx)
 
 
 def _merge_name_keyed(
@@ -688,62 +765,15 @@ def _merge_site_keyed(
             )
 
 
-def apply_mutations_csv(
-    mutations_path: Optional[str],
-    trees: List[Dict[str, Any]],
-    *,
-    use_depth: bool = False,
-    allow_mismatch: bool = False,
-    only_listed: bool = False,
-) -> Optional[MergeStats]:
-    """Load a mutations CSV and merge it into ``trees`` (in place).
+def report_merge_stats(stats: MergeStats, total_csv_rows: int) -> None:
+    """Emit the user-facing summary lines + warnings for a merge run.
 
-    Used by both the ``merge`` command and ``process --mutations``. Returns
-    ``None`` when ``mutations_path`` is falsy (no-op), otherwise the
-    ``MergeStats`` from the merge.
-
-    Callers are responsible for regenerating ``field_metadata`` (via
-    ``retag_datasets_field_metadata``) afterwards. This is deliberate: the
-    merge doesn't know about dataset-level metadata, and keeping the two
-    steps separate keeps the function testable with just a list of trees.
-
-    Args:
-        use_depth: Enable the optional ``depth`` column as part of the
-            fallback match key. No effect when the CSV has a node-name column.
-        allow_mismatch: Downgrade integrity mismatches (``parent_aa``/
-            ``child_aa`` or ``depth`` disagreement when a row matches by
-            ``(node_name, site)``) from a hard failure to a warning. Default
-            behavior is to raise ``ValueError`` if any mismatch occurs, so
-            that callers can't accidentally ship a partially-wrong merge.
-            Mismatched rows are never attached regardless of this flag.
-        only_listed: Treat the CSV as authoritative — drop derived
-            mutations on CSV-matched trees that don't appear in the CSV.
-            See ``merge_mutations_into_trees`` for details.
-
-    Warnings for unmatched families, unmatched mutations, and broadcast
-    rows are emitted via ``vprint.error`` at normal verbosity.
-    Per-family detail is at -v 2.
-
-    Raises:
-        ValueError: When at least one integrity mismatch was recorded and
-            ``allow_mismatch`` is False (the default). The merge has still
-            been applied to the rows that matched cleanly; mismatched rows
-            are skipped.
+    Shared between the one-shot ``apply_mutations_csv`` and the streaming
+    pipelines so the on-screen output is identical regardless of whether
+    the merge ran in one pass or across many batches.  The caller is
+    responsible for raising on integrity mismatches when
+    ``--mutations-allow-mismatch`` isn't set.
     """
-    if not mutations_path:
-        return None
-
-    vprint.status(f"Loading mutations CSV: {mutations_path}")
-    mutations_by_family = load_mutations_csv(mutations_path)
-    total_csv_rows = sum(len(rows) for rows in mutations_by_family.values())
-    vprint.status(
-        f"Loaded {total_csv_rows} CSV rows across {len(mutations_by_family)} families"
-    )
-
-    stats = merge_mutations_into_trees(
-        trees, mutations_by_family, use_depth=use_depth, only_listed=only_listed
-    )
-
     vprint.status(f"Match mode: {stats.match_mode}")
     if stats.disambiguation_columns_used:
         vprint.status(
@@ -810,6 +840,64 @@ def apply_mutations_csv(
             f"the tree's derived mutation. The enrichment data was NOT attached "
             f"for those rows. Run with -v 2 to see per-family details."
         )
+
+
+def apply_mutations_csv(
+    mutations_path: Optional[str],
+    trees: List[Dict[str, Any]],
+    *,
+    use_depth: bool = False,
+    allow_mismatch: bool = False,
+    only_listed: bool = False,
+) -> Optional[MergeStats]:
+    """Load a mutations CSV and merge it into ``trees`` (in place).
+
+    Used by both the ``merge`` command and ``process --mutations``. Returns
+    ``None`` when ``mutations_path`` is falsy (no-op), otherwise the
+    ``MergeStats`` from the merge.
+
+    Callers are responsible for regenerating ``field_metadata`` (via
+    ``retag_datasets_field_metadata``) afterwards. This is deliberate: the
+    merge doesn't know about dataset-level metadata, and keeping the two
+    steps separate keeps the function testable with just a list of trees.
+
+    Args:
+        use_depth: Enable the optional ``depth`` column as part of the
+            fallback match key. No effect when the CSV has a node-name column.
+        allow_mismatch: Downgrade integrity mismatches (``parent_aa``/
+            ``child_aa`` or ``depth`` disagreement when a row matches by
+            ``(node_name, site)``) from a hard failure to a warning. Default
+            behavior is to raise ``ValueError`` if any mismatch occurs, so
+            that callers can't accidentally ship a partially-wrong merge.
+            Mismatched rows are never attached regardless of this flag.
+        only_listed: Treat the CSV as authoritative — drop derived
+            mutations on CSV-matched trees that don't appear in the CSV.
+            See ``merge_mutations_into_trees`` for details.
+
+    Warnings for unmatched families, unmatched mutations, and broadcast
+    rows are emitted via ``vprint.error`` at normal verbosity.
+    Per-family detail is at -v 2.
+
+    Raises:
+        ValueError: When at least one integrity mismatch was recorded and
+            ``allow_mismatch`` is False (the default). The merge has still
+            been applied to the rows that matched cleanly; mismatched rows
+            are skipped.
+    """
+    if not mutations_path:
+        return None
+
+    vprint.status(f"Loading mutations CSV: {mutations_path}")
+    mutations_by_family = load_mutations_csv(mutations_path)
+    total_csv_rows = sum(len(rows) for rows in mutations_by_family.values())
+    vprint.status(
+        f"Loaded {total_csv_rows} CSV rows across {len(mutations_by_family)} families"
+    )
+
+    stats = merge_mutations_into_trees(
+        trees, mutations_by_family, use_depth=use_depth, only_listed=only_listed
+    )
+    report_merge_stats(stats, total_csv_rows)
 
     if stats.integrity_mismatches and not allow_mismatch:
         raise ValueError(

@@ -27,7 +27,7 @@ import sys
 import traceback
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Literal, Optional, Tuple
 from urllib.parse import parse_qs, parse_qsl
 
 from .identifier import IdentMinter, deterministic_uuid  # noqa: F401 (re-exported for back-compat)
@@ -2462,6 +2462,221 @@ def _hoist_clone_invariant_extras(
                     tree_ref.pop(key, None)
 
 
+def _group_pcp_families_by_clone(
+    pcp_families: Dict[Tuple[Any, Any, Any], Any],
+) -> Dict[Tuple[Any, Any], List[Tuple[Any, Any, Any]]]:
+    """Group ``parse_pcp_csv`` composite keys by their ``(sample, family)`` clone.
+
+    Each biological clonal family becomes one clone with all its alternate
+    tree reconstructions collected under one ``(sample, family)`` entry.
+    """
+    grouped: Dict[Tuple[Any, Any], List[Tuple[Any, Any, Any]]] = {}
+    for composite_key in pcp_families.keys():
+        sample_k, family_k, _tree_k = composite_key
+        grouped.setdefault((sample_k, family_k), []).append(composite_key)
+    return grouped
+
+
+def _process_clone_group(
+    sample_id: Any,
+    family_id: Any,
+    composite_keys: List[Tuple[Any, Any, Any]],
+    pcp_families: Dict[Tuple[Any, Any, Any], Any],
+    newick_trees: Optional[Dict[Tuple[Any, Any, Any], List[Dict[str, Any]]]],
+    minter: IdentMinter,
+    dataset_id: str,
+    dataset_samples: List[Dict[str, Any]],
+    tree_config: TreeProcessingConfig,
+) -> Tuple[
+    Optional[Dict[str, Any]],
+    Optional[Dict[str, Any]],
+    List[Dict[str, Any]],
+]:
+    """Process one ``(sample, family)`` clone group into its clones + trees.
+
+    Returns ``(heavy_clone, light_clone, trees)``. ``heavy_clone`` is None
+    when no per-tree processing produced output; ``light_clone`` is None for
+    single-chain data. ``trees`` preserves the per-tree-entry interleaved
+    order (``[heavy_t1, light_t1, heavy_t2, light_t2, ...]``).
+
+    Side effects: appends a new entry to ``dataset_samples`` the first time a
+    sample_id is seen; consumes idents from ``minter``.
+    """
+    clone_ident = minter.mint("clone")
+    synthesized_clone_id = (
+        f"{sample_id}_{family_id}" if sample_id is not None else family_id
+    )
+
+    first_family_data = pcp_families[composite_keys[0]]
+    family_meta = first_family_data.get("family_data", {})
+    original_sample_id = family_meta.get("sample_id", sample_id)
+
+    sample_exists = any(
+        s["sample_id"] == original_sample_id for s in dataset_samples
+    )
+    if not sample_exists:
+        v_gene = family_meta.get("v_gene", "")
+        locus = infer_locus_from_v_gene(v_gene)
+        dataset_samples.append(
+            {
+                "ident": minter.mint("sample"),
+                "sample_id": original_sample_id,
+                "locus": locus,
+            }
+        )
+
+    canonical_heavy_clone: Optional[Dict[str, Any]] = None
+    canonical_light_clone: Optional[Dict[str, Any]] = None
+    group_trees: List[Dict[str, Any]] = []
+
+    for composite_key in composite_keys:
+        family_data = pcp_families[composite_key]
+        # _process_family_tree mutates family_data during topology merge —
+        # keep a pristine deep copy so subsequent trees in the same clone
+        # group start clean.
+        family_data_pristine = copy.deepcopy(family_data)
+
+        tree_entries: List[Dict[str, Any]] = []
+        if newick_trees:
+            _, fkey, tkey = composite_key
+            if tkey == PCP_NO_TREE_SENTINEL:
+                # PCP CSV had no tree column → the trees CSV supplies
+                # tree-level disambiguation alone. Gather every tree row
+                # keyed on ``(sample, family, *)`` so each becomes one
+                # alternate reconstruction of this clone.
+                for k, v in newick_trees.items():
+                    ks, kf, _kt = k
+                    if kf == fkey and ks in (sample_id, None):
+                        tree_entries.extend(v)
+            elif composite_key in newick_trees:
+                tree_entries = newick_trees[composite_key]
+            else:
+                # Trees CSV may lack a sample column; the parser then
+                # keys on (None, family, tree).
+                tree_entries = newick_trees.get((None, fkey, tkey), [])
+
+            # Flag the silent fallback. When the user supplied a trees
+            # CSV but no row matches this composite key, we build the
+            # tree from PCP edges alone — easy to miss without a notice,
+            # since the output is still structurally valid.
+            if not tree_entries:
+                vprint.status(
+                    f"  Warning: clone {synthesized_clone_id} "
+                    f"(composite key {composite_key}) had no "
+                    f"matching row in the trees CSV; falling "
+                    f"back to building the topology from PCP edges."
+                )
+
+        tree_entries_normalized = tree_entries if tree_entries else [{}]
+
+        for tree_entry in tree_entries_normalized:
+            family_data_this = copy.deepcopy(family_data_pristine)
+            per_tree_ident = minter.mint("tree")
+
+            result = _process_family_tree(
+                family_data=family_data_this,
+                tree_entry=tree_entry,
+                dataset_id=dataset_id,
+                clone_id=synthesized_clone_id,
+                clone_ident=clone_ident,
+                tree_ident=per_tree_ident,
+                config=tree_config,
+            )
+            if result is None:
+                continue
+
+            heavy_clone, light_clone, heavy_tree, light_tree = result
+
+            if canonical_heavy_clone is None:
+                canonical_heavy_clone = heavy_clone
+                if light_clone is not None:
+                    canonical_light_clone = light_clone
+            else:
+                canonical_heavy_clone["trees"].append(
+                    {k: v for k, v in heavy_tree.items() if k != "nodes"}
+                )
+                if canonical_light_clone is not None and light_tree is not None:
+                    canonical_light_clone["trees"].append(
+                        {k: v for k, v in light_tree.items() if k != "nodes"}
+                    )
+
+            group_trees.append(heavy_tree)
+            if light_tree is not None:
+                group_trees.append(light_tree)
+
+    return canonical_heavy_clone, canonical_light_clone, group_trees
+
+
+def iter_pcp_clone_groups(
+    pcp_families: Dict[Tuple[Any, Any, Any], Any],
+    newick_trees: Optional[Dict[Tuple[Any, Any, Any], List[Dict[str, Any]]]],
+    minter: IdentMinter,
+    dataset_id: str,
+    dataset_samples: List[Dict[str, Any]],
+    tree_config: TreeProcessingConfig,
+    *,
+    batch_size: Optional[int] = None,
+    progress: bool = True,
+) -> Iterator[Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]]:
+    """Yield ``(batch_clones, batch_trees)`` as ``(sample, family)`` groups are processed.
+
+    Heavy/light clones for one clone group always co-emit within one yield.
+    ``batch_size`` counts clone groups (not individual clones or trees);
+    ``None`` yields a single batch containing every group. Empty batches are
+    skipped.
+    """
+    clones_grouped = _group_pcp_families_by_clone(pcp_families)
+    grouped_items = list(clones_grouped.items())
+
+    batch_clones: List[Dict[str, Any]] = []
+    batch_trees: List[Dict[str, Any]] = []
+    groups_in_batch = 0
+
+    iterator: Any = grouped_items
+    pbar_cm = None
+    if progress:
+        pbar_cm = tqdm(
+            grouped_items,
+            desc="Processing families",
+            unit="family",
+            disable=len(grouped_items) == 1,
+        )
+        iterator = pbar_cm
+
+    try:
+        for (sample_id, family_id), composite_keys in iterator:
+            heavy_clone, light_clone, group_trees = _process_clone_group(
+                sample_id,
+                family_id,
+                composite_keys,
+                pcp_families,
+                newick_trees,
+                minter,
+                dataset_id,
+                dataset_samples,
+                tree_config,
+            )
+            if heavy_clone is not None:
+                batch_clones.append(heavy_clone)
+                if light_clone is not None:
+                    batch_clones.append(light_clone)
+            batch_trees.extend(group_trees)
+            groups_in_batch += 1
+
+            if batch_size is not None and groups_in_batch >= batch_size:
+                if batch_clones or batch_trees:
+                    yield batch_clones, batch_trees
+                batch_clones = []
+                batch_trees = []
+                groups_in_batch = 0
+    finally:
+        if pbar_cm is not None:
+            pbar_cm.close()
+
+    if batch_clones or batch_trees:
+        yield batch_clones, batch_trees
+
+
 def process_pcp_to_olmsted(
     pcp_families: Dict[str, Any],
     newick_trees: Optional[Dict[str, Any]] = None,
@@ -2494,7 +2709,6 @@ def process_pcp_to_olmsted(
     Returns:
         Tuple of (datasets, clones_dict, trees) with proper Olmsted types
     """
-    # Set global verbosity
     set_verbosity(verbosity)
 
     if minter is None:
@@ -2509,9 +2723,6 @@ def process_pcp_to_olmsted(
     dataset_id = minter.mint("dataset")
     dataset_ident = minter.mint("dataset")
 
-    # Per-run settings are stable across family/tree iterations — bundle
-    # them once so the per-call signature stays focused on the varying
-    # inputs (family_data, tree_entry, identities).
     tree_config = TreeProcessingConfig(
         compute_metrics=compute_metrics,
         lbi_tau=lbi_tau,
@@ -2520,25 +2731,12 @@ def process_pcp_to_olmsted(
         warn_disagreements=warn_disagreements,
     )
 
-    datasets = []
-    clones_dict = {dataset_id: []}  # Clones array indexed by dataset_id
-    trees = []
+    clones_grouped = _group_pcp_families_by_clone(pcp_families)
 
-    # Create dataset. PCP input has no native subject or timepoint concept,
-    # so those collections start empty rather than being fabricated with
-    # placeholder records (subject_id="pcp-subject", timepoint="merged").
-    # The webapp is expected to render "<unspecified>" for unset reference
-    # fields.
-    # parse_pcp_csv returns one entry per composite key
-    # ``(sample, family, tree)``. Group those by ``(sample, family)`` so
-    # each biological clonal family becomes one clone with its trees
-    # collected together.
-    clones_grouped: Dict[Tuple[Any, Any], List[Tuple[Any, Any, Any]]] = {}
-    for composite_key in pcp_families.keys():
-        sample_k, family_k, _tree_k = composite_key
-        clones_grouped.setdefault((sample_k, family_k), []).append(composite_key)
-
-    dataset = {
+    # PCP input has no native subject or timepoint concept, so those
+    # collections start empty rather than being fabricated with placeholder
+    # records. The webapp renders "<unspecified>" for unset reference fields.
+    dataset: Dict[str, Any] = {
         "ident": dataset_ident,
         "dataset_id": dataset_id,
         "schema_version": SCHEMA_VERSION,
@@ -2550,142 +2748,33 @@ def process_pcp_to_olmsted(
         "subjects_count": 0,
         "timepoints_count": 0,
     }
-
-    # Add name if provided
     if name:
         dataset["name"] = name
 
-    grouped_items = list(clones_grouped.items())
-    with tqdm(
-        grouped_items,
-        desc="Processing families",
-        unit="family",
-        disable=len(grouped_items) == 1,
-    ) as pbar:
-        for (sample_id, family_id), composite_keys in pbar:
-            clone_ident = minter.mint("clone")
-            # Synthesize a fully-qualified clone_id so families that
-            # repeat across samples no longer silently merge. Falls back
-            # to the family value alone for inputs without a sample
-            # column (sample_id == None).
-            synthesized_clone_id = (
-                f"{sample_id}_{family_id}" if sample_id is not None else family_id
-            )
+    clones_dict: Dict[str, List[OlmstedClone]] = {dataset_id: []}
+    trees: List[OlmstedTree] = []
 
-            # Pull the canonical family_data from the first composite key
-            # in the group (every entry in the group shares the same
-            # biological family-level metadata).
-            first_family_data = pcp_families[composite_keys[0]]
-            family_meta = first_family_data.get("family_data", {})
-            original_sample_id = family_meta.get("sample_id", sample_id)
+    for batch_clones, batch_trees in iter_pcp_clone_groups(
+        pcp_families,
+        newick_trees,
+        minter,
+        dataset_id,
+        dataset["samples"],
+        tree_config,
+        batch_size=None,
+    ):
+        clones_dict[dataset_id].extend(batch_clones)
+        trees.extend(batch_trees)
 
-            sample_exists = any(
-                s["sample_id"] == original_sample_id for s in dataset["samples"]
-            )
-            if not sample_exists:
-                v_gene = family_meta.get("v_gene", "")
-                locus = infer_locus_from_v_gene(v_gene)
-                dataset["samples"].append(
-                    {
-                        "ident": minter.mint("sample"),
-                        "sample_id": original_sample_id,
-                        "locus": locus,
-                    }
-                )
-
-            canonical_heavy_clone: Optional[Dict[str, Any]] = None
-            canonical_light_clone: Optional[Dict[str, Any]] = None
-
-            for composite_key in composite_keys:
-                family_data = pcp_families[composite_key]
-                # _process_family_tree mutates family_data during topology
-                # merge — keep a pristine deep copy so subsequent trees in
-                # the same clone group start clean.
-                family_data_pristine = copy.deepcopy(family_data)
-
-                tree_entries: List[Dict[str, Any]] = []
-                if newick_trees:
-                    _, fkey, tkey = composite_key
-                    if tkey == PCP_NO_TREE_SENTINEL:
-                        # PCP CSV had no tree column → the trees CSV
-                        # supplies tree-level disambiguation alone.
-                        # Gather every tree row keyed on
-                        # ``(sample, family, *)`` so each becomes one
-                        # alternate reconstruction of this clone.
-                        for k, v in newick_trees.items():
-                            ks, kf, _kt = k
-                            if kf == fkey and ks in (sample_id, None):
-                                tree_entries.extend(v)
-                    elif composite_key in newick_trees:
-                        tree_entries = newick_trees[composite_key]
-                    else:
-                        # Trees CSV may lack a sample column; the parser
-                        # then keys on (None, family, tree).
-                        tree_entries = newick_trees.get((None, fkey, tkey), [])
-
-                    # Flag the silent fallback. When the user supplied a
-                    # trees CSV but no row matches this composite key,
-                    # we build the tree from PCP edges alone — easy to
-                    # miss without a notice, since the output is
-                    # still structurally valid.
-                    if not tree_entries:
-                        vprint.status(
-                            f"  Warning: clone {synthesized_clone_id} "
-                            f"(composite key {composite_key}) had no "
-                            f"matching row in the trees CSV; falling "
-                            f"back to building the topology from PCP edges."
-                        )
-
-                tree_entries_normalized = tree_entries if tree_entries else [{}]
-
-                for tree_entry in tree_entries_normalized:
-                    family_data_this = copy.deepcopy(family_data_pristine)
-                    per_tree_ident = minter.mint("tree")
-
-                    result = _process_family_tree(
-                        family_data=family_data_this,
-                        tree_entry=tree_entry,
-                        dataset_id=dataset_id,
-                        clone_id=synthesized_clone_id,
-                        clone_ident=clone_ident,
-                        tree_ident=per_tree_ident,
-                        config=tree_config,
-                    )
-                    if result is None:
-                        continue
-
-                    heavy_clone, light_clone, heavy_tree, light_tree = result
-
-                    if canonical_heavy_clone is None:
-                        canonical_heavy_clone = heavy_clone
-                        clones_dict[dataset_id].append(canonical_heavy_clone)
-                        if light_clone is not None:
-                            canonical_light_clone = light_clone
-                            clones_dict[dataset_id].append(canonical_light_clone)
-                    else:
-                        canonical_heavy_clone["trees"].append(
-                            {k: v for k, v in heavy_tree.items() if k != "nodes"}
-                        )
-                        if canonical_light_clone is not None and light_tree is not None:
-                            canonical_light_clone["trees"].append(
-                                {k: v for k, v in light_tree.items() if k != "nodes"}
-                            )
-
-                    trees.append(heavy_tree)
-                    if light_tree is not None:
-                        trees.append(light_tree)
-
-    # Tree-CSV extras have lived on every per-tree record so far so the
-    # variance classifier could see them. Hoist clone-invariant ones up
-    # to their clone (and strip from trees) before field_metadata runs.
+    # Tree-CSV extras live on every per-tree record so the variance
+    # classifier can see them. Hoist clone-invariant ones up to their clone
+    # (and strip from trees) before field_metadata runs.
     _hoist_clone_invariant_extras(clones_dict, trees)
 
-    # Generate field_metadata (uses generate_default_config when no config provided)
     dataset_clones = clones_dict.get(dataset_id, [])
     dataset["field_metadata"] = tag_field_metadata(dataset_clones, trees, custom_fields)
 
-    datasets.append(dataset)
-    return datasets, clones_dict, trees
+    return [dataset], clones_dict, trees
 
 
 def get_args():

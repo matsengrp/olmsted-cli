@@ -297,6 +297,16 @@ def _make_entry(type_str: str, label: str, display: str = "dropdown", **extra) -
     return entry
 
 
+# Public-API aliases for the four helpers above. The underscore-prefixed
+# names remain for the in-module call sites; the public names are the
+# shared surface ``streaming.py`` consumes — dropping the underscore
+# makes the cross-module contract explicit.
+make_entry = _make_entry
+apply_custom_fields = _apply_custom_fields
+apply_suggestions = _apply_suggestions
+get_nested_value = _get_nested_value
+
+
 def entry_from_known(known: Dict) -> Dict:
     """Build a field_metadata entry from a known fields registry entry.
 

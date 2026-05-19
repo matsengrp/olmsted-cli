@@ -70,6 +70,11 @@ pytest --cov=olmsted_cli
 | `test_pcp_extras.py` | Extra CSV columns, chain partitioning, column aliases, coercion |
 | `test_format_detection.py` | Olmsted/AIRR/PCP format detection |
 | `test_validation.py` | Schema validation for datasets, clones, trees |
+| `test_streaming.py` | Streaming primitives in isolation (`FieldTypeEvidence`, `RangeEvidence`, `BatchAccumulator`, `BatchSpooler`, `write_olmsted_json_streaming`) |
+| `test_clone_group_iterators.py` | Per-clone-group iterators (`iter_pcp_clone_groups`, `iter_airr_clones`) — batch-size invariance, alt-reconstruction co-emission |
+| `test_batching_pcp.py` | End-to-end PCP streaming: every example dataset matches its golden across `--batch-size in {1, 2, 50, 10000}`; synthetic hoist-correctness test |
+| `test_batching_airr.py` | End-to-end AIRR streaming: example matches golden across `--batch-size in {1, 2, 50, 10000}` |
+| `test_batching_mutations.py` | `process --mutations` streaming output matches the legacy `--batch-size 0` run across batch sizes |
 
 ### Golden Data
 
@@ -155,6 +160,7 @@ olmsted-cli/
 │   ├── format_detection.py   # File format detection
 │   ├── process_utils.py      # Processing utilities, output writing, validation
 │   ├── merge_mutations.py    # Mutations CSV merge logic (shared by merge and process --mutations)
+│   ├── streaming.py          # Streaming primitives: BatchAccumulator, BatchSpooler, evidence accumulators, write_olmsted_json_streaming
 │   ├── build_config.py       # build-config command, generate_default_config()
 │   ├── tag.py                # tag command
 │   ├── merge.py              # merge command
