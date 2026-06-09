@@ -271,6 +271,44 @@ def test_merge_command_end_to_end(sample_olmsted_json, sample_csv, tmp_path):
     assert child["mutations"][0]["log_selection_factor"] == -0.5
 
 
+def test_merge_backfills_branch_lengths(sample_olmsted_json, sample_csv, tmp_path):
+    """merge populates node length/distance from the newick (issue #29).
+
+    The fixture's trees carry branch lengths in the newick (``(child:0.1)root;``)
+    but bare nodes with no length/distance — the hand-built-base-JSON case. After
+    merge, every non-root node should carry both, sourced from the newick.
+    """
+    json_path = tmp_path / "input.json"
+    csv_path = tmp_path / "muts.csv"
+    out_path = tmp_path / "output.json"
+
+    json_path.write_text(json.dumps(sample_olmsted_json))
+    csv_path.write_text(sample_csv)
+
+    result = subprocess.run(
+        [
+            "olmsted", "merge",
+            "-i", str(json_path),
+            "--mutations", str(csv_path),
+            "-o", str(out_path),
+            "-q",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"merge failed: {result.stderr}"
+
+    out = json.loads(out_path.read_text())
+    fam1_tree = next(t for t in out["trees"] if t["clone_id"] == "fam1")
+    nodes = {n["sequence_id"]: n for n in fam1_tree["nodes"]}
+
+    # Root anchored at zero; child picks up its 0.1 branch from the newick.
+    assert nodes["root"]["length"] == 0.0
+    assert nodes["root"]["distance"] == 0.0
+    assert nodes["child"]["length"] == pytest.approx(0.1, abs=1e-9)
+    assert nodes["child"]["distance"] == pytest.approx(0.1, abs=1e-9)
+
+
 def test_merge_depth_disambiguation(tmp_path):
     """When the CSV has a `depth` column, the join key includes node depth.
 

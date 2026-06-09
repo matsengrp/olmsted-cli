@@ -232,6 +232,8 @@ Attach mutation-level annotations (e.g., surprise scores, selection contribution
 
 The same logic is also available during initial processing via `olmsted process --mutations` — see the `process` section.
 
+`merge` also backfills per-node `length`/`distance` from each tree's `newick` string when the branch lengths are present there but missing on the nodes (the common case for a hand-built base JSON). Without this, the webapp's "evolutionary distance from naive" branch-length mode silently falls back to topological depth. Values already on the nodes are left untouched.
+
 #### Basic Usage
 
 ```bash
@@ -594,4 +596,4 @@ ruff check .
 
 ---
 
-_Last updated: 2026-04-10_
+_Last updated: 2026-06-09_

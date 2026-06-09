@@ -374,13 +374,13 @@ class TestValidationFunctions:
         """Test the validate_dataset function directly."""
         # Valid minimal dataset
         valid_dataset = {"dataset_id": "test", "clones": []}
-        errors = validate_dataset(valid_dataset, verbose=True)
-        assert len(errors) == 0, f"Valid dataset should have no errors. Got: {errors}"
+        result = validate_dataset(valid_dataset, verbose=True)
+        assert result.ok, f"Valid dataset should have no errors. Got: {result.errors}"
 
         # Invalid dataset (missing required field)
         invalid_dataset = {"clones": []}
-        errors = validate_dataset(invalid_dataset, verbose=True)
-        assert len(errors) > 0, "Invalid dataset should have errors"
+        result = validate_dataset(invalid_dataset, verbose=True)
+        assert len(result.errors) > 0, "Invalid dataset should have errors"
 
     def test_validate_clone_function(self):
         """Test the validate_clone function directly."""
@@ -393,27 +393,27 @@ class TestValidationFunctions:
             "j_alignment_start": 200,
             "j_alignment_end": 250,
         }
-        errors = validate_clone(valid_clone, verbose=True)
+        validate_clone(valid_clone, verbose=True)
         # Note: May have errors if AIRR validation is strict
         # but should validate against Olmsted schema
 
         # Invalid clone (missing required fields)
         invalid_clone = {"clone_id": "test"}
-        errors = validate_clone(invalid_clone, verbose=True)
-        assert len(errors) > 0, "Invalid clone should have errors"
+        result = validate_clone(invalid_clone, verbose=True)
+        assert len(result.errors) > 0, "Invalid clone should have errors"
 
     def test_validate_tree_function(self):
         """Test the validate_tree function directly."""
         # Valid minimal tree
         valid_tree = {"newick": "(A:0.1,B:0.2)C:0.0;", "nodes": {}}
-        errors = validate_tree(valid_tree, verbose=True)
+        validate_tree(valid_tree, verbose=True)
         # Note: May have errors if AIRR validation is strict
         # but should validate against Olmsted schema
 
         # Invalid tree (missing required fields)
         invalid_tree = {"tree_id": "test"}
-        errors = validate_tree(invalid_tree, verbose=True)
-        assert len(errors) > 0, "Invalid tree should have errors"
+        result = validate_tree(invalid_tree, verbose=True)
+        assert len(result.errors) > 0, "Invalid tree should have errors"
 
 
 if __name__ == "__main__":

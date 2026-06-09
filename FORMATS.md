@@ -465,6 +465,7 @@ All schemas allow `additionalProperties: true` — extra fields are preserved.
 | Tree file (PCP) | Trees built from parent-child edges |
 | `tree.reconstruction_method` | Left unset when not supplied by input |
 | `tree.type` / `dataset.type` | Not synthesized — passed through from input only |
+| Node `length` / `distance` | `olmsted merge` backfills these from the tree's `newick` branch lengths when absent (no-clobber); `olmsted validate` warns when a branch-length newick has nodes that lack them |
 
 ### Uniqueness enforcement
 
@@ -531,4 +532,4 @@ AIRR fields are mostly passed through directly. Key transformations:
 
 ---
 
-_Last updated: 2026-04-22_
+_Last updated: 2026-06-09_
