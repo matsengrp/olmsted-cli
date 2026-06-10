@@ -23,6 +23,7 @@ Usage:
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Optional, TypedDict
 
 
@@ -450,6 +451,44 @@ class OlmstedOutput(TypedDict, total=False):
 
 
 # =============================================================================
+# Validation Result
+# =============================================================================
+
+
+@dataclass
+class ValidationResult:
+    """Outcome of validating one object (dataset, clone, tree, or a whole
+    consolidated file).
+
+    The validator family (``validate_dataset``, ``validate_clone``,
+    ``validate_tree``, ``validate_consolidated_data``) returns this uniformly.
+
+    - ``errors`` are hard failures that make the data invalid.
+    - ``warnings`` are non-fatal advisories — e.g. a newick that carries branch
+      lengths while its nodes don't — that should be surfaced but don't fail
+      validation.
+    - ``ok`` is True when there are no errors; warnings never affect it.
+    """
+
+    errors: List[str] = field(default_factory=list)
+    warnings: List[str] = field(default_factory=list)
+
+    @property
+    def ok(self) -> bool:
+        """True when validation found no errors (warnings are ignored)."""
+        return not self.errors
+
+    def extend(self, other: "ValidationResult", prefix: str = "") -> None:
+        """Fold another result into this one, optionally prefixing each message.
+
+        Lets aggregators (e.g. ``validate_consolidated_data``) collect child
+        results without manually juggling two lists per call site.
+        """
+        self.errors.extend(f"{prefix}{e}" for e in other.errors)
+        self.warnings.extend(f"{prefix}{w}" for w in other.warnings)
+
+
+# =============================================================================
 # Type aliases for convenience
 # =============================================================================
 
@@ -484,6 +523,8 @@ __all__ = [
     "ContributorInfo",
     "BuildInfo",
     "OutputMetadata",
+    # Validation
+    "ValidationResult",
     # Type aliases
     "NodeType",
     "LightChainType",

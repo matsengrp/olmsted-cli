@@ -21,6 +21,7 @@ from .merge_mutations import apply_mutations_csv
 from .process_utils import (
     add_verbosity_args,
     check_output_id_uniqueness,
+    populate_branch_lengths_from_newick,
     resolve_verbosity,
     retag_datasets_field_metadata,
 )
@@ -161,6 +162,16 @@ def main():
     except ValueError as e:
         vprint.error(f"Error: {e}")
         sys.exit(1)
+
+    # Backfill per-node length/distance from each tree's newick when the
+    # branch lengths are present in the string but absent on the nodes (the
+    # case for hand-built base JSONs). The webapp's "distance from naive"
+    # branch-length mode reads node.distance, not the newick, so without this
+    # it silently falls back to topological depth. No-clobber: existing values
+    # are left untouched. See process_utils.populate_branch_lengths_from_newick.
+    for tree in data.get("trees", []):
+        for warning in populate_branch_lengths_from_newick(tree):
+            vprint.verbose(f"  Branch-length backfill: {warning}")
 
     try:
         stats = apply_mutations_csv(

@@ -154,6 +154,12 @@ Input Olmsted JSON + mutations CSV
 Load JSON → validate structure
     │
     ▼
+populate_branch_lengths_from_newick(tree) for each tree
+    └── backfill per-node length/distance from the newick when the string
+        carries branch lengths but the nodes don't (no-clobber). Lets a
+        hand-built base JSON drive the webapp's "distance from naive" mode.
+    │
+    ▼
 apply_mutations_csv(path, datasets, clones_dict, trees, custom_fields)
     ├── load_mutations_csv()             (parse CSV, group by family, force site→int)
     ├── merge_mutations_into_trees()     (derive mutations from AA diffs, match, merge)
@@ -661,4 +667,4 @@ silently overwriting downstream.
 
 ---
 
-_Last updated: 2026-04-24_
+_Last updated: 2026-06-09_

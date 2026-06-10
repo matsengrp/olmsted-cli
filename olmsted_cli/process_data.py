@@ -227,7 +227,7 @@ def process_airr_format(args):
                         pbar.set_postfix({"filtered": filtered_count})
 
                 # Use unified validation from validate module
-                errors = validate_dataset(dataset, verbose=airr_args.verbose)
+                errors = validate_dataset(dataset, verbose=airr_args.verbose).errors
                 if errors:
                     error_msg = "Dataset validation failed"
                     if airr_args.verbose:
@@ -600,7 +600,7 @@ def _process_airr_streaming(args, airr_args):
                         if filtered_count > 0:
                             pbar.set_postfix({"filtered": filtered_count})
 
-                    errors = validate_dataset(dataset_in, verbose=airr_args.verbose)
+                    errors = validate_dataset(dataset_in, verbose=airr_args.verbose).errors
                     if errors:
                         error_msg = "Dataset validation failed"
                         if airr_args.verbose:

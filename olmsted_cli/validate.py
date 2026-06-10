@@ -34,6 +34,7 @@ from .process_utils import (
     validate_dataset,
     validate_tree,
 )
+from .types import ValidationResult
 from .utils import set_verbosity, vprint
 
 PCP_REQUIRED_COLUMNS = {"sample_id", "parent_name", "child_name"}
@@ -277,11 +278,11 @@ def validate_tree_csv(filepath, pcp_family_ids=None):
     return errors, warnings
 
 
-def _validate_dataset_with_children(data, validation_errors, check_time_tree=False):
-    """Helper function to validate a dataset and its clones/trees."""
-    dataset_errors = validate_dataset(data, vprint.level)
-    validation_errors.extend(dataset_errors)
-    if dataset_errors:
+def _validate_dataset_with_children(data, result, check_time_tree=False):
+    """Validate a dataset and its clones/trees, folding into ``result``."""
+    dataset_result = validate_dataset(data, vprint.level)
+    result.extend(dataset_result)
+    if dataset_result.errors:
         return
 
     vprint.verbose("  Dataset schema: PASS")
@@ -299,25 +300,24 @@ def _validate_dataset_with_children(data, validation_errors, check_time_tree=Fal
         if hasattr(iterator, "set_description"):
             iterator.set_description(f"Validating clone {clone_id}")
 
-        errors = validate_clone(clone, vprint.level)
-        if errors:
-            validation_errors.extend([f"Clone {i}: {e}" for e in errors])
+        clone_result = validate_clone(clone, vprint.level)
+        result.extend(clone_result, prefix=f"Clone {i}: ")
+        if clone_result.errors:
             clone_fail += 1
         else:
             clone_pass += 1
 
         trees = clone.get("trees", []) if isinstance(clone, dict) else []
         for j, tree in enumerate(trees):
-            errors = validate_tree(tree, vprint.level, check_time_tree)
-            if errors:
-                validation_errors.extend([f"Clone {i}, Tree {j}: {e}" for e in errors])
+            tree_result = validate_tree(tree, vprint.level, check_time_tree)
+            result.extend(tree_result, prefix=f"Clone {i}, Tree {j}: ")
 
     if clone_pass:
         vprint.verbose(f"  Clones validated: {clone_pass} passed, {clone_fail} failed")
 
 
-def _validate_items(items, item_type, validate_fn, validation_errors, check_time_tree=False):
-    """Validate a list of items (clones or trees) with progress bar."""
+def _validate_items(items, item_type, validate_fn, result, check_time_tree=False):
+    """Validate a list of items (clones, datasets, or trees) into ``result``."""
     pass_count = 0
     fail_count = 0
 
@@ -334,12 +334,12 @@ def _validate_items(items, item_type, validate_fn, validation_errors, check_time
             iterator.set_description(f"Validating {item_type} {item_id}")
 
         if item_type == "tree":
-            errors = validate_fn(item, vprint.level, check_time_tree)
+            item_result = validate_fn(item, vprint.level, check_time_tree)
         else:
-            errors = validate_fn(item, vprint.level)
+            item_result = validate_fn(item, vprint.level)
 
-        if errors:
-            validation_errors.extend([f"{item_type.title()} {i}: {e}" for e in errors])
+        result.extend(item_result, prefix=f"{item_type.title()} {i}: ")
+        if item_result.errors:
             fail_count += 1
         else:
             pass_count += 1
@@ -349,120 +349,120 @@ def _validate_items(items, item_type, validate_fn, validation_errors, check_time
 
 def _validate_explicit_file_type(data, file_type, filepath, check_time_tree=False):
     """Handle validation for explicitly specified file types."""
-    validation_errors = []
+    result = ValidationResult()
 
     if file_type == "dataset":
         vprint.status(f"Validating as Olmsted dataset: {filepath}")
-        _validate_dataset_with_children(data, validation_errors, check_time_tree)
+        _validate_dataset_with_children(data, result, check_time_tree)
 
     elif file_type == "clones":
         vprint.status(f"Validating as clone collection: {filepath}")
         if isinstance(data, list):
-            _validate_items(data, "clone", validate_clone, validation_errors)
+            _validate_items(data, "clone", validate_clone, result)
         else:
-            validation_errors.append("Expected a list of clones")
+            result.errors.append("Expected a list of clones")
 
     elif file_type == "clone":
         vprint.status(f"Validating as single clone: {filepath}")
-        errors = validate_clone(data, vprint.level)
-        validation_errors.extend(errors)
-        if not errors:
+        clone_result = validate_clone(data, vprint.level)
+        result.extend(clone_result)
+        if clone_result.ok:
             vprint.verbose("  Clone schema: PASS")
 
     elif file_type == "trees":
         vprint.status(f"Validating as tree collection: {filepath}")
         if isinstance(data, list):
-            _validate_items(data, "tree", validate_tree, validation_errors, check_time_tree)
+            _validate_items(data, "tree", validate_tree, result, check_time_tree)
         else:
-            validation_errors.append("Expected a list of trees")
+            result.errors.append("Expected a list of trees")
 
     elif file_type == "tree":
         vprint.status(f"Validating as single tree: {filepath}")
-        errors = validate_tree(data, vprint.level, check_time_tree)
-        validation_errors.extend(errors)
-        if not errors:
+        tree_result = validate_tree(data, vprint.level, check_time_tree)
+        result.extend(tree_result)
+        if tree_result.ok:
             vprint.verbose("  Tree schema: PASS")
 
     else:
-        validation_errors.append(f"Unknown file type: {file_type}")
+        result.errors.append(f"Unknown file type: {file_type}")
 
-    return validation_errors
+    return result
 
 
 def _auto_detect_array_type(data, filepath, check_time_tree=False):
     """Auto-detect and validate array-type data."""
-    validation_errors = []
+    result = ValidationResult()
 
     if len(data) == 0:
-        validation_errors.append("Empty array - unable to determine file type.")
-        return validation_errors
+        result.errors.append("Empty array - unable to determine file type.")
+        return result
 
     first_item = data[0]
     if not isinstance(first_item, dict):
-        validation_errors.append(
+        result.errors.append(
             "Unable to determine file type. Use --dataset, --clone(s), or --tree(s) to specify."
         )
-        return validation_errors
+        return result
 
     if "clone_id" in first_item or "germline_alignment" in first_item:
         vprint.status(f"Auto-detected as clone collection: {filepath}")
-        _validate_items(data, "clone", validate_clone, validation_errors)
+        _validate_items(data, "clone", validate_clone, result)
 
     elif "dataset_id" in first_item:
         vprint.status(f"Auto-detected as dataset collection: {filepath}")
-        _validate_items(data, "dataset", validate_dataset, validation_errors)
+        _validate_items(data, "dataset", validate_dataset, result)
 
     elif "newick" in first_item and "nodes" in first_item:
         vprint.status(f"Auto-detected as tree collection: {filepath}")
-        _validate_items(data, "tree", validate_tree, validation_errors, check_time_tree)
+        _validate_items(data, "tree", validate_tree, result, check_time_tree)
 
     else:
-        validation_errors.append(
+        result.errors.append(
             "Unable to determine file type. Use --dataset, --clone(s), or --tree(s) to specify."
         )
 
-    return validation_errors
+    return result
 
 
 def _auto_detect_object_type(data, filepath, check_time_tree=False):
     """Auto-detect and validate object-type data."""
-    validation_errors = []
+    result = ValidationResult()
 
     if "metadata" in data and "datasets" in data and "clones" in data and "trees" in data:
         vprint.status(f"Auto-detected as Olmsted JSON format: {filepath}")
-        errors = validate_consolidated_data(data, vprint.level, check_time_tree)
-        validation_errors.extend(errors)
-        if not errors:
+        consolidated_result = validate_consolidated_data(data, vprint.level, check_time_tree)
+        result.extend(consolidated_result)
+        if consolidated_result.ok:
             vprint.verbose("  Olmsted JSON format: PASS")
 
     elif "clones" in data:
         vprint.status(f"Auto-detected as Olmsted dataset: {filepath}")
-        _validate_dataset_with_children(data, validation_errors, check_time_tree)
+        _validate_dataset_with_children(data, result, check_time_tree)
 
     elif "trees" in data and isinstance(data.get("trees"), list):
         vprint.status(f"Auto-detected as tree collection: {filepath}")
-        _validate_items(data["trees"], "tree", validate_tree, validation_errors, check_time_tree)
+        _validate_items(data["trees"], "tree", validate_tree, result, check_time_tree)
 
     elif "newick" in data and "nodes" in data:
         vprint.status(f"Auto-detected as single tree: {filepath}")
-        errors = validate_tree(data, vprint.level, check_time_tree)
-        validation_errors.extend(errors)
-        if not errors:
+        tree_result = validate_tree(data, vprint.level, check_time_tree)
+        result.extend(tree_result)
+        if tree_result.ok:
             vprint.verbose("  Tree schema: PASS")
 
     elif "clone_id" in data or "germline_alignment" in data:
         vprint.status(f"Auto-detected as single clone: {filepath}")
-        errors = validate_clone(data, vprint.level)
-        validation_errors.extend(errors)
-        if not errors:
+        clone_result = validate_clone(data, vprint.level)
+        result.extend(clone_result)
+        if clone_result.ok:
             vprint.verbose("  Clone schema: PASS")
 
     else:
-        validation_errors.append(
+        result.errors.append(
             "Unable to determine file type. Use --dataset, --clone(s), or --tree(s) to specify."
         )
 
-    return validation_errors
+    return result
 
 
 def validate_file(filepath, file_type=None, verbose=1, strict=False,
@@ -503,14 +503,19 @@ def validate_file(filepath, file_type=None, verbose=1, strict=False,
         return False, [f"Failed to read file: {e}"]
 
     if file_type is not None:
-        validation_errors = _validate_explicit_file_type(data, file_type, filepath, check_time_tree)
+        result = _validate_explicit_file_type(data, file_type, filepath, check_time_tree)
     else:
         if isinstance(data, list):
-            validation_errors = _auto_detect_array_type(data, filepath, check_time_tree)
+            result = _auto_detect_array_type(data, filepath, check_time_tree)
         else:
-            validation_errors = _auto_detect_object_type(data, filepath, check_time_tree)
+            result = _auto_detect_object_type(data, filepath, check_time_tree)
 
-    return len(validation_errors) == 0, validation_errors
+    # Warnings are advisory — surface them but don't fail validation (mirrors
+    # the PCP CSV path, which also prints warnings and returns errors only).
+    for warning in result.warnings:
+        vprint.status(f"  Warning: {warning}")
+
+    return result.ok, result.errors
 
 
 def _validate_csv_file(filepath, file_type=None, tree_filepath=None):

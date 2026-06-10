@@ -53,6 +53,7 @@ import ete3
 
 from .process_utils import (
     SCHEMA_VERSION,
+    _assign_branch_lengths,
     create_consolidated_data,
     dict_subset,
     is_nullable_string,
@@ -123,27 +124,28 @@ def process_tree_nodes(args, tree, nodes, reroot=False):
     if reroot:
         tree = reroot_tree(args, tree)
 
-    def process_node(node):
+    result = []
+    index = {}
+    for node in tree.traverse("postorder"):
         datum = nodes.get(node.name, {})
-        datum["type"] = "leaf" if node.is_leaf() else "node"
-        datum.update(nodes.get(node.name, {}))
         if node.up:
+            datum["type"] = "leaf" if node.is_leaf() else "node"
             datum["parent"] = node.up.name
-            datum["length"] = node.get_distance(node.up)
-            # Only calculate distance to naive if rooting is enabled and naive exists
-            if reroot and args.naive_name and tree.search_nodes(name=args.naive_name):
-                datum["distance"] = node.get_distance(args.naive_name)
-            else:
-                datum["distance"] = node.get_distance(tree)  # distance to root
         else:
             # node is root
             datum["type"] = "root"
             datum["parent"] = None
-            datum["length"] = 0.0
-            datum["distance"] = 0.0
-        return datum
+        result.append(datum)
+        index[node.name] = datum
 
-    return list(map(process_node, tree.traverse("postorder")))
+    # Populate per-node length/distance from the (possibly rerooted) tree,
+    # measured against its root. After reroot_tree the naive node is the root,
+    # so distance-from-root equals the former distance-to-naive. overwrite=True
+    # preserves the historical behavior of always (re)computing these from the
+    # newick rather than trusting any values on the input nodes. Shared with the
+    # merge backfill path (process_utils._assign_branch_lengths).
+    _assign_branch_lengths(tree, index, overwrite=True)
+    return result
 
 
 def process_tree(args, clone_id, tree):
@@ -522,7 +524,7 @@ def main():
                     )
                 )
             # Use unified validation from validate module
-            errors = validate_dataset(dataset, verbose=args.verbose)
+            errors = validate_dataset(dataset, verbose=args.verbose).errors
             if errors:
                 error_msg = "Dataset validation failed"
                 if args.verbose:
