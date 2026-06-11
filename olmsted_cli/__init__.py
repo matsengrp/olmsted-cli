@@ -1,11 +1,7 @@
 """Olmsted CLI - Command-line interface for Olmsted data processing."""
 
-__version__ = "0.1.0"
-
-# Re-export main API class for convenience
+# Re-export the package version, the main API class, and commonly used types.
 from .api import OlmstedData
-
-# Re-export commonly used types
 from .types import (
     OlmstedClone,
     OlmstedDataset,
@@ -13,8 +9,10 @@ from .types import (
     OlmstedOutput,
     OlmstedTree,
 )
+from .version import __version__
 
 __all__ = [
+    "__version__",
     "OlmstedData",
     "OlmstedNode",
     "OlmstedTree",

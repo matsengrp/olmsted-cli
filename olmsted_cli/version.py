@@ -1,14 +1,21 @@
 """
 Version information for olmsted-cli.
 
-Single source of truth for the package version and build hash.
-Used by --version flag, generated_by metadata, and pyproject.toml.
+The version comes from the installed package metadata, which setuptools-scm
+derives from the latest git tag at build time (see pyproject.toml). The git
+tag is the single source of truth — there is no hardcoded version here.
+Used by the --version flag and the generated_by output metadata.
 """
 
 import subprocess
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _package_version
 
-#: Package version (keep in sync with pyproject.toml)
-__version__ = "0.2.0"
+try:
+    __version__ = _package_version("olmsted-cli")
+except PackageNotFoundError:
+    # Running from a source tree that was never installed (no dist metadata).
+    __version__ = "0+unknown"
 
 
 def get_git_hash() -> str:
