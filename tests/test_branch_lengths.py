@@ -54,8 +54,9 @@ def test_named_internal_round_trip():
     assert nodes["root"]["distance"] == 0.0
 
 
-def test_unnamed_internal_graceful_skip():
-    """An unnamed internal node can't be matched: warn and leave it unset."""
+def test_empty_sequence_id_graceful_skip():
+    """A node whose sequence_id is "" can't be matched (ete skips empty names):
+    warn and leave it unset rather than colliding on the empty string."""
     tree = {
         "newick": "((A:0.1,B:0.2):0.3,naive:0.0)root;",
         "nodes": [
@@ -74,6 +75,58 @@ def test_unnamed_internal_graceful_skip():
     assert "distance" not in nodes[""]
     # Named nodes are still populated.
     assert nodes["A"]["length"] == pytest.approx(0.1, abs=1e-9)
+
+
+def test_none_sequence_id_excluded():
+    """A node with sequence_id=None is filtered out of the index entirely — no
+    match attempt, so no warning and the node is left untouched."""
+    tree = {
+        "newick": "(A:0.1,B:0.2)root;",
+        "nodes": [
+            {"sequence_id": "root", "type": "root", "parent": None},
+            {"sequence_id": None, "type": "node", "parent": "root"},
+            {"sequence_id": "A", "type": "leaf", "parent": "root"},
+        ],
+    }
+    warnings = populate_branch_lengths_from_newick(tree)
+    assert warnings == []  # None-id node never enters node_index, so no warning
+
+    none_node = next(n for n in tree["nodes"] if n["sequence_id"] is None)
+    assert "length" not in none_node
+    assert "distance" not in none_node
+
+
+def test_airr_reroot_measures_distance_from_naive():
+    """process_tree_nodes(reroot=True) reroots on the naive node and measures
+    cumulative distance from it — the path the old get_distance(naive) branch
+    handled, now routed through the shared assign_branch_lengths core."""
+    import ete3
+
+    from olmsted_cli.process_airr_data import process_tree_nodes
+
+    class _Args:
+        naive_name = "naive"
+
+    newick = "((A:0.1,B:0.2)inner:0.3,naive:0.05)root;"
+    nodes = {n: {"sequence_id": n} for n in ("A", "B", "inner", "naive", "root")}
+    out = process_tree_nodes(
+        _Args(), ete3.PhyloTree(newick, format=1), nodes, reroot=True
+    )
+    by_id = {d["sequence_id"]: d for d in out if d.get("sequence_id")}
+
+    # Naive is the rerooted origin: typed root, no parent, anchored at zero.
+    assert by_id["naive"]["type"] == "root"
+    assert by_id["naive"]["parent"] is None
+    assert by_id["naive"]["length"] == 0.0
+    assert by_id["naive"]["distance"] == 0.0
+
+    # Every other node's distance is measured from naive and is monotonic down
+    # the (rerooted) tree — i.e. distances are from-naive, not from-old-root.
+    for d in out:
+        parent_id = d.get("parent")
+        if parent_id is None or parent_id not in by_id:
+            continue
+        assert d["distance"] >= by_id[parent_id]["distance"] - 1e-9
 
 
 def test_no_clobber():

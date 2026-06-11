@@ -53,7 +53,7 @@ import ete3
 
 from .process_utils import (
     SCHEMA_VERSION,
-    _assign_branch_lengths,
+    assign_branch_lengths,
     create_consolidated_data,
     dict_subset,
     is_nullable_string,
@@ -143,8 +143,8 @@ def process_tree_nodes(args, tree, nodes, reroot=False):
     # so distance-from-root equals the former distance-to-naive. overwrite=True
     # preserves the historical behavior of always (re)computing these from the
     # newick rather than trusting any values on the input nodes. Shared with the
-    # merge backfill path (process_utils._assign_branch_lengths).
-    _assign_branch_lengths(tree, index, overwrite=True)
+    # merge backfill path (process_utils.assign_branch_lengths).
+    assign_branch_lengths(tree, index, overwrite=True)
     return result
 
 

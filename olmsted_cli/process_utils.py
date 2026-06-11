@@ -548,7 +548,7 @@ def validate_output_data(datasets, clones_dict, trees, args):
         for i, dataset in enumerate(datasets):
             result = validate_dataset(dataset, verbose=getattr(args, "verbose", False))
             for warning in result.warnings:
-                vprint.error(f"WARN: Dataset {i}: {warning}")
+                vprint.status(f"WARN: Dataset {i}: {warning}")
             if result.errors:
                 vprint.error(f"FAIL: Dataset {i} validation failed:")
                 for error in result.errors:
@@ -574,7 +574,7 @@ def validate_output_data(datasets, clones_dict, trees, args):
                     
                     result = validate_clone(clone, verbose=getattr(args, "verbose", False))
                     for warning in result.warnings:
-                        vprint.error(f"WARN: Clone {clone_id}: {warning}")
+                        vprint.status(f"WARN: Clone {clone_id}: {warning}")
                     if result.errors:
                         clone_failures += 1
                         if getattr(args, "verbose", False):
@@ -607,7 +607,7 @@ def validate_output_data(datasets, clones_dict, trees, args):
                 check_time_tree = getattr(args, 'time_tree', False)
                 result = validate_tree(tree, verbose=getattr(args, "verbose", False), check_time_tree=check_time_tree)
                 for warning in result.warnings:
-                    vprint.error(f"WARN: Tree {tree_id}: {warning}")
+                    vprint.status(f"WARN: Tree {tree_id}: {warning}")
                 if result.errors:
                     tree_failures += 1
                     if getattr(args, "verbose", False):
@@ -716,10 +716,11 @@ def validate_clone(data, verbose=False):
     return ValidationResult(errors=errors)
 
 
-def _assign_branch_lengths(ete_tree, node_index, overwrite=False):
+def assign_branch_lengths(ete_tree, node_index, overwrite=False):
     """Assign per-node ``length``/``distance`` from a parsed ete tree.
 
-    Shared core for both the merge backfill and the AIRR ingest path. For each
+    Shared core for both the merge backfill (``populate_branch_lengths_from_newick``)
+    and the AIRR ingest path (``process_airr_data.process_tree_nodes``). For each
     consolidated node matched by name (``sequence_id`` ↔ ete ``node.name``):
 
     - the root (``node.up is None``) gets ``length = distance = 0.0``;
@@ -729,7 +730,10 @@ def _assign_branch_lengths(ete_tree, node_index, overwrite=False):
 
     ``overwrite=False`` (no-clobber) only fills values that are missing/None —
     the backfill contract. ``overwrite=True`` recomputes unconditionally, which
-    is what the AIRR path has always done.
+    is what the AIRR path has always done. ``length`` and ``distance`` are
+    filled independently, so a node that already carries one but not the other
+    keeps its existing value and gains only the missing one (no-clobber is
+    per-field, not atomic).
 
     Args:
         ete_tree: Root ``ete3`` TreeNode to measure distances against.
@@ -778,10 +782,16 @@ def populate_branch_lengths_from_newick(tree):
 
     Operates in place on a consolidated tree dict (``newick`` string +
     list-shaped ``nodes``). No-clobber: values already present are left as-is.
-    A no-op when the newick carries no branch lengths (no ``:`` token) or the
-    nodes aren't a list. Nodes whose ``sequence_id`` has no matching newick node
-    are warned about and skipped rather than raising — a partially-named tree
-    degrades to a no-op with a warning instead of crashing.
+    A no-op when the newick carries no branch lengths or the nodes aren't a
+    list. Branch-length presence is detected by the ``":"`` token — Newick
+    writes lengths as ``:length`` and node labels can't contain ``":"``, so this
+    is reliable for the trees this targets. Caveat: a newick that annotates only
+    the root (e.g. ``(A,B)root:0.0;``) also contains ``":"``; ete3 then assigns
+    its default ``dist=1.0`` to the unlabeled leaves, which this would write
+    out. That shape doesn't occur in the hand-built exports this serves.
+    Nodes whose ``sequence_id`` has no matching newick node are warned about and
+    skipped rather than raising — a partially-named tree degrades to a no-op
+    with a warning instead of crashing.
 
     Args:
         tree: Consolidated tree dict with ``newick`` and ``nodes``.
@@ -795,6 +805,8 @@ def populate_branch_lengths_from_newick(tree):
     if not newick or ":" not in newick or not isinstance(nodes, list):
         return []
 
+    # ete3 is a heavy import; load it lazily so callers that never reach a
+    # branch-length-bearing tree (or never call this at all) don't pay for it.
     import ete3
 
     try:
@@ -807,7 +819,7 @@ def populate_branch_lengths_from_newick(tree):
         for n in nodes
         if isinstance(n, dict) and n.get("sequence_id") is not None
     }
-    return _assign_branch_lengths(ete_tree, node_index, overwrite=False)
+    return assign_branch_lengths(ete_tree, node_index, overwrite=False)
 
 
 def _branch_length_warnings(tree):
@@ -817,6 +829,11 @@ def _branch_length_warnings(tree):
     ``newick`` carries branch lengths yet one or more non-root nodes lack
     ``distance``/``length`` (the case where the viewer silently falls back to
     topological depth). See ``populate_branch_lengths_from_newick`` for the fix.
+
+    Scoped to list-shaped ``nodes`` — the consolidated/output tree shape this
+    advisory and the backfill both operate on. Dict-shaped nodes (raw AIRR
+    input) are skipped; by the time a tree is validated as output its nodes are
+    a list.
     """
     newick = tree.get("newick")
     nodes = tree.get("nodes")
@@ -1021,17 +1038,16 @@ def validate_consolidated_data(data, verbose=False, check_time_tree=False):
     Returns:
         ValidationResult: errors (empty if valid) and warnings.
     """
-    errors = []
-    warnings = []
+    result = ValidationResult()
 
     # Check top-level structure
     required_keys = ["metadata", "datasets", "clones", "trees"]
     for key in required_keys:
         if key not in data:
-            errors.append(f"Missing required key: {key}")
+            result.errors.append(f"Missing required key: {key}")
 
-    if errors:
-        return ValidationResult(errors=errors)
+    if result.errors:
+        return result
 
     # Validate metadata
     metadata = data.get("metadata", {})
@@ -1043,84 +1059,54 @@ def validate_consolidated_data(data, verbose=False, check_time_tree=False):
     ]
     for key in required_metadata_keys:
         if key not in metadata:
-            errors.append(f"Missing required metadata key: {key}")
+            result.errors.append(f"Missing required metadata key: {key}")
 
     # Validate format version compatibility
     format_version = metadata.get("format_version")
     if format_version and format_version != CONSOLIDATED_JSON_VERSION:
-        errors.append(f"Unsupported format version: {format_version}")
+        result.errors.append(f"Unsupported format version: {format_version}")
 
     # Validate datasets
     datasets = data.get("datasets", [])
     if not isinstance(datasets, list):
-        errors.append("'datasets' must be a list")
+        result.errors.append("'datasets' must be a list")
     else:
         for i, dataset in enumerate(datasets):
-            dataset_result = validate_dataset(dataset, verbose)
-            errors.extend(f"Dataset {i}: {e}" for e in dataset_result.errors)
-            warnings.extend(f"Dataset {i}: {w}" for w in dataset_result.warnings)
+            result.extend(validate_dataset(dataset, verbose), prefix=f"Dataset {i}: ")
 
     # Validate clones
     clones_dict = data.get("clones", {})
     if not isinstance(clones_dict, dict):
-        errors.append("'clones' must be a dictionary")
+        result.errors.append("'clones' must be a dictionary")
     else:
         # Count total clones for progress bar
         total_clones = sum(len(clones) if isinstance(clones, list) else 0 for clones in clones_dict.values())
-        
-        if total_clones > 1:  # Show progress bar if more than 1 clone
-            with tqdm(total=total_clones, desc="Validating clones", unit="clone", leave=False) as pbar:
-                for dataset_id, clones in clones_dict.items():
-                    if not isinstance(clones, list):
-                        errors.append(f"Clones for dataset '{dataset_id}' must be a list")
-                        continue
-                    for i, clone in enumerate(clones):
-                        clone_id = clone.get('clone_id', f'{dataset_id}[{i}]') if isinstance(clone, dict) else f'{dataset_id}[{i}]'
-                        pbar.set_description(f"Validating clone {clone_id}")
-                        clone_result = validate_clone(clone, verbose)
-                        errors.extend(
-                            f"Clone {dataset_id}[{i}]: {e}" for e in clone_result.errors
-                        )
-                        warnings.extend(
-                            f"Clone {dataset_id}[{i}]: {w}" for w in clone_result.warnings
-                        )
-                        pbar.update(1)
-        else:
-            # No progress bar for single clone
+
+        with tqdm(total=total_clones, desc="Validating clones", unit="clone", disable=total_clones <= 1, leave=False) as pbar:
             for dataset_id, clones in clones_dict.items():
                 if not isinstance(clones, list):
-                    errors.append(f"Clones for dataset '{dataset_id}' must be a list")
+                    result.errors.append(f"Clones for dataset '{dataset_id}' must be a list")
                     continue
                 for i, clone in enumerate(clones):
-                    clone_result = validate_clone(clone, verbose)
-                    errors.extend(
-                        f"Clone {dataset_id}[{i}]: {e}" for e in clone_result.errors
+                    clone_id = clone.get('clone_id', f'{dataset_id}[{i}]') if isinstance(clone, dict) else f'{dataset_id}[{i}]'
+                    pbar.set_description(f"Validating clone {clone_id}")
+                    result.extend(
+                        validate_clone(clone, verbose), prefix=f"Clone {dataset_id}[{i}]: "
                     )
-                    warnings.extend(
-                        f"Clone {dataset_id}[{i}]: {w}" for w in clone_result.warnings
-                    )
+                    pbar.update(1)
 
     # Validate trees
     trees = data.get("trees", [])
     if not isinstance(trees, list):
-        errors.append("'trees' must be a list")
+        result.errors.append("'trees' must be a list")
     else:
-        if len(trees) > 1:  # Show progress bar if more than 1 tree
-            with tqdm(trees, desc="Validating trees", unit="tree", leave=False) as pbar:
-                for i, tree in enumerate(pbar):
-                    tree_id = tree.get('ident', tree.get('tree_id', f'tree-{i}')) if isinstance(tree, dict) else f'tree-{i}'
-                    pbar.set_description(f"Validating tree {tree_id}")
-                    tree_result = validate_tree(tree, verbose, check_time_tree)
-                    errors.extend(f"Tree {i}: {e}" for e in tree_result.errors)
-                    warnings.extend(f"Tree {i}: {w}" for w in tree_result.warnings)
-        else:
-            # No progress bar for single tree
-            for i, tree in enumerate(trees):
-                tree_result = validate_tree(tree, verbose, check_time_tree)
-                errors.extend(f"Tree {i}: {e}" for e in tree_result.errors)
-                warnings.extend(f"Tree {i}: {w}" for w in tree_result.warnings)
+        with tqdm(trees, desc="Validating trees", unit="tree", disable=len(trees) <= 1, leave=False) as pbar:
+            for i, tree in enumerate(pbar):
+                tree_id = tree.get('ident', tree.get('tree_id', f'tree-{i}')) if isinstance(tree, dict) else f'tree-{i}'
+                pbar.set_description(f"Validating tree {tree_id}")
+                result.extend(validate_tree(tree, verbose, check_time_tree), prefix=f"Tree {i}: ")
 
-    return ValidationResult(errors=errors, warnings=warnings)
+    return result
 
 
 def _find_duplicates(values):
