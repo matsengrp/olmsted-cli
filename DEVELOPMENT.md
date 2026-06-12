@@ -223,14 +223,18 @@ ruff format .
 
 ## Release
 
-Version is in `pyproject.toml`.
+Releases are **tag-driven**: the version comes from the git tag (via
+`setuptools-scm`), and pushing a `vX.Y.Z` tag triggers a GitHub Actions
+workflow that builds and publishes to PyPI via Trusted Publishing — no manual
+`build`/`twine` and no stored tokens.
 
 ```bash
-pip install build twine
-python -m build
-twine upload dist/*
+git tag v0.4.0 && git push origin v0.4.0   # publishes to PyPI
 ```
+
+See **[RELEASING.md](RELEASING.md)** for the full flow, the TestPyPI dry-run
+path, version-number guidance, and one-time trusted-publishing setup.
 
 ---
 
-_Last updated: 2026-04-10_
+_Last updated: 2026-06-11_

@@ -34,7 +34,7 @@ def normalize_json(obj, float_tolerance=1e-12):
 # Metadata fields that record run state, not data content. Stripped before
 # comparing two consolidated outputs so the comparison is sensitive to data
 # shape and not to invocation-time flags.
-VOLATILE_METADATA_FIELDS = {"created_at", "git_hash", "processing_options"}
+VOLATILE_METADATA_FIELDS = {"created_at", "git_hash", "version", "processing_options"}
 
 
 def strip_volatile_fields(data):

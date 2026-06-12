@@ -55,6 +55,16 @@ Install using pip:
 pip install olmsted-cli
 ```
 
+### From source (development / latest)
+
+Install the latest unreleased code straight from GitHub:
+
+```bash
+pipx install git+https://github.com/matsengrp/olmsted-cli.git
+# or, for a local checkout you intend to edit:
+pip install -e ".[dev]"
+```
+
 ---
 
 ## Quick Start
