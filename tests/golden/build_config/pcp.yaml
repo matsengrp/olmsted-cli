@@ -93,7 +93,7 @@ custom_fields:
   - name: junction_length
     level: family
     type: continuous
-    label: "Junction Length"
+    label: "CDR3 Length"
     # sample values: 60, 69, 45, 39, 54, ...
   - name: locus
     level: family

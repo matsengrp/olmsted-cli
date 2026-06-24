@@ -145,7 +145,7 @@ KNOWN_CLONE_FIELDS = {
     "unique_seqs_count": {"type": "continuous", "label": "Unique Sequences Count"},
     "total_read_count": {"type": "continuous", "label": "Total Read Count"},
     "mean_mut_freq": {"type": "continuous", "label": "Mean Mutation Frequency"},
-    "junction_length": {"type": "continuous", "label": "Junction Length"},
+    "junction_length": {"type": "continuous", "label": "CDR3 Length"},
     "clone_count": {"type": "continuous", "label": "Clone Count"},
     "v_call": {"type": "categorical", "label": "V Gene"},
     "d_call": {"type": "categorical", "label": "D Gene"},

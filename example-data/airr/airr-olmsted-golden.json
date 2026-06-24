@@ -102,7 +102,7 @@
                     "junction_length": {
                         "type": "continuous",
                         "display": "dropdown",
-                        "label": "Junction Length"
+                        "label": "CDR3 Length"
                     },
                     "locus": {
                         "type": "categorical",
