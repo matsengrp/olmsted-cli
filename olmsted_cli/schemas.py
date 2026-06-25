@@ -35,6 +35,7 @@ _FIELD_ENTRY_SCHEMA = {
             "enum": _OUTPUT_DISPLAY_MODES,
         },
         "label": {"type": "string"},
+        "description": {"type": "string"},
         "range": {
             "type": "array",
             "items": {"type": "number"},
@@ -423,8 +424,8 @@ clone_spec = {
             "description": "End position of CDR3 junction",
             "type": ["integer", "null"],
         },
-        "junction_length": {
-            "description": "Length of CDR3 junction",
+        "cdr3_length": {
+            "description": "Length of the CDR3 (junction) region",
             "type": ["integer", "null"],
         },
         "germline_alignment": {

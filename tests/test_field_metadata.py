@@ -31,7 +31,7 @@ def pcp_clones():
             "v_call": "IGHV3-48*01",
             "d_call": "IGHD3-10*01",
             "j_call": "IGHJ4*02",
-            "junction_length": 51,
+            "cdr3_length": 51,
             "v_alignment_start": 0,
             "v_alignment_end": 294,
             "j_alignment_start": 300,
@@ -54,7 +54,7 @@ def pcp_clones():
             "v_call": "IGHV1-18*01",
             "d_call": "IGHD2-2*01",
             "j_call": "IGHJ6*02",
-            "junction_length": 45,
+            "cdr3_length": 45,
             "v_alignment_start": 0,
             "v_alignment_end": 290,
             "j_alignment_start": 310,
@@ -235,7 +235,10 @@ class TestGenerateCloneMetadata:
         assert meta["unique_seqs_count"]["type"] == "continuous"
         assert meta["v_call"]["type"] == "categorical"
         assert meta["mean_mut_freq"]["type"] == "continuous"
-        assert meta["junction_length"]["type"] == "continuous"
+        assert meta["cdr3_length"]["type"] == "continuous"
+        assert meta["cdr3_length"]["label"] == "CDR3 Length"
+        # Optional description from the known-field registry flows to output
+        assert meta["cdr3_length"]["description"] == "Length of the CDR3 (junction) region."
 
     def test_locus_extracted_from_sample(self, pcp_clones):
         meta = generate_clone_metadata(pcp_clones)
@@ -275,6 +278,21 @@ class TestGenerateCloneMetadata:
         meta = generate_clone_metadata(pcp_clones, custom_fields=custom)
         assert "my_metric" in meta
         assert meta["my_metric"]["type"] == "continuous"
+
+    def test_custom_field_description_flows_to_output(self, pcp_clones):
+        custom = [
+            {"name": "my_metric", "level": "clone", "type": "continuous",
+             "label": "My Metric", "description": "A bespoke per-family metric."},
+        ]
+        meta = generate_clone_metadata(pcp_clones, custom_fields=custom)
+        assert meta["my_metric"]["description"] == "A bespoke per-family metric."
+
+    def test_custom_field_without_description_omits_key(self, pcp_clones):
+        custom = [
+            {"name": "my_metric", "level": "clone", "type": "continuous", "label": "My Metric"},
+        ]
+        meta = generate_clone_metadata(pcp_clones, custom_fields=custom)
+        assert "description" not in meta["my_metric"]
 
     def test_custom_fields_wrong_level_ignored(self, pcp_clones):
         custom = [

@@ -2241,7 +2241,7 @@ def _process_family_tree(
         "cdr2_alignment_start": cdr2_start,
         "cdr2_alignment_end": cdr2_end,
         "junction_start": junction_start,
-        "junction_length": junction_length,
+        "cdr3_length": junction_length,
         # Heavy chain gene calls
         "v_call": v_call,
         "d_call": d_call,
@@ -2307,7 +2307,7 @@ def _process_family_tree(
             "cdr2_alignment_start": cdr2_start_light,
             "cdr2_alignment_end": cdr2_end_light,
             "junction_start": junction_start_light,
-            "junction_length": junction_length_light,
+            "cdr3_length": junction_length_light,
             # Light chain gene calls (no D gene)
             "v_call": v_call_light,
             "d_call": "",  # Light chains don't have D gene

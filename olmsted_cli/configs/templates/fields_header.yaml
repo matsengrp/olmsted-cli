@@ -11,6 +11,9 @@
 #   type:        continuous, categorical, aa, dna, list, or json (required)
 #   display:     dropdown (default), tooltip, or skip (optional)
 #   label:       Display label in web app (required)
+#   description: Longer help text for the field, surfaced in the web app
+#                (optional; add only where the label needs clarifying, e.g.
+#                description: "Length of the CDR3 (junction) region.")
 #   skip:        true to exclude from metadata (shorthand for display: skip)
 #   range:       [min, max] for continuous fields (optional)
 #   encoding:    list, json, or records (mutation-level only, optional)

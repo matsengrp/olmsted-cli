@@ -82,7 +82,7 @@ Each row represents one parent-child edge in a phylogenetic tree.
 | `v_gene_light` / `j_gene_light` | `v_call_light` / `j_call_light` | family | Light chain gene calls |
 | `cdr1_codon_start_heavy` / `_end` | `cdr1_alignment_start` / `_end` | family | CDR1 positions |
 | `cdr2_codon_start_heavy` / `_end` | `cdr2_alignment_start` / `_end` | family | CDR2 positions |
-| `cdr3_codon_start_heavy` / `_end` | `junction_start` / `junction_length` | family | CDR3/junction positions |
+| `cdr3_codon_start_heavy` / `_end` | `junction_start` / `cdr3_length` | family | CDR3/junction positions |
 | `parent_is_naive` | Node `type: "root"` | node | Boolean |
 | `child_is_leaf` | Node `type: "leaf"` | node | Boolean |
 | `light_chain_type` | `light_chain_type` | family | `"kappa"` or `"lambda"` |
@@ -186,7 +186,7 @@ AIRR (Adaptive Immune Receptor Repertoire) format is a single JSON file followin
 | `d_alignment_start` | No | `d_alignment_start` | 1-based → 0-based conversion |
 | `j_alignment_start` | No | `j_alignment_start` | 1-based → 0-based conversion |
 | `junction_start` | No | `junction_start` | 1-based → 0-based conversion |
-| `junction_length` | No | `junction_length` | |
+| `junction_length` | No | `cdr3_length` | Renamed from the AIRR-standard `junction_length`; value carried through unchanged |
 | `trees` | Yes | `trees` | Array of tree objects |
 
 *Required by schema validation, but processing won't crash without them.

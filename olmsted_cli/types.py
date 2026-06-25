@@ -218,7 +218,7 @@ class OlmstedClone(TypedDict, total=False):
     # Heavy chain junction (CDR3)
     junction_start: Optional[int]
     junction_end: Optional[int]
-    junction_length: Optional[int]
+    cdr3_length: Optional[int]
 
     # Germline/naive sequences
     germline_alignment: Optional[str]

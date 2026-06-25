@@ -204,6 +204,12 @@ def process_clone(args, dataset, clone):
             f"'{clone.get('sample_id')}' not found in dataset samples"
         )
 
+    # Rename the AIRR-standard junction_length to the Olmsted output field
+    # cdr3_length (the webapp's clonal-family field name). The value is
+    # carried through unchanged; only the key differs.
+    if "junction_length" in clone:
+        clone["cdr3_length"] = clone.pop("junction_length")
+
     return ensure_ident(clone, "clone", args.minter)
 
 
