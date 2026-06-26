@@ -3,7 +3,7 @@
         "format": "olmsted",
         "format_version": "1.0",
         "schema_version": "2.0.0",
-        "created_at": "2026-05-12T21:24:03.170984+00:00",
+        "created_at": "2026-06-26T17:01:01.117657+00:00",
         "source_format": "pcp",
         "source_files": [
             "input-pcp.csv"
@@ -17,7 +17,7 @@
         "generated_by": {
             "tool": "olmsted-cli",
             "version": "0.2.0",
-            "git_hash": "e567a18"
+            "git_hash": "c077fab"
         },
         "name": "pcp-byhand-example",
         "processing_options": {
@@ -60,6 +60,24 @@
             "name": "pcp-byhand-example",
             "field_metadata": {
                 "clone": {
+                    "cdr1_length": {
+                        "type": "continuous",
+                        "display": "dropdown",
+                        "label": "CDR1 Length",
+                        "description": "Length of the CDR1 region, in nucleotides."
+                    },
+                    "cdr2_length": {
+                        "type": "continuous",
+                        "display": "dropdown",
+                        "label": "CDR2 Length",
+                        "description": "Length of the CDR2 region, in nucleotides."
+                    },
+                    "cdr3_length": {
+                        "type": "continuous",
+                        "display": "dropdown",
+                        "label": "CDR3 Length",
+                        "description": "Length of the CDR3 (junction) region, in nucleotides."
+                    },
                     "d_call": {
                         "type": "categorical",
                         "display": "dropdown",
@@ -79,11 +97,6 @@
                         "type": "categorical",
                         "display": "dropdown",
                         "label": "J Gene"
-                    },
-                    "junction_length": {
-                        "type": "continuous",
-                        "display": "dropdown",
-                        "label": "Junction Length"
                     },
                     "locus": {
                         "type": "categorical",
@@ -178,8 +191,11 @@
                 "cdr1_alignment_end": 87,
                 "cdr2_alignment_start": 148,
                 "cdr2_alignment_end": 177,
-                "junction_start": 238,
-                "junction_length": 29,
+                "cdr3_alignment_start": 238,
+                "cdr3_alignment_end": 267,
+                "cdr1_length": 29,
+                "cdr2_length": 29,
+                "cdr3_length": 29,
                 "v_call": "IGHV1-1*01",
                 "d_call": "",
                 "j_call": "IGHJ1*01",
@@ -218,8 +234,11 @@
                 "cdr1_alignment_end": 57,
                 "cdr2_alignment_start": 118,
                 "cdr2_alignment_end": 147,
-                "junction_start": 208,
-                "junction_length": 29,
+                "cdr3_alignment_start": 208,
+                "cdr3_alignment_end": 237,
+                "cdr1_length": 29,
+                "cdr2_length": 29,
+                "cdr3_length": 29,
                 "v_call": "IGKV1-1*01",
                 "d_call": "",
                 "j_call": "IGKJ1*01",
@@ -258,8 +277,11 @@
                 "cdr1_alignment_end": 87,
                 "cdr2_alignment_start": 148,
                 "cdr2_alignment_end": 177,
-                "junction_start": 238,
-                "junction_length": 29,
+                "cdr3_alignment_start": 238,
+                "cdr3_alignment_end": 267,
+                "cdr1_length": 29,
+                "cdr2_length": 29,
+                "cdr3_length": 29,
                 "v_call": "IGHV2-2*01",
                 "d_call": "",
                 "j_call": "IGHJ2*01",
@@ -300,8 +322,11 @@
                 "cdr1_alignment_end": 57,
                 "cdr2_alignment_start": 118,
                 "cdr2_alignment_end": 147,
-                "junction_start": 208,
-                "junction_length": 29,
+                "cdr3_alignment_start": 208,
+                "cdr3_alignment_end": 237,
+                "cdr1_length": 29,
+                "cdr2_length": 29,
+                "cdr3_length": 29,
                 "v_call": "IGKV2-2*01",
                 "d_call": "",
                 "j_call": "IGKJ2*01",

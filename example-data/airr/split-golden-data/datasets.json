@@ -53,6 +53,12 @@
         "timepoints_count": 1,
         "field_metadata": {
             "clone": {
+                "cdr3_length": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "CDR3 Length",
+                    "description": "Length of the CDR3 (junction) region, in nucleotides."
+                },
                 "d_call": {
                     "type": "categorical",
                     "display": "dropdown",
@@ -67,11 +73,6 @@
                     "type": "categorical",
                     "display": "dropdown",
                     "label": "J Gene"
-                },
-                "junction_length": {
-                    "type": "continuous",
-                    "display": "dropdown",
-                    "label": "Junction Length"
                 },
                 "locus": {
                     "type": "categorical",

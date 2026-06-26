@@ -83,8 +83,8 @@ class OlmstedNode(TypedDict, total=False):
     j_call: Optional[str]
 
     # Sequence variants
-    junction: Optional[str]  # CDR3 junction nucleotide
-    junction_aa: Optional[str]  # CDR3 junction amino acid
+    cdr3_sequence: Optional[str]  # CDR3 (junction) nucleotide sequence
+    cdr3_sequence_aa: Optional[str]  # CDR3 (junction) amino acid sequence
     aa_sequence: Optional[str]  # Full AA sequence
 
     # Sample/timepoint info
@@ -129,8 +129,8 @@ class OlmstedTree(TypedDict, total=False):
 
     # Tree statistics
     diversity: Optional[float]  # Mean distance to MRCA
-    min_junction_length: Optional[float]
-    max_junction_length: Optional[float]
+    min_cdr3_length: Optional[float]
+    max_cdr3_length: Optional[float]
 
     # Processing info
     downsampling_strategy: Optional[str]
@@ -209,16 +209,18 @@ class OlmstedClone(TypedDict, total=False):
     j_germline_start: Optional[int]
     j_germline_end: Optional[int]
 
-    # Heavy chain CDR positions
+    # Heavy chain CDR alignment positions
     cdr1_alignment_start: Optional[int]
     cdr1_alignment_end: Optional[int]
     cdr2_alignment_start: Optional[int]
     cdr2_alignment_end: Optional[int]
+    cdr3_alignment_start: Optional[int]
+    cdr3_alignment_end: Optional[int]
 
-    # Heavy chain junction (CDR3)
-    junction_start: Optional[int]
-    junction_end: Optional[int]
-    junction_length: Optional[int]
+    # Heavy chain CDR region lengths (nucleotides)
+    cdr1_length: Optional[int]
+    cdr2_length: Optional[int]
+    cdr3_length: Optional[int]
 
     # Germline/naive sequences
     germline_alignment: Optional[str]
@@ -255,15 +257,18 @@ class OlmstedClone(TypedDict, total=False):
     v_call_light: Optional[str]
     j_call_light: Optional[str]
 
-    # Light chain CDR positions
+    # Light chain CDR alignment positions
     cdr1_alignment_start_light: Optional[int]
     cdr1_alignment_end_light: Optional[int]
     cdr2_alignment_start_light: Optional[int]
     cdr2_alignment_end_light: Optional[int]
+    cdr3_alignment_start_light: Optional[int]
+    cdr3_alignment_end_light: Optional[int]
 
-    # Light chain junction
-    junction_start_light: Optional[int]
-    junction_length_light: Optional[int]
+    # Light chain CDR region lengths (nucleotides)
+    cdr1_length_light: Optional[int]
+    cdr2_length_light: Optional[int]
+    cdr3_length_light: Optional[int]
 
     # Light chain germline
     germline_alignment_light: Optional[str]

@@ -62,6 +62,24 @@
         "name": "pcp-example",
         "field_metadata": {
             "clone": {
+                "cdr1_length": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "CDR1 Length",
+                    "description": "Length of the CDR1 region, in nucleotides."
+                },
+                "cdr2_length": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "CDR2 Length",
+                    "description": "Length of the CDR2 region, in nucleotides."
+                },
+                "cdr3_length": {
+                    "type": "continuous",
+                    "display": "dropdown",
+                    "label": "CDR3 Length",
+                    "description": "Length of the CDR3 (junction) region, in nucleotides."
+                },
                 "d_call": {
                     "type": "categorical",
                     "display": "dropdown",
@@ -76,11 +94,6 @@
                     "type": "categorical",
                     "display": "dropdown",
                     "label": "J Gene"
-                },
-                "junction_length": {
-                    "type": "continuous",
-                    "display": "dropdown",
-                    "label": "Junction Length"
                 },
                 "locus": {
                     "type": "categorical",

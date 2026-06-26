@@ -484,7 +484,7 @@ class OlmstedData:
                     "j_call": clone.get("j_call"),
                     "junction": clone.get("cdr3_sequence"),
                     "junction_aa": None,
-                    "junction_length": clone.get("junction_length"),
+                    "junction_length": clone.get("cdr3_length"),
                 }
 
                 # Add trees inline if present

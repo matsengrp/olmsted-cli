@@ -225,6 +225,8 @@ def _apply_custom_fields(metadata, custom_fields, level, data_dicts=None):
         output_key = cf.get("output_name", cf["name"])
         display = cf.get("display", "dropdown")
         entry = {"type": cf["type"], "display": display, "label": cf["label"]}
+        if cf.get("description"):
+            entry["description"] = cf["description"]
 
         # If path is specified and we have data, verify the field exists
         # via path resolution. If it doesn't exist, still register it
@@ -310,14 +312,17 @@ get_nested_value = _get_nested_value
 def entry_from_known(known: Dict) -> Dict:
     """Build a field_metadata entry from a known fields registry entry.
 
-    Copies type, display, and label. Omits path (internal routing only).
-    Defaults display to 'dropdown' if not specified.
+    Copies type, display, label, and the optional description. Omits path
+    (internal routing only). Defaults display to 'dropdown' if not specified.
     """
-    return {
+    entry = {
         "type": known["type"],
         "display": known.get("display", "dropdown"),
         "label": known["label"],
     }
+    if known.get("description"):
+        entry["description"] = known["description"]
+    return entry
 
 
 # =============================================================================

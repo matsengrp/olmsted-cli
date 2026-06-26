@@ -373,6 +373,8 @@ def _should_skip(field, dicts=None, no_skip=False, skip_all=False):
 def _make_field_entry(name, level, entry, skip=False, encoding=None, source=None):
     """Build a custom_fields dict entry matching load_config() format."""
     d = {"name": name, "level": level, "type": entry["type"], "label": entry["label"]}
+    if entry.get("description"):
+        d["description"] = entry["description"]
     # Apply cross-format aliases (e.g., rearrangement_count → unique_seqs_count)
     alias = FIELD_ALIASES.get(name)
     if alias and alias != name:
@@ -537,6 +539,19 @@ def generate_default_config(
     return fields
 
 
+def _yaml_entry(cf):
+    """Build the minimal entry dict (type/display/label/description) that
+    ``_format_field_block`` renders, from a custom_fields declaration."""
+    entry = {
+        "type": cf["type"],
+        "display": cf.get("display", "dropdown"),
+        "label": cf["label"],
+    }
+    if cf.get("description"):
+        entry["description"] = cf["description"]
+    return entry
+
+
 def _format_field_block(
     name, level, entry, sample_values=None, field_range=None,
     skip=False, encoding=None, source=None,
@@ -562,6 +577,8 @@ def _format_field_block(
     if display != "dropdown":
         lines.append(f"    display: {display}")
     lines.append(f"    label: \"{entry['label']}\"")
+    if entry.get("description"):
+        lines.append(f"    description: \"{entry['description']}\"")
     if field_range:
         lines.append(f"    # range in data: [{field_range[0]}, {field_range[1]}]")
         lines.append(f"    # range: [{field_range[0]}, {field_range[1]}]  # uncomment to set color scale domain")
@@ -693,24 +710,21 @@ def _build_yaml(
                 lines.append("  # The following fields are derived by the web app from")
                 lines.append("  # parent/child sequence alignments during rendering:")
                 for cf in derived_aa:
-                    entry = {"type": cf["type"], "display": cf.get("display", "dropdown"),
-                             "label": cf["label"]}
+                    entry = _yaml_entry(cf)
                     lines.append(_format_field_block(cf["name"], yaml_level, entry))
 
             if demoted:
                 lines.append("  # The following fields were detected as per-position data")
                 lines.append("  # stored on nodes (demoted from node to mutation level):")
                 for cf in demoted:
-                    entry = {"type": cf["type"], "display": cf.get("display", "dropdown"),
-                             "label": cf["label"]}
+                    entry = _yaml_entry(cf)
                     lines.append(_format_field_block(
                         cf["name"], yaml_level, entry,
                         encoding=cf.get("encoding"), source=cf.get("source"),
                     ))
 
             for cf in regular:
-                entry = {"type": cf["type"], "display": cf.get("display", "dropdown"),
-                         "label": cf["label"]}
+                entry = _yaml_entry(cf)
                 samples = _get_sample_values_for_field(cf, all_clones, all_nodes, all_mutations)
                 field_range = None
                 if entry["type"] == "continuous":
@@ -721,14 +735,12 @@ def _build_yaml(
             lines.append("")
             lines.append(level_headers[level])
             for cf in active:
-                entry = {"type": cf["type"], "display": cf.get("display", "dropdown"),
-                         "label": cf["label"]}
+                entry = _yaml_entry(cf)
                 samples = _get_sample_values_for_field(cf, all_clones, all_nodes, all_mutations)
                 lines.append(_format_field_block(cf["name"], yaml_level, entry, samples))
 
         for cf in skipped:
-            entry = {"type": cf["type"], "display": cf.get("display", "dropdown"),
-                     "label": cf["label"]}
+            entry = _yaml_entry(cf)
             samples = _get_sample_values_for_field(cf, all_clones, all_nodes, all_mutations)
             skip_entries.append((cf["name"], yaml_level, entry, samples, None))
 

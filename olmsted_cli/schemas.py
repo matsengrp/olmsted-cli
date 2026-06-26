@@ -35,6 +35,7 @@ _FIELD_ENTRY_SCHEMA = {
             "enum": _OUTPUT_DISPLAY_MODES,
         },
         "label": {"type": "string"},
+        "description": {"type": "string"},
         "range": {
             "type": "array",
             "items": {"type": "number"},
@@ -150,12 +151,12 @@ node_spec = {
             "description": "Full amino acid sequence",
             "type": ["string", "null"],
         },
-        "junction": {
-            "description": "CDR3 junction nucleotide sequence",
+        "cdr3_sequence": {
+            "description": "CDR3 (junction) nucleotide sequence",
             "type": ["string", "null"],
         },
-        "junction_aa": {
-            "description": "CDR3 junction amino acid sequence",
+        "cdr3_sequence_aa": {
+            "description": "CDR3 (junction) amino acid sequence",
             "type": ["string", "null"],
         },
         "v_call": {
@@ -236,12 +237,12 @@ tree_spec = {
             "description": "Mean distance from all tree nodes to their most recent common ancestor",
             "type": ["number", "null"],
         },
-        "min_junction_length": {
-            "description": "Minimum CDR3 junction nucleotide length",
+        "min_cdr3_length": {
+            "description": "Minimum CDR3 (junction) length, in nucleotides",
             "type": ["number", "null"],
         },
-        "max_junction_length": {
-            "description": "Maximum CDR3 junction nucleotide length",
+        "max_cdr3_length": {
+            "description": "Maximum CDR3 (junction) length, in nucleotides",
             "type": ["number", "null"],
         },
         "sample_id": {
@@ -415,16 +416,24 @@ clone_spec = {
             "description": "End position in the J gene alignment",
             "type": "integer",
         },
-        "junction_start": {
-            "description": "Start position of CDR3 junction",
+        "cdr3_alignment_start": {
+            "description": "Start position of the CDR3 (junction) region",
             "type": ["integer", "null"],
         },
-        "junction_end": {
-            "description": "End position of CDR3 junction",
+        "cdr3_alignment_end": {
+            "description": "End position of the CDR3 (junction) region",
             "type": ["integer", "null"],
         },
-        "junction_length": {
-            "description": "Length of CDR3 junction",
+        "cdr1_length": {
+            "description": "Length of the CDR1 region, in nucleotides",
+            "type": ["integer", "null"],
+        },
+        "cdr2_length": {
+            "description": "Length of the CDR2 region, in nucleotides",
+            "type": ["integer", "null"],
+        },
+        "cdr3_length": {
+            "description": "Length of the CDR3 (junction) region, in nucleotides",
             "type": ["integer", "null"],
         },
         "germline_alignment": {

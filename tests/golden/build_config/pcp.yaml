@@ -47,6 +47,9 @@ format: pcp
 #   type:        continuous, categorical, aa, dna, list, or json (required)
 #   display:     dropdown (default), tooltip, or skip (optional)
 #   label:       Display label in web app (required)
+#   description: Longer help text for the field, surfaced in the web app
+#                (optional; add only where the label needs clarifying, e.g.
+#                description: "Length of the CDR3 (junction) region.")
 #   skip:        true to exclude from metadata (shorthand for display: skip)
 #   range:       [min, max] for continuous fields (optional)
 #   encoding:    list, json, or records (mutation-level only, optional)
@@ -75,6 +78,24 @@ format: pcp
 custom_fields:
 
   # --- Family level (clonal family — scatterplot axes, color, facet) ---
+  - name: cdr1_length
+    level: family
+    type: continuous
+    label: "CDR1 Length"
+    description: "Length of the CDR1 region, in nucleotides."
+    # sample values: 21, 21, 27, 21, 21, ...
+  - name: cdr2_length
+    level: family
+    type: continuous
+    label: "CDR2 Length"
+    description: "Length of the CDR2 region, in nucleotides."
+    # sample values: 21, 27, 18, 21, 21, ...
+  - name: cdr3_length
+    level: family
+    type: continuous
+    label: "CDR3 Length"
+    description: "Length of the CDR3 (junction) region, in nucleotides."
+    # sample values: 60, 69, 45, 39, 54, ...
   - name: d_call
     level: family
     type: categorical
@@ -90,11 +111,6 @@ custom_fields:
     type: categorical
     label: "J Gene"
     # sample values: IGHJ4*02, IGHJ6*02, IGHJ3*02, IGHJ4*02, IGHJ3*01, ...
-  - name: junction_length
-    level: family
-    type: continuous
-    label: "Junction Length"
-    # sample values: 60, 69, 45, 39, 54, ...
   - name: locus
     level: family
     type: categorical
@@ -196,6 +212,18 @@ custom_fields:
     type: continuous
     label: "CDR2 Alignment Start"
     # sample values: 150, 150, 156, 150, 150, ...
+  - name: cdr3_alignment_end
+    level: family
+    skip: true
+    type: continuous
+    label: "CDR3 Alignment End"
+    # sample values: 348, 363, 336, 327, 342, ...
+  - name: cdr3_alignment_start
+    level: family
+    skip: true
+    type: continuous
+    label: "CDR3 Alignment Start"
+    # sample values: 288, 294, 291, 288, 288, ...
   - name: clone_id
     level: family
     skip: true
@@ -238,12 +266,6 @@ custom_fields:
     type: continuous
     label: "J Alignment Start"
     # sample values: 0, 0, 0, 0, 0, ...
-  - name: junction_start
-    level: family
-    skip: true
-    type: continuous
-    label: "Junction Start"
-    # sample values: 288, 294, 291, 288, 288, ...
   - name: v_alignment_end
     level: family
     skip: true
