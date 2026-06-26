@@ -145,10 +145,20 @@ KNOWN_CLONE_FIELDS = {
     "unique_seqs_count": {"type": "continuous", "label": "Unique Sequences Count"},
     "total_read_count": {"type": "continuous", "label": "Total Read Count"},
     "mean_mut_freq": {"type": "continuous", "label": "Mean Mutation Frequency"},
+    "cdr1_length": {
+        "type": "continuous",
+        "label": "CDR1 Length",
+        "description": "Length of the CDR1 region, in nucleotides.",
+    },
+    "cdr2_length": {
+        "type": "continuous",
+        "label": "CDR2 Length",
+        "description": "Length of the CDR2 region, in nucleotides.",
+    },
     "cdr3_length": {
         "type": "continuous",
         "label": "CDR3 Length",
-        "description": "Length of the CDR3 (junction) region.",
+        "description": "Length of the CDR3 (junction) region, in nucleotides.",
     },
     "clone_count": {"type": "continuous", "label": "Clone Count"},
     "v_call": {"type": "categorical", "label": "V Gene"},
@@ -283,7 +293,7 @@ EXCLUDED_NODE_FIELDS = {
     # Sequences (long strings)
     "sequence_alignment", "sequence_alignment_aa",
     "sequence_alignment_light", "sequence_alignment_light_aa",
-    "aa_sequence", "junction", "junction_aa",
+    "aa_sequence", "cdr3_sequence", "cdr3_sequence_aa",
     # The mutations array itself (sub-fields are mutation-level)
     "mutations",
     # Multiplicity arrays (complex objects, not scalar)
@@ -416,6 +426,10 @@ FIELD_ALIASES = {
     "rearrangement_count": "unique_seqs_count",
     "sampled_seqs_count": "unique_seqs_count",
     "junction_length": "cdr3_length",
+    "junction_start": "cdr3_start",
+    "junction_end": "cdr3_end",
+    "junction": "cdr3_sequence",
+    "junction_aa": "cdr3_sequence_aa",
     "size": "total_read_count",
     "branch_length": "length",
     "mut_to": "child_aa",
@@ -445,8 +459,8 @@ SUGGESTED_SKIP_FIELDS = {
     "cdr2_alignment_start", "cdr2_alignment_end",
     "cdr1_alignment_start_light", "cdr1_alignment_end_light",
     "cdr2_alignment_start_light", "cdr2_alignment_end_light",
-    "junction_start", "junction_end",
-    "junction_start_light", "junction_length_light",
+    "cdr3_start", "cdr3_end",
+    "cdr3_start_light", "cdr3_length_light",
 }
 
 #: Suggested display mode overrides for build-config output.

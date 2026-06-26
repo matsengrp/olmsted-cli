@@ -238,7 +238,18 @@ class TestGenerateCloneMetadata:
         assert meta["cdr3_length"]["type"] == "continuous"
         assert meta["cdr3_length"]["label"] == "CDR3 Length"
         # Optional description from the known-field registry flows to output
-        assert meta["cdr3_length"]["description"] == "Length of the CDR3 (junction) region."
+        assert meta["cdr3_length"]["description"] == "Length of the CDR3 (junction) region, in nucleotides."
+
+    def test_cdr_length_known_fields(self):
+        clones = [
+            {"clone_id": "c1", "unique_seqs_count": 3, "mean_mut_freq": 0.1,
+             "cdr1_length": 24, "cdr2_length": 18, "cdr3_length": 60},
+        ]
+        meta = generate_clone_metadata(clones)
+        assert meta["cdr1_length"]["label"] == "CDR1 Length"
+        assert meta["cdr2_length"]["label"] == "CDR2 Length"
+        assert meta["cdr1_length"]["description"] == "Length of the CDR1 region, in nucleotides."
+        assert meta["cdr2_length"]["description"] == "Length of the CDR2 region, in nucleotides."
 
     def test_locus_extracted_from_sample(self, pcp_clones):
         meta = generate_clone_metadata(pcp_clones)

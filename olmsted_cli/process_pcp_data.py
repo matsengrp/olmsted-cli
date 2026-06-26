@@ -2005,8 +2005,12 @@ def _process_family_tree(
         )
         j_alignment_end = 0
 
-    junction_start = cdr3_start
-    junction_length = (cdr3_end - cdr3_start) if (cdr3_end > cdr3_start) else 0
+    # CDR region lengths. The input positions are already nucleotide
+    # coordinates (the "codon" column names are a misnomer), so the length
+    # is end - start with no codon->nt conversion.
+    cdr1_length = (cdr1_end - cdr1_start) if (cdr1_end > cdr1_start) else 0
+    cdr2_length = (cdr2_end - cdr2_start) if (cdr2_end > cdr2_start) else 0
+    cdr3_length = (cdr3_end - cdr3_start) if (cdr3_end > cdr3_start) else 0
 
     # Extract light chain data for paired format
     v_call_light = family_meta.get("v_gene_light", "") if is_paired else ""
@@ -2021,8 +2025,9 @@ def _process_family_tree(
     cdr3_start_light = family_meta.get("cdr3_start_light", 0) if is_paired else 0
     cdr3_end_light = family_meta.get("cdr3_end_light", 0) if is_paired else 0
 
-    junction_start_light = cdr3_start_light
-    junction_length_light = (cdr3_end_light - cdr3_start_light) if (cdr3_end_light > cdr3_start_light) else 0
+    cdr1_length_light = (cdr1_end_light - cdr1_start_light) if (cdr1_end_light > cdr1_start_light) else 0
+    cdr2_length_light = (cdr2_end_light - cdr2_start_light) if (cdr2_end_light > cdr2_start_light) else 0
+    cdr3_length_light = (cdr3_end_light - cdr3_start_light) if (cdr3_end_light > cdr3_start_light) else 0
 
     # Rate scaling factors (from trees.csv)
     rate_scale_heavy = family_meta.get("rate_scale_heavy", 1.0)
@@ -2240,8 +2245,10 @@ def _process_family_tree(
         "cdr1_alignment_end": cdr1_end,
         "cdr2_alignment_start": cdr2_start,
         "cdr2_alignment_end": cdr2_end,
-        "junction_start": junction_start,
-        "cdr3_length": junction_length,
+        "cdr3_start": cdr3_start,
+        "cdr1_length": cdr1_length,
+        "cdr2_length": cdr2_length,
+        "cdr3_length": cdr3_length,
         # Heavy chain gene calls
         "v_call": v_call,
         "d_call": d_call,
@@ -2306,8 +2313,10 @@ def _process_family_tree(
             "cdr1_alignment_end": cdr1_end_light,
             "cdr2_alignment_start": cdr2_start_light,
             "cdr2_alignment_end": cdr2_end_light,
-            "junction_start": junction_start_light,
-            "cdr3_length": junction_length_light,
+            "cdr3_start": cdr3_start_light,
+            "cdr1_length": cdr1_length_light,
+            "cdr2_length": cdr2_length_light,
+            "cdr3_length": cdr3_length_light,
             # Light chain gene calls (no D gene)
             "v_call": v_call_light,
             "d_call": "",  # Light chains don't have D gene

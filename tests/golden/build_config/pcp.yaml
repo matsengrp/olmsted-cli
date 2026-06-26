@@ -78,11 +78,23 @@ format: pcp
 custom_fields:
 
   # --- Family level (clonal family — scatterplot axes, color, facet) ---
+  - name: cdr1_length
+    level: family
+    type: continuous
+    label: "CDR1 Length"
+    description: "Length of the CDR1 region, in nucleotides."
+    # sample values: 21, 21, 27, 21, 21, ...
+  - name: cdr2_length
+    level: family
+    type: continuous
+    label: "CDR2 Length"
+    description: "Length of the CDR2 region, in nucleotides."
+    # sample values: 21, 27, 18, 21, 21, ...
   - name: cdr3_length
     level: family
     type: continuous
     label: "CDR3 Length"
-    description: "Length of the CDR3 (junction) region."
+    description: "Length of the CDR3 (junction) region, in nucleotides."
     # sample values: 60, 69, 45, 39, 54, ...
   - name: d_call
     level: family
@@ -200,6 +212,12 @@ custom_fields:
     type: continuous
     label: "CDR2 Alignment Start"
     # sample values: 150, 150, 156, 150, 150, ...
+  - name: cdr3_start
+    level: family
+    skip: true
+    type: continuous
+    label: "CDR3 Start"
+    # sample values: 288, 294, 291, 288, 288, ...
   - name: clone_id
     level: family
     skip: true
@@ -242,12 +260,6 @@ custom_fields:
     type: continuous
     label: "J Alignment Start"
     # sample values: 0, 0, 0, 0, 0, ...
-  - name: junction_start
-    level: family
-    skip: true
-    type: continuous
-    label: "Junction Start"
-    # sample values: 288, 294, 291, 288, 288, ...
   - name: v_alignment_end
     level: family
     skip: true

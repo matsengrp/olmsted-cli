@@ -81,7 +81,7 @@ custom_fields:
     level: family
     type: continuous
     label: "CDR3 Length"
-    description: "Length of the CDR3 (junction) region."
+    description: "Length of the CDR3 (junction) region, in nucleotides."
     # sample values: 51, 63, 48, 60, 81, ...
   - name: d_call
     level: family
@@ -215,6 +215,12 @@ custom_fields:
   # Skipped fields (not included in output metadata)
   # Remove 'skip: true' to include a field, or delete the entry
   # =================================================================
+  - name: cdr3_start
+    level: family
+    skip: true
+    type: continuous
+    label: "CDR3 Start"
+    # sample values: 285, 285, 285, 285, 285, ...
   - name: clone_id
     level: family
     skip: true
@@ -257,12 +263,6 @@ custom_fields:
     type: continuous
     label: "J Alignment Start"
     # sample values: 324, 329, 316, 329, 362, ...
-  - name: junction_start
-    level: family
-    skip: true
-    type: continuous
-    label: "Junction Start"
-    # sample values: 285, 285, 285, 285, 285, ...
   - name: partition
     level: family
     skip: true

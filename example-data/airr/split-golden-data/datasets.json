@@ -57,7 +57,7 @@
                     "type": "continuous",
                     "display": "dropdown",
                     "label": "CDR3 Length",
-                    "description": "Length of the CDR3 (junction) region."
+                    "description": "Length of the CDR3 (junction) region, in nucleotides."
                 },
                 "d_call": {
                     "type": "categorical",

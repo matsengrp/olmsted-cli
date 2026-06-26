@@ -204,11 +204,25 @@ def process_clone(args, dataset, clone):
             f"'{clone.get('sample_id')}' not found in dataset samples"
         )
 
-    # Rename the AIRR-standard junction_length to the Olmsted output field
-    # cdr3_length (the webapp's clonal-family field name). The value is
-    # carried through unchanged; only the key differs.
-    if "junction_length" in clone:
-        clone["cdr3_length"] = clone.pop("junction_length")
+    # Map the AIRR-standard junction_* fields onto the Olmsted output names
+    # (cdr3_*), the webapp's clonal-family field names. Values carry through
+    # unchanged; junction_start was already converted to 0-based above.
+    for src, dst in (
+        ("junction_start", "cdr3_start"),
+        ("junction_end", "cdr3_end"),
+        ("junction_length", "cdr3_length"),
+    ):
+        if src in clone:
+            clone[dst] = clone.pop(src)
+
+    # Derive CDR region lengths from alignment positions when both bounds are
+    # present. AIRR rarely carries CDR1/CDR2 positions, but honor them if it
+    # does. Positions are nucleotide coordinates, so length = end - start.
+    for region in ("cdr1", "cdr2"):
+        start = clone.get(f"{region}_alignment_start")
+        end = clone.get(f"{region}_alignment_end")
+        if isinstance(start, int) and isinstance(end, int) and end > start:
+            clone[f"{region}_length"] = end - start
 
     return ensure_ident(clone, "clone", args.minter)
 

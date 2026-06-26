@@ -24,45 +24,6 @@
                 "commit": "dasm2-surprise-export"
             },
             "field_metadata": {
-                "clone": {
-                    "v_call": {
-                        "type": "categorical",
-                        "display": "dropdown",
-                        "label": "V Gene"
-                    },
-                    "mean_mut_freq": {
-                        "type": "continuous",
-                        "display": "dropdown",
-                        "label": "Mean Mutation Frequency"
-                    },
-                    "sample_id": {
-                        "type": "categorical",
-                        "display": "dropdown",
-                        "label": "Sample"
-                    },
-                    "unique_seqs_count": {
-                        "type": "continuous",
-                        "display": "dropdown",
-                        "label": "Unique Sequences Count"
-                    },
-                    "mean_surprise_mutsel": {
-                        "type": "continuous",
-                        "display": "dropdown",
-                        "label": "Mean Surprise MutSel"
-                    },
-                    "num_mutations": {
-                        "type": "continuous",
-                        "display": "dropdown",
-                        "label": "Num Mutations"
-                    }
-                },
-                "node": {
-                    "distance": {
-                        "type": "continuous",
-                        "display": "dropdown",
-                        "label": "Distance from Root"
-                    }
-                },
                 "branch": {
                     "length": {
                         "type": "continuous",
@@ -134,6 +95,45 @@
                             1.785271170383436,
                             4.296273804184067
                         ]
+                    }
+                },
+                "clone": {
+                    "v_call": {
+                        "type": "categorical",
+                        "display": "dropdown",
+                        "label": "V Gene"
+                    },
+                    "mean_mut_freq": {
+                        "type": "continuous",
+                        "display": "dropdown",
+                        "label": "Mean Mutation Frequency"
+                    },
+                    "sample_id": {
+                        "type": "categorical",
+                        "display": "dropdown",
+                        "label": "Sample"
+                    },
+                    "unique_seqs_count": {
+                        "type": "continuous",
+                        "display": "dropdown",
+                        "label": "Unique Sequences Count"
+                    },
+                    "mean_surprise_mutsel": {
+                        "type": "continuous",
+                        "display": "dropdown",
+                        "label": "Mean Surprise MutSel"
+                    },
+                    "num_mutations": {
+                        "type": "continuous",
+                        "display": "dropdown",
+                        "label": "Num Mutations"
+                    }
+                },
+                "node": {
+                    "distance": {
+                        "type": "continuous",
+                        "display": "dropdown",
+                        "label": "Distance from Root"
                     }
                 }
             }
