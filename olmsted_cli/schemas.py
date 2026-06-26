@@ -416,11 +416,11 @@ clone_spec = {
             "description": "End position in the J gene alignment",
             "type": "integer",
         },
-        "cdr3_start": {
+        "cdr3_alignment_start": {
             "description": "Start position of the CDR3 (junction) region",
             "type": ["integer", "null"],
         },
-        "cdr3_end": {
+        "cdr3_alignment_end": {
             "description": "End position of the CDR3 (junction) region",
             "type": ["integer", "null"],
         },

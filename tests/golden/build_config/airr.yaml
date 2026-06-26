@@ -215,11 +215,11 @@ custom_fields:
   # Skipped fields (not included in output metadata)
   # Remove 'skip: true' to include a field, or delete the entry
   # =================================================================
-  - name: cdr3_start
+  - name: cdr3_alignment_start
     level: family
     skip: true
     type: continuous
-    label: "CDR3 Start"
+    label: "CDR3 Alignment Start"
     # sample values: 285, 285, 285, 285, 285, ...
   - name: clone_id
     level: family

@@ -212,11 +212,17 @@ custom_fields:
     type: continuous
     label: "CDR2 Alignment Start"
     # sample values: 150, 150, 156, 150, 150, ...
-  - name: cdr3_start
+  - name: cdr3_alignment_end
     level: family
     skip: true
     type: continuous
-    label: "CDR3 Start"
+    label: "CDR3 Alignment End"
+    # sample values: 348, 363, 336, 327, 342, ...
+  - name: cdr3_alignment_start
+    level: family
+    skip: true
+    type: continuous
+    label: "CDR3 Alignment Start"
     # sample values: 288, 294, 291, 288, 288, ...
   - name: clone_id
     level: family

@@ -80,9 +80,9 @@ Each row represents one parent-child edge in a phylogenetic tree.
 | `d_gene_heavy` | `d_call` | family | D gene assignment |
 | `j_gene_heavy` | `j_call` | family | J gene assignment |
 | `v_gene_light` / `j_gene_light` | `v_call_light` / `j_call_light` | family | Light chain gene calls |
-| `cdr1_codon_start_heavy` / `_end` | `cdr1_alignment_start` / `_end`, `cdr1_length` | family | CDR1 positions; `cdr1_length` = end − start (nucleotides) |
-| `cdr2_codon_start_heavy` / `_end` | `cdr2_alignment_start` / `_end`, `cdr2_length` | family | CDR2 positions; `cdr2_length` = end − start (nucleotides) |
-| `cdr3_codon_start_heavy` / `_end` | `cdr3_start`, `cdr3_length` | family | CDR3 (junction) position + length (nucleotides). Despite the `_codon_` column name, the input values are nucleotide coordinates. |
+| `cdr1_codon_start_heavy` / `_end` | `cdr1_alignment_start` / `_end`, `cdr1_length` | family | CDR1 positions + length; `cdr1_length` = end − start (nucleotides) |
+| `cdr2_codon_start_heavy` / `_end` | `cdr2_alignment_start` / `_end`, `cdr2_length` | family | CDR2 positions + length; `cdr2_length` = end − start (nucleotides) |
+| `cdr3_codon_start_heavy` / `_end` | `cdr3_alignment_start` / `_end`, `cdr3_length` | family | CDR3 (junction) positions + length (nucleotides). Despite the `_codon_` column name, the input values are nucleotide coordinates. |
 | `parent_is_naive` | Node `type: "root"` | node | Boolean |
 | `child_is_leaf` | Node `type: "leaf"` | node | Boolean |
 | `light_chain_type` | `light_chain_type` | family | `"kappa"` or `"lambda"` |
@@ -185,7 +185,7 @@ AIRR (Adaptive Immune Receptor Repertoire) format is a single JSON file followin
 | `v_alignment_start` | No | `v_alignment_start` | 1-based → 0-based conversion |
 | `d_alignment_start` | No | `d_alignment_start` | 1-based → 0-based conversion |
 | `j_alignment_start` | No | `j_alignment_start` | 1-based → 0-based conversion |
-| `junction_start` | No | `cdr3_start` | 1-based → 0-based conversion, then renamed from the AIRR-standard `junction_start` |
+| `junction_start` | No | `cdr3_alignment_start` | 1-based → 0-based conversion, then renamed from the AIRR-standard `junction_start` |
 | `junction_length` | No | `cdr3_length` | Renamed from the AIRR-standard `junction_length`; value (nucleotides) carried through unchanged |
 | `trees` | Yes | `trees` | Array of tree objects |
 

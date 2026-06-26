@@ -426,8 +426,8 @@ FIELD_ALIASES = {
     "rearrangement_count": "unique_seqs_count",
     "sampled_seqs_count": "unique_seqs_count",
     "junction_length": "cdr3_length",
-    "junction_start": "cdr3_start",
-    "junction_end": "cdr3_end",
+    "junction_start": "cdr3_alignment_start",
+    "junction_end": "cdr3_alignment_end",
     "junction": "cdr3_sequence",
     "junction_aa": "cdr3_sequence_aa",
     "size": "total_read_count",
@@ -457,10 +457,10 @@ SUGGESTED_SKIP_FIELDS = {
     "j_germline_start", "j_germline_end",
     "cdr1_alignment_start", "cdr1_alignment_end",
     "cdr2_alignment_start", "cdr2_alignment_end",
+    "cdr3_alignment_start", "cdr3_alignment_end",
     "cdr1_alignment_start_light", "cdr1_alignment_end_light",
     "cdr2_alignment_start_light", "cdr2_alignment_end_light",
-    "cdr3_start", "cdr3_end",
-    "cdr3_start_light", "cdr3_length_light",
+    "cdr3_alignment_start_light", "cdr3_alignment_end_light",
 }
 
 #: Suggested display mode overrides for build-config output.
