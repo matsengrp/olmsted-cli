@@ -14,6 +14,7 @@ See also:
 
 - [PCP Input Format](#pcp-input-format)
 - [AIRR Input Format](#airr-input-format)
+- [AIRR-C v2 Clone/Tree ("airr2") Input Format](#airr-c-v2-clonetree-airr2-input-format)
 - [Mutations CSV Format](#mutations-csv-format)
 - [Olmsted JSON Output Format](#olmsted-json-output-format)
 - [Field Metadata](#field-metadata)
@@ -223,6 +224,66 @@ AIRR (Adaptive Immune Receptor Repertoire) format is a single JSON file followin
 ### AIRR Position Convention
 
 AIRR uses 1-based closed intervals. olmsted-cli converts `*_start` positions to 0-based (subtracting 1) during processing. Missing positions are skipped gracefully.
+
+---
+
+## AIRR-C v2 Clone/Tree ("airr2") Input Format
+
+`-f airr2` (auto-detected) reads the **AIRR-C v2 Clone & Tree schema** — the
+format Dowser's `writeTreesJSON` emits. It is structurally distinct from the
+legacy `-f airr` input above and is handled by `process_airr2_data.py`
+(entry point `process_airr2_to_olmsted`).
+
+### Top-level structure
+
+A single JSON object with two tables:
+
+```json
+{
+  "Clone":        [ { "clone_id": "...", "clone_class": "...", "tree": "<newick>",
+                      "inferred_ancestor": "...", "nodes": [ ... ] }, ... ],
+  "Rearrangement":[ { "sequence_id": "...", "cell_id": "...",
+                      "sequence_alignment": "...", "locus": "IGH", ... }, ... ]
+}
+```
+
+Nodes do **not** carry sequences. Each node points into the `Rearrangement`
+table by `sequence_id` (`clone_class: Rearrangement`) or `cell_id`
+(`clone_class: Cell`). Inferred internal/germline nodes have their own
+synthesized `Rearrangement` records (e.g. `sequence_id: Germline-10004`), so
+every node — observed or ASR-inferred — resolves to a sequence.
+
+### Node object (within `Clone.nodes`)
+
+| Field | Role |
+|-------|------|
+| `node_id` | Node identifier; matches the label in `Clone.tree` (the Newick). |
+| `sequence_id` / `cell_id` | Pointer into `Rearrangement` (by class). |
+| `node_type` | `observed` or `inferred` (ASR ancestor) — carried onto the output node. |
+| `node_class` | `Rearrangement` or `Cell`. |
+
+### Mapping to Olmsted
+
+- **Topology** comes from `Clone.tree` (Newick; its labels are the node ids),
+  rerooted so `inferred_ancestor` (the germline) is the root — matching the
+  PCP/legacy-AIRR naive-at-root convention. Branch lengths are read from the
+  Newick.
+- **Sequences** are joined from `Rearrangement`; `sequence_alignment_aa` is
+  translated. `mean_mut_freq` is computed from observed leaves vs the germline.
+- **Chains**: `Rearrangement`-class and single-locus `Cell`-class clones → one
+  clone + one tree. Paired `Cell` clones (IGH + IGK/IGL) → **two** clones + two
+  trees sharing one topology, suffixed `-heavy` / `-light`, each node's sequence
+  taken from the same-locus `Rearrangement`.
+- **Dataset** is synthesized (like PCP): no subjects/seeds; one sample per
+  `repertoire_id`; `--name` sets the dataset name.
+
+Clone-level immunological fields (`v_call`, `j_call`, `cdr3_length`) are passed
+through only when the input `Clone` supplies them (the Dowser `info` variant);
+the clean v2 (`noinfo`) variant omits them and they are left unset rather than
+fabricated. The Dowser `info` catchall, streaming, and deriving clone metadata
+from `Rearrangement` are deferred (see issue #36).
+
+See `example-data/airr2/` for `nocell`/`unpaired`/`paired` inputs + goldens.
 
 ---
 

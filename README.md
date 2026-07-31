@@ -28,6 +28,7 @@ olmsted process -i pcp.csv --tree trees.csv -o olmsted_data.json --compute-metri
 ### Supported Formats
 
 - **AIRR (Adaptive Immune Receptor Repertoire)**: JSON format following AIRR Community standards
+- **AIRR-C v2 Clone/Tree (`airr2`)**: the AIRR-C v2 Clone & Tree schema (Dowser `writeTreesJSON` output) — clones with inline trees + a separate `Rearrangement` sequence table; supports observed/inferred (ASR) nodes and paired H+L chains. See [FORMATS.md](./FORMATS.md#airr-c-v2-clonetree-airr2-input-format)
 - **PCP (Parent-Child Pair)**: CSV file containing parent-child pairs with separate trees CSV file containing Newick strings
 
 ### Output Formats
@@ -118,7 +119,7 @@ olmsted process -i input.csv -f pcp -o output.json
 | `-i, --inputs FILES` | Input file(s). For AIRR: one or more JSON files. For PCP: CSV file |
 | `-o, --output FILE` | Output file path for consolidated JSON |
 | `--unbundle DIR` | Unbundle output into separate component files (datasets.json, clones.*.json, tree.*.json) for backwards compatibility with Olmsted web app |
-| `-f, --format {airr,pcp,auto}` | Input format (default: auto-detect) |
+| `-f, --format {airr,airr2,pcp,auto}` | Input format (default: auto-detect) |
 | `-t, --tree FILE` | Trees file for PCP format (optional, can be gzipped) |
 | `--mutations FILE` | Mutation-level CSV file to merge into tree nodes after processing (see `merge` command) |
 | `-c, --config FILE` | YAML configuration file (CLI arguments override config values) |

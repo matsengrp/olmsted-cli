@@ -31,15 +31,20 @@ VERBOSITY_HELP = (
 #: Input/output file formats recognized by olmsted-cli.
 FORMAT_PCP = "pcp"
 FORMAT_AIRR = "airr"
+#: AIRR-C v2 Clone & Tree schema (the format Dowser's writeTreesJSON emits):
+#: top-level ``{Clone:[...], Rearrangement:[...]}``. Structurally distinct from
+#: the legacy Olmsted-flavored ``FORMAT_AIRR`` input; parsed by
+#: ``process_airr2_data.py``.
+FORMAT_AIRR2 = "airr2"
 FORMAT_OLMSTED = "olmsted"
 FORMAT_AUTO = "auto"
 FORMAT_UNKNOWN = "unknown"
 
 #: All input formats (for argparse choices)
-INPUT_FORMATS = {FORMAT_PCP, FORMAT_AIRR, FORMAT_AUTO}
+INPUT_FORMATS = {FORMAT_PCP, FORMAT_AIRR, FORMAT_AIRR2, FORMAT_AUTO}
 
 #: All detectable formats
-ALL_FORMATS = {FORMAT_PCP, FORMAT_AIRR, FORMAT_OLMSTED}
+ALL_FORMATS = {FORMAT_PCP, FORMAT_AIRR, FORMAT_AIRR2, FORMAT_OLMSTED}
 
 # --- Identifier Datatypes ---
 

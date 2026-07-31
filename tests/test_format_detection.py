@@ -55,6 +55,25 @@ class TestDetectFileFormat:
         finally:
             os.unlink(path)
 
+    def test_airr2_json(self):
+        """AIRR-C v2 Clone/Tree (top-level Clone + Rearrangement) → airr2."""
+        for variant in ("nocell", "unpaired", "paired"):
+            assert (
+                detect_file_format(f"example-data/airr2/input-{variant}.json")
+                == "airr2"
+            )
+
+    def test_airr2_not_misdetected_as_airr(self):
+        """A minimal {Clone, Rearrangement} object → airr2, not airr."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"Clone": [], "Rearrangement": []}, f)
+            path = f.name
+
+        try:
+            assert detect_file_format(path) == "airr2"
+        finally:
+            os.unlink(path)
+
     def test_unknown_format(self):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
             f.write("this is not a data file")

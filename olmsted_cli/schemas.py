@@ -78,6 +78,17 @@ node_spec = {
             "description": "Alternative identifier for this node",
             "type": "string",
         },
+        "node_type": {
+            "description": "Whether this node's sequence was observed or "
+            "inferred (ASR-reconstructed ancestor); from the AIRR-C v2 "
+            "Clone/Tree schema",
+            "enum": ["observed", "inferred", None],
+            "type": ["string", "null"],
+        },
+        "node_class": {
+            "description": "AIRR-C v2 node class (Rearrangement or Cell)",
+            "type": ["string", "null"],
+        },
         "parent": {
             "description": "Parent node ID",
             "type": ["string", "null"],
