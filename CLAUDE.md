@@ -136,6 +136,14 @@ olmsted process -f pcp -i example-data/pcp-light/input-pcp.csv -t example-data/p
 olmsted process -f pcp -i example-data/pcp-paired/input-pcp.csv -t example-data/pcp-paired/input-trees.csv -o example-data/pcp-paired/pcp-paired-olmsted-golden.json --seed 42 --name pcp-paired-example --json-format pretty -q
 ```
 
+AIRR-C v2 Clone/Tree ("airr2") goldens (the three Dowser node-class variants):
+
+```bash
+olmsted process -f airr2 -i example-data/airr2/input-nocell.json -o example-data/airr2/nocell-olmsted-golden.json --seed 42 --name airr2-nocell-example --json-format pretty -q
+olmsted process -f airr2 -i example-data/airr2/input-unpaired.json -o example-data/airr2/unpaired-olmsted-golden.json --seed 42 --name airr2-unpaired-example --json-format pretty -q
+olmsted process -f airr2 -i example-data/airr2/input-paired.json -o example-data/airr2/paired-olmsted-golden.json --seed 42 --name airr2-paired-example --json-format pretty -q
+```
+
 Gzipped consolidated goldens (tracked alongside the plain JSON for `.json.gz` upload coverage):
 
 ```bash

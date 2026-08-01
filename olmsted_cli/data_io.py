@@ -60,6 +60,7 @@ import yaml
 
 from .constants import (
     FORMAT_AIRR,
+    FORMAT_AIRR2,
     FORMAT_OLMSTED,
     FORMAT_PCP,
     FORMAT_UNKNOWN,
@@ -70,7 +71,7 @@ from .utils import vprint
 # Closed set of values returned by detect_file_format / accepted by open_file's
 # expected_formats. Keeps callers honest at type-check time instead of letting
 # typos like expected_formats=("plc",) silently never match.
-DataFormat = Literal["airr", "pcp", "olmsted", "unknown"]
+DataFormat = Literal["airr", "airr2", "pcp", "olmsted", "unknown"]
 JsonOutputFormat = Literal["pretty", "compact", "gzip"]
 OutputKind = Literal["olmsted_json"]
 
@@ -143,6 +144,12 @@ def detect_file_format(file_path) -> DataFormat:
                 # Heuristic fallback: Olmsted JSON has "datasets" and "metadata"
                 if "datasets" in data and "metadata" in data:
                     return FORMAT_OLMSTED
+                # AIRR-C v2 Clone/Tree schema: top-level Clone + Rearrangement
+                # tables. Checked before the legacy AIRR heuristic because a v2
+                # file has neither "clones"/"dataset_id"/"ident" nor the Olmsted
+                # markers, so this is the only branch that claims it.
+                if "Clone" in data and "Rearrangement" in data:
+                    return FORMAT_AIRR2
                 # AIRR JSON has "clones" or other standard AIRR keys
                 if "dataset_id" in data or "clones" in data or "ident" in data:
                     return FORMAT_AIRR

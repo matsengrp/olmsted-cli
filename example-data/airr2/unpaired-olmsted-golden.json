@@ -1,0 +1,620 @@
+{
+    "metadata": {
+        "format": "olmsted",
+        "format_version": "1.0",
+        "schema_version": "2.0.0",
+        "created_at": "2026-08-01T00:19:19.045196+00:00",
+        "source_format": "airr2",
+        "source_files": [
+            "input-unpaired.json"
+        ],
+        "processing_info": {
+            "datasets_count": 1,
+            "total_clones_count": 2,
+            "total_trees_count": 2,
+            "total_leaf_nodes_count": 10
+        },
+        "generated_by": {
+            "tool": "olmsted-cli",
+            "version": "0.4.0.post1",
+            "git_hash": "7990b5a"
+        },
+        "name": "airr2-unpaired-example",
+        "processing_options": {
+            "validation": false,
+            "strict_validation": false,
+            "seed": 42
+        }
+    },
+    "datasets": [
+        {
+            "ident": "dataset-9fd49829-96aa-d2c8-d415-44cdffcac37f",
+            "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
+            "schema_version": "2.0.0",
+            "build": {
+                "commit": "airr2-import",
+                "time": ""
+            },
+            "subjects": [],
+            "samples": [
+                {
+                    "ident": "sample-4c247208-9d1c-b8f1-5aa4-5bf50526b6fe",
+                    "sample_id": "sample",
+                    "locus": "igh"
+                }
+            ],
+            "seeds": [],
+            "clone_count": 2,
+            "subjects_count": 0,
+            "timepoints_count": 0,
+            "name": "airr2-unpaired-example",
+            "field_metadata": {
+                "clone": {
+                    "clone_class": {
+                        "type": "categorical",
+                        "display": "dropdown",
+                        "label": "Clone Class"
+                    },
+                    "locus": {
+                        "type": "categorical",
+                        "display": "dropdown",
+                        "label": "Locus"
+                    },
+                    "mean_mut_freq": {
+                        "type": "continuous",
+                        "display": "dropdown",
+                        "label": "Mean Mutation Frequency"
+                    },
+                    "sample_id": {
+                        "type": "categorical",
+                        "display": "dropdown",
+                        "label": "Sample"
+                    },
+                    "total_read_count": {
+                        "type": "continuous",
+                        "display": "dropdown",
+                        "label": "Total Read Count"
+                    },
+                    "unique_seqs_count": {
+                        "type": "continuous",
+                        "display": "dropdown",
+                        "label": "Unique Sequences Count"
+                    }
+                },
+                "node": {
+                    "distance": {
+                        "type": "continuous",
+                        "display": "dropdown",
+                        "label": "Distance from Root"
+                    },
+                    "locus": {
+                        "type": "categorical",
+                        "display": "dropdown",
+                        "label": "Locus"
+                    },
+                    "node_class": {
+                        "type": "categorical",
+                        "display": "dropdown",
+                        "label": "Node Class"
+                    },
+                    "node_type": {
+                        "type": "categorical",
+                        "display": "dropdown",
+                        "label": "Observed/Inferred"
+                    }
+                },
+                "branch": {
+                    "length": {
+                        "type": "continuous",
+                        "display": "dropdown",
+                        "label": "Branch Length"
+                    }
+                },
+                "mutation": {
+                    "child_aa": {
+                        "type": "aa",
+                        "display": "dropdown",
+                        "label": "Child Amino Acid"
+                    },
+                    "parent_aa": {
+                        "type": "aa",
+                        "display": "tooltip",
+                        "label": "Parent Amino Acid"
+                    }
+                }
+            }
+        }
+    ],
+    "clones": {
+        "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af": [
+            {
+                "clone_id": "10004",
+                "ident": "clone-6a5eb4e0-90d9-e591-ee20-6debc0f4b040",
+                "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
+                "clone_class": "Cell",
+                "sample_id": "sample",
+                "unique_seqs_count": 13,
+                "mean_mut_freq": 0.0744047619047619,
+                "germline_alignment": "GAGGTGCAGCTGGTGGAGTCTGGGGGA...GGCTTGGTACAGCCTGGGGGGTCCCTGAGACTCTCCTGTGCAGCCTCTGGATTCACCTTT............AGCAGCTATGCCATGAGCTGGGTCCGCCAGGCTCCAGGGAAGGGGCTGGAGTGGGTCTCAGCTATTAGTGGTAGT......GGTGGTAGCACATACTACGCAGACTCCGTGAAG...GGCCGGTTCACCATCTCCAGAGACAATTCCAAGAACACGCTGTATCTGCAAATGAACAGCCTGAGAGCCGAGGACACGGCCGTATATTACTGTGCGAAAGNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNTTTTGATATCTGGGGCCAAGGGACAATGGTCACCGTCTCTTCAGNN",
+                "trees": [
+                    {
+                        "ident": "tree-a0a3ed44-be90-ae54-a384-ca11486dd87b",
+                        "clone_id": "10004",
+                        "tree_id": "tree-10004",
+                        "tree_name": "tree-10004",
+                        "newick": "(((d12_FNA_CGATTGACAAGGTTCT-1:0.00933333,(d28_BCell_CTCTGGTCAATACGCT-1:0.00666667,(d12_BCell_GTATTCTTCACTGGGC-1:0.0466667,(d60_FNA_TACACGACATGACATC-1:0.0133333,(d12_FNA_2_TACACGACATGACATC-1:0,d12_FNA_3_GATCGTAGTACATGTC-1:0.00533333)Node12-10004:0.00533333)Node11-10004:0.012)Node10-10004:0.0226667)Node9-10004:0.016)Node13-10004:0.0166667)Node8-10004:0)Germline-10004:0;"
+                    }
+                ],
+                "sample": {
+                    "ident": "clone-6a5eb4e0-90d9-e591-ee20-6debc0f4b040",
+                    "sample_id": "sample",
+                    "locus": "igh"
+                },
+                "total_read_count": 6
+            },
+            {
+                "clone_id": "8232",
+                "ident": "clone-6fad0c6f-ef46-f158-7391-728cb379fcec",
+                "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
+                "clone_class": "Cell",
+                "sample_id": "sample",
+                "unique_seqs_count": 9,
+                "mean_mut_freq": 0.031994047619047616,
+                "germline_alignment": "CAGGTGCAGCTGCAGGAGTCGGGCCCA...GGACTGGTGAAGCCTTCGGAGACCCTGTCCCTCACCTGCACTGTCTCTGGTGGCTCCATC............AGTAGTTACTACTGGAGCTGGATCCGGCAGCCCCCAGGGAAGGGACTGGAGTGGATTGGGTATATCTATTACAGT.........GGGAGCACCAACTACAACCCCTCCCTCAAG...AGTCGAGTCACCATATCAGTAGACACGTCCAAGAACCAGTTCTCCCTGAAGCTGAGCTCTGTGACCGCTGCGGACACGGCCGTGTATTACTGTGCGAGANNNNNNNNNNNNNNNNNNNGGTTCGACCCCTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCAGNN",
+                "trees": [
+                    {
+                        "ident": "tree-7a034993-32cb-586f-c23b-ac88bfe296f8",
+                        "clone_id": "8232",
+                        "tree_id": "tree-8232",
+                        "tree_name": "tree-8232",
+                        "newick": "((((d5_BCell_CGTCAGGAGAATAGGG-1:0.0140056,d28_BCell_AGACGTTCATTAACCG-1:0.0112045)Node7-8232:0.0196078,(d12_FNA_GACGTTAGTCACTTCC-1:0,d0_BCell_GGTGAAGTCCCTTGCA-1:0)Node8-8232:0.00560224)Node9-8232:0.00560224)Node6-8232:0)Germline-8232:0;"
+                    }
+                ],
+                "sample": {
+                    "ident": "clone-6fad0c6f-ef46-f158-7391-728cb379fcec",
+                    "sample_id": "sample",
+                    "locus": "igh"
+                },
+                "total_read_count": 4
+            }
+        ]
+    },
+    "trees": [
+        {
+            "ident": "tree-a0a3ed44-be90-ae54-a384-ca11486dd87b",
+            "clone_id": "10004",
+            "tree_id": "tree-10004",
+            "tree_name": "tree-10004",
+            "newick": "(((d12_FNA_CGATTGACAAGGTTCT-1:0.00933333,(d28_BCell_CTCTGGTCAATACGCT-1:0.00666667,(d12_BCell_GTATTCTTCACTGGGC-1:0.0466667,(d60_FNA_TACACGACATGACATC-1:0.0133333,(d12_FNA_2_TACACGACATGACATC-1:0,d12_FNA_3_GATCGTAGTACATGTC-1:0.00533333)Node12-10004:0.00533333)Node11-10004:0.012)Node10-10004:0.0226667)Node9-10004:0.016)Node13-10004:0.0166667)Node8-10004:0)Germline-10004:0;",
+            "nodes": [
+                {
+                    "sequence_id": "d28_BCell_CTCTGGTCAATACGCT-1",
+                    "node_id": "d28_BCell_CTCTGGTCAATACGCT-1",
+                    "sequence_alignment": "GAGGGGCAGCTGGTGGAGTCTGGGGGA...GGCTTGGTGCAGCCTGGGGGGTCCCTGAGGCTCTCCTGTGCAGCCTCTGGATTCACCTTT............AACAGTTACGCCATGAATTGGGTCCGCCAGGCTCCAGGGAAGGGGCTGGAGTGGGTCTCATGTATTAGTGATAGC......GGTGNNNGCACATACTACGCAGACTCCGTGAGG...GGCCGGTTCACCATCTCCAGAGACAATTCGAAGAACACATTGTATCTGCAAATGAACAGCCTGAGAGCCGACGACACGGCCGTTTACTACTGTGCGAAAGTGGACCCCCCACTATGGTTCGAAAAATTGGGTGTTTTTGATATCTGGGGCCAAGGGACAATGGTCACCGTCTCTTCAGNN",
+                    "sequence_alignment_aa": "EGQLVESGGXGLVQPGGSLRLSCAASGFTFXXXXNSYAMNWVRQAPGKGLEWVSCISDSXXGXXTYYADSVRXGRFTISRDNSKNTLYLQMNSLRADDTAVYYCAKVDPPLWFEKLGVFDIWGQGTMVTVSSX",
+                    "type": "leaf",
+                    "node_type": "observed",
+                    "node_class": "Cell",
+                    "locus": "IGH",
+                    "parent": "Node9-10004",
+                    "multiplicity": null,
+                    "timepoint_multiplicities": [],
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "length": 0.006666666667,
+                    "distance": 0.039333333331999995
+                },
+                {
+                    "sequence_id": "d60_FNA_TACACGACATGACATC-1",
+                    "node_id": "d60_FNA_TACACGACATGACATC-1",
+                    "sequence_alignment": "GAGGGACAACTGGTGGAGTCTGGGGGA...GGCTTGGTACAGCCTGGGGGGTCCCTGAGACTCTCCTGTGCAGCCTCTGGATTCACCTTT............AGCAACTATGCCTTGAGCTGGGTCCGCCAGGCTCCAGGGAAGGGGCTGGAGTGGGTTTCATGTATTAGTGATAGC......CATGNNNGCACATACTACGCAGACTCCGTGAGG...GGCCGGTTCACCATCTCCAGAGACAATTCGAAGAACACACTATATCTTCAAATGAACAGCCTGAGAGCCGACGACACGGCCGTTTACTACTGTGCGAAAGTGGACCCCCCACTATGGTTCGAAAAATTGGGTGTTTTTGATATCTGGGGCCACGGGACTGTGGTCACCGTCTCTTCAGNN",
+                    "sequence_alignment_aa": "EGQLVESGGXGLVQPGGSLRLSCAASGFTFXXXXSNYALSWVRQAPGKGLEWVSCISDSXXHXXTYYADSVRXGRFTISRDNSKNTLYLQMNSLRADDTAVYYCAKVDPPLWFEKLGVFDIWGHGTVVTVSSX",
+                    "type": "leaf",
+                    "node_type": "observed",
+                    "node_class": "Cell",
+                    "locus": "IGH",
+                    "parent": "Node11-10004",
+                    "multiplicity": null,
+                    "timepoint_multiplicities": [],
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "length": 0.01333333333,
+                    "distance": 0.080666666665
+                },
+                {
+                    "sequence_id": "d12_BCell_GTATTCTTCACTGGGC-1",
+                    "node_id": "d12_BCell_GTATTCTTCACTGGGC-1",
+                    "sequence_alignment": "GAGGGACAGCTGGTGGAGTCTGGGGGA...GGCTTGGTGCAGCCTGGGGGGTCCCTCAGACTCTCCTGTGCAGCCTCTGGATTCACCTTC............AACAGTTTCGCCATGAACTGGGTCCGCCAGGCTCCAGGGAAGGGACTGGAATGGATTTCATGTATTAGTGATAGC......CATGNNNCGACATACTACGCAGACTCCGTGAGG...GGCCGGTTCACCATCTCCAGAGACAATTCGAAGAGCACACTGTTTCTCCAAATGAACAACCTGAGAGCCGACGACACGGCCGTTTACTATTGTGCGAAAGTGGACCCCCCCCTTTGGTTCGAGAAATTGGGTGTTTTTGATGTCTGGGGCCGCGGGACTGTGGTCACCGTCTCTTCAGNN",
+                    "sequence_alignment_aa": "EGQLVESGGXGLVQPGGSLRLSCAASGFTFXXXXNSFAMNWVRQAPGKGLEWISCISDSXXHXXTYYADSVRXGRFTISRDNSKSTLFLQMNNLRADDTAVYYCAKVDPPLWFEKLGVFDVWGRGTVVTVSSX",
+                    "type": "leaf",
+                    "node_type": "observed",
+                    "node_class": "Cell",
+                    "locus": "IGH",
+                    "parent": "Node10-10004",
+                    "multiplicity": null,
+                    "timepoint_multiplicities": [],
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "length": 0.04666666667,
+                    "distance": 0.102000000005
+                },
+                {
+                    "sequence_id": "d12_FNA_3_GATCGTAGTACATGTC-1",
+                    "node_id": "d12_FNA_3_GATCGTAGTACATGTC-1",
+                    "sequence_alignment": "GAGGGACAACTGGTGGAGTCTGGGGGA...GGCTTGGTACAGCCTGGGGGGTCCCTGAGACTCTCCTGTGCAGCCTCTGGATTCACGTTT............AACAGTTATGCCATGAACTGGCTCCGCCAGGCTCCAGGGAAGGGGCTGGAGTGGGTTTCATGTATTAGTGATAGC......CATGNNNGCACACACTACGCAGACTCCGTGAGG...GGCCGGTTCACCATCTCCAGAGACAATTCGAAGAACACACTATATCTTCAAATGAGCAGCCTGAGAGCCGACGACACGGCCGTTTACTACTGTGCGAAAGTGGACCCCCCACTATGGTTCGAAAAATTGGGTGTTTTTGATATCTGGGGCCACGGGACTGTGGTCACCGTCTCTTCAGNN",
+                    "sequence_alignment_aa": "EGQLVESGGXGLVQPGGSLRLSCAASGFTFXXXXNSYAMNWLRQAPGKGLEWVSCISDSXXHXXTHYADSVRXGRFTISRDNSKNTLYLQMSSLRADDTAVYYCAKVDPPLWFEKLGVFDIWGHGTVVTVSSX",
+                    "type": "leaf",
+                    "node_type": "observed",
+                    "node_class": "Cell",
+                    "locus": "IGH",
+                    "parent": "Node12-10004",
+                    "multiplicity": null,
+                    "timepoint_multiplicities": [],
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "length": 0.005333333333,
+                    "distance": 0.07800000000099999
+                },
+                {
+                    "sequence_id": "d12_FNA_2_TACACGACATGACATC-1",
+                    "node_id": "d12_FNA_2_TACACGACATGACATC-1",
+                    "sequence_alignment": "GAGGGACAACTGGTGGAGTCTGGGGGA...GGCTTGGTACAGCCTGGGGGGTCCCTGAGACTCTCCTGTGCAGCCTCTGGATTCACGTTT............AACAGTTATGCCATGAACTGGCTCCGCCAGGCTCCAGGGAAGGGGCTGGAGTGGGTTTCATGTATTAGTGATAGC......CATGNNNGCACATACTACGCAGACTCCGTGAGG...GGCCGGTTCACCATCTCCAGAGACAATTCGAAGAACACACTATATCTTCAAATGAACAGCCTGAGAGCCGACGACACGGCCGTTTACTACTGTGCGAAAGTGGACCCCCCACTATGGTTCGAAAAATTGGGTGTTTTTGATATCTGGGGCCACGGGACTGTGGTCACCGTCTCTTCAGNN",
+                    "sequence_alignment_aa": "EGQLVESGGXGLVQPGGSLRLSCAASGFTFXXXXNSYAMNWLRQAPGKGLEWVSCISDSXXHXXTYYADSVRXGRFTISRDNSKNTLYLQMNSLRADDTAVYYCAKVDPPLWFEKLGVFDIWGHGTVVTVSSX",
+                    "type": "leaf",
+                    "node_type": "observed",
+                    "node_class": "Cell",
+                    "locus": "IGH",
+                    "parent": "Node12-10004",
+                    "multiplicity": null,
+                    "timepoint_multiplicities": [],
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "length": 0.0,
+                    "distance": 0.072666666668
+                },
+                {
+                    "sequence_id": "d12_FNA_CGATTGACAAGGTTCT-1",
+                    "node_id": "d12_FNA_CGATTGACAAGGTTCT-1",
+                    "sequence_alignment": "GAGGGGCAGCTGGTGGAGTCTGGGGGA...GGCTTGGTGCAGCCTGGGGGGTCCCTGAGACTCTCCTGTGCAGCCTCTGGATTCACCTTT............AACAGCTATGCCATGAACTGGGTCCGCCAGGCTCCAGGGAAGGGGCTGGAGTGGGTCTCATGTATTAGTGATAGC......GGTGNNNGCACATACTACGCAGACTCCGTGAGG...GGCCGGTTCACCATCTCCAGAGACAATTCCAAGAACACATTGTATCTGCAAATGACCAGCCTGAGGGCCGACGACACGGCCGTATACTACTGTGCGAAAGTGGACCCCCCACTGTGGTTCGAGAAATTGGGTGTTTTTGATCTCTGGGGCCAAGGGACAATGGTCACCGTCTCTTCAGNN",
+                    "sequence_alignment_aa": "EGQLVESGGXGLVQPGGSLRLSCAASGFTFXXXXNSYAMNWVRQAPGKGLEWVSCISDSXXGXXTYYADSVRXGRFTISRDNSKNTLYLQMTSLRADDTAVYYCAKVDPPLWFEKLGVFDLWGQGTMVTVSSX",
+                    "type": "leaf",
+                    "node_type": "observed",
+                    "node_class": "Cell",
+                    "locus": "IGH",
+                    "parent": "Node13-10004",
+                    "multiplicity": null,
+                    "timepoint_multiplicities": [],
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "length": 0.009333333333,
+                    "distance": 0.025999999997999998
+                },
+                {
+                    "sequence_id": "Germline-10004",
+                    "node_id": "Germline-10004",
+                    "sequence_alignment": "GAGGTGCAGCTGGTGGAGTCTGGGGGA...GGCTTGGTACAGCCTGGGGGGTCCCTGAGACTCTCCTGTGCAGCCTCTGGATTCACCTTT............AGCAGCTATGCCATGAGCTGGGTCCGCCAGGCTCCAGGGAAGGGGCTGGAGTGGGTCTCAGCTATTAGTGGTAGT......GGTGGTAGCACATACTACGCAGACTCCGTGAAG...GGCCGGTTCACCATCTCCAGAGACAATTCCAAGAACACGCTGTATCTGCAAATGAACAGCCTGAGAGCCGAGGACACGGCCGTATATTACTGTGCGAAAGNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNTTTTGATATCTGGGGCCAAGGGACAATGGTCACCGTCTCTTCAGNN",
+                    "sequence_alignment_aa": "EVQLVESGGXGLVQPGGSLRLSCAASGFTFXXXXSSYAMSWVRQAPGKGLEWVSAISGSXXGGSTYYADSVKXGRFTISRDNSKNTLYLQMNSLRAEDTAVYYCAKXXXXXXXXXXXXFDIWGQGTMVTVSSX",
+                    "type": "root",
+                    "node_type": "inferred",
+                    "node_class": "Cell",
+                    "locus": "IGH",
+                    "parent": null,
+                    "multiplicity": null,
+                    "timepoint_multiplicities": [],
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "length": 0.0,
+                    "distance": 0.0
+                },
+                {
+                    "sequence_id": "Node8-10004",
+                    "node_id": "Node8-10004",
+                    "sequence_alignment": "GAGGTGCAGCTGGTGGAGTCTGGGGGA...GGCTTGGTACAGCCTGGGGGGTCCCTGAGACTCTCCTGTGCAGCCTCTGGATTCACCTTT............AGCAGCTATGCCATGAGCTGGGTCCGCCAGGCTCCAGGGAAGGGGCTGGAGTGGGTCTCAGCTATTAGTGGTAGT......GGTGGTAGCACATACTACGCAGACTCCGTGAAG...GGCCGGTTCACCATCTCCAGAGACAATTCCAAGAACACGCTGTATCTGCAAATGAACAGCCTGAGAGCCGAGGACACGGCCGTATATTACTGTGCGAAAGNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNTTTTGATATCTGGGGCCAAGGGACAATGGTCACCGTCTCTTCAGNN",
+                    "sequence_alignment_aa": "EVQLVESGGXGLVQPGGSLRLSCAASGFTFXXXXSSYAMSWVRQAPGKGLEWVSAISGSXXGGSTYYADSVKXGRFTISRDNSKNTLYLQMNSLRAEDTAVYYCAKXXXXXXXXXXXXFDIWGQGTMVTVSSX",
+                    "type": "internal",
+                    "node_type": "inferred",
+                    "node_class": "Cell",
+                    "locus": "IGH",
+                    "parent": "Germline-10004",
+                    "multiplicity": null,
+                    "timepoint_multiplicities": [],
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "length": 0.0,
+                    "distance": 0.0
+                },
+                {
+                    "sequence_id": "Node9-10004",
+                    "node_id": "Node9-10004",
+                    "sequence_alignment": "GAGGGGCAGCTGGTGGAGTCTGGGGGA...GGCTTGGTGCAGCCTGGGGGGTCCCTGAGACTCTCCTGTGCAGCCTCTGGATTCACCTTT............AACAGTTAYGCCATGAACTGGGTCCGCCAGGCTCCAGGGAAGGGGCTGGAGTGGGTCTCATGTATTAGTGATAGC......GGTGGTAGCACATACTACGCAGACTCCGTGAGG...GGCCGGTTCACCATCTCCAGAGACAATTCGAAGAACACAYTGTATCTGCAAATGAACAGCCTGAGAGCCGACGACACGGCCGTTTACTACTGTGCGAAAGTGGACCCCCCACTATGGTTCGARAAATTGGGTGTTTTTGATATCTGGGGCCAAGGGACAATGGTCACCGTCTCTTCAGNN",
+                    "sequence_alignment_aa": "EGQLVESGGXGLVQPGGSLRLSCAASGFTFXXXXNSXAMNWVRQAPGKGLEWVSCISDSXXGGSTYYADSVRXGRFTISRDNSKNTXYLQMNSLRADDTAVYYCAKVDPPLWFXKLGVFDIWGQGTMVTVSSX",
+                    "type": "internal",
+                    "node_type": "inferred",
+                    "node_class": "Cell",
+                    "locus": "IGH",
+                    "parent": "Node13-10004",
+                    "multiplicity": null,
+                    "timepoint_multiplicities": [],
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "length": 0.016,
+                    "distance": 0.032666666664999996
+                },
+                {
+                    "sequence_id": "Node10-10004",
+                    "node_id": "Node10-10004",
+                    "sequence_alignment": "GAGGGACAGCTGGTGGAGTCTGGGGGA...GGCTTGGTGCAGCCTGGGGGGTCCCTGAGACTCTCCTGTGCAGCCTCTGGATTCACCTTT............AACAGTTAYGCCATGAACTGGGTCCGCCAGGCTCCAGGGAAGGGGCTGGAGTGGGTTTCATGTATTAGTGATAGC......CATGGTAGCACATACTACGCAGACTCCGTGAGG...GGCCGGTTCACCATCTCCAGAGACAATTCGAAGAACACACTGTATCTBCAAATGAACAGCCTGAGAGCCGACGACACGGCCGTTTACTACTGTGCGAAAGTGGACCCCCCACTATGGTTCGARAAATTGGGTGTTTTTGATATCTGGGGCCACGGGACTGTGGTCACCGTCTCTTCAGNN",
+                    "sequence_alignment_aa": "EGQLVESGGXGLVQPGGSLRLSCAASGFTFXXXXNSXAMNWVRQAPGKGLEWVSCISDSXXHGSTYYADSVRXGRFTISRDNSKNTLYXQMNSLRADDTAVYYCAKVDPPLWFXKLGVFDIWGHGTVVTVSSX",
+                    "type": "internal",
+                    "node_type": "inferred",
+                    "node_class": "Cell",
+                    "locus": "IGH",
+                    "parent": "Node9-10004",
+                    "multiplicity": null,
+                    "timepoint_multiplicities": [],
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "length": 0.02266666667,
+                    "distance": 0.055333333335
+                },
+                {
+                    "sequence_id": "Node11-10004",
+                    "node_id": "Node11-10004",
+                    "sequence_alignment": "GAGGGACAACTGGTGGAGTCTGGGGGA...GGCTTGGTACAGCCTGGGGGGTCCCTGAGACTCTCCTGTGCAGCCTCTGGATTCACCTTT............AACAGTTATGCCATGAACTGGGTCCGCCAGGCTCCAGGGAAGGGGCTGGAGTGGGTTTCATGTATTAGTGATAGC......CATGGTAGCACATACTACGCAGACTCCGTGAGG...GGCCGGTTCACCATCTCCAGAGACAATTCGAAGAACACACTATATCTTCAAATGAACAGCCTGAGAGCCGACGACACGGCCGTTTACTACTGTGCGAAAGTGGACCCCCCACTATGGTTCGAAAAATTGGGTGTTTTTGATATCTGGGGCCACGGGACTGTGGTCACCGTCTCTTCAGNN",
+                    "sequence_alignment_aa": "EGQLVESGGXGLVQPGGSLRLSCAASGFTFXXXXNSYAMNWVRQAPGKGLEWVSCISDSXXHGSTYYADSVRXGRFTISRDNSKNTLYLQMNSLRADDTAVYYCAKVDPPLWFEKLGVFDIWGHGTVVTVSSX",
+                    "type": "internal",
+                    "node_type": "inferred",
+                    "node_class": "Cell",
+                    "locus": "IGH",
+                    "parent": "Node10-10004",
+                    "multiplicity": null,
+                    "timepoint_multiplicities": [],
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "length": 0.012,
+                    "distance": 0.067333333335
+                },
+                {
+                    "sequence_id": "Node12-10004",
+                    "node_id": "Node12-10004",
+                    "sequence_alignment": "GAGGGACAACTGGTGGAGTCTGGGGGA...GGCTTGGTACAGCCTGGGGGGTCCCTGAGACTCTCCTGTGCAGCCTCTGGATTCACGTTT............AACAGTTATGCCATGAACTGGCTCCGCCAGGCTCCAGGGAAGGGGCTGGAGTGGGTTTCATGTATTAGTGATAGC......CATGGTAGCACATACTACGCAGACTCCGTGAGG...GGCCGGTTCACCATCTCCAGAGACAATTCGAAGAACACACTATATCTTCAAATGAACAGCCTGAGAGCCGACGACACGGCCGTTTACTACTGTGCGAAAGTGGACCCCCCACTATGGTTCGAAAAATTGGGTGTTTTTGATATCTGGGGCCACGGGACTGTGGTCACCGTCTCTTCAGNN",
+                    "sequence_alignment_aa": "EGQLVESGGXGLVQPGGSLRLSCAASGFTFXXXXNSYAMNWLRQAPGKGLEWVSCISDSXXHGSTYYADSVRXGRFTISRDNSKNTLYLQMNSLRADDTAVYYCAKVDPPLWFEKLGVFDIWGHGTVVTVSSX",
+                    "type": "internal",
+                    "node_type": "inferred",
+                    "node_class": "Cell",
+                    "locus": "IGH",
+                    "parent": "Node11-10004",
+                    "multiplicity": null,
+                    "timepoint_multiplicities": [],
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "length": 0.005333333333,
+                    "distance": 0.072666666668
+                },
+                {
+                    "sequence_id": "Node13-10004",
+                    "node_id": "Node13-10004",
+                    "sequence_alignment": "GAGGGGCAGCTGGTGGAGTCTGGGGGA...GGCTTGGTGCAGCCTGGGGGGTCCCTGAGACTCTCCTGTGCAGCCTCTGGATTCACCTTT............AACAGCTATGCCATGAACTGGGTCCGCCAGGCTCCAGGGAAGGGGCTGGAGTGGGTCTCATGTATTAGTGATAGC......GGTGGTAGCACATACTACGCAGACTCCGTGAGG...GGCCGGTTCACCATCTCCAGAGACAATTCCAAGAACACAYTGTATCTGCAAATGAACAGCCTGAGAGCCGACGACACGGCCGTATACTACTGTGCGAAAGTGGACCCCCCACTRTGGTTCGARAAATTGGGTGTTTTTGATATCTGGGGCCAAGGGACAATGGTCACCGTCTCTTCAGNN",
+                    "sequence_alignment_aa": "EGQLVESGGXGLVQPGGSLRLSCAASGFTFXXXXNSYAMNWVRQAPGKGLEWVSCISDSXXGGSTYYADSVRXGRFTISRDNSKNTXYLQMNSLRADDTAVYYCAKVDPPXWFXKLGVFDIWGQGTMVTVSSX",
+                    "type": "internal",
+                    "node_type": "inferred",
+                    "node_class": "Cell",
+                    "locus": "IGH",
+                    "parent": "Node8-10004",
+                    "multiplicity": null,
+                    "timepoint_multiplicities": [],
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "length": 0.016666666665,
+                    "distance": 0.016666666665
+                }
+            ]
+        },
+        {
+            "ident": "tree-7a034993-32cb-586f-c23b-ac88bfe296f8",
+            "clone_id": "8232",
+            "tree_id": "tree-8232",
+            "tree_name": "tree-8232",
+            "newick": "((((d5_BCell_CGTCAGGAGAATAGGG-1:0.0140056,d28_BCell_AGACGTTCATTAACCG-1:0.0112045)Node7-8232:0.0196078,(d12_FNA_GACGTTAGTCACTTCC-1:0,d0_BCell_GGTGAAGTCCCTTGCA-1:0)Node8-8232:0.00560224)Node9-8232:0.00560224)Node6-8232:0)Germline-8232:0;",
+            "nodes": [
+                {
+                    "sequence_id": "d0_BCell_GGTGAAGTCCCTTGCA-1",
+                    "node_id": "d0_BCell_GGTGAAGTCCCTTGCA-1",
+                    "sequence_alignment": "CAGGTGCAGCTGCAGGAGTCGGGCCCA...GGACTGGTGAAGCCTTCGGAGACCCTGTCCCTCACCTGCACTGTCTCTGGTGGCTCCATG............AGTAGTTACTACTGGAGTTGGATCCGGCAGCCCCCAGGGAAGGGACTGGAGTGGATTGGGTATATCTATTACAGT.........GGGGGCACCAACTACAACCCCTCCCTCAAG...AGTCGAGTCATCATATCAGTAGACACTTCCAAGAACCAGTTCTCCCTGAACCTGAGCTCTGTGACCGCTGCGGACACGGCCGTGTATTACTGTGCGAGACACCCCACCGTATACGAGCGGTTCGACCCCTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCAGNN",
+                    "sequence_alignment_aa": "QVQLQESGPXGLVKPSETLSLTCTVSGGSMXXXXSSYYWSWIRQPPGKGLEWIGYIYYSXXXGGTNYNPSLKXSRVIISVDTSKNQFSLNLSSVTAADTAVYYCARHPTVYERFDPWGQGTLVTVSSX",
+                    "type": "leaf",
+                    "node_type": "observed",
+                    "node_class": "Cell",
+                    "locus": "IGH",
+                    "parent": "Node8-8232",
+                    "multiplicity": null,
+                    "timepoint_multiplicities": [],
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "length": 0.0,
+                    "distance": 0.011204481791
+                },
+                {
+                    "sequence_id": "d28_BCell_AGACGTTCATTAACCG-1",
+                    "node_id": "d28_BCell_AGACGTTCATTAACCG-1",
+                    "sequence_alignment": "CAGGTGCAGTTGCAGGAGTCGGGCCCA...GGACTGGTGAAGCCTTCGGAGACCCTGTCCCTCAGCTGCACTGTCTCTGGTGGCTCCATG............AGTAACTACTATTGGAGTTGGATCCGGCAGCTCCCAGGGAAGGGACTGGAGTGGATTGGGTATATCTACTACAGT.........GGAAGCACCAACTACAACCCCTCCCTCAAG...AGTCGAGTCATCATATCAGCGGACACGTCCAAGAACCAGTTCTCCCTGAACCTGAGCTCTGTGACCGCTGCGGACACGGCCGTGTATTATTGTGCGAGACACCCCACCGTATACGAGCGGTTCGACCCCTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCAGNN",
+                    "sequence_alignment_aa": "QVQLQESGPXGLVKPSETLSLSCTVSGGSMXXXXSNYYWSWIRQLPGKGLEWIGYIYYSXXXGSTNYNPSLKXSRVIISADTSKNQFSLNLSSVTAADTAVYYCARHPTVYERFDPWGQGTLVTVSSX",
+                    "type": "leaf",
+                    "node_type": "observed",
+                    "node_class": "Cell",
+                    "locus": "IGH",
+                    "parent": "Node7-8232",
+                    "multiplicity": null,
+                    "timepoint_multiplicities": [],
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "length": 0.01120448179,
+                    "distance": 0.036414565825
+                },
+                {
+                    "sequence_id": "d12_FNA_GACGTTAGTCACTTCC-1",
+                    "node_id": "d12_FNA_GACGTTAGTCACTTCC-1",
+                    "sequence_alignment": "CAGGTGCAGCTGCAGGAGTCGGGCCCA...GGACTGGTGAAGCCTTCGGAGACCCTGTCCCTCACCTGCACTGTCTCTGGTGGCTCCATG............AGTAGTTACTACTGGAGTTGGATCCGGCAGCCCCCAGGGAAGGGACTGGAGTGGATTGGGTATATCTATTACAGT.........GGGGGCACCAACTACAACCCCTCCCTCAAG...AGTCGAGTCATCATATCAGTAGACACTTCCAAGAACCAGTTCTCCCTGAACCTGAGCTCTGTGACCGCTGCGGACACGGCCGTGTATTACTGTGCGAGACACCCCACCGTATACGAGCGGTTCGACCCCTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCAGNN",
+                    "sequence_alignment_aa": "QVQLQESGPXGLVKPSETLSLTCTVSGGSMXXXXSSYYWSWIRQPPGKGLEWIGYIYYSXXXGGTNYNPSLKXSRVIISVDTSKNQFSLNLSSVTAADTAVYYCARHPTVYERFDPWGQGTLVTVSSX",
+                    "type": "leaf",
+                    "node_type": "observed",
+                    "node_class": "Cell",
+                    "locus": "IGH",
+                    "parent": "Node8-8232",
+                    "multiplicity": null,
+                    "timepoint_multiplicities": [],
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "length": 0.0,
+                    "distance": 0.011204481791
+                },
+                {
+                    "sequence_id": "d5_BCell_CGTCAGGAGAATAGGG-1",
+                    "node_id": "d5_BCell_CGTCAGGAGAATAGGG-1",
+                    "sequence_alignment": "CAGGTGCAGCTGCAGGAGTCGGGCCCA...GGACTGGTGAAGCCTTCGGAGACCCTGTCCCTCAGTTGCACTGTCTCTGGTGGCTCCATG............ACAAGTTACTACTGGAGTTGGATCCGGCAGCTCCCAGGGAAGGGACTGGAGTGGATTGGGTATATCTACTACAGT.........GGAAGCACCAACTACAACCCCTCCCTCAAG...AGTCGAGTCATCATATCAGCGGACACGTCGAAGAACCAGTTCTCCCTGAACCTGAGCTCTGTGACCGCTGCGGACACGGCCCTGTATTATTGTGCGAGACACCCCACCGTATACGAGCGGTTCGACCCCTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCAGNN",
+                    "sequence_alignment_aa": "QVQLQESGPXGLVKPSETLSLSCTVSGGSMXXXXTSYYWSWIRQLPGKGLEWIGYIYYSXXXGSTNYNPSLKXSRVIISADTSKNQFSLNLSSVTAADTALYYCARHPTVYERFDPWGQGTLVTVSSX",
+                    "type": "leaf",
+                    "node_type": "observed",
+                    "node_class": "Cell",
+                    "locus": "IGH",
+                    "parent": "Node7-8232",
+                    "multiplicity": null,
+                    "timepoint_multiplicities": [],
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "length": 0.01400560224,
+                    "distance": 0.039215686275
+                },
+                {
+                    "sequence_id": "Germline-8232",
+                    "node_id": "Germline-8232",
+                    "sequence_alignment": "CAGGTGCAGCTGCAGGAGTCGGGCCCA...GGACTGGTGAAGCCTTCGGAGACCCTGTCCCTCACCTGCACTGTCTCTGGTGGCTCCATC............AGTAGTTACTACTGGAGCTGGATCCGGCAGCCCCCAGGGAAGGGACTGGAGTGGATTGGGTATATCTATTACAGT.........GGGAGCACCAACTACAACCCCTCCCTCAAG...AGTCGAGTCACCATATCAGTAGACACGTCCAAGAACCAGTTCTCCCTGAAGCTGAGCTCTGTGACCGCTGCGGACACGGCCGTGTATTACTGTGCGAGANNNNNNNNNNNNNNNNNNNGGTTCGACCCCTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCAGNN",
+                    "sequence_alignment_aa": "QVQLQESGPXGLVKPSETLSLTCTVSGGSIXXXXSSYYWSWIRQPPGKGLEWIGYIYYSXXXGSTNYNPSLKXSRVTISVDTSKNQFSLKLSSVTAADTAVYYCARXXXXXXXFDPWGQGTLVTVSSX",
+                    "type": "root",
+                    "node_type": "inferred",
+                    "node_class": "Cell",
+                    "locus": "IGH",
+                    "parent": null,
+                    "multiplicity": null,
+                    "timepoint_multiplicities": [],
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "length": 0.0,
+                    "distance": 0.0
+                },
+                {
+                    "sequence_id": "Node6-8232",
+                    "node_id": "Node6-8232",
+                    "sequence_alignment": "CAGGTGCAGCTGCAGGAGTCGGGCCCA...GGACTGGTGAAGCCTTCGGAGACCCTGTCCCTCACCTGCACTGTCTCTGGTGGCTCCATC............AGTAGTTACTACTGGAGCTGGATCCGGCAGCCCCCAGGGAAGGGACTGGAGTGGATTGGGTATATCTATTACAGT.........GGGAGCACCAACTACAACCCCTCCCTCAAG...AGTCGAGTCACCATATCAGTAGACACGTCCAAGAACCAGTTCTCCCTGAAGCTGAGCTCTGTGACCGCTGCGGACACGGCCGTGTATTACTGTGCGAGANNNNNNNNNNNNNNNNNNNGGTTCGACCCCTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCAGNN",
+                    "sequence_alignment_aa": "QVQLQESGPXGLVKPSETLSLTCTVSGGSIXXXXSSYYWSWIRQPPGKGLEWIGYIYYSXXXGSTNYNPSLKXSRVTISVDTSKNQFSLKLSSVTAADTAVYYCARXXXXXXXFDPWGQGTLVTVSSX",
+                    "type": "internal",
+                    "node_type": "inferred",
+                    "node_class": "Cell",
+                    "locus": "IGH",
+                    "parent": "Germline-8232",
+                    "multiplicity": null,
+                    "timepoint_multiplicities": [],
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "length": 0.0,
+                    "distance": 0.0
+                },
+                {
+                    "sequence_id": "Node7-8232",
+                    "node_id": "Node7-8232",
+                    "sequence_alignment": "CAGGTGCAGCTGCAGGAGTCGGGCCCA...GGACTGGTGAAGCCTTCGGAGACCCTGTCCCTCAGCTGCACTGTCTCTGGTGGCTCCATG............AGTAGTTACTACTGGAGTTGGATCCGGCAGCTCCCAGGGAAGGGACTGGAGTGGATTGGGTATATCTACTACAGT.........GGAAGCACCAACTACAACCCCTCCCTCAAG...AGTCGAGTCATCATATCAGCGGACACGTCCAAGAACCAGTTCTCCCTGAACCTGAGCTCTGTGACCGCTGCGGACACGGCCGTGTATTATTGTGCGAGACACCCCACCGTATACGAGCGGTTCGACCCCTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCAGNN",
+                    "sequence_alignment_aa": "QVQLQESGPXGLVKPSETLSLSCTVSGGSMXXXXSSYYWSWIRQLPGKGLEWIGYIYYSXXXGSTNYNPSLKXSRVIISADTSKNQFSLNLSSVTAADTAVYYCARHPTVYERFDPWGQGTLVTVSSX",
+                    "type": "internal",
+                    "node_type": "inferred",
+                    "node_class": "Cell",
+                    "locus": "IGH",
+                    "parent": "Node9-8232",
+                    "multiplicity": null,
+                    "timepoint_multiplicities": [],
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "length": 0.01960784314,
+                    "distance": 0.025210084035
+                },
+                {
+                    "sequence_id": "Node8-8232",
+                    "node_id": "Node8-8232",
+                    "sequence_alignment": "CAGGTGCAGCTGCAGGAGTCGGGCCCA...GGACTGGTGAAGCCTTCGGAGACCCTGTCCCTCACCTGCACTGTCTCTGGTGGCTCCATG............AGTAGTTACTACTGGAGTTGGATCCGGCAGCCCCCAGGGAAGGGACTGGAGTGGATTGGGTATATCTATTACAGT.........GGGGGCACCAACTACAACCCCTCCCTCAAG...AGTCGAGTCATCATATCAGTAGACACTTCCAAGAACCAGTTCTCCCTGAACCTGAGCTCTGTGACCGCTGCGGACACGGCCGTGTATTACTGTGCGAGACACCCCACCGTATACGAGCGGTTCGACCCCTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCAGNN",
+                    "sequence_alignment_aa": "QVQLQESGPXGLVKPSETLSLTCTVSGGSMXXXXSSYYWSWIRQPPGKGLEWIGYIYYSXXXGGTNYNPSLKXSRVIISVDTSKNQFSLNLSSVTAADTAVYYCARHPTVYERFDPWGQGTLVTVSSX",
+                    "type": "internal",
+                    "node_type": "inferred",
+                    "node_class": "Cell",
+                    "locus": "IGH",
+                    "parent": "Node9-8232",
+                    "multiplicity": null,
+                    "timepoint_multiplicities": [],
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "length": 0.005602240896,
+                    "distance": 0.011204481791
+                },
+                {
+                    "sequence_id": "Node9-8232",
+                    "node_id": "Node9-8232",
+                    "sequence_alignment": "CAGGTGCAGCTGCAGGAGTCGGGCCCA...GGACTGGTGAAGCCTTCGGAGACCCTGTCCCTCACCTGCACTGTCTCTGGTGGCTCCATG............AGTAGTTACTACTGGAGTTGGATCCGGCAGCCCCCAGGGAAGGGACTGGAGTGGATTGGGTATATCTATTACAGT.........GGGAGCACCAACTACAACCCCTCCCTCAAG...AGTCGAGTCATCATATCAGTAGACACGTCCAAGAACCAGTTCTCCCTGAACCTGAGCTCTGTGACCGCTGCGGACACGGCCGTGTATTACTGTGCGAGACACCCCACCGTATACGAGCGGTTCGACCCCTGGGGCCAGGGAACCCTGGTCACCGTCTCCTCAGNN",
+                    "sequence_alignment_aa": "QVQLQESGPXGLVKPSETLSLTCTVSGGSMXXXXSSYYWSWIRQPPGKGLEWIGYIYYSXXXGSTNYNPSLKXSRVIISVDTSKNQFSLNLSSVTAADTAVYYCARHPTVYERFDPWGQGTLVTVSSX",
+                    "type": "internal",
+                    "node_type": "inferred",
+                    "node_class": "Cell",
+                    "locus": "IGH",
+                    "parent": "Node6-8232",
+                    "multiplicity": null,
+                    "timepoint_multiplicities": [],
+                    "lbi": null,
+                    "lbr": null,
+                    "affinity": null,
+                    "scaled_affinity": null,
+                    "length": 0.005602240895,
+                    "distance": 0.005602240895
+                }
+            ]
+        }
+    ]
+}

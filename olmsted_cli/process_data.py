@@ -32,6 +32,7 @@ from .constants import (
     FIELD_LEVELS,
     FIELD_TYPES,
     FORMAT_AIRR,
+    FORMAT_AIRR2,
     FORMAT_AUTO,
     FORMAT_OLMSTED,
     FORMAT_PCP,
@@ -49,6 +50,7 @@ from .merge_mutations import (
     load_mutations_csv,
     report_merge_stats,
 )
+from .process_airr2_data import process_airr2_to_olmsted
 from .process_airr_data import (
     clone_spec,
     ensure_ident,
@@ -116,6 +118,33 @@ def validate_airr_file(file_path):
         return False
 
     return False
+
+
+def validate_airr2_file(file_path):
+    """
+    Validate that a file contains AIRR-C v2 Clone/Tree ("airr2") JSON.
+
+    The v2 schema is a single JSON object with top-level ``Clone`` and
+    ``Rearrangement`` tables (see ``process_airr2_data``).
+
+    Args:
+        file_path: Path to the JSON file
+
+    Returns:
+        bool: True if the file looks like an airr2 file, False otherwise
+    """
+    try:
+        handle, _ = open_file(file_path, expected_formats=(FORMAT_AIRR2,))
+        with handle as f:
+            data = json.load(f)
+
+        return (
+            isinstance(data, dict)
+            and isinstance(data.get("Clone"), list)
+            and isinstance(data.get("Rearrangement"), list)
+        )
+    except Exception:
+        return False
 
 
 def validate_pcp_file(file_path):
@@ -913,6 +942,123 @@ def process_pcp_format(args):
         sys.exit(1)
 
 
+def process_airr2_format(args):
+    """Process an AIRR-C v2 Clone/Tree ("airr2") file into Olmsted JSON.
+
+    Parses the single ``{Clone, Rearrangement}`` JSON, converts it via
+    ``process_airr2_to_olmsted``, then runs the same tail as the other formats
+    (optional ``--mutations`` merge, id-uniqueness enforcement, optional
+    validation, split/consolidated output). Runs in-memory only — streaming is
+    a deferred follow-up (issue #36).
+    """
+    vprint.status("Processing AIRR v2 Clone/Tree format...")
+
+    minter = IdentMinter(seed=getattr(args, "seed", None))
+    if getattr(args, "seed", None) is not None:
+        vprint.status(f"Using deterministic UUIDs with seed: {args.seed}")
+
+    try:
+        input_file = args.inputs[0]
+        vprint.status(f"Reading AIRR v2 file: {input_file}")
+        # Read directly (read_airr_json pins expected_formats=airr, which would
+        # reject an airr2-detected file).
+        handle, _ = open_file(input_file, expected_formats=(FORMAT_AIRR2,))
+        with handle as fh:
+            data = json.load(fh)
+        if not isinstance(data, dict) or "Clone" not in data:
+            vprint.error(
+                f"Error: {input_file} is not a valid AIRR v2 Clone/Tree file "
+                "(expected top-level 'Clone' and 'Rearrangement')."
+            )
+            sys.exit(1)
+
+        clone_records = data.get("Clone", [])
+        rearrangement_records = data.get("Rearrangement", [])
+        vprint.status(
+            f"Found {len(clone_records)} clones and "
+            f"{len(rearrangement_records)} rearrangements"
+        )
+
+        vprint.status("Converting to Olmsted format...")
+        datasets, clones_dict, trees = process_airr2_to_olmsted(
+            clone_records,
+            rearrangement_records,
+            minter=minter,
+            name=getattr(args, "name", None),
+            compute_metrics=getattr(args, "compute_metrics", False),
+            lbi_tau=getattr(args, "lbi_tau", 0.0125),
+            verbosity=args.verbose,
+            custom_fields=getattr(args, "custom_fields", None),
+        )
+
+        # Merge mutations CSV if --mutations was specified (operates on trees,
+        # shared with the AIRR/PCP paths).
+        mutations_path = getattr(args, "mutations", None)
+        if mutations_path:
+            try:
+                apply_mutations_csv(
+                    mutations_path,
+                    trees,
+                    use_depth=getattr(args, "mutations_use_depth", False),
+                    allow_mismatch=getattr(args, "mutations_allow_mismatch", False),
+                    only_listed=getattr(args, "mutations_listed_only", False),
+                )
+            except ValueError as e:
+                vprint.error(f"Error: {e}")
+                sys.exit(1)
+            retag_datasets_field_metadata(
+                datasets,
+                clones_dict,
+                trees,
+                custom_fields=getattr(args, "custom_fields", None),
+            )
+
+        try:
+            check_output_id_uniqueness(
+                datasets,
+                clones_dict,
+                allow_duplicates=getattr(args, "allow_duplicate_ids", False),
+            )
+        except ValueError as e:
+            vprint.error(f"Error: {e}")
+            sys.exit(1)
+
+        if args.validate:
+            if not validate_output_data(datasets, clones_dict, trees, args):
+                if args.strict_validation:
+                    vprint.error(
+                        "\nExiting due to validation errors (--strict-validation enabled)"
+                    )
+                    sys.exit(1)
+
+        if args.split_files:
+            output_dir = args.split_files
+            os.makedirs(output_dir, exist_ok=True)
+            vprint.status(f"Writing output to {output_dir}")
+            write_out(datasets, output_dir, "datasets.json", args)
+            for dataset_id, clones in clones_dict.items():
+                write_out(clones, output_dir, f"clones.{dataset_id}.json", args)
+            for tree in trees:
+                write_out(tree, output_dir, f"tree.{tree['ident']}.json", args)
+        else:
+            consolidated_data = create_consolidated_data(
+                datasets, clones_dict, trees, args.inputs, FORMAT_AIRR2, args
+            )
+            output_dir = os.path.dirname(args.output) or "."
+            output_file = os.path.basename(args.output)
+            os.makedirs(output_dir, exist_ok=True)
+            vprint.status(f"Writing Olmsted JSON output to {args.output}")
+            write_out(consolidated_data, output_dir, output_file, args)
+
+        vprint.status("Processing complete!")
+
+    except Exception as e:
+        vprint.error(f"Error processing AIRR v2 format: {e}")
+        if args.verbose:
+            traceback.print_exc()
+        sys.exit(1)
+
+
 def build_parser():
     """Build the argument parser for the unified processor."""
     parser = argparse.ArgumentParser(
@@ -961,9 +1107,10 @@ Examples:
     parser.add_argument(
         "-f",
         "--format",
-        choices=[FORMAT_AIRR, FORMAT_PCP, FORMAT_AUTO],
+        choices=[FORMAT_AIRR, FORMAT_AIRR2, FORMAT_PCP, FORMAT_AUTO],
         default=FORMAT_AUTO,
-        help="Input format (default: auto-detect)",
+        help="Input format (default: auto-detect). 'airr2' is the AIRR-C v2 "
+        "Clone/Tree schema (Dowser writeTreesJSON output).",
     )
 
     # --- Column overrides (PCP CSV inputs) ---
@@ -1400,6 +1547,11 @@ def main():
         for input_file in args.inputs:
             if not validate_airr_file(input_file):
                 vprint.status(f"Warning: {input_file} may not be valid AIRR format")
+    elif format_to_use == FORMAT_AIRR2:
+        if not validate_airr2_file(args.inputs[0]):
+            vprint.status(
+                f"Warning: {args.inputs[0]} may not be valid AIRR v2 Clone/Tree format"
+            )
     elif format_to_use == FORMAT_PCP:
         if not validate_pcp_file(args.inputs[0]):
             vprint.status(f"Warning: {args.inputs[0]} may not be valid PCP format")
@@ -1408,6 +1560,8 @@ def main():
     try:
         if format_to_use == FORMAT_AIRR:
             process_airr_format(args)
+        elif format_to_use == FORMAT_AIRR2:
+            process_airr2_format(args)
         elif format_to_use == FORMAT_PCP:
             process_pcp_format(args)
         elif format_to_use == FORMAT_OLMSTED:
