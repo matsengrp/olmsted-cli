@@ -195,6 +195,13 @@ KNOWN_NODE_FIELDS = {
     "confidence": {"type": "continuous", "label": "Confidence"},
     "timepoint_id": {"type": "categorical", "label": "Timepoint"},
     "affinity_class": {"type": "categorical", "label": "Affinity Class"},
+    # AIRR-C v2 node axes. node_type keeps its AIRR-standard field name but a
+    # distinct label: the webapp's built-in topological ``type`` field already
+    # uses "Node Type", and two fields sharing a tooltip label produce a
+    # duplicate object key (invalid Vega expression). See process_airr2_data.
+    "node_type": {"type": "categorical", "label": "Observed/Inferred"},
+    "node_class": {"type": "categorical", "label": "Node Class"},
+    "locus": {"type": "categorical", "label": "Locus"},
 }
 
 KNOWN_BRANCH_FIELDS = {

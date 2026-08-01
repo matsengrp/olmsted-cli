@@ -185,6 +185,25 @@ class TestDatasetSynthesis:
             assert clone["unique_seqs_count"] > 0
             assert "mean_mut_freq" in clone
 
+    def test_node_type_label_does_not_collide_with_topology_type(self):
+        """node_type must not share the "Node Type" label the webapp uses for
+        the built-in topological ``type`` field.
+
+        Two node fields with the same tooltip label produce a duplicate object
+        key -> invalid Vega expression -> the webapp fails to render the tree.
+        """
+        datasets, _clones_dict, _trees = _run("paired")
+        node_meta = datasets[0]["field_metadata"]["node"]
+        assert node_meta["node_type"]["label"] != "Node Type"
+        # No two node fields share a label, and none collide with the webapp's
+        # built-in node-field labels.
+        builtin_labels = {
+            "Sequence ID", "Parent ID", "Node Type", "Distance", "Depth",
+        }
+        labels = [m["label"] for m in node_meta.values()]
+        assert len(labels) == len(set(labels)), "duplicate field_metadata labels"
+        assert not (set(labels) & builtin_labels), "collides with a built-in label"
+
 
 @pytest.mark.airr2
 class TestMetrics:
