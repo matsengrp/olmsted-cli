@@ -1,16 +1,12 @@
 """Tests for the IdentMinter utility and deterministic_uuid helper."""
 
 import re
-import uuid
 
 import pytest
 
 from olmsted_cli.identifier import IdentMinter, deterministic_uuid
 
-
-_UUID_RE = re.compile(
-    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-)
+_UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 
 
 class TestIdentMinter:
@@ -19,7 +15,7 @@ class TestIdentMinter:
         m = IdentMinter()
         result = m.mint("clone")
         assert result.startswith("clone-")
-        tail = result[len("clone-"):]
+        tail = result[len("clone-") :]
         # Tail must be a valid UUID string
         assert _UUID_RE.match(tail), f"tail {tail!r} is not a UUID"
 
@@ -92,7 +88,7 @@ class TestIdentMinter:
         assert dataset.startswith("dataset-")
         assert clone.startswith("clone-")
         # Different counter positions → different UUIDs
-        assert dataset[len("dataset-"):] != clone[len("clone-"):]
+        assert dataset[len("dataset-") :] != clone[len("clone-") :]
 
 
 class TestDeterministicUuid:

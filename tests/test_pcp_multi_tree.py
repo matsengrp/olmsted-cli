@@ -26,7 +26,6 @@ from olmsted_cli.process_pcp_data import (
     process_pcp_to_olmsted,
 )
 
-
 # Minimal multi-tree PCP CSV: one sample, one family, two reconstruction
 # methods. Topology overlap on tip names L1, L2; internal node names
 # disjoint (mrca-* vs N#).
@@ -85,14 +84,14 @@ def test_parse_pcp_csv_emits_composite_keys(tmp_path):
 
 
 def test_parse_pcp_csv_no_tree_column_uses_sentinel(tmp_path):
-    csv = "\n".join(
-        line for line in PCP_CSV_MULTI.splitlines()
-        if line.strip()
-    )
+    csv = "\n".join(line for line in PCP_CSV_MULTI.splitlines() if line.strip())
     # Strip the tree_name column out
     rows = [r.split(",") for r in csv.splitlines()]
     header_idx = rows[0].index("tree_name")
-    stripped = "\n".join(",".join(c for i, c in enumerate(r) if i != header_idx) for r in rows) + "\n"
+    stripped = (
+        "\n".join(",".join(c for i, c in enumerate(r) if i != header_idx) for r in rows)
+        + "\n"
+    )
     csv_path = _write(tmp_path, "input-pcp.csv", stripped)
     families = parse_pcp_csv(csv_path)
     # All rows collapse to the same composite key with the sentinel.
@@ -130,9 +129,7 @@ def test_process_emits_one_clone_with_two_trees(tmp_path):
     assert len(trees) == 2
     leaf_names_per_tree = {
         t["tree_name"]: sorted(
-            n["sequence_id"]
-            for n in t.get("nodes", [])
-            if n.get("type") == "leaf"
+            n["sequence_id"] for n in t.get("nodes", []) if n.get("type") == "leaf"
         )
         for t in trees
     }
@@ -164,7 +161,10 @@ def test_tree_csv_extras_live_in_one_location(tmp_path):
     pcp_families = parse_pcp_csv(str(pcp))
     newick_trees = parse_newick_csv(str(trees))
     _, clones_dict, top_trees = process_pcp_to_olmsted(
-        pcp_families, newick_trees, minter=IdentMinter(seed=42), verbosity=0,
+        pcp_families,
+        newick_trees,
+        minter=IdentMinter(seed=42),
+        verbosity=0,
     )
 
     clone = next(c for cs in clones_dict.values() for c in cs)
@@ -221,7 +221,6 @@ def test_conflicting_columns_fail_fast(tmp_path):
     # Inject a `family_id` column with a different value than `family`.
     rows = [r.split(",") for r in PCP_CSV_MULTI.strip().splitlines()]
     header = rows[0]
-    family_idx = header.index("family")
     header.append("family_id")
     for r in rows[1:]:
         # different value for family_id vs family
@@ -267,13 +266,26 @@ def test_override_flag_supersedes_auto_detection(tmp_path):
 
     subprocess.run(
         [
-            "olmsted", "process", "-f", "pcp",
-            "-i", str(pcp), "-t", str(trees),
-            "-o", str(out),
-            "--family-col", "family_id",
-            "--seed", "42", "--name", "override-test", "-q",
+            "olmsted",
+            "process",
+            "-f",
+            "pcp",
+            "-i",
+            str(pcp),
+            "-t",
+            str(trees),
+            "-o",
+            str(out),
+            "--family-col",
+            "family_id",
+            "--seed",
+            "42",
+            "--name",
+            "override-test",
+            "-q",
         ],
-        check=True, capture_output=True,
+        check=True,
+        capture_output=True,
     )
 
     data = json.loads(out.read_text())

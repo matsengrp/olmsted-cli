@@ -15,12 +15,10 @@ import argparse
 import sys
 from pathlib import Path
 
-from .identifier import IdentMinter
 from .constants import (
     EXCLUDED_CLONE_FIELDS,
     EXCLUDED_MUTATION_FIELDS,
     EXCLUDED_NODE_FIELDS,
-    EXCLUDED_TREE_FIELDS,
     FIELD_ALIASES,
     FORMAT_AIRR,
     FORMAT_AUTO,
@@ -40,20 +38,21 @@ from .constants import (
     SUGGESTED_DISPLAY_MODES,
     SUGGESTED_SKIP_FIELDS,
 )
+from .data_io import detect_file_format, read_airr_json, read_olmsted_json
 from .field_metadata import (
     classify_tree_extras,
-    flatten_tree_refs,
     collect_keys,
     collect_mutations,
     collect_nodes,
     compute_range,
     entry_from_known,
+    flatten_tree_refs,
     humanize_label,
     infer_field_type,
     sample_values,
     sample_values_by_path,
 )
-from .data_io import detect_file_format, read_airr_json, read_olmsted_json
+from .identifier import IdentMinter
 from .utils import add_verbosity_args, resolve_verbosity, set_verbosity, vprint
 
 
@@ -196,9 +195,9 @@ def _load_airr(input_path):
         datasets_raw = [data]
 
     args = Namespace(
-        root=None,           # no rooting for build-config introspection
+        root=None,  # no rooting for build-config introspection
         naive_name="naive",  # default for process_dataset compatibility
-        root_trees=False,    # no rooting for build-config introspection
+        root_trees=False,  # no rooting for build-config introspection
         verbose=0,
         custom_fields=None,
         minter=IdentMinter(),
@@ -231,6 +230,93 @@ def _looks_like_local_path(values):
     return path_count > 0 and path_count >= len(values) // 2
 
 
+def _sequence_lengths(nodes, max_samples):
+    """Collect distinct observed sequence lengths from a sample of nodes."""
+    seq_lengths = set()
+    for node in nodes[:max_samples]:
+        if not isinstance(node, dict):
+            continue
+        for seq_field in ("sequence_alignment_aa", "sequence_alignment"):
+            seq = node.get(seq_field)
+            if isinstance(seq, str) and len(seq) > 0:
+                seq_lengths.add(len(seq))
+                break
+    return seq_lengths
+
+
+def _detect_records_encoding(values, field):
+    """Detect records-style encoding: list of dicts with a "site" key.
+
+    Returns a demotion dict with per-inner-field types, or None.
+    """
+    if not (values and all(isinstance(v, list) for v in values)):
+        return None
+    sample_items = [item for v in values for item in v[:5] if item is not None]
+    if not (sample_items and all(isinstance(item, dict) for item in sample_items)):
+        return None
+    if not any("site" in item for item in sample_items):
+        return None
+
+    # Surprise-style: collect all inner field names (excluding "site")
+    inner_fields = {}
+    for v in values:
+        for entry in v:
+            if not isinstance(entry, dict):
+                continue
+            for k, val in entry.items():
+                if k == "site" or val is None:
+                    continue
+                inner_fields.setdefault(k, []).append(val)
+    if not inner_fields:
+        return None
+
+    inner_types = {k: infer_field_type(vals) for k, vals in inner_fields.items()}
+    return {"encoding": "records", "source": field, "inner_fields": inner_types}
+
+
+def _detect_dense_list_encoding(values, seq_lengths):
+    """Detect a dense per-position array matching an observed sequence length."""
+    list_lengths = {len(v) for v in values if isinstance(v, list)}
+    if not (list_lengths and (list_lengths & seq_lengths)):
+        return None
+    inner_values = [item for v in values for item in v if item is not None]
+    if not inner_values:
+        return None
+    inner_type = infer_field_type(inner_values)
+    if inner_type in ("continuous", "aa", "dna"):
+        return {"encoding": "list", "inner_type": inner_type}
+    return None
+
+
+def _detect_json_encoding(values, seq_lengths):
+    """Detect a dict-with-int-keys-within-sequence-range encoding."""
+    all_keys_int = True
+    max_key = -1
+    inner_values = []
+    for v in values:
+        if not isinstance(v, dict):
+            return None
+        for k, val in v.items():
+            try:
+                k_int = int(k)
+                max_key = max(max_key, k_int)
+            except (ValueError, TypeError):
+                all_keys_int = False
+                break
+            if val is not None:
+                inner_values.append(val)
+        if not all_keys_int:
+            break
+    if not all_keys_int or max_key < 0 or not inner_values:
+        return None
+    if seq_lengths and max_key >= max(seq_lengths):
+        return None
+    inner_type = infer_field_type(inner_values)
+    if inner_type in ("continuous", "aa", "dna"):
+        return {"encoding": "json", "inner_type": inner_type}
+    return None
+
+
 def _check_mutation_demotion(nodes, field, max_samples=MAX_SAMPLE_HEURISTIC):
     """Check if a node-level field contains per-position mutation data.
 
@@ -247,84 +333,17 @@ def _check_mutation_demotion(nodes, field, max_samples=MAX_SAMPLE_HEURISTIC):
         return None
 
     field_type = infer_field_type(values)
-
-    # Get sequence lengths for comparison
-    seq_lengths = set()
-    for node in nodes[:max_samples]:
-        if not isinstance(node, dict):
-            continue
-        for seq_field in ("sequence_alignment_aa", "sequence_alignment"):
-            seq = node.get(seq_field)
-            if isinstance(seq, str) and len(seq) > 0:
-                seq_lengths.add(len(seq))
-                break
+    seq_lengths = _sequence_lengths(nodes, max_samples)
 
     if field_type == "list":
-        # Could be a dense per-position array or a records-style array of dicts
-        # Check for records-style first: list of dicts with "site" key
-        if values and all(isinstance(v, list) for v in values):
-            sample_items = [item for v in values for item in v[:5] if item is not None]
-            if sample_items and all(isinstance(item, dict) for item in sample_items):
-                if any("site" in item for item in sample_items):
-                    # Surprise-style: collect all inner field names (excluding "site")
-                    inner_fields = {}
-                    for v in values:
-                        for entry in v:
-                            if not isinstance(entry, dict):
-                                continue
-                            for k, val in entry.items():
-                                if k == "site" or val is None:
-                                    continue
-                                if k not in inner_fields:
-                                    inner_fields[k] = []
-                                inner_fields[k].append(val)
-                    if inner_fields:
-                        # Infer type for each inner field
-                        inner_types = {}
-                        for k, vals in inner_fields.items():
-                            inner_types[k] = infer_field_type(vals)
-                        return {
-                            "encoding": "records",
-                            "source": field,
-                            "inner_fields": inner_types,
-                        }
+        # Could be a dense per-position array or a records-style array of dicts;
+        # check records-style first since it's the more specific shape.
+        return _detect_records_encoding(values, field) or _detect_dense_list_encoding(
+            values, seq_lengths
+        )
 
-            # Dense list: check if lengths match sequence length
-            list_lengths = {len(v) for v in values if isinstance(v, list)}
-            if list_lengths and (list_lengths & seq_lengths):
-                inner_values = [item for v in values for item in v if item is not None]
-                if inner_values:
-                    inner_type = infer_field_type(inner_values)
-                    if inner_type in ("continuous", "aa", "dna"):
-                        return {"encoding": "list", "inner_type": inner_type}
-
-    elif field_type == "json":
-        # Check if keys are parseable as ints within sequence range
-        all_keys_int = True
-        max_key = -1
-        inner_values = []
-        for v in values:
-            if not isinstance(v, dict):
-                return None
-            for k, val in v.items():
-                try:
-                    k_int = int(k)
-                    max_key = max(max_key, k_int)
-                except (ValueError, TypeError):
-                    all_keys_int = False
-                    break
-                if val is not None:
-                    inner_values.append(val)
-            if not all_keys_int:
-                break
-        if not all_keys_int or max_key < 0 or not inner_values:
-            return None
-        # Check max key is within sequence range
-        if seq_lengths and max_key >= max(seq_lengths):
-            return None
-        inner_type = infer_field_type(inner_values)
-        if inner_type in ("continuous", "aa", "dna"):
-            return {"encoding": "json", "inner_type": inner_type}
+    if field_type == "json":
+        return _detect_json_encoding(values, seq_lengths)
 
     return None
 
@@ -392,8 +411,13 @@ def _make_field_entry(name, level, entry, skip=False, encoding=None, source=None
 
 
 def generate_default_config(
-    clones, trees, *, no_skip=False, skip_all=False,
-    _nodes=None, _mutations=None,
+    clones,
+    trees,
+    *,
+    no_skip=False,
+    skip_all=False,
+    _nodes=None,
+    _mutations=None,
 ):
     """Generate default field declarations by introspecting data.
 
@@ -419,7 +443,11 @@ def generate_default_config(
         Each dict has keys: name, level, type, label, and optionally
         skip, display, encoding, source.
     """
-    all_nodes = _nodes if _nodes is not None else collect_nodes(trees, max_nodes=MAX_NODES_SAMPLE)
+    all_nodes = (
+        _nodes
+        if _nodes is not None
+        else collect_nodes(trees, max_nodes=MAX_NODES_SAMPLE)
+    )
     all_mutations = _mutations if _mutations is not None else collect_mutations(trees)
     fields = []
 
@@ -441,7 +469,9 @@ def generate_default_config(
     # Check for known fields with dot-paths (e.g., locus → sample.locus)
     for field_name, field_info in KNOWN_CLONE_FIELDS.items():
         if "path" in field_info and field_name not in clone_keys:
-            values = sample_values_by_path(clones, field_info["path"], max_samples=MAX_SAMPLE_PATH)
+            values = sample_values_by_path(
+                clones, field_info["path"], max_samples=MAX_SAMPLE_PATH
+            )
             if values:
                 clone_keys.add(field_name)
 
@@ -480,17 +510,27 @@ def generate_default_config(
                         "display": "dropdown",
                         "label": humanize_label(inner_name),
                     }
-                    fields.append(_make_field_entry(
-                        inner_name, "mutation", inner_entry,
-                        encoding="records", source=field,
-                    ))
+                    fields.append(
+                        _make_field_entry(
+                            inner_name,
+                            "mutation",
+                            inner_entry,
+                            encoding="records",
+                            source=field,
+                        )
+                    )
             else:
                 # list or json: single mutation entry
                 mut_entry = dict(entry)
                 mut_entry["type"] = demotion["inner_type"]
-                fields.append(_make_field_entry(
-                    field, "mutation", mut_entry, encoding=enc,
-                ))
+                fields.append(
+                    _make_field_entry(
+                        field,
+                        "mutation",
+                        mut_entry,
+                        encoding=enc,
+                    )
+                )
         else:
             entry = _field_summary(all_nodes, field, KNOWN_NODE_FIELDS)
             skip = _should_skip(field, all_nodes, no_skip, skip_all)
@@ -519,14 +559,20 @@ def generate_default_config(
     )
 
     if has_derived_aa:
-        fields.append(_make_field_entry(
-            "child_aa", "mutation",
-            {"type": "aa", "display": "dropdown", "label": "Child Amino Acid"},
-        ))
-        fields.append(_make_field_entry(
-            "parent_aa", "mutation",
-            {"type": "aa", "display": "tooltip", "label": "Parent Amino Acid"},
-        ))
+        fields.append(
+            _make_field_entry(
+                "child_aa",
+                "mutation",
+                {"type": "aa", "display": "dropdown", "label": "Child Amino Acid"},
+            )
+        )
+        fields.append(
+            _make_field_entry(
+                "parent_aa",
+                "mutation",
+                {"type": "aa", "display": "tooltip", "label": "Parent Amino Acid"},
+            )
+        )
 
     for field in sorted(mutation_keys):
         values = sample_values(all_mutations, field)
@@ -553,8 +599,14 @@ def _yaml_entry(cf):
 
 
 def _format_field_block(
-    name, level, entry, sample_values=None, field_range=None,
-    skip=False, encoding=None, source=None,
+    name,
+    level,
+    entry,
+    sample_values=None,
+    field_range=None,
+    skip=False,
+    encoding=None,
+    source=None,
 ):
     """Format a single custom_fields YAML entry as a string."""
     lines = []
@@ -576,12 +628,14 @@ def _format_field_block(
     display = entry.get("display", "dropdown")
     if display != "dropdown":
         lines.append(f"    display: {display}")
-    lines.append(f"    label: \"{entry['label']}\"")
+    lines.append(f'    label: "{entry["label"]}"')
     if entry.get("description"):
-        lines.append(f"    description: \"{entry['description']}\"")
+        lines.append(f'    description: "{entry["description"]}"')
     if field_range:
         lines.append(f"    # range in data: [{field_range[0]}, {field_range[1]}]")
-        lines.append(f"    # range: [{field_range[0]}, {field_range[1]}]  # uncomment to set color scale domain")
+        lines.append(
+            f"    # range: [{field_range[0]}, {field_range[1]}]  # uncomment to set color scale domain"
+        )
     if sample_values:
         preview = ", ".join(str(v) for v in sample_values[:5])
         if len(sample_values) > 5:
@@ -605,12 +659,16 @@ def _get_sample_values_for_field(cf, all_clones, all_nodes, all_mutations):
     if level == "clone":
         # Path-based fields (e.g., locus → sample.locus)
         if name in KNOWN_CLONE_FIELDS and "path" in KNOWN_CLONE_FIELDS[name]:
-            return sample_values_by_path(all_clones, KNOWN_CLONE_FIELDS[name]["path"],
-                                         max_samples=MAX_SAMPLE_PREVIEW)
+            return sample_values_by_path(
+                all_clones,
+                KNOWN_CLONE_FIELDS[name]["path"],
+                max_samples=MAX_SAMPLE_PREVIEW,
+            )
         return sample_values(all_clones, name, max_samples=MAX_SAMPLE_PREVIEW)
     elif level == "tree":
-        return sample_values(flatten_tree_refs(all_clones), name,
-                             max_samples=MAX_SAMPLE_PREVIEW)
+        return sample_values(
+            flatten_tree_refs(all_clones), name, max_samples=MAX_SAMPLE_PREVIEW
+        )
     elif level == "node":
         return sample_values(all_nodes, name, max_samples=MAX_SAMPLE_PREVIEW)
     elif level == "branch":
@@ -618,16 +676,22 @@ def _get_sample_values_for_field(cf, all_clones, all_nodes, all_mutations):
     elif level == "mutation":
         if cf.get("encoding"):
             # Encoded fields: sample from nodes (source field), not mutations
-            return sample_values(all_nodes, cf.get("source", name),
-                                 max_samples=MAX_SAMPLE_PREVIEW)
+            return sample_values(
+                all_nodes, cf.get("source", name), max_samples=MAX_SAMPLE_PREVIEW
+            )
         return sample_values(all_mutations, name, max_samples=MAX_SAMPLE_PREVIEW)
     return []
 
 
 def _build_yaml(
-    input_name, detected_format, all_clones, all_trees,
-    input_path=None, tree_path=None,
-    no_skip=False, skip_all=False,
+    input_name,
+    detected_format,
+    all_clones,
+    all_trees,
+    input_path=None,
+    tree_path=None,
+    no_skip=False,
+    skip_all=False,
 ):
     """Build the YAML config string from templates and introspected data."""
     all_nodes = collect_nodes(all_trees, max_nodes=MAX_NODES_SAMPLE)
@@ -635,8 +699,12 @@ def _build_yaml(
 
     # Generate structured config, reusing already-collected nodes/mutations
     config_fields = generate_default_config(
-        all_clones, all_trees, no_skip=no_skip, skip_all=skip_all,
-        _nodes=all_nodes, _mutations=all_mutations,
+        all_clones,
+        all_trees,
+        no_skip=no_skip,
+        skip_all=skip_all,
+        _nodes=all_nodes,
+        _mutations=all_mutations,
     )
 
     input_str = str(input_path) if input_path else input_name
@@ -651,17 +719,21 @@ def _build_yaml(
     # Assemble from templates
     parts = []
 
-    parts.append(_load_template("header.yaml").format(
-        input_name=input_name,
-        detected_format=detected_format,
-        usage_command=usage_command,
-    ))
+    parts.append(
+        _load_template("header.yaml").format(
+            input_name=input_name,
+            detected_format=detected_format,
+            usage_command=usage_command,
+        )
+    )
 
     options_template = f"options_{detected_format}.yaml"
-    parts.append(_load_template(options_template).format(
-        input_path=input_str,
-        tree_path=tree_str,
-    ))
+    parts.append(
+        _load_template(options_template).format(
+            input_path=input_str,
+            tree_path=tree_str,
+        )
+    )
 
     parts.append(_load_template("fields_header.yaml"))
 
@@ -698,8 +770,12 @@ def _build_yaml(
             derived = [cf for cf in active if not cf.get("encoding")]
             demoted = [cf for cf in active if cf.get("encoding")]
             # Only those without encoding and without a source → derived AA fields
-            derived_aa = [cf for cf in derived if cf["name"] in ("child_aa", "parent_aa")
-                          and cf["type"] in ("aa", "dna")]
+            derived_aa = [
+                cf
+                for cf in derived
+                if cf["name"] in ("child_aa", "parent_aa")
+                and cf["type"] in ("aa", "dna")
+            ]
             regular = [cf for cf in derived if cf not in derived_aa]
 
             if derived_aa or demoted or regular:
@@ -714,34 +790,55 @@ def _build_yaml(
                     lines.append(_format_field_block(cf["name"], yaml_level, entry))
 
             if demoted:
-                lines.append("  # The following fields were detected as per-position data")
-                lines.append("  # stored on nodes (demoted from node to mutation level):")
+                lines.append(
+                    "  # The following fields were detected as per-position data"
+                )
+                lines.append(
+                    "  # stored on nodes (demoted from node to mutation level):"
+                )
                 for cf in demoted:
                     entry = _yaml_entry(cf)
-                    lines.append(_format_field_block(
-                        cf["name"], yaml_level, entry,
-                        encoding=cf.get("encoding"), source=cf.get("source"),
-                    ))
+                    lines.append(
+                        _format_field_block(
+                            cf["name"],
+                            yaml_level,
+                            entry,
+                            encoding=cf.get("encoding"),
+                            source=cf.get("source"),
+                        )
+                    )
 
             for cf in regular:
                 entry = _yaml_entry(cf)
-                samples = _get_sample_values_for_field(cf, all_clones, all_nodes, all_mutations)
+                samples = _get_sample_values_for_field(
+                    cf, all_clones, all_nodes, all_mutations
+                )
                 field_range = None
                 if entry["type"] == "continuous":
                     field_range = compute_range(all_mutations, cf["name"])
-                lines.append(_format_field_block(cf["name"], yaml_level, entry, samples, field_range))
+                lines.append(
+                    _format_field_block(
+                        cf["name"], yaml_level, entry, samples, field_range
+                    )
+                )
 
         elif active:
             lines.append("")
             lines.append(level_headers[level])
             for cf in active:
                 entry = _yaml_entry(cf)
-                samples = _get_sample_values_for_field(cf, all_clones, all_nodes, all_mutations)
-                lines.append(_format_field_block(cf["name"], yaml_level, entry, samples))
+                samples = _get_sample_values_for_field(
+                    cf, all_clones, all_nodes, all_mutations
+                )
+                lines.append(
+                    _format_field_block(cf["name"], yaml_level, entry, samples)
+                )
 
         for cf in skipped:
             entry = _yaml_entry(cf)
-            samples = _get_sample_values_for_field(cf, all_clones, all_nodes, all_mutations)
+            samples = _get_sample_values_for_field(
+                cf, all_clones, all_nodes, all_mutations
+            )
             skip_entries.append((cf["name"], yaml_level, entry, samples, None))
 
     # --- Skipped fields section (at the bottom) ---
@@ -749,7 +846,11 @@ def _build_yaml(
         lines.append("")
         lines.append(_load_template("skip_header.yaml").strip("\n"))
         for field, level, entry, samples, field_range in skip_entries:
-            lines.append(_format_field_block(field, level, entry, samples, field_range, skip=True))
+            lines.append(
+                _format_field_block(
+                    field, level, entry, samples, field_range, skip=True
+                )
+            )
 
     lines.append("")
 
@@ -802,9 +903,14 @@ def main():
     # Build YAML
     trees_path = Path(args.tree) if args.tree else None
     output_text = _build_yaml(
-        input_path.name, detected_format, all_clones, all_trees,
-        input_path=input_path, tree_path=trees_path,
-        no_skip=args.no_skip, skip_all=args.skip_all,
+        input_path.name,
+        detected_format,
+        all_clones,
+        all_trees,
+        input_path=input_path,
+        tree_path=trees_path,
+        no_skip=args.no_skip,
+        skip_all=args.skip_all,
     )
 
     # Write output

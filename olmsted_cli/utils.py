@@ -15,7 +15,6 @@ from tqdm import tqdm
 
 from .constants import VERBOSITY_HELP
 
-
 # Module-level VerbosePrinter instance.  Call set_verbosity() early in each
 # command's main() to configure the level.  All modules import ``vprint``
 # from here instead of using naked print().
@@ -160,14 +159,16 @@ def add_verbosity_args(parser):
         vprint = VerbosePrinter(args.verbose)
     """
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         type=int,
         choices=[0, 1, 2, 3],
         default=1,
         help=VERBOSITY_HELP,
     )
     parser.add_argument(
-        "-q", "--quiet",
+        "-q",
+        "--quiet",
         action="store_true",
         help="Quiet mode — errors only (equivalent to -v 0)",
     )
@@ -357,6 +358,7 @@ def translate_dna_to_aa(dna_sequence):
 
 # Key renaming utilities
 
+
 def rename_keys(record, mapping, to_keep=None):
     """
     Rename keys in a record based on a mapping dictionary.
@@ -425,11 +427,13 @@ def json_rep(x):
 
 def natural_number(desc):
     """argparse type for positive integers."""
+
     def check(value):
         ivalue = int(value)
         if ivalue <= 0:
             raise argparse.ArgumentTypeError(f"{desc} must be a positive integer")
         return ivalue
+
     return check
 
 

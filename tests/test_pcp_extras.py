@@ -6,17 +6,14 @@ import os
 import subprocess
 import tempfile
 
-import pytest
-
 from olmsted_cli.process_pcp_data import (
     PCP_NO_TREE_SENTINEL,
     _normalize_column_names,
     _partition_chain_fields,
-    parse_pcp_csv,
     parse_newick_csv,
+    parse_pcp_csv,
 )
 from olmsted_cli.process_utils import coerce_csv_value as _coerce_csv_value
-
 
 # =============================================================================
 # _coerce_csv_value
@@ -40,7 +37,7 @@ class TestCoerceCsvValue:
         assert _coerce_csv_value("hello") == "hello"
 
     def test_json_list(self):
-        assert _coerce_csv_value('[1, 2, 3]') == [1, 2, 3]
+        assert _coerce_csv_value("[1, 2, 3]") == [1, 2, 3]
 
     def test_json_dict(self):
         assert _coerce_csv_value('{"a": 1}') == {"a": 1}
@@ -151,16 +148,24 @@ class TestPcpExtraColumns:
     def test_extra_pcp_columns_on_nodes(self, tmp_path):
         """Extra columns in PCP CSV appear on output nodes."""
         pcp_file = tmp_path / "pcp.csv"
-        _write_csv(str(pcp_file), [
-            {
-                "sample_id": "s1", "family": "f1",
-                "parent_name": "naive", "child_name": "leaf1",
-                "parent_heavy": "ATCG", "child_heavy": "ATGG",
-                "branch_length": "0.01", "parent_is_naive": "True",
-                "child_is_leaf": "True", "my_score": "3.14",
-                "my_label": "interesting",
-            },
-        ])
+        _write_csv(
+            str(pcp_file),
+            [
+                {
+                    "sample_id": "s1",
+                    "family": "f1",
+                    "parent_name": "naive",
+                    "child_name": "leaf1",
+                    "parent_heavy": "ATCG",
+                    "child_heavy": "ATGG",
+                    "branch_length": "0.01",
+                    "parent_is_naive": "True",
+                    "child_is_leaf": "True",
+                    "my_score": "3.14",
+                    "my_label": "interesting",
+                },
+            ],
+        )
         families = parse_pcp_csv(str(pcp_file))
         fam = families[("s1", "f1", PCP_NO_TREE_SENTINEL)]
         leaf = fam["nodes"]["leaf1"]
@@ -170,13 +175,18 @@ class TestPcpExtraColumns:
     def test_extra_tree_columns_in_tree_data(self, tmp_path):
         """Extra columns in tree CSV appear in tree_data dict."""
         tree_file = tmp_path / "trees.csv"
-        _write_csv(str(tree_file), [
-            {
-                "family_name": "f1", "sample_id": "s1",
-                "newick_tree": "(leaf1:0.01)naive:0.0;",
-                "phylo_diversity": "0.85", "clade": "group-A",
-            },
-        ])
+        _write_csv(
+            str(tree_file),
+            [
+                {
+                    "family_name": "f1",
+                    "sample_id": "s1",
+                    "newick_tree": "(leaf1:0.01)naive:0.0;",
+                    "phylo_diversity": "0.85",
+                    "clade": "group-A",
+                },
+            ],
+        )
         trees = parse_newick_csv(str(tree_file))
         tree_entries = trees[("s1", "f1", PCP_NO_TREE_SENTINEL)]
         # parse_newick_csv returns a list-per-key (each list element is
@@ -191,7 +201,9 @@ class TestPcpExtraColumns:
         """CSV with leading comma (unnamed index) doesn't pollute nodes."""
         pcp_file = tmp_path / "pcp.csv"
         with open(pcp_file, "w") as f:
-            f.write(",sample_id,family,parent_name,child_name,parent_heavy,child_heavy,branch_length,parent_is_naive,child_is_leaf\n")
+            f.write(
+                ",sample_id,family,parent_name,child_name,parent_heavy,child_heavy,branch_length,parent_is_naive,child_is_leaf\n"
+            )
             f.write("0,s1,f1,naive,leaf1,ATCG,ATGG,0.01,True,True\n")
 
         families = parse_pcp_csv(str(pcp_file))
@@ -204,8 +216,12 @@ class TestPcpChainPartitioning:
     def test_end_to_end_paired_partitioning(self):
         """Extra fields are partitioned by chain suffix in paired processing."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as pf:
-            pf.write("sample_id,family,parent_name,child_name,parent_heavy,child_heavy,parent_light,child_light,branch_length,parent_is_naive,child_is_leaf,light_chain_type,score_heavy,score_light,shared_val\n")
-            pf.write("s1,f1,naive,leaf1,ATCG,ATGG,GCTA,GCTG,0.01,True,True,kappa,0.8,0.3,42\n")
+            pf.write(
+                "sample_id,family,parent_name,child_name,parent_heavy,child_heavy,parent_light,child_light,branch_length,parent_is_naive,child_is_leaf,light_chain_type,score_heavy,score_light,shared_val\n"
+            )
+            pf.write(
+                "s1,f1,naive,leaf1,ATCG,ATGG,GCTA,GCTG,0.01,True,True,kappa,0.8,0.3,42\n"
+            )
             pcp_path = pf.name
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as tf:
@@ -218,9 +234,22 @@ class TestPcpChainPartitioning:
 
         try:
             result = subprocess.run(
-                ["olmsted", "process", "-i", pcp_path, "-t", tree_path,
-                 "-f", "pcp", "-o", out_path, "--seed", "42"],
-                capture_output=True, text=True,
+                [
+                    "olmsted",
+                    "process",
+                    "-i",
+                    pcp_path,
+                    "-t",
+                    tree_path,
+                    "-f",
+                    "pcp",
+                    "-o",
+                    out_path,
+                    "--seed",
+                    "42",
+                ],
+                capture_output=True,
+                text=True,
             )
             assert result.returncode == 0, f"stderr: {result.stderr}"
 
@@ -246,8 +275,12 @@ class TestPcpChainPartitioning:
             # Node-level: shared_val on both chains' nodes
             heavy_tree = next(t for t in data["trees"] if "heavy" in t["clone_id"])
             light_tree = next(t for t in data["trees"] if "light" in t["clone_id"])
-            heavy_leaf = next(n for n in heavy_tree["nodes"] if n["sequence_id"] == "leaf1")
-            light_leaf = next(n for n in light_tree["nodes"] if n["sequence_id"] == "leaf1")
+            heavy_leaf = next(
+                n for n in heavy_tree["nodes"] if n["sequence_id"] == "leaf1"
+            )
+            light_leaf = next(
+                n for n in light_tree["nodes"] if n["sequence_id"] == "leaf1"
+            )
             assert heavy_leaf["shared_val"] == 42
             assert light_leaf["shared_val"] == 42
 
@@ -269,7 +302,9 @@ class TestPcpMinimalData:
     def test_no_gene_calls(self):
         """PCP data with only required columns + sequences processes without error."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-            f.write("sample_id,family,parent_name,child_name,parent_heavy,child_heavy,branch_length,parent_is_naive,child_is_leaf\n")
+            f.write(
+                "sample_id,family,parent_name,child_name,parent_heavy,child_heavy,branch_length,parent_is_naive,child_is_leaf\n"
+            )
             f.write("s1,f1,naive,leaf1,ATCGATCG,ATGGATCG,0.01,True,True\n")
             pcp_path = f.name
 
@@ -278,9 +313,20 @@ class TestPcpMinimalData:
 
         try:
             result = subprocess.run(
-                ["olmsted", "process", "-i", pcp_path, "-f", "pcp",
-                 "-o", out_path, "--seed", "42"],
-                capture_output=True, text=True,
+                [
+                    "olmsted",
+                    "process",
+                    "-i",
+                    pcp_path,
+                    "-f",
+                    "pcp",
+                    "-o",
+                    out_path,
+                    "--seed",
+                    "42",
+                ],
+                capture_output=True,
+                text=True,
             )
             assert result.returncode == 0, f"stderr: {result.stderr}"
 
@@ -300,7 +346,9 @@ class TestPcpMinimalData:
     def test_column_aliases(self):
         """Chain-agnostic column names (v_gene, parent_seq) are mapped correctly."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-            f.write("sample_id,family,parent_name,child_name,parent_seq,child_seq,branch_length,v_gene,j_gene,parent_is_naive,child_is_leaf\n")
+            f.write(
+                "sample_id,family,parent_name,child_name,parent_seq,child_seq,branch_length,v_gene,j_gene,parent_is_naive,child_is_leaf\n"
+            )
             f.write("s1,f1,naive,leaf1,ATCG,ATGG,0.01,IGHV3-48*01,IGHJ4*02,True,True\n")
             pcp_path = f.name
 
@@ -309,12 +357,27 @@ class TestPcpMinimalData:
 
         try:
             result = subprocess.run(
-                ["olmsted", "process", "-i", pcp_path, "-f", "pcp",
-                 "-o", out_path, "--seed", "42", "-v", "2"],
-                capture_output=True, text=True,
+                [
+                    "olmsted",
+                    "process",
+                    "-i",
+                    pcp_path,
+                    "-f",
+                    "pcp",
+                    "-o",
+                    out_path,
+                    "--seed",
+                    "42",
+                    "-v",
+                    "2",
+                ],
+                capture_output=True,
+                text=True,
             )
             assert result.returncode == 0, f"stderr: {result.stderr}"
-            assert "mapped to" in (result.stderr + result.stdout)  # Should print alias notifications
+            assert "mapped to" in (
+                result.stderr + result.stdout
+            )  # Should print alias notifications
 
             with open(out_path) as f:
                 data = json.load(f)

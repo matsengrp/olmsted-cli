@@ -40,8 +40,8 @@ def test_merge_fixture_end_to_end(fixture_files_exist, tmp_path):
             "--mutations",
             str(FIXTURE_CSV),
             "--mutations-use-depth",
-
-            "--json-format", "pretty",
+            "--json-format",
+            "pretty",
             "-o",
             str(out_path),
         ],
@@ -81,8 +81,8 @@ def test_merge_fixture_output_structure(fixture_files_exist, tmp_path):
             "--mutations",
             str(FIXTURE_CSV),
             "--mutations-use-depth",
-
-            "--json-format", "pretty",
+            "--json-format",
+            "pretty",
             "-o",
             str(out_path),
             "-q",
@@ -108,7 +108,9 @@ def test_merge_fixture_output_structure(fixture_files_exist, tmp_path):
         "num_codon_changes",
         "surprise_mutsel_theoretical",
     ):
-        assert field in fm_mut, f"Expected merged mutation field {field!r} in field_metadata"
+        assert field in fm_mut, (
+            f"Expected merged mutation field {field!r} in field_metadata"
+        )
 
     # Spot-check that at least one node has a mutation entry with the merged fields
     enriched_count = 0
@@ -142,16 +144,21 @@ def test_merge_fixture_matches_golden(fixture_files_exist, tmp_path):
 
     subprocess.run(
         [
-            "olmsted", "merge",
-            "-i", str(FIXTURE_JSON),
-            "--mutations", str(FIXTURE_CSV),
+            "olmsted",
+            "merge",
+            "-i",
+            str(FIXTURE_JSON),
+            "--mutations",
+            str(FIXTURE_CSV),
             "--mutations-use-depth",
-
-            "--json-format", "pretty",
-            "-o", str(out_path),
+            "--json-format",
+            "pretty",
+            "-o",
+            str(out_path),
             "-q",
         ],
-        check=True, capture_output=True,
+        check=True,
+        capture_output=True,
     )
 
     match, message = compare_consolidated_files(str(FIXTURE_GOLDEN), str(out_path))
@@ -171,8 +178,8 @@ def test_merge_fixture_key_columns_excluded(fixture_files_exist, tmp_path):
             "--mutations",
             str(FIXTURE_CSV),
             "--mutations-use-depth",
-
-            "--json-format", "pretty",
+            "--json-format",
+            "pretty",
             "-o",
             str(out_path),
             "-q",

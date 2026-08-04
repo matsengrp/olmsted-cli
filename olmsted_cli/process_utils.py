@@ -9,8 +9,8 @@ project dependencies live in ``utils.py``.
 
 import json
 import os
-import uuid
 from datetime import datetime, timezone
+
 import jsonschema
 import yaml
 from tqdm import tqdm
@@ -47,7 +47,6 @@ from .utils import (  # noqa: F401 — re-exported for backward compatibility
     vprint,
 )
 from .version import __version__, get_git_hash
-
 
 # VerbosePrinter and all general-purpose utilities now live in utils.py.
 # They are re-exported above for backward compatibility.
@@ -101,7 +100,9 @@ def write_out(data, dirname, filename, args):
     if hasattr(args, "csv") and args.csv and isinstance(data, list):
         written = write_csv(data, full_path)
     elif isinstance(data, (list, dict)):
-        written = write_olmsted_json(data, full_path, json_format=json_format, default=json_rep)
+        written = write_olmsted_json(
+            data, full_path, json_format=json_format, default=json_rep
+        )
     else:
         # Handle raw string data — single inline branch; not worth a helper.
         with open(full_path, "w") as fh:
@@ -113,6 +114,71 @@ def write_out(data, dirname, filename, args):
 
 # Version Constants
 CONSOLIDATED_JSON_VERSION = "1.0"
+
+
+def _merge_list_encoding(node, field_name, by_site):
+    """Merge a dense per-position array field into by_site (index = site)."""
+    data = node.get(field_name)
+    if not isinstance(data, list):
+        return
+    for site, val in enumerate(data):
+        if val is None:
+            continue
+        by_site.setdefault(site, {"site": site})[field_name] = val
+
+
+def _merge_json_encoding(node, field_name, by_site):
+    """Merge a sparse {site: value} dict field into by_site."""
+    data = node.get(field_name)
+    if not isinstance(data, dict):
+        return
+    for key, val in data.items():
+        if val is None:
+            continue
+        try:
+            site = int(key)
+        except (ValueError, TypeError):
+            continue
+        by_site.setdefault(site, {"site": site})[field_name] = val
+
+
+def _merge_records_encoding(node, source, fields_to_extract, by_site):
+    """Merge a records-style array of {"site": ..., ...} dicts into by_site."""
+    data = node.get(source)
+    if not isinstance(data, list):
+        return
+    for entry in data:
+        if not isinstance(entry, dict) or "site" not in entry:
+            continue
+        site = entry["site"]
+        target = by_site.setdefault(site, {"site": site})
+        for fname in fields_to_extract:
+            if fname in entry:
+                target[fname] = entry[fname]
+
+
+def _unpack_node_mutations(node, encoded, records_by_source):
+    """Merge every encoded custom field for one node into its mutations array."""
+    existing = node.get("mutations", [])
+    by_site = {m["site"]: m for m in existing if isinstance(m, dict) and "site" in m}
+
+    for cf in encoded:
+        field_name = cf["name"]
+        encoding = cf["encoding"]
+
+        if encoding == "list":
+            _merge_list_encoding(node, field_name, by_site)
+        elif encoding == "json":
+            _merge_json_encoding(node, field_name, by_site)
+        elif encoding == "records":
+            source = cf["source"]
+            # Only process the source array once per node (first field triggers it)
+            if field_name != records_by_source[source][0]:
+                continue
+            _merge_records_encoding(node, source, records_by_source[source], by_site)
+
+    if by_site:
+        node["mutations"] = sorted(by_site.values(), key=lambda m: m["site"])
 
 
 def unpack_encoded_mutations(trees, custom_fields):
@@ -146,74 +212,12 @@ def unpack_encoded_mutations(trees, custom_fields):
 
     for tree in trees:
         nodes = tree.get("nodes", [])
-        if isinstance(nodes, dict):
-            node_list = list(nodes.values())
-        else:
-            node_list = nodes
+        node_list = list(nodes.values()) if isinstance(nodes, dict) else nodes
 
         for node in node_list:
             if not isinstance(node, dict):
                 continue
-
-            # Index existing mutations by site
-            existing = node.get("mutations", [])
-            by_site = {}
-            for m in existing:
-                if isinstance(m, dict) and "site" in m:
-                    by_site[m["site"]] = m
-
-            for cf in encoded:
-                field_name = cf["name"]
-                encoding = cf["encoding"]
-
-                if encoding == "list":
-                    data = node.get(field_name)
-                    if not isinstance(data, list):
-                        continue
-                    for site, val in enumerate(data):
-                        if val is None:
-                            continue
-                        if site not in by_site:
-                            by_site[site] = {"site": site}
-                        by_site[site][field_name] = val
-
-                elif encoding == "json":
-                    data = node.get(field_name)
-                    if not isinstance(data, dict):
-                        continue
-                    for key, val in data.items():
-                        if val is None:
-                            continue
-                        try:
-                            site = int(key)
-                        except (ValueError, TypeError):
-                            continue
-                        if site not in by_site:
-                            by_site[site] = {"site": site}
-                        by_site[site][field_name] = val
-
-                elif encoding == "records":
-                    source = cf["source"]
-                    # Only process the source array once per node (first field triggers it)
-                    if field_name != records_by_source[source][0]:
-                        continue
-                    data = node.get(source)
-                    if not isinstance(data, list):
-                        continue
-                    fields_to_extract = records_by_source[source]
-                    for entry in data:
-                        if not isinstance(entry, dict) or "site" not in entry:
-                            continue
-                        site = entry["site"]
-                        if site not in by_site:
-                            by_site[site] = {"site": site}
-                        for fname in fields_to_extract:
-                            if fname in entry:
-                                by_site[site][fname] = entry[fname]
-
-            # Write back sorted by site
-            if by_site:
-                node["mutations"] = sorted(by_site.values(), key=lambda m: m["site"])
+            _unpack_node_mutations(node, encoded, records_by_source)
 
 
 def tag_field_metadata(clones, trees, custom_fields=None):
@@ -280,9 +284,7 @@ def retag_datasets_field_metadata(
 
         dataset_clones = clones_dict.get(dataset_id, [])
         clone_ids = {c.get("clone_id") for c in dataset_clones if c.get("clone_id")}
-        dataset_trees = [
-            t for cid in clone_ids for t in trees_by_clone_id.get(cid, [])
-        ]
+        dataset_trees = [t for cid in clone_ids for t in trees_by_clone_id.get(cid, [])]
 
         new_field_metadata = tag_field_metadata(
             dataset_clones, dataset_trees, custom_fields
@@ -561,26 +563,31 @@ def validate_output_data(datasets, clones_dict, trees, args):
         # Validate clones
         clone_count = 0
         clone_failures = 0
-        
+
         # Count total clones for progress bar
         total_clones = sum(len(clones) for clones in clones_dict.values())
-        
-        with tqdm(total=total_clones, desc="Validating clones", unit="clone", disable=total_clones <= 1) as pbar:
+
+        with tqdm(
+            total=total_clones,
+            desc="Validating clones",
+            unit="clone",
+            disable=total_clones <= 1,
+        ) as pbar:
             for dataset_id, clones in clones_dict.items():
                 for clone in clones:
                     clone_count += 1
-                    clone_id = clone.get('clone_id', 'unknown')
+                    clone_id = clone.get("clone_id", "unknown")
                     pbar.set_description(f"Validating clone {clone_id}")
-                    
-                    result = validate_clone(clone, verbose=getattr(args, "verbose", False))
+
+                    result = validate_clone(
+                        clone, verbose=getattr(args, "verbose", False)
+                    )
                     for warning in result.warnings:
                         vprint.status(f"WARN: Clone {clone_id}: {warning}")
                     if result.errors:
                         clone_failures += 1
                         if getattr(args, "verbose", False):
-                            vprint.error(
-                                f"FAIL: Clone {clone_id} validation failed:"
-                            )
+                            vprint.error(f"FAIL: Clone {clone_id} validation failed:")
                             for error in result.errors:
                                 vprint.error(f"  - {error}")
                         validation_passed = False
@@ -591,21 +598,29 @@ def validate_output_data(datasets, clones_dict, trees, args):
         if clone_failures == 0:
             vprint.status(f"PASS: Clone validation passed ({clone_count} clones)")
         else:
-            vprint.error(f"FAIL: Clone validation: {clone_failures}/{clone_count} failed")
+            vprint.error(
+                f"FAIL: Clone validation: {clone_failures}/{clone_count} failed"
+            )
 
         # Validate trees
         tree_count = 0
         tree_failures = 0
-        
-        with tqdm(trees, desc="Validating trees", unit="tree", disable=len(trees) <= 1) as pbar:
+
+        with tqdm(
+            trees, desc="Validating trees", unit="tree", disable=len(trees) <= 1
+        ) as pbar:
             for tree in pbar:
                 tree_count += 1
-                tree_id = tree.get('ident', 'unknown')
+                tree_id = tree.get("ident", "unknown")
                 pbar.set_description(f"Validating tree {tree_id}")
-                
+
                 # Check if time tree validation is enabled
-                check_time_tree = getattr(args, 'time_tree', False)
-                result = validate_tree(tree, verbose=getattr(args, "verbose", False), check_time_tree=check_time_tree)
+                check_time_tree = getattr(args, "time_tree", False)
+                result = validate_tree(
+                    tree,
+                    verbose=getattr(args, "verbose", False),
+                    check_time_tree=check_time_tree,
+                )
                 for warning in result.warnings:
                     vprint.status(f"WARN: Tree {tree_id}: {warning}")
                 if result.errors:
@@ -860,62 +875,64 @@ def _branch_length_warnings(tree):
 def validate_time_tree(nodes, verbose=False):
     """
     Validate that a tree is a valid time tree.
-    
-    For time trees, each child node's distance from root should be 
+
+    For time trees, each child node's distance from root should be
     greater than or equal to its parent's distance from root.
-    
+
     Args:
         nodes: List of node dictionaries with 'sequence_id', 'parent', and 'distance' fields
         verbose: Show detailed errors
-        
+
     Returns:
         list: List of validation errors (empty if valid)
     """
     errors = []
-    
+
     if not nodes:
         return errors  # Empty tree is valid
-    
+
     # Build a dictionary for quick node lookup
     node_dict = {}
     for node in nodes:
-        if isinstance(node, dict) and 'sequence_id' in node:
-            node_dict[node['sequence_id']] = node
-    
+        if isinstance(node, dict) and "sequence_id" in node:
+            node_dict[node["sequence_id"]] = node
+
     # Check each node's distance relationship with its parent
     for node in nodes:
         if not isinstance(node, dict):
             continue
-            
-        node_id = node.get('sequence_id')
-        parent_id = node.get('parent')
-        node_distance = node.get('distance')
-        
+
+        node_id = node.get("sequence_id")
+        parent_id = node.get("parent")
+        node_distance = node.get("distance")
+
         # Skip if no parent (root node) or missing data
-        if not parent_id or parent_id == 'null' or node_distance is None:
+        if not parent_id or parent_id == "null" or node_distance is None:
             continue
-            
+
         # Find parent node
         parent_node = node_dict.get(parent_id)
         if not parent_node:
             if verbose:
                 errors.append(f"Node {node_id}: parent {parent_id} not found in tree")
             continue
-            
-        parent_distance = parent_node.get('distance')
+
+        parent_distance = parent_node.get("distance")
         if parent_distance is None:
             continue
-            
+
         # Check time tree constraint
         try:
             if float(node_distance) < float(parent_distance):
-                error_msg = (f"Time tree violation: Node {node_id} has distance {node_distance} "
-                           f"which is less than parent {parent_id} distance {parent_distance}")
+                error_msg = (
+                    f"Time tree violation: Node {node_id} has distance {node_distance} "
+                    f"which is less than parent {parent_id} distance {parent_distance}"
+                )
                 errors.append(error_msg)
         except (ValueError, TypeError):
             if verbose:
                 errors.append(f"Node {node_id}: non-numeric distance value")
-    
+
     return errors
 
 
@@ -965,7 +982,7 @@ def validate_tree(data, verbose=False, check_time_tree=False):
         # Only Olmsted validation failed
         errors.extend(olmsted_errors)
     # If AIRR validation passed OR Olmsted validation passed, consider it valid (no errors)
-    
+
     # Check tree has a root node
     if "nodes" in data:
         nodes = data["nodes"]
@@ -979,20 +996,30 @@ def validate_tree(data, verbose=False, check_time_tree=False):
         if nodes_list:
             # Find root node(s) — nodes with parent=None or type="root"
             root_nodes = [
-                n for n in nodes_list
-                if isinstance(n, dict) and (
-                    n.get("parent") is None or n.get("type") == "root"
-                )
+                n
+                for n in nodes_list
+                if isinstance(n, dict)
+                and (n.get("parent") is None or n.get("type") == "root")
             ]
 
             if not root_nodes:
                 # No root found — check for common naive/germline node names
-                all_names = [n.get("sequence_id", "") for n in nodes_list if isinstance(n, dict)]
+                all_names = [
+                    n.get("sequence_id", "") for n in nodes_list if isinstance(n, dict)
+                ]
                 naive_candidates = [
-                    name for name in all_names
-                    if name and any(
+                    name
+                    for name in all_names
+                    if name
+                    and any(
                         hint in name.lower()
-                        for hint in ("naive", "germline", "inferred_naive", "root", "uca")
+                        for hint in (
+                            "naive",
+                            "germline",
+                            "inferred_naive",
+                            "root",
+                            "uca",
+                        )
                     )
                 ]
                 msg = "Tree has no root node (no node with parent=null or type='root')"
@@ -1080,18 +1107,34 @@ def validate_consolidated_data(data, verbose=False, check_time_tree=False):
         result.errors.append("'clones' must be a dictionary")
     else:
         # Count total clones for progress bar
-        total_clones = sum(len(clones) if isinstance(clones, list) else 0 for clones in clones_dict.values())
+        total_clones = sum(
+            len(clones) if isinstance(clones, list) else 0
+            for clones in clones_dict.values()
+        )
 
-        with tqdm(total=total_clones, desc="Validating clones", unit="clone", disable=total_clones <= 1, leave=False) as pbar:
+        with tqdm(
+            total=total_clones,
+            desc="Validating clones",
+            unit="clone",
+            disable=total_clones <= 1,
+            leave=False,
+        ) as pbar:
             for dataset_id, clones in clones_dict.items():
                 if not isinstance(clones, list):
-                    result.errors.append(f"Clones for dataset '{dataset_id}' must be a list")
+                    result.errors.append(
+                        f"Clones for dataset '{dataset_id}' must be a list"
+                    )
                     continue
                 for i, clone in enumerate(clones):
-                    clone_id = clone.get('clone_id', f'{dataset_id}[{i}]') if isinstance(clone, dict) else f'{dataset_id}[{i}]'
+                    clone_id = (
+                        clone.get("clone_id", f"{dataset_id}[{i}]")
+                        if isinstance(clone, dict)
+                        else f"{dataset_id}[{i}]"
+                    )
                     pbar.set_description(f"Validating clone {clone_id}")
                     result.extend(
-                        validate_clone(clone, verbose), prefix=f"Clone {dataset_id}[{i}]: "
+                        validate_clone(clone, verbose),
+                        prefix=f"Clone {dataset_id}[{i}]: ",
                     )
                     pbar.update(1)
 
@@ -1100,11 +1143,23 @@ def validate_consolidated_data(data, verbose=False, check_time_tree=False):
     if not isinstance(trees, list):
         result.errors.append("'trees' must be a list")
     else:
-        with tqdm(trees, desc="Validating trees", unit="tree", disable=len(trees) <= 1, leave=False) as pbar:
+        with tqdm(
+            trees,
+            desc="Validating trees",
+            unit="tree",
+            disable=len(trees) <= 1,
+            leave=False,
+        ) as pbar:
             for i, tree in enumerate(pbar):
-                tree_id = tree.get('ident', tree.get('tree_id', f'tree-{i}')) if isinstance(tree, dict) else f'tree-{i}'
+                tree_id = (
+                    tree.get("ident", tree.get("tree_id", f"tree-{i}"))
+                    if isinstance(tree, dict)
+                    else f"tree-{i}"
+                )
                 pbar.set_description(f"Validating tree {tree_id}")
-                result.extend(validate_tree(tree, verbose, check_time_tree), prefix=f"Tree {i}: ")
+                result.extend(
+                    validate_tree(tree, verbose, check_time_tree), prefix=f"Tree {i}: "
+                )
 
     return result
 
@@ -1163,9 +1218,7 @@ def check_output_id_uniqueness(datasets, clones_dict, *, allow_duplicates=False)
         d["dataset_id"] for d in datasets if d.get("dataset_id")
     )
     if dataset_id_dups:
-        violations.append(
-            f"dataset_id: duplicate across datasets[]: {dataset_id_dups}"
-        )
+        violations.append(f"dataset_id: duplicate across datasets[]: {dataset_id_dups}")
 
     for dataset in datasets:
         dataset_id = dataset.get("dataset_id", "<unknown>")
@@ -1200,9 +1253,7 @@ def check_output_id_uniqueness(datasets, clones_dict, *, allow_duplicates=False)
 
         for clone in clones:
             tree_id_dups = _find_duplicates(
-                t["tree_id"]
-                for t in clone.get("trees", [])
-                if t.get("tree_id")
+                t["tree_id"] for t in clone.get("trees", []) if t.get("tree_id")
             )
             if tree_id_dups:
                 violations.append(

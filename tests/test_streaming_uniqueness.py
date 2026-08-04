@@ -101,15 +101,23 @@ def test_airr_streaming_rejects_duplicate_ids(
     """
     inp = _write_airr(tmp_path, dataset_factory())
     out = tmp_path / "out.json"
-    result = _run([
-        "olmsted", "process",
-        "-f", "airr",
-        "-i", str(inp),
-        "-o", str(out),
-        "--seed", "42",
-        "--batch-size", "1",
-        "-q",
-    ])
+    result = _run(
+        [
+            "olmsted",
+            "process",
+            "-f",
+            "airr",
+            "-i",
+            str(inp),
+            "-o",
+            str(out),
+            "--seed",
+            "42",
+            "--batch-size",
+            "1",
+            "-q",
+        ]
+    )
     assert result.returncode != 0, (
         f"streaming path silently accepted duplicate {expected_scope}: "
         f"{result.stdout}\n{result.stderr}"
@@ -128,15 +136,23 @@ def test_airr_streaming_allow_duplicate_ids_downgrades(dataset_factory, tmp_path
     """``--allow-duplicate-ids`` downgrades the failure to a warning."""
     inp = _write_airr(tmp_path, dataset_factory())
     out = tmp_path / "out.json"
-    result = _run([
-        "olmsted", "process",
-        "-f", "airr",
-        "-i", str(inp),
-        "-o", str(out),
-        "--seed", "42",
-        "--batch-size", "1",
-        "--allow-duplicate-ids",
-    ])
+    result = _run(
+        [
+            "olmsted",
+            "process",
+            "-f",
+            "airr",
+            "-i",
+            str(inp),
+            "-o",
+            str(out),
+            "--seed",
+            "42",
+            "--batch-size",
+            "1",
+            "--allow-duplicate-ids",
+        ]
+    )
     assert result.returncode == 0, (
         f"--allow-duplicate-ids should not exit non-zero: "
         f"{result.stdout}\n{result.stderr}"
@@ -154,15 +170,23 @@ def test_airr_streaming_empty_clones_emits_dataset_key(tmp_path):
     """
     inp = _write_airr(tmp_path, _airr_dataset_empty_clones())
     out = tmp_path / "out.json"
-    result = _run([
-        "olmsted", "process",
-        "-f", "airr",
-        "-i", str(inp),
-        "-o", str(out),
-        "--seed", "42",
-        "--batch-size", "1",
-        "-q",
-    ])
+    result = _run(
+        [
+            "olmsted",
+            "process",
+            "-f",
+            "airr",
+            "-i",
+            str(inp),
+            "-o",
+            str(out),
+            "--seed",
+            "42",
+            "--batch-size",
+            "1",
+            "-q",
+        ]
+    )
     assert result.returncode == 0, (
         f"empty-clones AIRR input failed: {result.stdout}\n{result.stderr}"
     )

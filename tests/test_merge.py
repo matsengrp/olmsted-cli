@@ -145,7 +145,9 @@ def test_merge_mutations_into_trees(sample_olmsted_json, sample_csv, tmp_path):
     stats = merge_mutations_into_trees(trees, by_family)
 
     assert stats.trees_matched == 1  # Only fam1 has nodes that produce mutations
-    assert stats.mutations_enriched == 1  # Only (site=1, K, R) matched a derived mutation
+    assert (
+        stats.mutations_enriched == 1
+    )  # Only (site=1, K, R) matched a derived mutation
     assert stats.nodes_enriched == 1  # Only the child node received the merge
     # fam99 is in the CSV but not in the JSON → unmatched family
     assert stats.unmatched_families == ["fam99"]
@@ -179,10 +181,12 @@ def test_merge_mutations_into_trees_only_listed_stat(tmp_path):
             "ident": "tree-1",
             "clone_id": "fam1",
             "nodes": [
-                {"sequence_id": "root", "parent": None,
-                 "sequence_alignment_aa": "MQQ"},
-                {"sequence_id": "leaf", "parent": "root",
-                 "sequence_alignment_aa": "MKR"},  # Q→K at site 1, Q→R at site 2
+                {"sequence_id": "root", "parent": None, "sequence_alignment_aa": "MQQ"},
+                {
+                    "sequence_id": "leaf",
+                    "parent": "root",
+                    "sequence_alignment_aa": "MKR",
+                },  # Q→K at site 1, Q→R at site 2
             ],
         }
     ]
@@ -287,10 +291,14 @@ def test_merge_backfills_branch_lengths(sample_olmsted_json, sample_csv, tmp_pat
 
     result = subprocess.run(
         [
-            "olmsted", "merge",
-            "-i", str(json_path),
-            "--mutations", str(csv_path),
-            "-o", str(out_path),
+            "olmsted",
+            "merge",
+            "-i",
+            str(json_path),
+            "--mutations",
+            str(csv_path),
+            "-o",
+            str(out_path),
             "-q",
         ],
         capture_output=True,
@@ -586,9 +594,18 @@ def test_merge_name_keyed_disambiguation(tmp_path):
     )
 
     result = subprocess.run(
-        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
-         "-o", str(out_path)],
-        capture_output=True, text=True,
+        [
+            "olmsted",
+            "merge",
+            "-i",
+            str(json_path),
+            "--mutations",
+            str(csv_path),
+            "-o",
+            str(out_path),
+        ],
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, f"merge failed: {result.stderr}"
     combined = result.stdout + result.stderr
@@ -599,8 +616,12 @@ def test_merge_name_keyed_disambiguation(tmp_path):
 
     out = json.loads(out_path.read_text())
     by_id = {n["sequence_id"]: n for n in out["trees"][0]["nodes"]}
-    assert next(m for m in by_id["inner"]["mutations"] if m["site"] == 1)["score"] == 111
-    assert next(m for m in by_id["leaf_a"]["mutations"] if m["site"] == 1)["score"] == 222
+    assert (
+        next(m for m in by_id["inner"]["mutations"] if m["site"] == 1)["score"] == 111
+    )
+    assert (
+        next(m for m in by_id["leaf_a"]["mutations"] if m["site"] == 1)["score"] == 222
+    )
     # node_name is structural — must not leak into the enriched record
     for name in ("inner", "leaf_a"):
         for mut in by_id[name]["mutations"]:
@@ -613,14 +634,22 @@ def test_merge_child_name_alias(tmp_path):
     csv_path = tmp_path / "muts.csv"
     out_path = tmp_path / "out.json"
     csv_path.write_text(
-        "family,child_name,site,parent_aa,child_aa,score\n"
-        "fam1,inner,1,K,R,111\n"
+        "family,child_name,site,parent_aa,child_aa,score\nfam1,inner,1,K,R,111\n"
     )
 
     result = subprocess.run(
-        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
-         "-o", str(out_path)],
-        capture_output=True, text=True,
+        [
+            "olmsted",
+            "merge",
+            "-i",
+            str(json_path),
+            "--mutations",
+            str(csv_path),
+            "-o",
+            str(out_path),
+        ],
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, f"merge failed: {result.stderr}"
     assert "Match mode: name_site" in result.stdout + result.stderr
@@ -637,14 +666,22 @@ def test_merge_integrity_mismatch_fails_by_default(tmp_path):
     out_path = tmp_path / "out.json"
     # Tree has K→R at (inner, site 1); CSV claims K→Q — a mismatch.
     csv_path.write_text(
-        "family,node_name,site,parent_aa,child_aa,score\n"
-        "fam1,inner,1,K,Q,111\n"
+        "family,node_name,site,parent_aa,child_aa,score\nfam1,inner,1,K,Q,111\n"
     )
 
     result = subprocess.run(
-        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
-         "-o", str(out_path)],
-        capture_output=True, text=True,
+        [
+            "olmsted",
+            "merge",
+            "-i",
+            str(json_path),
+            "--mutations",
+            str(csv_path),
+            "-o",
+            str(out_path),
+        ],
+        capture_output=True,
+        text=True,
     )
     assert result.returncode != 0
     combined = result.stdout + result.stderr
@@ -662,14 +699,23 @@ def test_merge_allow_mismatch_downgrades_to_warning(tmp_path):
     csv_path = tmp_path / "muts.csv"
     out_path = tmp_path / "out.json"
     csv_path.write_text(
-        "family,node_name,site,parent_aa,child_aa,score\n"
-        "fam1,inner,1,K,Q,111\n"
+        "family,node_name,site,parent_aa,child_aa,score\nfam1,inner,1,K,Q,111\n"
     )
 
     result = subprocess.run(
-        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
-         "--mutations-allow-mismatch", "-o", str(out_path)],
-        capture_output=True, text=True,
+        [
+            "olmsted",
+            "merge",
+            "-i",
+            str(json_path),
+            "--mutations",
+            str(csv_path),
+            "--mutations-allow-mismatch",
+            "-o",
+            str(out_path),
+        ],
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, f"merge failed: {result.stderr}"
     combined = result.stdout + result.stderr
@@ -689,14 +735,23 @@ def test_merge_use_depth_flag_without_depth_column_fails(tmp_path):
     out_path = tmp_path / "out.json"
     # No 'depth' column at all
     csv_path.write_text(
-        "family,node_name,site,parent_aa,child_aa,score\n"
-        "fam1,inner,1,K,R,111\n"
+        "family,node_name,site,parent_aa,child_aa,score\nfam1,inner,1,K,R,111\n"
     )
 
     result = subprocess.run(
-        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
-         "--mutations-use-depth", "-o", str(out_path)],
-        capture_output=True, text=True,
+        [
+            "olmsted",
+            "merge",
+            "-i",
+            str(json_path),
+            "--mutations",
+            str(csv_path),
+            "--mutations-use-depth",
+            "-o",
+            str(out_path),
+        ],
+        capture_output=True,
+        text=True,
     )
     assert result.returncode != 0
     combined = result.stdout + result.stderr
@@ -723,9 +778,18 @@ def test_merge_name_keyed_depth_ignored_without_flag(tmp_path):
     )
 
     result = subprocess.run(
-        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
-         "-o", str(out_path)],
-        capture_output=True, text=True,
+        [
+            "olmsted",
+            "merge",
+            "-i",
+            str(json_path),
+            "--mutations",
+            str(csv_path),
+            "-o",
+            str(out_path),
+        ],
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, f"merge failed: {result.stderr}"
     combined = result.stdout + result.stderr
@@ -754,9 +818,19 @@ def test_merge_name_keyed_depth_check_with_flag(tmp_path):
     )
 
     result = subprocess.run(
-        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
-         "--mutations-use-depth", "-o", str(out_path)],
-        capture_output=True, text=True,
+        [
+            "olmsted",
+            "merge",
+            "-i",
+            str(json_path),
+            "--mutations",
+            str(csv_path),
+            "--mutations-use-depth",
+            "-o",
+            str(out_path),
+        ],
+        capture_output=True,
+        text=True,
     )
     # With the flag: depth checked, mismatch detected → default-fail
     assert result.returncode != 0
@@ -770,18 +844,35 @@ def test_merge_depth_ignored_without_flag(tmp_path):
     olmsted = {
         "metadata": {"format": "olmsted", "format_version": "1.0"},
         "datasets": [{"dataset_id": "ds", "name": "Depth Opt-in Test"}],
-        "clones": {"ds": [{"clone_id": "fam1", "dataset_id": "ds", "unique_seqs_count": 2,
-                           "mean_mut_freq": 0.0, "sample_id": "s1"}]},
+        "clones": {
+            "ds": [
+                {
+                    "clone_id": "fam1",
+                    "dataset_id": "ds",
+                    "unique_seqs_count": 2,
+                    "mean_mut_freq": 0.0,
+                    "sample_id": "s1",
+                }
+            ]
+        },
         "trees": [
             {
                 "ident": "tree-1",
                 "clone_id": "fam1",
                 "newick": "(leaf:0.1)root;",
                 "nodes": [
-                    {"sequence_id": "root", "parent": None, "type": "root",
-                     "sequence_alignment_aa": "MKT"},
-                    {"sequence_id": "leaf", "parent": "root", "type": "leaf",
-                     "sequence_alignment_aa": "MRT"},  # K→R at site 1, depth 1
+                    {
+                        "sequence_id": "root",
+                        "parent": None,
+                        "type": "root",
+                        "sequence_alignment_aa": "MKT",
+                    },
+                    {
+                        "sequence_id": "leaf",
+                        "parent": "root",
+                        "type": "leaf",
+                        "sequence_alignment_aa": "MRT",
+                    },  # K→R at site 1, depth 1
                 ],
             }
         ],
@@ -791,12 +882,23 @@ def test_merge_depth_ignored_without_flag(tmp_path):
     out_path = tmp_path / "out.json"
     json_path.write_text(json.dumps(olmsted))
     # CSV row has depth=99 which would not match any node if depth were used
-    csv_path.write_text("family,site,parent_aa,child_aa,depth,score\nfam1,1,K,R,99,111\n")
+    csv_path.write_text(
+        "family,site,parent_aa,child_aa,depth,score\nfam1,1,K,R,99,111\n"
+    )
 
     result = subprocess.run(
-        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
-         "-o", str(out_path)],
-        capture_output=True, text=True,
+        [
+            "olmsted",
+            "merge",
+            "-i",
+            str(json_path),
+            "--mutations",
+            str(csv_path),
+            "-o",
+            str(out_path),
+        ],
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, f"merge failed: {result.stderr}"
     combined = result.stdout + result.stderr
@@ -822,20 +924,36 @@ def test_only_listed_drops_unlisted_derived_mutations(tmp_path):
     olmsted = {
         "metadata": {"format": "olmsted", "format_version": "1.0"},
         "datasets": [{"dataset_id": "ds", "name": "Only-Listed Test"}],
-        "clones": {"ds": [{"clone_id": "fam1", "dataset_id": "ds",
-                           "unique_seqs_count": 2, "mean_mut_freq": 0.0,
-                           "sample_id": "s1"}]},
+        "clones": {
+            "ds": [
+                {
+                    "clone_id": "fam1",
+                    "dataset_id": "ds",
+                    "unique_seqs_count": 2,
+                    "mean_mut_freq": 0.0,
+                    "sample_id": "s1",
+                }
+            ]
+        },
         "trees": [
             {
                 "ident": "tree-1",
                 "clone_id": "fam1",
                 "newick": "(leaf:0.1)root;",
                 "nodes": [
-                    {"sequence_id": "root", "parent": None, "type": "root",
-                     "sequence_alignment_aa": "MQQ"},
+                    {
+                        "sequence_id": "root",
+                        "parent": None,
+                        "type": "root",
+                        "sequence_alignment_aa": "MQQ",
+                    },
                     # K at site 1 (Q→K), R at site 2 (Q→R) — two derived mutations
-                    {"sequence_id": "leaf", "parent": "root", "type": "leaf",
-                     "sequence_alignment_aa": "MKR"},
+                    {
+                        "sequence_id": "leaf",
+                        "parent": "root",
+                        "type": "leaf",
+                        "sequence_alignment_aa": "MKR",
+                    },
                 ],
             }
         ],
@@ -846,15 +964,22 @@ def test_only_listed_drops_unlisted_derived_mutations(tmp_path):
     out_path_filtered = tmp_path / "out_filtered.json"
     json_path.write_text(json.dumps(olmsted))
     # CSV lists only the site-1 mutation
-    csv_path.write_text(
-        "family,site,parent_aa,child_aa,score\nfam1,1,Q,K,9.9\n"
-    )
+    csv_path.write_text("family,site,parent_aa,child_aa,score\nfam1,1,Q,K,9.9\n")
 
     # Default behavior: site-2 derived mutation passes through unannotated
     result = subprocess.run(
-        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
-         "-o", str(out_path_default)],
-        capture_output=True, text=True,
+        [
+            "olmsted",
+            "merge",
+            "-i",
+            str(json_path),
+            "--mutations",
+            str(csv_path),
+            "-o",
+            str(out_path_default),
+        ],
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, result.stderr
     out = json.loads(out_path_default.read_text())
@@ -866,9 +991,19 @@ def test_only_listed_drops_unlisted_derived_mutations(tmp_path):
 
     # With --mutations-listed-only: site-2 derived mutation is dropped
     result = subprocess.run(
-        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
-         "--mutations-listed-only", "-o", str(out_path_filtered)],
-        capture_output=True, text=True,
+        [
+            "olmsted",
+            "merge",
+            "-i",
+            str(json_path),
+            "--mutations",
+            str(csv_path),
+            "--mutations-listed-only",
+            "-o",
+            str(out_path_filtered),
+        ],
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, result.stderr
     combined = result.stdout + result.stderr
@@ -891,20 +1026,36 @@ def test_only_listed_name_keyed(tmp_path):
     olmsted = {
         "metadata": {"format": "olmsted", "format_version": "1.0"},
         "datasets": [{"dataset_id": "ds", "name": "Name Only-Listed Test"}],
-        "clones": {"ds": [{"clone_id": "fam1", "dataset_id": "ds",
-                           "unique_seqs_count": 2, "mean_mut_freq": 0.0,
-                           "sample_id": "s1"}]},
+        "clones": {
+            "ds": [
+                {
+                    "clone_id": "fam1",
+                    "dataset_id": "ds",
+                    "unique_seqs_count": 2,
+                    "mean_mut_freq": 0.0,
+                    "sample_id": "s1",
+                }
+            ]
+        },
         "trees": [
             {
                 "ident": "tree-1",
                 "clone_id": "fam1",
                 "newick": "(leaf:0.1)root;",
                 "nodes": [
-                    {"sequence_id": "root", "parent": None, "type": "root",
-                     "sequence_alignment_aa": "MKT"},
+                    {
+                        "sequence_id": "root",
+                        "parent": None,
+                        "type": "root",
+                        "sequence_alignment_aa": "MKT",
+                    },
                     # K→R at site 1, T→R at site 2 — two derived mutations
-                    {"sequence_id": "leaf", "parent": "root", "type": "leaf",
-                     "sequence_alignment_aa": "MRR"},
+                    {
+                        "sequence_id": "leaf",
+                        "parent": "root",
+                        "type": "leaf",
+                        "sequence_alignment_aa": "MRR",
+                    },
                 ],
             }
         ],
@@ -914,14 +1065,23 @@ def test_only_listed_name_keyed(tmp_path):
     out_path = tmp_path / "out.json"
     json_path.write_text(json.dumps(olmsted))
     csv_path.write_text(
-        "family,node_name,site,parent_aa,child_aa,score\n"
-        "fam1,leaf,1,K,R,111\n"
+        "family,node_name,site,parent_aa,child_aa,score\nfam1,leaf,1,K,R,111\n"
     )
 
     result = subprocess.run(
-        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
-         "--mutations-listed-only", "-o", str(out_path)],
-        capture_output=True, text=True,
+        [
+            "olmsted",
+            "merge",
+            "-i",
+            str(json_path),
+            "--mutations",
+            str(csv_path),
+            "--mutations-listed-only",
+            "-o",
+            str(out_path),
+        ],
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, result.stderr
     combined = result.stdout + result.stderr
@@ -935,8 +1095,9 @@ def test_only_listed_name_keyed(tmp_path):
     assert leaf["mutations"][0]["score"] == 111
 
 
-def test_only_listed_leaves_unmatched_families_alone(tmp_path, sample_olmsted_json,
-                                                     sample_csv):
+def test_only_listed_leaves_unmatched_families_alone(
+    tmp_path, sample_olmsted_json, sample_csv
+):
     """Trees whose family is absent from the CSV pass through untouched.
 
     The CSV only mentions fam1 (and fam99, which has no tree). Pre-existing
@@ -945,13 +1106,15 @@ def test_only_listed_leaves_unmatched_families_alone(tmp_path, sample_olmsted_js
     """
     # Pre-populate fam2's child node with mutations to confirm they survive.
     fam2_tree = next(t for t in sample_olmsted_json["trees"] if t["clone_id"] == "fam2")
-    fam2_tree["nodes"].append({
-        "sequence_id": "child2",
-        "parent": "root",
-        "type": "leaf",
-        "sequence_alignment_aa": "MRTV",
-        "mutations": [{"site": 1, "parent_aa": "K", "child_aa": "R"}],
-    })
+    fam2_tree["nodes"].append(
+        {
+            "sequence_id": "child2",
+            "parent": "root",
+            "type": "leaf",
+            "sequence_alignment_aa": "MRTV",
+            "mutations": [{"site": 1, "parent_aa": "K", "child_aa": "R"}],
+        }
+    )
 
     json_path = tmp_path / "input.json"
     csv_path = tmp_path / "muts.csv"
@@ -960,9 +1123,19 @@ def test_only_listed_leaves_unmatched_families_alone(tmp_path, sample_olmsted_js
     csv_path.write_text(sample_csv)
 
     result = subprocess.run(
-        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
-         "--mutations-listed-only", "-o", str(out_path)],
-        capture_output=True, text=True,
+        [
+            "olmsted",
+            "merge",
+            "-i",
+            str(json_path),
+            "--mutations",
+            str(csv_path),
+            "--mutations-listed-only",
+            "-o",
+            str(out_path),
+        ],
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, result.stderr
     out = json.loads(out_path.read_text())
@@ -971,8 +1144,13 @@ def test_only_listed_leaves_unmatched_families_alone(tmp_path, sample_olmsted_js
     fam1_tree_out = next(t for t in out["trees"] if t["clone_id"] == "fam1")
     fam1_child = next(n for n in fam1_tree_out["nodes"] if n["sequence_id"] == "child")
     assert fam1_child["mutations"] == [
-        {"site": 1, "parent_aa": "K", "child_aa": "R",
-         "surprise_mutsel": 4.2, "log_selection_factor": -0.5}
+        {
+            "site": 1,
+            "parent_aa": "K",
+            "child_aa": "R",
+            "surprise_mutsel": 4.2,
+            "log_selection_factor": -0.5,
+        }
     ]
     fam2_tree_out = next(t for t in out["trees"] if t["clone_id"] == "fam2")
     child2 = next(n for n in fam2_tree_out["nodes"] if n["sequence_id"] == "child2")
@@ -993,26 +1171,42 @@ def test_only_listed_filters_preexisting_upstream_mutations(tmp_path):
     olmsted = {
         "metadata": {"format": "olmsted", "format_version": "1.0"},
         "datasets": [{"dataset_id": "ds", "name": "Pre-existing Filter Test"}],
-        "clones": {"ds": [{"clone_id": "fam1", "dataset_id": "ds",
-                           "unique_seqs_count": 2, "mean_mut_freq": 0.0,
-                           "sample_id": "s1"}]},
+        "clones": {
+            "ds": [
+                {
+                    "clone_id": "fam1",
+                    "dataset_id": "ds",
+                    "unique_seqs_count": 2,
+                    "mean_mut_freq": 0.0,
+                    "sample_id": "s1",
+                }
+            ]
+        },
         "trees": [
             {
                 "ident": "tree-1",
                 "clone_id": "fam1",
                 "newick": "(leaf:0.1)root;",
                 "nodes": [
-                    {"sequence_id": "root", "parent": None, "type": "root",
-                     "sequence_alignment_aa": "MQQQ"},
+                    {
+                        "sequence_id": "root",
+                        "parent": None,
+                        "type": "root",
+                        "sequence_alignment_aa": "MQQQ",
+                    },
                     # AA sequence still shows three changes vs. parent, but
                     # the upstream pipeline pre-populated only two of them
                     # — exercising the "existing array, no derive" path.
-                    {"sequence_id": "leaf", "parent": "root", "type": "leaf",
-                     "sequence_alignment_aa": "MKRS",
-                     "mutations": [
-                         {"site": 1, "parent_aa": "Q", "child_aa": "K"},
-                         {"site": 2, "parent_aa": "Q", "child_aa": "R"},
-                     ]},
+                    {
+                        "sequence_id": "leaf",
+                        "parent": "root",
+                        "type": "leaf",
+                        "sequence_alignment_aa": "MKRS",
+                        "mutations": [
+                            {"site": 1, "parent_aa": "Q", "child_aa": "K"},
+                            {"site": 2, "parent_aa": "Q", "child_aa": "R"},
+                        ],
+                    },
                 ],
             }
         ],
@@ -1023,14 +1217,22 @@ def test_only_listed_filters_preexisting_upstream_mutations(tmp_path):
     json_path.write_text(json.dumps(olmsted))
     # CSV lists only site 1; site 2 is a pre-existing entry the user has
     # no opinion about and wants filtered out.
-    csv_path.write_text(
-        "family,site,parent_aa,child_aa,score\nfam1,1,Q,K,9.9\n"
-    )
+    csv_path.write_text("family,site,parent_aa,child_aa,score\nfam1,1,Q,K,9.9\n")
 
     result = subprocess.run(
-        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
-         "--mutations-listed-only", "-o", str(out_path)],
-        capture_output=True, text=True,
+        [
+            "olmsted",
+            "merge",
+            "-i",
+            str(json_path),
+            "--mutations",
+            str(csv_path),
+            "--mutations-listed-only",
+            "-o",
+            str(out_path),
+        ],
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, result.stderr
     out = json.loads(out_path.read_text())
@@ -1052,19 +1254,35 @@ def test_only_listed_deletes_empty_mutations_array(tmp_path, mode):
     olmsted = {
         "metadata": {"format": "olmsted", "format_version": "1.0"},
         "datasets": [{"dataset_id": "ds", "name": "Empty-Result Test"}],
-        "clones": {"ds": [{"clone_id": "fam1", "dataset_id": "ds",
-                           "unique_seqs_count": 2, "mean_mut_freq": 0.0,
-                           "sample_id": "s1"}]},
+        "clones": {
+            "ds": [
+                {
+                    "clone_id": "fam1",
+                    "dataset_id": "ds",
+                    "unique_seqs_count": 2,
+                    "mean_mut_freq": 0.0,
+                    "sample_id": "s1",
+                }
+            ]
+        },
         "trees": [
             {
                 "ident": "tree-1",
                 "clone_id": "fam1",
                 "newick": "(leaf:0.1)root;",
                 "nodes": [
-                    {"sequence_id": "root", "parent": None, "type": "root",
-                     "sequence_alignment_aa": "MQQ"},
-                    {"sequence_id": "leaf", "parent": "root", "type": "leaf",
-                     "sequence_alignment_aa": "MKR"},
+                    {
+                        "sequence_id": "root",
+                        "parent": None,
+                        "type": "root",
+                        "sequence_alignment_aa": "MQQ",
+                    },
+                    {
+                        "sequence_id": "leaf",
+                        "parent": "root",
+                        "type": "leaf",
+                        "sequence_alignment_aa": "MKR",
+                    },
                 ],
             }
         ],
@@ -1078,18 +1296,25 @@ def test_only_listed_deletes_empty_mutations_array(tmp_path, mode):
     # unlisted. Mode is selected by whether `node_name` is in the header.
     if mode == "name_keyed":
         csv_path.write_text(
-            "family,node_name,site,parent_aa,child_aa,score\n"
-            "fam1,leaf,99,X,Y,1.0\n"
+            "family,node_name,site,parent_aa,child_aa,score\nfam1,leaf,99,X,Y,1.0\n"
         )
     else:
-        csv_path.write_text(
-            "family,site,parent_aa,child_aa,score\nfam1,99,X,Y,1.0\n"
-        )
+        csv_path.write_text("family,site,parent_aa,child_aa,score\nfam1,99,X,Y,1.0\n")
 
     result = subprocess.run(
-        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
-         "--mutations-listed-only", "-o", str(out_path)],
-        capture_output=True, text=True,
+        [
+            "olmsted",
+            "merge",
+            "-i",
+            str(json_path),
+            "--mutations",
+            str(csv_path),
+            "--mutations-listed-only",
+            "-o",
+            str(out_path),
+        ],
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, result.stderr
     out = json.loads(out_path.read_text())
@@ -1113,20 +1338,36 @@ def test_only_listed_drops_integrity_mismatched_sites(tmp_path):
     olmsted = {
         "metadata": {"format": "olmsted", "format_version": "1.0"},
         "datasets": [{"dataset_id": "ds", "name": "Integrity Cascade Test"}],
-        "clones": {"ds": [{"clone_id": "fam1", "dataset_id": "ds",
-                           "unique_seqs_count": 2, "mean_mut_freq": 0.0,
-                           "sample_id": "s1"}]},
+        "clones": {
+            "ds": [
+                {
+                    "clone_id": "fam1",
+                    "dataset_id": "ds",
+                    "unique_seqs_count": 2,
+                    "mean_mut_freq": 0.0,
+                    "sample_id": "s1",
+                }
+            ]
+        },
         "trees": [
             {
                 "ident": "tree-1",
                 "clone_id": "fam1",
                 "newick": "(leaf:0.1)root;",
                 "nodes": [
-                    {"sequence_id": "root", "parent": None, "type": "root",
-                     "sequence_alignment_aa": "MQQ"},
+                    {
+                        "sequence_id": "root",
+                        "parent": None,
+                        "type": "root",
+                        "sequence_alignment_aa": "MQQ",
+                    },
                     # Tree-derived mutations: site 1 Q→K, site 2 Q→R.
-                    {"sequence_id": "leaf", "parent": "root", "type": "leaf",
-                     "sequence_alignment_aa": "MKR"},
+                    {
+                        "sequence_id": "leaf",
+                        "parent": "root",
+                        "type": "leaf",
+                        "sequence_alignment_aa": "MKR",
+                    },
                 ],
             }
         ],
@@ -1144,10 +1385,20 @@ def test_only_listed_drops_integrity_mismatched_sites(tmp_path):
     )
 
     result = subprocess.run(
-        ["olmsted", "merge", "-i", str(json_path), "--mutations", str(csv_path),
-         "--mutations-allow-mismatch", "--mutations-listed-only",
-         "-o", str(out_path)],
-        capture_output=True, text=True,
+        [
+            "olmsted",
+            "merge",
+            "-i",
+            str(json_path),
+            "--mutations",
+            str(csv_path),
+            "--mutations-allow-mismatch",
+            "--mutations-listed-only",
+            "-o",
+            str(out_path),
+        ],
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, result.stderr
     out = json.loads(out_path.read_text())
@@ -1160,8 +1411,10 @@ def test_only_listed_drops_integrity_mismatched_sites(tmp_path):
     assert leaf["mutations"][0]["score"] == 9.9
 
 
-@pytest.mark.parametrize("flag", ["--mutations-use-depth", "--mutations-allow-mismatch",
-                                  "--mutations-listed-only"])
+@pytest.mark.parametrize(
+    "flag",
+    ["--mutations-use-depth", "--mutations-allow-mismatch", "--mutations-listed-only"],
+)
 def test_process_rejects_mutation_flags_without_mutations(tmp_path, flag):
     """`process` argparse rejects mutation-related flags when --mutations is absent.
 
@@ -1169,11 +1422,19 @@ def test_process_rejects_mutation_flags_without_mutations(tmp_path, flag):
     input path — argparse validation should fire before file I/O.
     """
     result = subprocess.run(
-        ["olmsted", "process", "-f", "pcp",
-         "-i", str(tmp_path / "dummy.csv"),
-         "-o", str(tmp_path / "out.json"),
-         flag],
-        capture_output=True, text=True,
+        [
+            "olmsted",
+            "process",
+            "-f",
+            "pcp",
+            "-i",
+            str(tmp_path / "dummy.csv"),
+            "-o",
+            str(tmp_path / "out.json"),
+            flag,
+        ],
+        capture_output=True,
+        text=True,
     )
     assert result.returncode != 0
     # argparse errors go to stderr; message mentions the flag requirement

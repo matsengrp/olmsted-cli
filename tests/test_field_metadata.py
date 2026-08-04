@@ -11,7 +11,6 @@ from olmsted_cli.field_metadata import (
     infer_field_type,
 )
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -238,18 +237,33 @@ class TestGenerateCloneMetadata:
         assert meta["cdr3_length"]["type"] == "continuous"
         assert meta["cdr3_length"]["label"] == "CDR3 Length"
         # Optional description from the known-field registry flows to output
-        assert meta["cdr3_length"]["description"] == "Length of the CDR3 (junction) region, in nucleotides."
+        assert (
+            meta["cdr3_length"]["description"]
+            == "Length of the CDR3 (junction) region, in nucleotides."
+        )
 
     def test_cdr_length_known_fields(self):
         clones = [
-            {"clone_id": "c1", "unique_seqs_count": 3, "mean_mut_freq": 0.1,
-             "cdr1_length": 24, "cdr2_length": 18, "cdr3_length": 60},
+            {
+                "clone_id": "c1",
+                "unique_seqs_count": 3,
+                "mean_mut_freq": 0.1,
+                "cdr1_length": 24,
+                "cdr2_length": 18,
+                "cdr3_length": 60,
+            },
         ]
         meta = generate_clone_metadata(clones)
         assert meta["cdr1_length"]["label"] == "CDR1 Length"
         assert meta["cdr2_length"]["label"] == "CDR2 Length"
-        assert meta["cdr1_length"]["description"] == "Length of the CDR1 region, in nucleotides."
-        assert meta["cdr2_length"]["description"] == "Length of the CDR2 region, in nucleotides."
+        assert (
+            meta["cdr1_length"]["description"]
+            == "Length of the CDR1 region, in nucleotides."
+        )
+        assert (
+            meta["cdr2_length"]["description"]
+            == "Length of the CDR2 region, in nucleotides."
+        )
 
     def test_locus_extracted_from_sample(self, pcp_clones):
         meta = generate_clone_metadata(pcp_clones)
@@ -263,19 +277,29 @@ class TestGenerateCloneMetadata:
         # These are structurally unpresentable — nested objects or long strings
         excluded = ["dataset", "sample", "trees", "germline_alignment"]
         for field in excluded:
-            assert field not in meta, f"Excluded field '{field}' should not be in metadata"
+            assert field not in meta, (
+                f"Excluded field '{field}' should not be in metadata"
+            )
 
     def test_identifier_fields_present_but_inferable(self, pcp_clones):
         """Identifiers and positions are no longer excluded — they appear in metadata."""
         meta = generate_clone_metadata(pcp_clones)
         # These moved from excluded to suggested-skip, so they appear in metadata
         assert "clone_id" not in meta or meta["clone_id"]["type"] is not None
-        assert "v_alignment_start" not in meta or meta["v_alignment_start"]["type"] is not None
+        assert (
+            "v_alignment_start" not in meta
+            or meta["v_alignment_start"]["type"] is not None
+        )
 
     def test_custom_fields_override(self, pcp_clones):
         custom = [
-            {"name": "unique_seqs_count", "level": "clone", "type": "continuous",
-             "display": "tooltip", "label": "Custom Label"},
+            {
+                "name": "unique_seqs_count",
+                "level": "clone",
+                "type": "continuous",
+                "display": "tooltip",
+                "label": "Custom Label",
+            },
         ]
         meta = generate_clone_metadata(pcp_clones, custom_fields=custom)
         assert meta["unique_seqs_count"]["type"] == "continuous"
@@ -284,7 +308,12 @@ class TestGenerateCloneMetadata:
 
     def test_custom_fields_add_new(self, pcp_clones):
         custom = [
-            {"name": "my_metric", "level": "clone", "type": "continuous", "label": "My Metric"},
+            {
+                "name": "my_metric",
+                "level": "clone",
+                "type": "continuous",
+                "label": "My Metric",
+            },
         ]
         meta = generate_clone_metadata(pcp_clones, custom_fields=custom)
         assert "my_metric" in meta
@@ -292,22 +321,37 @@ class TestGenerateCloneMetadata:
 
     def test_custom_field_description_flows_to_output(self, pcp_clones):
         custom = [
-            {"name": "my_metric", "level": "clone", "type": "continuous",
-             "label": "My Metric", "description": "A bespoke per-family metric."},
+            {
+                "name": "my_metric",
+                "level": "clone",
+                "type": "continuous",
+                "label": "My Metric",
+                "description": "A bespoke per-family metric.",
+            },
         ]
         meta = generate_clone_metadata(pcp_clones, custom_fields=custom)
         assert meta["my_metric"]["description"] == "A bespoke per-family metric."
 
     def test_custom_field_without_description_omits_key(self, pcp_clones):
         custom = [
-            {"name": "my_metric", "level": "clone", "type": "continuous", "label": "My Metric"},
+            {
+                "name": "my_metric",
+                "level": "clone",
+                "type": "continuous",
+                "label": "My Metric",
+            },
         ]
         meta = generate_clone_metadata(pcp_clones, custom_fields=custom)
         assert "description" not in meta["my_metric"]
 
     def test_custom_fields_wrong_level_ignored(self, pcp_clones):
         custom = [
-            {"name": "node_metric", "level": "node", "type": "continuous", "label": "Node Metric"},
+            {
+                "name": "node_metric",
+                "level": "node",
+                "type": "continuous",
+                "label": "Node Metric",
+            },
         ]
         meta = generate_clone_metadata(pcp_clones, custom_fields=custom)
         assert "node_metric" not in meta
@@ -345,7 +389,12 @@ class TestGenerateNodeMetadata:
     def test_excluded_node_fields(self, trees_with_nodes):
         """Truly excluded node fields (sequences, structural) are not in metadata."""
         meta = generate_node_metadata(trees_with_nodes)
-        excluded = ["sequence_id", "parent", "sequence_alignment", "sequence_alignment_aa"]
+        excluded = [
+            "sequence_id",
+            "parent",
+            "sequence_alignment",
+            "sequence_alignment_aa",
+        ]
         for field in excluded:
             assert field not in meta
 
@@ -426,7 +475,12 @@ class TestGenerateMutationMetadata:
 
     def test_custom_mutation_fields_without_data(self):
         custom = [
-            {"name": "custom_score", "level": "mutation", "type": "continuous", "label": "Custom Score"},
+            {
+                "name": "custom_score",
+                "level": "mutation",
+                "type": "continuous",
+                "label": "Custom Score",
+            },
         ]
         meta = generate_mutation_metadata([], custom_fields=custom)
         assert "custom_score" in meta
@@ -456,10 +510,22 @@ class TestGenerateFieldMetadata:
 
     def test_custom_fields_distributed(self, pcp_clones, trees_with_nodes):
         custom = [
-            {"name": "my_clone_field", "level": "clone", "type": "continuous", "label": "My Clone"},
-            {"name": "my_node_field", "level": "node", "type": "categorical", "label": "My Node"},
+            {
+                "name": "my_clone_field",
+                "level": "clone",
+                "type": "continuous",
+                "label": "My Clone",
+            },
+            {
+                "name": "my_node_field",
+                "level": "node",
+                "type": "categorical",
+                "label": "My Node",
+            },
         ]
-        meta = generate_field_metadata(pcp_clones, trees_with_nodes, custom_fields=custom)
+        meta = generate_field_metadata(
+            pcp_clones, trees_with_nodes, custom_fields=custom
+        )
         assert "my_clone_field" in meta["clone"]
         assert "my_node_field" in meta["node"]
 
@@ -522,10 +588,22 @@ class TestDemotedFieldsExcludedFromNodeMetadata:
         """Records-encoded source field must not appear at node level."""
         trees = self._make_trees_with_records_source()
         custom_fields = [
-            {"name": "score", "level": "mutation", "encoding": "records",
-             "source": "surprise_mutations", "type": "continuous", "label": "Score"},
-            {"name": "region", "level": "mutation", "encoding": "records",
-             "source": "surprise_mutations", "type": "categorical", "label": "Region"},
+            {
+                "name": "score",
+                "level": "mutation",
+                "encoding": "records",
+                "source": "surprise_mutations",
+                "type": "continuous",
+                "label": "Score",
+            },
+            {
+                "name": "region",
+                "level": "mutation",
+                "encoding": "records",
+                "source": "surprise_mutations",
+                "type": "categorical",
+                "label": "Region",
+            },
         ]
         meta = generate_node_metadata(trees, custom_fields=custom_fields)
         assert "surprise_mutations" not in meta
@@ -534,8 +612,13 @@ class TestDemotedFieldsExcludedFromNodeMetadata:
         """List-encoded source field must not appear at node level."""
         trees = self._make_trees_with_list_source()
         custom_fields = [
-            {"name": "per_site_scores", "level": "mutation", "encoding": "list",
-             "type": "continuous", "label": "Per-Site Scores"},
+            {
+                "name": "per_site_scores",
+                "level": "mutation",
+                "encoding": "list",
+                "type": "continuous",
+                "label": "Per-Site Scores",
+            },
         ]
         meta = generate_node_metadata(trees, custom_fields=custom_fields)
         assert "per_site_scores" not in meta
@@ -561,8 +644,13 @@ class TestDemotedFieldsExcludedFromNodeMetadata:
             }
         ]
         custom_fields = [
-            {"name": "sparse_scores", "level": "mutation", "encoding": "json",
-             "type": "continuous", "label": "Sparse Scores"},
+            {
+                "name": "sparse_scores",
+                "level": "mutation",
+                "encoding": "json",
+                "type": "continuous",
+                "label": "Sparse Scores",
+            },
         ]
         meta = generate_node_metadata(trees, custom_fields=custom_fields)
         assert "sparse_scores" not in meta
@@ -573,11 +661,21 @@ class TestDemotedFieldsExcludedFromNodeMetadata:
         trees = self._make_trees_with_records_source()
         custom_fields = [
             # Demote to mutation level
-            {"name": "score", "level": "mutation", "encoding": "records",
-             "source": "surprise_mutations", "type": "continuous", "label": "Score"},
+            {
+                "name": "score",
+                "level": "mutation",
+                "encoding": "records",
+                "source": "surprise_mutations",
+                "type": "continuous",
+                "label": "Score",
+            },
             # But also explicitly include at node level
-            {"name": "surprise_mutations", "level": "node",
-             "type": "json", "label": "Surprise Mutations"},
+            {
+                "name": "surprise_mutations",
+                "level": "node",
+                "type": "json",
+                "label": "Surprise Mutations",
+            },
         ]
         meta = generate_node_metadata(trees, custom_fields=custom_fields)
         assert "surprise_mutations" in meta
@@ -587,10 +685,21 @@ class TestDemotedFieldsExcludedFromNodeMetadata:
         it should NOT appear in node metadata."""
         trees = self._make_trees_with_records_source()
         custom_fields = [
-            {"name": "score", "level": "mutation", "encoding": "records",
-             "source": "surprise_mutations", "type": "continuous", "label": "Score"},
-            {"name": "surprise_mutations", "level": "node", "skip": True,
-             "type": "json", "label": "Surprise Mutations"},
+            {
+                "name": "score",
+                "level": "mutation",
+                "encoding": "records",
+                "source": "surprise_mutations",
+                "type": "continuous",
+                "label": "Score",
+            },
+            {
+                "name": "surprise_mutations",
+                "level": "node",
+                "skip": True,
+                "type": "json",
+                "label": "Surprise Mutations",
+            },
         ]
         meta = generate_node_metadata(trees, custom_fields=custom_fields)
         assert "surprise_mutations" not in meta
@@ -606,10 +715,22 @@ class TestDemotedFieldsExcludedFromNodeMetadata:
         trees = self._make_trees_with_records_source()
         clones = [{"clone_id": "c1", "dataset_id": "ds1", "unique_seqs_count": 10}]
         custom_fields = [
-            {"name": "score", "level": "mutation", "encoding": "records",
-             "source": "surprise_mutations", "type": "continuous", "label": "Score"},
-            {"name": "region", "level": "mutation", "encoding": "records",
-             "source": "surprise_mutations", "type": "categorical", "label": "Region"},
+            {
+                "name": "score",
+                "level": "mutation",
+                "encoding": "records",
+                "source": "surprise_mutations",
+                "type": "continuous",
+                "label": "Score",
+            },
+            {
+                "name": "region",
+                "level": "mutation",
+                "encoding": "records",
+                "source": "surprise_mutations",
+                "type": "categorical",
+                "label": "Region",
+            },
         ]
         meta = generate_field_metadata(clones, trees, custom_fields=custom_fields)
         if "node" in meta:

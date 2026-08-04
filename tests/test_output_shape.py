@@ -14,7 +14,6 @@ import json
 import subprocess
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -22,12 +21,18 @@ def _run_pcp_process(tmp_path: Path) -> dict:
     out = tmp_path / "out.json"
     subprocess.run(
         [
-            "olmsted", "process",
-            "-f", "pcp",
-            "-i", str(REPO_ROOT / "example-data/pcp/input-pcp.csv"),
-            "-t", str(REPO_ROOT / "example-data/pcp/input-trees.csv"),
-            "-o", str(out),
-            "--seed", "42",
+            "olmsted",
+            "process",
+            "-f",
+            "pcp",
+            "-i",
+            str(REPO_ROOT / "example-data/pcp/input-pcp.csv"),
+            "-t",
+            str(REPO_ROOT / "example-data/pcp/input-trees.csv"),
+            "-o",
+            str(out),
+            "--seed",
+            "42",
             "-q",
         ],
         check=True,
@@ -39,11 +44,16 @@ def _run_airr_process(tmp_path: Path) -> dict:
     out = tmp_path / "out.json"
     subprocess.run(
         [
-            "olmsted", "process",
-            "-f", "airr",
-            "-i", str(REPO_ROOT / "example-data/airr/input-airr.json"),
-            "-o", str(out),
-            "--seed", "42",
+            "olmsted",
+            "process",
+            "-f",
+            "airr",
+            "-i",
+            str(REPO_ROOT / "example-data/airr/input-airr.json"),
+            "-o",
+            str(out),
+            "--seed",
+            "42",
             "-q",
         ],
         check=True,
@@ -64,7 +74,10 @@ class TestPcpOutputShape:
         """tree.reconstruction_method absent when CSV has no column."""
         data = _run_pcp_process(tmp_path)
         for tree in data["trees"]:
-            assert "reconstruction_method" not in tree or tree["reconstruction_method"] is None
+            assert (
+                "reconstruction_method" not in tree
+                or tree["reconstruction_method"] is None
+            )
 
     def test_no_pcp_tree_prefix(self, tmp_path):
         """Synthesized tree_id uses the datatype prefix, not format-origin."""
@@ -155,7 +168,9 @@ class TestAirrOutputShape:
         }
         result = process_tree(args, clone_id="clone-xyz", tree=tree)
 
-        assert result["ident"].startswith("tree-"), "minted ident should carry tree- prefix"
+        assert result["ident"].startswith("tree-"), (
+            "minted ident should carry tree- prefix"
+        )
         assert result["tree_id"] == result["ident"], (
             "missing input tree_id should fall back to the minted ident"
         )

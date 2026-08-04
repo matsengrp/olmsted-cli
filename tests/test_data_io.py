@@ -127,7 +127,9 @@ def test_open_file_rejects_unknown_when_expected_set(tmp_path):
 def test_open_file_rejects_expected_mismatch():
     """Asking for olmsted on an airr file fails fast."""
     with pytest.raises(ValueError, match="Expected.*olmsted.*detected 'airr'"):
-        open_file(EXAMPLE / "airr" / "input-airr.json", expected_formats=(FORMAT_OLMSTED,))
+        open_file(
+            EXAMPLE / "airr" / "input-airr.json", expected_formats=(FORMAT_OLMSTED,)
+        )
 
 
 def test_open_file_accepts_when_in_expected_set():

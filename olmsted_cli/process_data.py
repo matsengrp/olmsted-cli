@@ -629,7 +629,9 @@ def _process_airr_streaming(args, airr_args):
                         if filtered_count > 0:
                             pbar.set_postfix({"filtered": filtered_count})
 
-                    errors = validate_dataset(dataset_in, verbose=airr_args.verbose).errors
+                    errors = validate_dataset(
+                        dataset_in, verbose=airr_args.verbose
+                    ).errors
                     if errors:
                         error_msg = "Dataset validation failed"
                         if airr_args.verbose:

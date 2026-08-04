@@ -11,14 +11,13 @@ from typing import Literal
 # Verbosity Levels
 # =============================================================================
 
-VERBOSITY_QUIET = 0    # Errors only
-VERBOSITY_NORMAL = 1   # Errors + warnings + key status messages (default)
+VERBOSITY_QUIET = 0  # Errors only
+VERBOSITY_NORMAL = 1  # Errors + warnings + key status messages (default)
 VERBOSITY_VERBOSE = 2  # Above + detailed progress, notifications, column mappings
-VERBOSITY_DEBUG = 3    # Above + internal data structures, per-node details
+VERBOSITY_DEBUG = 3  # Above + internal data structures, per-node details
 
 VERBOSITY_HELP = (
-    "Verbosity level: 0=errors only, 1=normal (default), "
-    "2=verbose, 3=debug"
+    "Verbosity level: 0=errors only, 1=normal (default), 2=verbose, 3=debug"
 )
 
 
@@ -131,6 +130,7 @@ FIELD_LEVELS = {"clone", "family", "tree", "node", "branch", "mutation"}
 LEVEL_ALIASES = {
     "family": "clone",
 }
+
 
 #: Canonical internal level name for each alias.
 def normalize_level(level: str) -> str:
@@ -291,35 +291,56 @@ KNOWN_FIELDS_BY_LEVEL = {
 
 EXCLUDED_CLONE_FIELDS = {
     # Nested objects/arrays (not scalar values)
-    "dataset", "sample", "trees",
+    "dataset",
+    "sample",
+    "trees",
     # Sequences (long strings, never useful in dropdowns)
-    "germline_alignment", "germline_sequence", "germline_alignment_light",
-    "naive_sequence", "cdr3_sequence",
+    "germline_alignment",
+    "germline_sequence",
+    "germline_alignment_light",
+    "naive_sequence",
+    "cdr3_sequence",
     # Gene support probability arrays (complex nested objects)
-    "v_per_gene_support", "d_per_gene_support", "j_per_gene_support",
+    "v_per_gene_support",
+    "d_per_gene_support",
+    "j_per_gene_support",
     # ID arrays
-    "unique_ids", "timepoint_ids",
+    "unique_ids",
+    "timepoint_ids",
 }
 
 EXCLUDED_NODE_FIELDS = {
     # Sequences (long strings)
-    "sequence_alignment", "sequence_alignment_aa",
-    "sequence_alignment_light", "sequence_alignment_light_aa",
-    "aa_sequence", "cdr3_sequence", "cdr3_sequence_aa",
+    "sequence_alignment",
+    "sequence_alignment_aa",
+    "sequence_alignment_light",
+    "sequence_alignment_light_aa",
+    "aa_sequence",
+    "cdr3_sequence",
+    "cdr3_sequence_aa",
     # The mutations array itself (sub-fields are mutation-level)
     "mutations",
     # Multiplicity arrays (complex objects, not scalar)
-    "timepoint_multiplicities", "cluster_timepoint_multiplicities",
+    "timepoint_multiplicities",
+    "cluster_timepoint_multiplicities",
     # Structural (required for tree topology, not for viz encoding)
-    "sequence_id", "node_id", "parent", "is_root",
+    "sequence_id",
+    "node_id",
+    "parent",
+    "is_root",
     # Gene calls on nodes (redundant with clone-level)
-    "v_call", "d_call", "j_call",
+    "v_call",
+    "d_call",
+    "j_call",
     # Refs (redundant with clone-level)
-    "sample_id", "timepoint",
+    "sample_id",
+    "timepoint",
 }
 
 EXCLUDED_BRANCH_FIELDS = {
-    "sequence_id", "node_id", "parent",
+    "sequence_id",
+    "node_id",
+    "parent",
 }
 
 EXCLUDED_MUTATION_FIELDS = {
@@ -357,28 +378,59 @@ EXCLUDED_FIELDS_BY_LEVEL = {
 #: are listed here so they're never treated as node-level extras.
 KNOWN_PCP_COLUMNS = {
     # Role columns (sample/family/tree variants — see column_resolution.py)
-    "sample", "sample_id", "sample_name",
-    "family", "family_id", "family_name",
-    "tree", "tree_id", "tree_name",
+    "sample",
+    "sample_id",
+    "sample_name",
+    "family",
+    "family_id",
+    "family_name",
+    "tree",
+    "tree_id",
+    "tree_name",
     # Edge / topology columns
-    "parent_name", "child_name",
-    "parent_heavy", "child_heavy", "parent_light", "child_light",
-    "branch_length", "edge_length", "depth", "distance", "sample_count",
-    "v_gene_heavy", "d_gene_heavy", "j_gene_heavy",
-    "v_gene_light", "d_gene_light", "j_gene_light",
-    "v_gene_start_heavy", "v_gene_end_heavy",
-    "d_gene_start_heavy", "d_gene_end_heavy",
-    "j_gene_start_heavy", "j_gene_end_heavy",
-    "v_gene_start_light", "v_gene_end_light",
-    "d_gene_start_light", "d_gene_end_light",
-    "j_gene_start_light", "j_gene_end_light",
-    "cdr1_codon_start_heavy", "cdr1_codon_end_heavy",
-    "cdr2_codon_start_heavy", "cdr2_codon_end_heavy",
-    "cdr3_codon_start_heavy", "cdr3_codon_end_heavy",
-    "cdr1_codon_start_light", "cdr1_codon_end_light",
-    "cdr2_codon_start_light", "cdr2_codon_end_light",
-    "cdr3_codon_start_light", "cdr3_codon_end_light",
-    "parent_is_naive", "child_is_leaf",
+    "parent_name",
+    "child_name",
+    "parent_heavy",
+    "child_heavy",
+    "parent_light",
+    "child_light",
+    "branch_length",
+    "edge_length",
+    "depth",
+    "distance",
+    "sample_count",
+    "v_gene_heavy",
+    "d_gene_heavy",
+    "j_gene_heavy",
+    "v_gene_light",
+    "d_gene_light",
+    "j_gene_light",
+    "v_gene_start_heavy",
+    "v_gene_end_heavy",
+    "d_gene_start_heavy",
+    "d_gene_end_heavy",
+    "j_gene_start_heavy",
+    "j_gene_end_heavy",
+    "v_gene_start_light",
+    "v_gene_end_light",
+    "d_gene_start_light",
+    "d_gene_end_light",
+    "j_gene_start_light",
+    "j_gene_end_light",
+    "cdr1_codon_start_heavy",
+    "cdr1_codon_end_heavy",
+    "cdr2_codon_start_heavy",
+    "cdr2_codon_end_heavy",
+    "cdr3_codon_start_heavy",
+    "cdr3_codon_end_heavy",
+    "cdr1_codon_start_light",
+    "cdr1_codon_end_light",
+    "cdr2_codon_start_light",
+    "cdr2_codon_end_light",
+    "cdr3_codon_start_light",
+    "cdr3_codon_end_light",
+    "parent_is_naive",
+    "child_is_leaf",
     "light_chain_type",
 }
 
@@ -386,13 +438,21 @@ KNOWN_PCP_COLUMNS = {
 #: as clone- or tree-level fields (depending on intra-clone variance).
 KNOWN_TREE_COLUMNS = {
     # Role columns (sample/family/tree variants — see column_resolution.py)
-    "sample", "sample_id", "sample_name",
-    "family", "family_id", "family_name",
-    "tree", "tree_id", "tree_name",
+    "sample",
+    "sample_id",
+    "sample_name",
+    "family",
+    "family_id",
+    "family_name",
+    "tree",
+    "tree_id",
+    "tree_name",
     # Tree topology
-    "newick_tree", "newick",
+    "newick_tree",
+    "newick",
     # Paired rate scaling (clone-level)
-    "rate_scale_heavy", "rate_scale_light",
+    "rate_scale_heavy",
+    "rate_scale_light",
     # Tree-level metadata recognized by the parser
     "reconstruction_method",
 }
@@ -453,26 +513,51 @@ FIELD_ALIASES = {
 #: separate section at the bottom of the config for user review.
 SUGGESTED_SKIP_FIELDS = {
     # Identifiers (useful for debugging, not for viz encoding)
-    "ident", "clone_id", "dataset_id", "repertoire_id", "pair_id",
-    "seed_id", "schema_version", "type", "build", "trees_meta",
+    "ident",
+    "clone_id",
+    "dataset_id",
+    "repertoire_id",
+    "pair_id",
+    "seed_id",
+    "schema_version",
+    "type",
+    "build",
+    "trees_meta",
     # Non-visualization metadata
-    "partition", "path", "sorted_index",
+    "partition",
+    "path",
+    "sorted_index",
     # Alignment positions (may be useful as tooltips)
-    "v_alignment_start", "v_alignment_end",
-    "v_sequence_start", "v_sequence_end",
-    "v_germline_start", "v_germline_end",
-    "d_alignment_start", "d_alignment_end",
-    "d_sequence_start", "d_sequence_end",
-    "d_germline_start", "d_germline_end",
-    "j_alignment_start", "j_alignment_end",
-    "j_sequence_start", "j_sequence_end",
-    "j_germline_start", "j_germline_end",
-    "cdr1_alignment_start", "cdr1_alignment_end",
-    "cdr2_alignment_start", "cdr2_alignment_end",
-    "cdr3_alignment_start", "cdr3_alignment_end",
-    "cdr1_alignment_start_light", "cdr1_alignment_end_light",
-    "cdr2_alignment_start_light", "cdr2_alignment_end_light",
-    "cdr3_alignment_start_light", "cdr3_alignment_end_light",
+    "v_alignment_start",
+    "v_alignment_end",
+    "v_sequence_start",
+    "v_sequence_end",
+    "v_germline_start",
+    "v_germline_end",
+    "d_alignment_start",
+    "d_alignment_end",
+    "d_sequence_start",
+    "d_sequence_end",
+    "d_germline_start",
+    "d_germline_end",
+    "j_alignment_start",
+    "j_alignment_end",
+    "j_sequence_start",
+    "j_sequence_end",
+    "j_germline_start",
+    "j_germline_end",
+    "cdr1_alignment_start",
+    "cdr1_alignment_end",
+    "cdr2_alignment_start",
+    "cdr2_alignment_end",
+    "cdr3_alignment_start",
+    "cdr3_alignment_end",
+    "cdr1_alignment_start_light",
+    "cdr1_alignment_end_light",
+    "cdr2_alignment_start_light",
+    "cdr2_alignment_end_light",
+    "cdr3_alignment_start_light",
+    "cdr3_alignment_end_light",
 }
 
 #: Suggested display mode overrides for build-config output.

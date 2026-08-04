@@ -78,9 +78,7 @@ def compute_lbi_for_tree(
             sibling_contribution = 0.0
             for sibling in children_map[node]:
                 if sibling != child:
-                    sibling_branch_length = edge_length_map.get(
-                        (node, sibling), 0.0
-                    )
+                    sibling_branch_length = edge_length_map.get((node, sibling), 0.0)
                     sibling_contribution += (
                         sibling_branch_length + up_polarizer[sibling]
                     )
@@ -198,10 +196,7 @@ def compute_scaled_affinity(
     max_affinity = max(valid_affinities.values())
 
     if max_affinity == min_affinity:
-        return {
-            k: (0.5 if v is not None else None)
-            for k, v in affinity_values.items()
-        }
+        return {k: (0.5 if v is not None else None) for k, v in affinity_values.items()}
 
     scaled = {}
     for node_id, affinity in affinity_values.items():

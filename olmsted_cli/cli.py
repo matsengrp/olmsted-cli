@@ -13,7 +13,10 @@ COMMANDS = {
     "process": ("Convert input data (AIRR/PCP) to Olmsted JSON format", process_data),
     "build-config": ("Generate a YAML config from your data for editing", build_config),
     "tag": ("Add field_metadata to existing Olmsted JSON files", tag),
-    "merge": ("Merge external data (e.g., mutation CSV) into existing Olmsted JSON", merge),
+    "merge": (
+        "Merge external data (e.g., mutation CSV) into existing Olmsted JSON",
+        merge,
+    ),
     "validate": ("Validate data files against schemas", validate),
     "summary": ("Generate summary statistics for Olmsted JSON files", summary),
     "split": ("Split Olmsted JSON files into smaller files (legacy)", split),

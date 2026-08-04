@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import html
-import json
 import os
 import pprint
 import sys
@@ -193,7 +192,8 @@ def process_clone(args, dataset, clone):
     # than fabricating a placeholder — the webapp is responsible for
     # rendering its own "unknown" marker.
     matching_samples = [
-        s for s in dataset.get("samples", [])
+        s
+        for s in dataset.get("samples", [])
         if s.get("sample_id") == clone.get("sample_id")
     ]
     if matching_samples:

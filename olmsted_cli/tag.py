@@ -21,7 +21,6 @@ _TAG_CONFIG_KEYS = {"input", "output", "mode"}
 from .data_io import read_olmsted_json, write_olmsted_json
 from .process_data import load_config
 from .process_utils import (
-    VerbosePrinter,
     add_verbosity_args,
     check_output_id_uniqueness,
     resolve_verbosity,
@@ -108,10 +107,14 @@ Examples:
 
     # Validate required args (after config loading)
     if not args.input:
-        parser.error("the following arguments are required: -i/--input (or provide in config)")
+        parser.error(
+            "the following arguments are required: -i/--input (or provide in config)"
+        )
 
     if not args.output and not args.in_place:
-        parser.error("Either -o/--output or --in-place must be specified (or provide output in config)")
+        parser.error(
+            "Either -o/--output or --in-place must be specified (or provide output in config)"
+        )
 
     if args.output and args.in_place:
         parser.error("Cannot specify both -o/--output and --in-place")
@@ -158,7 +161,8 @@ def main():
 
     try:
         check_output_id_uniqueness(
-            datasets, clones_dict,
+            datasets,
+            clones_dict,
             allow_duplicates=args.allow_duplicate_ids,
         )
     except ValueError as e:

@@ -8,7 +8,6 @@ import yaml
 
 from olmsted_cli.process_data import load_config
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -36,14 +35,17 @@ def write_config(config_dir, config_dict, filename="config.yaml"):
 
 class TestLoadConfig:
     def test_load_valid_config(self, config_dir):
-        path = write_config(config_dir, {
-            "format": "pcp",
-            "name": "Test Dataset",
-            "seed": 42,
-            "verbose": 2,
-            "compute_metrics": True,
-            "lbi_tau": 0.05,
-        })
+        path = write_config(
+            config_dir,
+            {
+                "format": "pcp",
+                "name": "Test Dataset",
+                "seed": 42,
+                "verbose": 2,
+                "compute_metrics": True,
+                "lbi_tau": 0.05,
+            },
+        )
         config_dict, custom_fields = load_config(path)
         assert config_dict["format"] == "pcp"
         assert config_dict["name"] == "Test Dataset"
@@ -64,29 +66,38 @@ class TestLoadConfig:
         assert custom_fields == []
 
     def test_unrecognized_keys_warn(self, config_dir, capsys):
-        path = write_config(config_dir, {
-            "format": "pcp",
-            "typo_key": "value",
-        })
+        path = write_config(
+            config_dir,
+            {
+                "format": "pcp",
+                "typo_key": "value",
+            },
+        )
         config_dict, _ = load_config(path)
         captured = capsys.readouterr()
         assert "Unrecognized config key 'typo_key'" in (captured.err + captured.out)
 
     def test_relative_paths_resolved(self, config_dir):
-        path = write_config(config_dir, {
-            "inputs": ["data.csv"],
-            "output": "output/result.json",
-            "tree": "trees.csv",
-        })
+        path = write_config(
+            config_dir,
+            {
+                "inputs": ["data.csv"],
+                "output": "output/result.json",
+                "tree": "trees.csv",
+            },
+        )
         config_dict, _ = load_config(path)
         assert config_dict["inputs"][0] == os.path.join(config_dir, "data.csv")
         assert config_dict["output"] == os.path.join(config_dir, "output/result.json")
         assert config_dict["tree"] == os.path.join(config_dir, "trees.csv")
 
     def test_absolute_paths_preserved(self, config_dir):
-        path = write_config(config_dir, {
-            "inputs": ["/absolute/path/data.csv"],
-        })
+        path = write_config(
+            config_dir,
+            {
+                "inputs": ["/absolute/path/data.csv"],
+            },
+        )
         config_dict, _ = load_config(path)
         assert config_dict["inputs"][0] == "/absolute/path/data.csv"
 
@@ -98,22 +109,25 @@ class TestLoadConfig:
 
 class TestCustomFieldsParsing:
     def test_valid_custom_fields(self, config_dir):
-        path = write_config(config_dir, {
-            "custom_fields": [
-                {
-                    "name": "my_metric",
-                    "level": "clone",
-                    "type": "continuous",
-                    "label": "My Metric",
-                },
-                {
-                    "name": "my_category",
-                    "level": "node",
-                    "type": "categorical",
-                    "label": "My Category",
-                },
-            ]
-        })
+        path = write_config(
+            config_dir,
+            {
+                "custom_fields": [
+                    {
+                        "name": "my_metric",
+                        "level": "clone",
+                        "type": "continuous",
+                        "label": "My Metric",
+                    },
+                    {
+                        "name": "my_category",
+                        "level": "node",
+                        "type": "categorical",
+                        "label": "My Category",
+                    },
+                ]
+            },
+        )
         _, custom_fields = load_config(path)
         assert len(custom_fields) == 2
         assert custom_fields[0]["name"] == "my_metric"
@@ -121,59 +135,71 @@ class TestCustomFieldsParsing:
         assert custom_fields[1]["level"] == "node"
 
     def test_invalid_level_skipped(self, config_dir, capsys):
-        path = write_config(config_dir, {
-            "custom_fields": [
-                {
-                    "name": "bad",
-                    "level": "invalid_level",
-                    "type": "continuous",
-                    "label": "Bad",
-                },
-            ]
-        })
+        path = write_config(
+            config_dir,
+            {
+                "custom_fields": [
+                    {
+                        "name": "bad",
+                        "level": "invalid_level",
+                        "type": "continuous",
+                        "label": "Bad",
+                    },
+                ]
+            },
+        )
         _, custom_fields = load_config(path)
         assert len(custom_fields) == 0
         captured = capsys.readouterr()
         assert "invalid level" in (captured.err + captured.out)
 
     def test_invalid_type_skipped(self, config_dir, capsys):
-        path = write_config(config_dir, {
-            "custom_fields": [
-                {
-                    "name": "bad",
-                    "level": "clone",
-                    "type": "unknown_type",
-                    "label": "Bad",
-                },
-            ]
-        })
+        path = write_config(
+            config_dir,
+            {
+                "custom_fields": [
+                    {
+                        "name": "bad",
+                        "level": "clone",
+                        "type": "unknown_type",
+                        "label": "Bad",
+                    },
+                ]
+            },
+        )
         _, custom_fields = load_config(path)
         assert len(custom_fields) == 0
         captured = capsys.readouterr()
         assert "invalid type" in (captured.err + captured.out)
 
     def test_missing_required_keys_skipped(self, config_dir, capsys):
-        path = write_config(config_dir, {
-            "custom_fields": [
-                {"name": "incomplete"},  # missing level, type, label
-            ]
-        })
+        path = write_config(
+            config_dir,
+            {
+                "custom_fields": [
+                    {"name": "incomplete"},  # missing level, type, label
+                ]
+            },
+        )
         _, custom_fields = load_config(path)
         assert len(custom_fields) == 0
         captured = capsys.readouterr()
         assert "missing required keys" in (captured.err + captured.out)
 
     def test_custom_field_with_path(self, config_dir):
-        path = write_config(config_dir, {
-            "custom_fields": [
-                {
-                    "name": "surprise_mutsel",
-                    "level": "mutation",
-                    "type": "continuous",
-                    "label": "Surprise Score",
-                    "path": "nodes[].mutations[].surprise_mutsel",
-                },
-            ]
-        })
+        path = write_config(
+            config_dir,
+            {
+                "custom_fields": [
+                    {
+                        "name": "surprise_mutsel",
+                        "level": "mutation",
+                        "type": "continuous",
+                        "label": "Surprise Score",
+                        "path": "nodes[].mutations[].surprise_mutsel",
+                    },
+                ]
+            },
+        )
         _, custom_fields = load_config(path)
         assert custom_fields[0]["path"] == "nodes[].mutations[].surprise_mutsel"

@@ -4,8 +4,6 @@ import json
 import os
 import tempfile
 
-import pytest
-
 from olmsted_cli.data_io import detect_file_format
 
 
@@ -17,20 +15,27 @@ class TestDetectFileFormat:
         assert detect_file_format("example-data/airr/input-airr.json") == "airr"
 
     def test_olmsted_json_with_format_tag(self):
-        assert detect_file_format("example-data/mutations/input-olmsted.json") == "olmsted"
+        assert (
+            detect_file_format("example-data/mutations/input-olmsted.json") == "olmsted"
+        )
 
     def test_olmsted_json_consolidated(self):
-        assert detect_file_format("example-data/pcp/pcp-olmsted-golden.json") == "olmsted"
+        assert (
+            detect_file_format("example-data/pcp/pcp-olmsted-golden.json") == "olmsted"
+        )
 
     def test_olmsted_json_without_format_tag(self):
         """Heuristic detection: datasets + metadata keys → olmsted."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump({
-                "metadata": {"schema_version": "2.0.0"},
-                "datasets": [{"dataset_id": "test"}],
-                "clones": {},
-                "trees": [],
-            }, f)
+            json.dump(
+                {
+                    "metadata": {"schema_version": "2.0.0"},
+                    "datasets": [{"dataset_id": "test"}],
+                    "clones": {},
+                    "trees": [],
+                },
+                f,
+            )
             path = f.name
 
         try:
@@ -41,13 +46,16 @@ class TestDetectFileFormat:
     def test_airr_json_not_misdetected_as_olmsted(self):
         """AIRR JSON (has clones but no datasets/metadata) → airr."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump({
-                "dataset_id": "test",
-                "ident": "abc",
-                "clones": [],
-                "subjects": [],
-                "samples": [],
-            }, f)
+            json.dump(
+                {
+                    "dataset_id": "test",
+                    "ident": "abc",
+                    "clones": [],
+                    "subjects": [],
+                    "samples": [],
+                },
+                f,
+            )
             path = f.name
 
         try:

@@ -147,13 +147,20 @@ class TestOlmstedCLI:
         output_dir = Path(self.temp_dir) / "airr_output"
 
         cmd = [
-            "olmsted", "process", "-f", "airr",
-            "-i", str(input_file),
-            "--split-files", str(output_dir),
-            "--seed", "42",
-            "--name", "airr-example",
-
-            "--json-format", "pretty",
+            "olmsted",
+            "process",
+            "-f",
+            "airr",
+            "-i",
+            str(input_file),
+            "--split-files",
+            str(output_dir),
+            "--seed",
+            "42",
+            "--name",
+            "airr-example",
+            "--json-format",
+            "pretty",
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -175,13 +182,20 @@ class TestOlmstedCLI:
         output_file = Path(self.temp_dir) / "airr_consolidated.json"
 
         cmd = [
-            "olmsted", "process", "-f", "airr",
-            "-i", str(input_file),
-            "-o", str(output_file),
-            "--seed", "42",
-            "--name", "airr-example",
-
-            "--json-format", "pretty",
+            "olmsted",
+            "process",
+            "-f",
+            "airr",
+            "-i",
+            str(input_file),
+            "-o",
+            str(output_file),
+            "--seed",
+            "42",
+            "--name",
+            "airr-example",
+            "--json-format",
+            "pretty",
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -206,13 +220,20 @@ class TestOlmstedCLI:
         output_file = Path(self.temp_dir) / "airr_inline_validated.json"
 
         cmd = [
-            "olmsted", "process", "-f", "airr",
-            "-i", str(input_file),
-            "-o", str(output_file),
-            "--seed", "42",
-            "--name", "airr-example",
-
-            "--json-format", "pretty",
+            "olmsted",
+            "process",
+            "-f",
+            "airr",
+            "-i",
+            str(input_file),
+            "-o",
+            str(output_file),
+            "--seed",
+            "42",
+            "--name",
+            "airr-example",
+            "--json-format",
+            "pretty",
             "--validate",
         ]
 
@@ -235,12 +256,20 @@ class TestOlmstedCLI:
         output_file = Path(self.temp_dir) / f"airr2_{variant}.json"
 
         cmd = [
-            "olmsted", "process", "-f", "airr2",
-            "-i", str(input_file),
-            "-o", str(output_file),
-            "--seed", "42",
-            "--name", f"airr2-{variant}-example",
-            "--json-format", "pretty",
+            "olmsted",
+            "process",
+            "-f",
+            "airr2",
+            "-i",
+            str(input_file),
+            "-o",
+            str(output_file),
+            "--seed",
+            "42",
+            "--name",
+            f"airr2-{variant}-example",
+            "--json-format",
+            "pretty",
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -257,12 +286,20 @@ class TestOlmstedCLI:
         output_file = Path(self.temp_dir) / "airr2_paired_validated.json"
 
         cmd = [
-            "olmsted", "process", "-f", "airr2",
-            "-i", str(input_file),
-            "-o", str(output_file),
-            "--seed", "42",
-            "--name", "airr2-paired-example",
-            "--json-format", "pretty",
+            "olmsted",
+            "process",
+            "-f",
+            "airr2",
+            "-i",
+            str(input_file),
+            "-o",
+            str(output_file),
+            "--seed",
+            "42",
+            "--name",
+            "airr2-paired-example",
+            "--json-format",
+            "pretty",
             "--validate",
         ]
 
@@ -279,12 +316,18 @@ class TestOlmstedCLI:
         output_file = Path(self.temp_dir) / "airr2_auto.json"
 
         cmd = [
-            "olmsted", "process",
-            "-i", str(input_file),
-            "-o", str(output_file),
-            "--seed", "42",
-            "--name", "airr2-paired-example",
-            "--json-format", "pretty",
+            "olmsted",
+            "process",
+            "-i",
+            str(input_file),
+            "-o",
+            str(output_file),
+            "--seed",
+            "42",
+            "--name",
+            "airr2-paired-example",
+            "--json-format",
+            "pretty",
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -333,7 +376,9 @@ class TestOlmstedCLI:
         for tree_file in tree_files:
             with open(tree_file) as f:
                 tree_data = json.load(f)
-                assert "newick" in tree_data, f"Tree file {tree_file} missing newick data"
+                assert "newick" in tree_data, (
+                    f"Tree file {tree_file} missing newick data"
+                )
                 assert "nodes" in tree_data, f"Tree file {tree_file} missing nodes data"
 
     @pytest.mark.pcp
@@ -392,14 +437,22 @@ class TestOlmstedCLI:
         output_dir = Path(self.temp_dir) / "pcp_output"
 
         cmd = [
-            "olmsted", "process", "-f", "pcp",
-            "-i", str(input_clones),
-            "-t", str(input_trees),
-            "--split-files", str(output_dir),
-            "--seed", "42",
-            "--name", "pcp-example",
-
-            "--json-format", "pretty",
+            "olmsted",
+            "process",
+            "-f",
+            "pcp",
+            "-i",
+            str(input_clones),
+            "-t",
+            str(input_trees),
+            "--split-files",
+            str(output_dir),
+            "--seed",
+            "42",
+            "--name",
+            "pcp-example",
+            "--json-format",
+            "pretty",
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -420,14 +473,22 @@ class TestOlmstedCLI:
         output_file = Path(self.temp_dir) / "pcp_consolidated.json"
 
         cmd = [
-            "olmsted", "process", "-f", "pcp",
-            "-i", str(input_clones),
-            "-t", str(input_trees),
-            "-o", str(output_file),
-            "--seed", "42",
-            "--name", "pcp-example",
-
-            "--json-format", "pretty",
+            "olmsted",
+            "process",
+            "-f",
+            "pcp",
+            "-i",
+            str(input_clones),
+            "-t",
+            str(input_trees),
+            "-o",
+            str(output_file),
+            "--seed",
+            "42",
+            "--name",
+            "pcp-example",
+            "--json-format",
+            "pretty",
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -454,14 +515,22 @@ class TestOlmstedCLI:
         output_file = Path(self.temp_dir) / "pcp_inline_validated.json"
 
         cmd = [
-            "olmsted", "process", "-f", "pcp",
-            "-i", str(input_clones),
-            "-t", str(input_trees),
-            "-o", str(output_file),
-            "--seed", "42",
-            "--name", "pcp-example",
-
-            "--json-format", "pretty",
+            "olmsted",
+            "process",
+            "-f",
+            "pcp",
+            "-i",
+            str(input_clones),
+            "-t",
+            str(input_trees),
+            "-o",
+            str(output_file),
+            "--seed",
+            "42",
+            "--name",
+            "pcp-example",
+            "--json-format",
+            "pretty",
             "--validate",
         ]
 
@@ -574,12 +643,10 @@ class TestOlmstedCLI:
         if not input_clones.exists():
             pytest.skip("Paired PCP test data not available")
 
-        output_file = Path(self.temp_dir) / "paired_pcp_output.json"
-
         # Import processing functions directly for faster testing
         from olmsted_cli.process_pcp_data import (
-            parse_pcp_csv,
             parse_newick_csv,
+            parse_pcp_csv,
             process_pcp_to_olmsted,
         )
 
@@ -603,6 +670,7 @@ class TestOlmstedCLI:
 
         # Group clones by pair_id
         from collections import defaultdict
+
         pairs = defaultdict(list)
         for clone in paired_clones:
             pair_id = clone.get("pair_id")
@@ -613,38 +681,56 @@ class TestOlmstedCLI:
         assert len(pairs) > 0, "Should have at least one pair"
         first_pair_id = list(pairs.keys())[0]
         pair = pairs[first_pair_id]
-        assert len(pair) == 2, f"Each pair should have exactly 2 clones (heavy + light), got {len(pair)}"
+        assert len(pair) == 2, (
+            f"Each pair should have exactly 2 clones (heavy + light), got {len(pair)}"
+        )
 
         # Find heavy and light clones
         heavy_clone = next((c for c in pair if c["sample"]["locus"] == "igh"), None)
-        light_clone = next((c for c in pair if c["sample"]["locus"] in ["igk", "igl"]), None)
+        light_clone = next(
+            (c for c in pair if c["sample"]["locus"] in ["igk", "igl"]), None
+        )
 
         assert heavy_clone is not None, "Should have heavy chain clone"
         assert light_clone is not None, "Should have light chain clone"
 
         # Verify both clones are marked as paired with matching pair_id
-        assert heavy_clone.get("is_paired") is True, "Heavy clone should be marked as paired"
-        assert light_clone.get("is_paired") is True, "Light clone should be marked as paired"
-        assert heavy_clone.get("pair_id") == light_clone.get("pair_id"), \
+        assert heavy_clone.get("is_paired") is True, (
+            "Heavy clone should be marked as paired"
+        )
+        assert light_clone.get("is_paired") is True, (
+            "Light clone should be marked as paired"
+        )
+        assert heavy_clone.get("pair_id") == light_clone.get("pair_id"), (
             "Heavy and light clones should have matching pair_id"
+        )
 
         # Verify locus is correct
-        assert heavy_clone["sample"]["locus"] == "igh", "Heavy clone should have locus igh"
-        assert light_clone["sample"]["locus"] in ["igk", "igl"], \
+        assert heavy_clone["sample"]["locus"] == "igh", (
+            "Heavy clone should have locus igh"
+        )
+        assert light_clone["sample"]["locus"] in ["igk", "igl"], (
             f"Light clone should have locus igk or igl, got {light_clone['sample']['locus']}"
+        )
 
         # Verify VDJ genes are different between heavy and light
-        assert heavy_clone.get("v_call") != light_clone.get("v_call"), \
+        assert heavy_clone.get("v_call") != light_clone.get("v_call"), (
             "Heavy and light clones should have different V genes"
-        assert heavy_clone.get("j_call") != light_clone.get("j_call"), \
+        )
+        assert heavy_clone.get("j_call") != light_clone.get("j_call"), (
             "Heavy and light clones should have different J genes"
+        )
 
         # Light chain should not have D gene (heavy chain may or may not have D gene depending on input data)
         assert light_clone.get("d_call", "") == "", "Light clone should not have D gene"
 
         # Verify trees exist for both chains
-        heavy_tree = next((t for t in trees_out if t["clone_id"] == heavy_clone["clone_id"]), None)
-        light_tree = next((t for t in trees_out if t["clone_id"] == light_clone["clone_id"]), None)
+        heavy_tree = next(
+            (t for t in trees_out if t["clone_id"] == heavy_clone["clone_id"]), None
+        )
+        light_tree = next(
+            (t for t in trees_out if t["clone_id"] == light_clone["clone_id"]), None
+        )
 
         assert heavy_tree is not None, "Should have tree for heavy chain"
         assert light_tree is not None, "Should have tree for light chain"
@@ -654,12 +740,17 @@ class TestOlmstedCLI:
         assert len(light_tree["nodes"]) > 0, "Light tree should have nodes"
 
         # Verify sequences are different between heavy and light trees
-        heavy_leaf = next((n for n in heavy_tree["nodes"] if n.get("type") == "leaf"), None)
-        light_leaf = next((n for n in light_tree["nodes"] if n.get("type") == "leaf"), None)
+        heavy_leaf = next(
+            (n for n in heavy_tree["nodes"] if n.get("type") == "leaf"), None
+        )
+        light_leaf = next(
+            (n for n in light_tree["nodes"] if n.get("type") == "leaf"), None
+        )
 
         if heavy_leaf and light_leaf:
-            assert heavy_leaf.get("sequence_alignment") != light_leaf.get("sequence_alignment"), \
-                "Heavy and light trees should have different sequences"
+            assert heavy_leaf.get("sequence_alignment") != light_leaf.get(
+                "sequence_alignment"
+            ), "Heavy and light trees should have different sequences"
 
 
 if __name__ == "__main__":

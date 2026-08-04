@@ -24,9 +24,8 @@ from .constants import (
     KNOWN_PCP_COLUMNS,
     KNOWN_TREE_COLUMNS,
 )
-from .data_io import open_file, read_olmsted_json
+from .data_io import open_file
 from .process_utils import (
-    VerbosePrinter,
     add_verbosity_args,
     resolve_verbosity,
     validate_clone,
@@ -108,23 +107,34 @@ def validate_pcp_csv(filepath, tree_filepath=None):
         aliased_cols = {c for c in fieldnames if c.lower() in CHAIN_COLUMN_ALIASES}
         extra_cols = fieldnames - KNOWN_PCP_COLUMNS - aliased_cols
         if extra_cols:
-            vprint.verbose(f"  Extra columns (will be captured as node fields): {sorted(extra_cols)}")
+            vprint.verbose(
+                f"  Extra columns (will be captured as node fields): {sorted(extra_cols)}"
+            )
         vprint.verbose(f"  Known columns: {len(known_cols)}, Extra: {len(extra_cols)}")
 
         # Check for sequence data
         has_sequences = (
-            "parent_heavy" in fieldnames or "child_heavy" in fieldnames
-            or "parent_light" in fieldnames or "child_light" in fieldnames
-            or "parent_seq" in fieldnames or "child_seq" in fieldnames
-            or "parent_sequence" in fieldnames or "child_sequence" in fieldnames
+            "parent_heavy" in fieldnames
+            or "child_heavy" in fieldnames
+            or "parent_light" in fieldnames
+            or "child_light" in fieldnames
+            or "parent_seq" in fieldnames
+            or "child_seq" in fieldnames
+            or "parent_sequence" in fieldnames
+            or "child_sequence" in fieldnames
         )
         if not has_sequences:
-            warnings.append("No sequence columns found (parent_heavy/child_heavy). Tree alignment will not be available.")
+            warnings.append(
+                "No sequence columns found (parent_heavy/child_heavy). Tree alignment will not be available."
+            )
         else:
             vprint.verbose("  Sequence columns: PASS")
 
         # Check for paired data
-        has_heavy = any(c in fieldnames for c in ("parent_heavy", "child_heavy", "parent_seq", "child_seq"))
+        has_heavy = any(
+            c in fieldnames
+            for c in ("parent_heavy", "child_heavy", "parent_seq", "child_seq")
+        )
         has_light = any(c in fieldnames for c in ("parent_light", "child_light"))
         if has_heavy and has_light:
             vprint.verbose("  Paired data detected (heavy + light)")
@@ -164,11 +174,15 @@ def validate_pcp_csv(filepath, tree_filepath=None):
                 + (" ..." if len(families_without_root) > 5 else "")
             )
         else:
-            vprint.verbose(f"  Root nodes: PASS (all {len(families)} families have roots)")
+            vprint.verbose(
+                f"  Root nodes: PASS (all {len(families)} families have roots)"
+            )
 
     # --- Validate tree CSV if provided ---
     if tree_filepath:
-        tree_errors, tree_warnings = validate_tree_csv(tree_filepath, set(families.keys()))
+        tree_errors, tree_warnings = validate_tree_csv(
+            tree_filepath, set(families.keys())
+        )
         errors.extend(tree_errors)
         warnings.extend(tree_warnings)
 
@@ -219,7 +233,9 @@ def validate_tree_csv(filepath, pcp_family_ids=None):
         known = KNOWN_TREE_COLUMNS
         extra = {f for f in fieldnames if f} - known
         if extra:
-            vprint.verbose(f"  Extra tree columns (will be family-level fields): {sorted(extra)}")
+            vprint.verbose(
+                f"  Extra tree columns (will be family-level fields): {sorted(extra)}"
+            )
 
         # Read and validate rows
         tree_families = set()
@@ -234,9 +250,13 @@ def validate_tree_csv(filepath, pcp_family_ids=None):
 
             # Basic newick syntax check
             if not newick or not newick.strip():
-                newick_errors.append(f"Row {row_count} ({family_name}): empty newick string")
+                newick_errors.append(
+                    f"Row {row_count} ({family_name}): empty newick string"
+                )
             elif not newick.strip().endswith(";"):
-                newick_errors.append(f"Row {row_count} ({family_name}): newick doesn't end with ';'")
+                newick_errors.append(
+                    f"Row {row_count} ({family_name}): newick doesn't end with ';'"
+                )
 
         if row_count == 0:
             errors.append("Tree CSV has no data rows")
@@ -271,7 +291,9 @@ def validate_tree_csv(filepath, pcp_family_ids=None):
                     + (" ..." if len(missing_in_trees) > 5 else "")
                 )
             if not missing_in_pcp and not missing_in_trees:
-                vprint.verbose(f"  Family alignment: PASS (PCP and tree families match)")
+                vprint.verbose(
+                    f"  Family alignment: PASS (PCP and tree families match)"
+                )
             elif not missing_in_pcp:
                 vprint.verbose(f"  Family alignment: all tree families found in PCP")
 
@@ -293,10 +315,16 @@ def _validate_dataset_with_children(data, result, check_time_tree=False):
 
     iterator = clones
     if len(clones) > 1:
-        iterator = vprint.progress(clones, desc="Validating clones", unit="clone", leave=False)
+        iterator = vprint.progress(
+            clones, desc="Validating clones", unit="clone", leave=False
+        )
 
     for i, clone in enumerate(iterator):
-        clone_id = clone.get("clone_id", f"clone-{i}") if isinstance(clone, dict) else f"clone-{i}"
+        clone_id = (
+            clone.get("clone_id", f"clone-{i}")
+            if isinstance(clone, dict)
+            else f"clone-{i}"
+        )
         if hasattr(iterator, "set_description"):
             iterator.set_description(f"Validating clone {clone_id}")
 
@@ -323,11 +351,15 @@ def _validate_items(items, item_type, validate_fn, result, check_time_tree=False
 
     iterator = items
     if len(items) > 1:
-        iterator = vprint.progress(items, desc=f"Validating {item_type}s", unit=item_type, leave=False)
+        iterator = vprint.progress(
+            items, desc=f"Validating {item_type}s", unit=item_type, leave=False
+        )
 
     for i, item in enumerate(iterator):
         if isinstance(item, dict):
-            item_id = item.get("clone_id", item.get("ident", item.get("tree_id", f"{item_type}-{i}")))
+            item_id = item.get(
+                "clone_id", item.get("ident", item.get("tree_id", f"{item_type}-{i}"))
+            )
         else:
             item_id = f"{item_type}-{i}"
         if hasattr(iterator, "set_description"):
@@ -344,7 +376,9 @@ def _validate_items(items, item_type, validate_fn, result, check_time_tree=False
         else:
             pass_count += 1
 
-    vprint.verbose(f"  {item_type.title()}s validated: {pass_count} passed, {fail_count} failed")
+    vprint.verbose(
+        f"  {item_type.title()}s validated: {pass_count} passed, {fail_count} failed"
+    )
 
 
 def _validate_explicit_file_type(data, file_type, filepath, check_time_tree=False):
@@ -428,9 +462,16 @@ def _auto_detect_object_type(data, filepath, check_time_tree=False):
     """Auto-detect and validate object-type data."""
     result = ValidationResult()
 
-    if "metadata" in data and "datasets" in data and "clones" in data and "trees" in data:
+    if (
+        "metadata" in data
+        and "datasets" in data
+        and "clones" in data
+        and "trees" in data
+    ):
         vprint.status(f"Auto-detected as Olmsted JSON format: {filepath}")
-        consolidated_result = validate_consolidated_data(data, vprint.level, check_time_tree)
+        consolidated_result = validate_consolidated_data(
+            data, vprint.level, check_time_tree
+        )
         result.extend(consolidated_result)
         if consolidated_result.ok:
             vprint.verbose("  Olmsted JSON format: PASS")
@@ -465,8 +506,14 @@ def _auto_detect_object_type(data, filepath, check_time_tree=False):
     return result
 
 
-def validate_file(filepath, file_type=None, verbose=1, strict=False,
-                   check_time_tree=False, tree_filepath=None):
+def validate_file(
+    filepath,
+    file_type=None,
+    verbose=1,
+    strict=False,
+    check_time_tree=False,
+    tree_filepath=None,
+):
     """
     Validate a single data file (JSON or CSV).
 
@@ -503,7 +550,9 @@ def validate_file(filepath, file_type=None, verbose=1, strict=False,
         return False, [f"Failed to read file: {e}"]
 
     if file_type is not None:
-        result = _validate_explicit_file_type(data, file_type, filepath, check_time_tree)
+        result = _validate_explicit_file_type(
+            data, file_type, filepath, check_time_tree
+        )
     else:
         if isinstance(data, list):
             result = _auto_detect_array_type(data, filepath, check_time_tree)
@@ -520,8 +569,6 @@ def validate_file(filepath, file_type=None, verbose=1, strict=False,
 
 def _validate_csv_file(filepath, file_type=None, tree_filepath=None):
     """Route CSV validation based on file type or auto-detection."""
-    path = Path(filepath)
-
     # Auto-detect: CSV files are assumed to be PCP format
     if file_type is None:
         try:
@@ -542,7 +589,9 @@ def _validate_csv_file(filepath, file_type=None, tree_filepath=None):
     if tree_filepath:
         vprint.status(f"  Companion tree CSV: {tree_filepath}")
     else:
-        vprint.status(f"  Warning: No companion tree CSV provided (-t). Tree validation skipped.")
+        vprint.status(
+            f"  Warning: No companion tree CSV provided (-t). Tree validation skipped."
+        )
 
     is_valid, errors, file_warnings = validate_pcp_csv(filepath, tree_filepath)
     for w in file_warnings:
@@ -625,7 +674,8 @@ Auto-detection (when no type specified):
     )
 
     parser.add_argument(
-        "-i", "--input",
+        "-i",
+        "--input",
         dest="files",
         nargs="+",
         metavar="FILE",
@@ -654,7 +704,8 @@ Auto-detection (when no type specified):
         help="Validate PCP CSV files (requires -t for companion tree CSV)",
     )
     parser.add_argument(
-        "-t", "--tree",
+        "-t",
+        "--tree",
         dest="tree_csv_file",
         metavar="FILE",
         help="Companion tree CSV file (required for PCP validation)",

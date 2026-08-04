@@ -12,10 +12,8 @@ entries become alternate reconstructions in clone.trees[]. Verifies:
 
 import json
 import subprocess
-from pathlib import Path
 
 import pytest
-
 
 # Minimal PCP inputs for these tests — small enough to stay readable.
 _PCP_CSV = (
@@ -33,9 +31,9 @@ def _write_trees_csv(path, rows):
         f.write("family_name,sample_id,newick_tree,tree_id,reconstruction_method\n")
         for row in rows:
             f.write(
-                f'{row["family_name"]},{row["sample_id"]},'
+                f"{row['family_name']},{row['sample_id']},"
                 f'"{row["newick_tree"]}",{row.get("tree_id", "")},'
-                f'{row.get("reconstruction_method", "")}\n'
+                f"{row.get('reconstruction_method', '')}\n"
             )
 
 
@@ -43,16 +41,23 @@ def _run_process(tmp_path, pcp_path, trees_path, *extra_args, expect_success=Tru
     out = tmp_path / "out.json"
     result = subprocess.run(
         [
-            "olmsted", "process",
-            "-f", "pcp",
-            "-i", str(pcp_path),
-            "-t", str(trees_path),
-            "-o", str(out),
-            "--seed", "42",
+            "olmsted",
+            "process",
+            "-f",
+            "pcp",
+            "-i",
+            str(pcp_path),
+            "-t",
+            str(trees_path),
+            "-o",
+            str(out),
+            "--seed",
+            "42",
             "-q",
             *extra_args,
         ],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     if expect_success:
         assert result.returncode == 0, f"process failed: {result.stderr}"
@@ -70,18 +75,25 @@ def pcp_csv(tmp_path):
 class TestMultiTreePipeline:
     def test_two_trees_per_family_produce_two_tree_records(self, tmp_path, pcp_csv):
         trees_csv = tmp_path / "trees.csv"
-        _write_trees_csv(trees_csv, [
-            {
-                "family_name": "f1", "sample_id": "s1",
-                "newick_tree": "(leaf1:0.01,leaf2:0.02)naive:0.0;",
-                "tree_id": "tree-a", "reconstruction_method": "dnapars",
-            },
-            {
-                "family_name": "f1", "sample_id": "s1",
-                "newick_tree": "((leaf1:0.005,leaf2:0.015)n1:0.01)naive:0.0;",
-                "tree_id": "tree-b", "reconstruction_method": "raxml_ng",
-            },
-        ])
+        _write_trees_csv(
+            trees_csv,
+            [
+                {
+                    "family_name": "f1",
+                    "sample_id": "s1",
+                    "newick_tree": "(leaf1:0.01,leaf2:0.02)naive:0.0;",
+                    "tree_id": "tree-a",
+                    "reconstruction_method": "dnapars",
+                },
+                {
+                    "family_name": "f1",
+                    "sample_id": "s1",
+                    "newick_tree": "((leaf1:0.005,leaf2:0.015)n1:0.01)naive:0.0;",
+                    "tree_id": "tree-b",
+                    "reconstruction_method": "raxml_ng",
+                },
+            ],
+        )
         data = _run_process(tmp_path, pcp_csv, trees_csv)
 
         ds_id = data["datasets"][0]["dataset_id"]
@@ -111,13 +123,17 @@ class TestMultiTreePipeline:
         """When the CSV supplies tree_id, synthesized tree-{family_id}
         fallback is not used."""
         trees_csv = tmp_path / "trees.csv"
-        _write_trees_csv(trees_csv, [
-            {
-                "family_name": "f1", "sample_id": "s1",
-                "newick_tree": "(leaf1:0.01,leaf2:0.02)naive:0.0;",
-                "tree_id": "my-explicit-tree",
-            },
-        ])
+        _write_trees_csv(
+            trees_csv,
+            [
+                {
+                    "family_name": "f1",
+                    "sample_id": "s1",
+                    "newick_tree": "(leaf1:0.01,leaf2:0.02)naive:0.0;",
+                    "tree_id": "my-explicit-tree",
+                },
+            ],
+        )
         data = _run_process(tmp_path, pcp_csv, trees_csv)
         tree_ids = [t["tree_id"] for t in data["trees"]]
         assert tree_ids == ["my-explicit-tree"]
@@ -126,34 +142,47 @@ class TestMultiTreePipeline:
         """When reconstruction_method column is absent or empty, the
         output field is not present."""
         trees_csv = tmp_path / "trees.csv"
-        _write_trees_csv(trees_csv, [
-            {
-                "family_name": "f1", "sample_id": "s1",
-                "newick_tree": "(leaf1:0.01,leaf2:0.02)naive:0.0;",
-                "tree_id": "t1",
-                # reconstruction_method omitted → empty cell
-            },
-        ])
+        _write_trees_csv(
+            trees_csv,
+            [
+                {
+                    "family_name": "f1",
+                    "sample_id": "s1",
+                    "newick_tree": "(leaf1:0.01,leaf2:0.02)naive:0.0;",
+                    "tree_id": "t1",
+                    # reconstruction_method omitted → empty cell
+                },
+            ],
+        )
         data = _run_process(tmp_path, pcp_csv, trees_csv)
         for t in data["trees"]:
-            assert "reconstruction_method" not in t or t["reconstruction_method"] is None
+            assert (
+                "reconstruction_method" not in t or t["reconstruction_method"] is None
+            )
 
     def test_duplicate_tree_id_within_clone_fails(self, tmp_path, pcp_csv):
         """Two rows with the same tree_id in the same (family, sample_id)
         fail the uniqueness check."""
         trees_csv = tmp_path / "trees.csv"
-        _write_trees_csv(trees_csv, [
-            {
-                "family_name": "f1", "sample_id": "s1",
-                "newick_tree": "(leaf1:0.01,leaf2:0.02)naive:0.0;",
-                "tree_id": "same-id", "reconstruction_method": "dnapars",
-            },
-            {
-                "family_name": "f1", "sample_id": "s1",
-                "newick_tree": "((leaf1:0.005,leaf2:0.015)n1:0.01)naive:0.0;",
-                "tree_id": "same-id", "reconstruction_method": "raxml_ng",
-            },
-        ])
+        _write_trees_csv(
+            trees_csv,
+            [
+                {
+                    "family_name": "f1",
+                    "sample_id": "s1",
+                    "newick_tree": "(leaf1:0.01,leaf2:0.02)naive:0.0;",
+                    "tree_id": "same-id",
+                    "reconstruction_method": "dnapars",
+                },
+                {
+                    "family_name": "f1",
+                    "sample_id": "s1",
+                    "newick_tree": "((leaf1:0.005,leaf2:0.015)n1:0.01)naive:0.0;",
+                    "tree_id": "same-id",
+                    "reconstruction_method": "raxml_ng",
+                },
+            ],
+        )
         result = _run_process(tmp_path, pcp_csv, trees_csv, expect_success=False)
         assert result.returncode != 0
         combined = result.stdout + result.stderr
@@ -163,18 +192,23 @@ class TestMultiTreePipeline:
     def test_duplicate_tree_id_allowed_with_flag(self, tmp_path, pcp_csv):
         """--allow-duplicate-ids downgrades the collision to a warning."""
         trees_csv = tmp_path / "trees.csv"
-        _write_trees_csv(trees_csv, [
-            {
-                "family_name": "f1", "sample_id": "s1",
-                "newick_tree": "(leaf1:0.01,leaf2:0.02)naive:0.0;",
-                "tree_id": "same-id",
-            },
-            {
-                "family_name": "f1", "sample_id": "s1",
-                "newick_tree": "((leaf1:0.005,leaf2:0.015)n1:0.01)naive:0.0;",
-                "tree_id": "same-id",
-            },
-        ])
+        _write_trees_csv(
+            trees_csv,
+            [
+                {
+                    "family_name": "f1",
+                    "sample_id": "s1",
+                    "newick_tree": "(leaf1:0.01,leaf2:0.02)naive:0.0;",
+                    "tree_id": "same-id",
+                },
+                {
+                    "family_name": "f1",
+                    "sample_id": "s1",
+                    "newick_tree": "((leaf1:0.005,leaf2:0.015)n1:0.01)naive:0.0;",
+                    "tree_id": "same-id",
+                },
+            ],
+        )
         data = _run_process(tmp_path, pcp_csv, trees_csv, "--allow-duplicate-ids")
         ds_id = data["datasets"][0]["dataset_id"]
         # Both trees still emitted, both still carry "same-id"
