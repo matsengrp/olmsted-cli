@@ -490,7 +490,7 @@ def _process_pcp_streaming(args, pcp_families, newick_trees, minter, input_files
         lbi_tau=getattr(args, "lbi_tau", 0.0125),
         standardize_names=getattr(args, "standardize_names", False),
         warn_disagreements=args.warnings,
-        on_forest=getattr(args, "on_forest", "drop"),
+        on_forest=getattr(args, "on_forest", "skip"),
     )
 
     custom_fields = getattr(args, "custom_fields", None)
@@ -795,7 +795,7 @@ def process_pcp_format(args):
         vprint.verbose(f"  Random seed: {args.seed}")
     vprint.verbose(f"  Show disagreement warnings: {args.warnings}")
     vprint.verbose(
-        f"  On forest (disconnected tree): {getattr(args, 'on_forest', 'drop')}"
+        f"  On forest (disconnected tree): {getattr(args, 'on_forest', 'skip')}"
     )
     vprint.verbose(f"  Compute metrics: {getattr(args, 'compute_metrics', False)}")
     if getattr(args, "compute_metrics", False):
@@ -872,7 +872,7 @@ def process_pcp_format(args):
             name=getattr(args, "name", None),
             verbosity=args.verbose,
             custom_fields=getattr(args, "custom_fields", None),
-            on_forest=getattr(args, "on_forest", "drop"),
+            on_forest=getattr(args, "on_forest", "skip"),
         )
 
         # Merge mutations CSV if --mutations was specified
@@ -1280,11 +1280,11 @@ Examples:
     parser.add_argument(
         "--on-forest",
         choices=["reconcile", "drop", "skip", "fail"],
-        default="drop",
+        default="skip",
         help="How to handle a PCP family whose edges form a disconnected forest "
         "(more than one root): reconcile = reattach orphan roots under the "
-        "primary root, drop = discard just the orphan subtree(s) (default), "
-        "skip = discard the whole family, fail = abort the run",
+        "primary root, drop = discard just the orphan subtree(s), "
+        "skip = discard the whole family (default), fail = abort the run",
     )
 
     # --- Verbosity ---

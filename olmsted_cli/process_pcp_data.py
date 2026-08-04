@@ -1788,7 +1788,7 @@ class TreeProcessingConfig:
     standardize_names: bool = False
     alignment_method: str = "truncate"
     warn_disagreements: bool = False
-    on_forest: Literal["reconcile", "drop", "skip", "fail"] = "drop"
+    on_forest: Literal["reconcile", "drop", "skip", "fail"] = "skip"
 
 
 def _build_tree_ref(
@@ -3034,7 +3034,7 @@ def process_pcp_to_olmsted(
     name: Optional[str] = None,
     verbosity: int = 1,
     custom_fields: Optional[List[Dict[str, Any]]] = None,
-    on_forest: Literal["reconcile", "drop", "skip", "fail"] = "drop",
+    on_forest: Literal["reconcile", "drop", "skip", "fail"] = "skip",
 ) -> Tuple[List[OlmstedDataset], Dict[str, List[OlmstedClone]], List[OlmstedTree]]:
     """
     Convert PCP format data to Olmsted format.
@@ -3054,8 +3054,8 @@ def process_pcp_to_olmsted(
         on_forest: How to handle a PCP family whose edges form a disconnected
             forest (more than one root): "reconcile" reattaches orphan roots
             under the primary root, "drop" discards just the orphan
-            subtree(s), "skip" discards the whole family, "fail" raises
-            ForestTopologyError (default: "drop")
+            subtree(s), "skip" discards the whole family (default), "fail"
+            raises ForestTopologyError
 
     Returns:
         Tuple of (datasets, clones_dict, trees) with proper Olmsted types
@@ -3220,11 +3220,11 @@ def get_args():
     parser.add_argument(
         "--on-forest",
         choices=["reconcile", "drop", "skip", "fail"],
-        default="drop",
+        default="skip",
         help="How to handle a PCP family whose edges form a disconnected forest "
         "(more than one root): reconcile = reattach orphan roots under the "
-        "primary root, drop = discard just the orphan subtree(s) (default), "
-        "skip = discard the whole family, fail = abort the run",
+        "primary root, drop = discard just the orphan subtree(s), "
+        "skip = discard the whole family (default), fail = abort the run",
     )
     parser.add_argument(
         "--sample-col",

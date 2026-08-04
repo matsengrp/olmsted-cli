@@ -4,7 +4,7 @@ A PCP family is a "forest" when its edges have more than one node that
 is a parent but never a child (more than one connected component). This
 happens when the input dropped a parent edge for some internal node.
 ``--on-forest`` controls how olmsted-cli responds: reconcile / drop /
-skip / fail.
+skip (default) / fail.
 """
 
 import pytest
@@ -62,17 +62,17 @@ def test_drop_discards_orphan_subtree(tmp_path):
     assert roots[0]["sequence_id"] == "naive"
 
 
-def test_drop_is_the_default(tmp_path):
-    families = _load_forest_families(tmp_path)
-    _, _, trees = process_pcp_to_olmsted(families)  # no on_forest kwarg
-
-    nodes = {n["sequence_id"]: n for n in trees[0]["nodes"]}
-    assert set(nodes) == {"naive", "Node1", "Leaf1"}
-
-
 def test_skip_drops_the_whole_family(tmp_path):
     families = _load_forest_families(tmp_path)
     _, clones_dict, trees = process_pcp_to_olmsted(families, on_forest="skip")
+
+    assert trees == []
+    assert all(len(clones) == 0 for clones in clones_dict.values())
+
+
+def test_skip_is_the_default(tmp_path):
+    families = _load_forest_families(tmp_path)
+    _, clones_dict, trees = process_pcp_to_olmsted(families)  # no on_forest kwarg
 
     assert trees == []
     assert all(len(clones) == 0 for clones in clones_dict.values())
