@@ -752,8 +752,6 @@ class BatchAccumulator:
         return self._level_metadata(state, "mutation", custom_fields)
 
 
-
-
 def _collect_demoted_sources(
     custom_fields: Optional[List[Dict[str, Any]]],
 ) -> Set[str]:

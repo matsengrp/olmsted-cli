@@ -16,13 +16,16 @@ import pytest
 
 from olmsted_cli.process_utils import check_output_id_uniqueness
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _minimal_datasets(dataset_ids, *, samples=None, subjects=None):
     return [
-        {"dataset_id": d, "samples": list(samples or []), "subjects": list(subjects or [])}
+        {
+            "dataset_id": d,
+            "samples": list(samples or []),
+            "subjects": list(subjects or []),
+        }
         for d in dataset_ids
     ]
 
@@ -145,12 +148,18 @@ class TestCLIIntegration:
         source = tmp_path / "source.json"
         subprocess.run(
             [
-                "olmsted", "process",
-                "-f", "pcp",
-                "-i", str(REPO_ROOT / "example-data/pcp/input-pcp.csv"),
-                "-t", str(REPO_ROOT / "example-data/pcp/input-trees.csv"),
-                "-o", str(source),
-                "--seed", "42",
+                "olmsted",
+                "process",
+                "-f",
+                "pcp",
+                "-i",
+                str(REPO_ROOT / "example-data/pcp/input-pcp.csv"),
+                "-t",
+                str(REPO_ROOT / "example-data/pcp/input-trees.csv"),
+                "-o",
+                str(source),
+                "--seed",
+                "42",
                 "-q",
             ],
             check=True,
@@ -159,7 +168,8 @@ class TestCLIIntegration:
 
         result = subprocess.run(
             ["olmsted", "tag", "-i", str(source), "-o", str(tmp_path / "out.json")],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         combined = result.stdout + result.stderr
         assert result.returncode != 0, f"expected failure, got: {combined}"
@@ -172,12 +182,18 @@ class TestCLIIntegration:
         source = tmp_path / "source.json"
         subprocess.run(
             [
-                "olmsted", "process",
-                "-f", "pcp",
-                "-i", str(REPO_ROOT / "example-data/pcp/input-pcp.csv"),
-                "-t", str(REPO_ROOT / "example-data/pcp/input-trees.csv"),
-                "-o", str(source),
-                "--seed", "42",
+                "olmsted",
+                "process",
+                "-f",
+                "pcp",
+                "-i",
+                str(REPO_ROOT / "example-data/pcp/input-pcp.csv"),
+                "-t",
+                str(REPO_ROOT / "example-data/pcp/input-trees.csv"),
+                "-o",
+                str(source),
+                "--seed",
+                "42",
                 "-q",
             ],
             check=True,
@@ -187,12 +203,16 @@ class TestCLIIntegration:
         out = tmp_path / "out.json"
         result = subprocess.run(
             [
-                "olmsted", "tag",
-                "-i", str(source),
-                "-o", str(out),
+                "olmsted",
+                "tag",
+                "-i",
+                str(source),
+                "-o",
+                str(out),
                 "--allow-duplicate-ids",
             ],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         combined = result.stdout + result.stderr
         assert result.returncode == 0, f"unexpected failure: {combined}"

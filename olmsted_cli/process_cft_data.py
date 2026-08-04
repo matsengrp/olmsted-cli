@@ -59,6 +59,7 @@ def nospy(xs):
     """Identity function (debug stub, can be replaced with spy() during development)."""
     return xs
 
+
 default_schema_path = os.path.join(os.path.dirname(__file__), "..", "cft_schema.json")
 
 

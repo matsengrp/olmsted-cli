@@ -164,7 +164,9 @@ def humanize_label(field_name: str) -> str:
     return " ".join(result)
 
 
-def sample_values(dicts: List[Dict], field: str, max_samples: int = MAX_SAMPLE_VALUES) -> List[Any]:
+def sample_values(
+    dicts: List[Dict], field: str, max_samples: int = MAX_SAMPLE_VALUES
+) -> List[Any]:
     """Sample non-null values for a field across a list of dicts."""
     values = []
     for d in dicts:
@@ -175,7 +177,9 @@ def sample_values(dicts: List[Dict], field: str, max_samples: int = MAX_SAMPLE_V
     return values
 
 
-def sample_values_by_path(dicts: List[Dict], path: str, max_samples: int = MAX_SAMPLE_VALUES) -> List[Any]:
+def sample_values_by_path(
+    dicts: List[Dict], path: str, max_samples: int = MAX_SAMPLE_VALUES
+) -> List[Any]:
     """Sample non-null values using a dot-path across a list of dicts."""
     values = []
     for d in dicts:
@@ -233,10 +237,16 @@ def _apply_custom_fields(metadata, custom_fields, level, data_dicts=None):
         # (user may be declaring a field they intend to add later).
         path = cf.get("path")
         if path and data_dicts:
-            values = sample_values_by_path(data_dicts, path, max_samples=MAX_SAMPLE_PATH)
+            values = sample_values_by_path(
+                data_dicts, path, max_samples=MAX_SAMPLE_PATH
+            )
             # If values found and type is continuous, compute range
             if values and entry["type"] == "continuous" and "range" not in cf:
-                numeric_vals = [v for v in values if isinstance(v, (int, float)) and not isinstance(v, bool)]
+                numeric_vals = [
+                    v
+                    for v in values
+                    if isinstance(v, (int, float)) and not isinstance(v, bool)
+                ]
                 if numeric_vals:
                     entry["range"] = [min(numeric_vals), max(numeric_vals)]
 
@@ -361,7 +371,9 @@ def generate_clone_metadata(
     # Check for known fields that use dot-paths (e.g., locus → sample.locus)
     for field_name, field_info in KNOWN_CLONE_FIELDS.items():
         if "path" in field_info and field_name not in all_keys:
-            values = sample_values_by_path(clones, field_info["path"], max_samples=MAX_SAMPLE_PATH)
+            values = sample_values_by_path(
+                clones, field_info["path"], max_samples=MAX_SAMPLE_PATH
+            )
             if values:
                 all_keys.add(field_name)
 
@@ -637,7 +649,9 @@ def generate_mutation_metadata(
         metadata = {}
         if has_aa_sequences:
             metadata["child_aa"] = _make_entry("aa", "Child Amino Acid")
-            metadata["parent_aa"] = _make_entry("aa", "Parent Amino Acid", display="tooltip")
+            metadata["parent_aa"] = _make_entry(
+                "aa", "Parent Amino Acid", display="tooltip"
+            )
         _apply_suggestions(metadata)
         _apply_custom_fields(metadata, custom_fields, "mutation", all_nodes)
         return metadata
@@ -692,7 +706,9 @@ def collect_nodes(trees: List[Dict], max_nodes: int = MAX_NODES_SAMPLE) -> List[
     return nodes
 
 
-def collect_mutations(trees: List[Dict], max_mutations: int = MAX_MUTATIONS) -> List[Dict]:
+def collect_mutations(
+    trees: List[Dict], max_mutations: int = MAX_MUTATIONS
+) -> List[Dict]:
     """Collect mutation dicts from mutations arrays across tree nodes."""
     mutations = []
     for tree in trees:
@@ -749,9 +765,7 @@ def generate_field_metadata(
     # empty set here and classify everything as clone-level.
     tree_level_keys = classify_tree_extras(clones)
 
-    clone_meta = generate_clone_metadata(
-        clones, custom_fields, exclude=tree_level_keys
-    )
+    clone_meta = generate_clone_metadata(clones, custom_fields, exclude=tree_level_keys)
     if clone_meta:
         result["clone"] = clone_meta
 

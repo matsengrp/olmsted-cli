@@ -152,14 +152,22 @@ def test_process_mutations_allow_mismatch_streaming(batch_size, tmp_path):
     out_path = tmp_path / f"out_bs{batch_size}.json"
 
     base_cmd = [
-        "olmsted", "process",
-        "-f", "pcp",
-        "-i", str(pcp_path),
-        "--mutations", str(mutations_path),
-        "-o", str(out_path),
-        "--seed", "42",
-        "--name", "mismatch-test",
-        "--batch-size", str(batch_size),
+        "olmsted",
+        "process",
+        "-f",
+        "pcp",
+        "-i",
+        str(pcp_path),
+        "--mutations",
+        str(mutations_path),
+        "-o",
+        str(out_path),
+        "--seed",
+        "42",
+        "--name",
+        "mismatch-test",
+        "--batch-size",
+        str(batch_size),
     ]
 
     fail = subprocess.run(base_cmd, capture_output=True, text=True)
@@ -176,7 +184,10 @@ def test_process_mutations_allow_mismatch_streaming(batch_size, tmp_path):
     )
 
     combined = ok.stdout + ok.stderr
-    assert "Integrity mismatches: 1" in combined or "integrity mismatch" in combined.lower()
+    assert (
+        "Integrity mismatches: 1" in combined
+        or "integrity mismatch" in combined.lower()
+    )
 
     # Mismatched row never attached its score; correct row did.
     data = json.loads(out_path.read_text())

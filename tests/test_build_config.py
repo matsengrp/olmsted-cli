@@ -25,9 +25,14 @@ class TestBuildConfigOlmsted:
     def test_olmsted_json(self):
         """build-config on Olmsted JSON produces valid YAML with field entries."""
         result = subprocess.run(
-            ["olmsted", "build-config", "-i",
-             "example-data/mutations/input-olmsted.json"],
-            capture_output=True, text=True,
+            [
+                "olmsted",
+                "build-config",
+                "-i",
+                "example-data/mutations/input-olmsted.json",
+            ],
+            capture_output=True,
+            text=True,
         )
         assert result.returncode == 0
         output = result.stdout
@@ -43,10 +48,16 @@ class TestBuildConfigOlmsted:
 
         try:
             result = subprocess.run(
-                ["olmsted", "build-config", "-i",
-                 "example-data/mutations/input-olmsted.json",
-                 "-o", out_path],
-                capture_output=True, text=True,
+                [
+                    "olmsted",
+                    "build-config",
+                    "-i",
+                    "example-data/mutations/input-olmsted.json",
+                    "-o",
+                    out_path,
+                ],
+                capture_output=True,
+                text=True,
             )
             assert result.returncode == 0
             assert os.path.exists(out_path)
@@ -60,27 +71,42 @@ class TestBuildConfigOlmsted:
     def test_shows_ranges_for_continuous_mutation(self):
         """Continuous mutation fields show range comments."""
         result = subprocess.run(
-            ["olmsted", "build-config", "-i",
-             "example-data/mutations/input-olmsted.json"],
-            capture_output=True, text=True,
+            [
+                "olmsted",
+                "build-config",
+                "-i",
+                "example-data/mutations/input-olmsted.json",
+            ],
+            capture_output=True,
+            text=True,
         )
         assert "range in data:" in result.stdout
 
     def test_includes_processing_options_template(self):
         """Output includes commented-out processing options."""
         result = subprocess.run(
-            ["olmsted", "build-config", "-i",
-             "example-data/mutations/input-olmsted.json"],
-            capture_output=True, text=True,
+            [
+                "olmsted",
+                "build-config",
+                "-i",
+                "example-data/mutations/input-olmsted.json",
+            ],
+            capture_output=True,
+            text=True,
         )
         assert "Processing Options" in result.stdout
 
     def test_includes_alias_reference(self):
         """Output includes cross-format alias reference."""
         result = subprocess.run(
-            ["olmsted", "build-config", "-i",
-             "example-data/mutations/input-olmsted.json"],
-            capture_output=True, text=True,
+            [
+                "olmsted",
+                "build-config",
+                "-i",
+                "example-data/mutations/input-olmsted.json",
+            ],
+            capture_output=True,
+            text=True,
         )
         assert "output_name" in result.stdout
         assert "v_call" in result.stdout
@@ -88,9 +114,14 @@ class TestBuildConfigOlmsted:
     def test_includes_output_name_docs(self):
         """Output includes output_name documentation and alias reference."""
         result = subprocess.run(
-            ["olmsted", "build-config", "-i",
-             "example-data/mutations/input-olmsted.json"],
-            capture_output=True, text=True,
+            [
+                "olmsted",
+                "build-config",
+                "-i",
+                "example-data/mutations/input-olmsted.json",
+            ],
+            capture_output=True,
+            text=True,
         )
         assert "output_name" in result.stdout
         assert "rearrangement_count" in result.stdout  # in alias reference
@@ -99,9 +130,9 @@ class TestBuildConfigOlmsted:
     def test_alias_suggestions_on_airr(self):
         """AIRR fields with aliases get output_name suggestions."""
         result = subprocess.run(
-            ["olmsted", "build-config", "-i",
-             "example-data/airr/input-airr.json"],
-            capture_output=True, text=True,
+            ["olmsted", "build-config", "-i", "example-data/airr/input-airr.json"],
+            capture_output=True,
+            text=True,
         )
         # rearrangement_count should have output_name: unique_seqs_count
         lines = result.stdout.split("\n")
@@ -118,10 +149,16 @@ class TestBuildConfigPcp:
     def test_pcp_with_trees(self):
         """build-config on raw PCP CSV + tree CSV discovers fields."""
         result = subprocess.run(
-            ["olmsted", "build-config", "-i",
-             "example-data/pcp/input-pcp.csv",
-             "-t", "example-data/pcp/input-trees.csv"],
-            capture_output=True, text=True,
+            [
+                "olmsted",
+                "build-config",
+                "-i",
+                "example-data/pcp/input-pcp.csv",
+                "-t",
+                "example-data/pcp/input-trees.csv",
+            ],
+            capture_output=True,
+            text=True,
         )
         assert result.returncode == 0
         output = result.stdout
@@ -132,10 +169,16 @@ class TestBuildConfigPcp:
     def test_pcp_extra_columns(self):
         """build-config on PCP with extra columns discovers them."""
         result = subprocess.run(
-            ["olmsted", "build-config", "-i",
-             "example-data/fields-config/input-pcp.csv",
-             "-t", "example-data/fields-config/input-trees.csv"],
-            capture_output=True, text=True,
+            [
+                "olmsted",
+                "build-config",
+                "-i",
+                "example-data/fields-config/input-pcp.csv",
+                "-t",
+                "example-data/fields-config/input-trees.csv",
+            ],
+            capture_output=True,
+            text=True,
         )
         assert result.returncode == 0
         output = result.stdout
@@ -152,10 +195,16 @@ class TestBuildConfigPcp:
     def test_pcp_shows_compute_metrics(self):
         """PCP config template includes compute_metrics option."""
         result = subprocess.run(
-            ["olmsted", "build-config", "-i",
-             "example-data/pcp/input-pcp.csv",
-             "-t", "example-data/pcp/input-trees.csv"],
-            capture_output=True, text=True,
+            [
+                "olmsted",
+                "build-config",
+                "-i",
+                "example-data/pcp/input-pcp.csv",
+                "-t",
+                "example-data/pcp/input-trees.csv",
+            ],
+            capture_output=True,
+            text=True,
         )
         assert "compute_metrics" in result.stdout
 
@@ -164,9 +213,9 @@ class TestBuildConfigAirr:
     def test_airr(self):
         """build-config on AIRR JSON discovers fields."""
         result = subprocess.run(
-            ["olmsted", "build-config", "-i",
-             "example-data/airr/input-airr.json"],
-            capture_output=True, text=True,
+            ["olmsted", "build-config", "-i", "example-data/airr/input-airr.json"],
+            capture_output=True,
+            text=True,
         )
         assert result.returncode == 0
         output = result.stdout
@@ -177,12 +226,17 @@ class TestBuildConfigAirr:
 class TestBuildConfigNewTypes:
     """Tests for list, json, path detection in build-config output."""
 
-    @pytest.fixture(params=[
-        ("example-data/fields-config/input-olmsted.json", None),
-        ("example-data/fields-config/input-airr.json", None),
-        ("example-data/fields-config/input-pcp.csv",
-         "example-data/fields-config/input-trees.csv"),
-    ], ids=["olmsted", "airr", "pcp"])
+    @pytest.fixture(
+        params=[
+            ("example-data/fields-config/input-olmsted.json", None),
+            ("example-data/fields-config/input-airr.json", None),
+            (
+                "example-data/fields-config/input-pcp.csv",
+                "example-data/fields-config/input-trees.csv",
+            ),
+        ],
+        ids=["olmsted", "airr", "pcp"],
+    )
     def build_config_output(self, request):
         input_path, tree_path = request.param
         cmd = ["olmsted", "build-config", "-i", input_path]
@@ -199,7 +253,7 @@ class TestBuildConfigNewTypes:
         lines = build_config_output.split("\n")
         for i, line in enumerate(lines):
             if "name: foobar_params" in line:
-                block = "\n".join(lines[i:i+5])
+                block = "\n".join(lines[i : i + 5])
                 assert "level: family" in block
                 assert "type: json" in block
                 break
@@ -211,7 +265,7 @@ class TestBuildConfigNewTypes:
         lines = build_config_output.split("\n")
         for i, line in enumerate(lines):
             if "name: foobar_per_site_score" in line:
-                block = "\n".join(lines[i:i+6])
+                block = "\n".join(lines[i : i + 6])
                 assert "level: mutation" in block
                 assert "encoding: list" in block
                 assert "type: continuous" in block
@@ -224,7 +278,7 @@ class TestBuildConfigNewTypes:
         lines = build_config_output.split("\n")
         for i, line in enumerate(lines):
             if "name: foobar_sparse_aa" in line:
-                block = "\n".join(lines[i:i+6])
+                block = "\n".join(lines[i : i + 6])
                 assert "level: mutation" in block
                 assert "encoding: json" in block
                 assert "type: aa" in block
@@ -237,7 +291,7 @@ class TestBuildConfigNewTypes:
         lines = build_config_output.split("\n")
         for i, line in enumerate(lines):
             if "name: foobar_path" in line:
-                block = "\n".join(lines[i:i+5])
+                block = "\n".join(lines[i : i + 5])
                 assert "skip: true" in block
                 break
         else:
@@ -256,12 +310,17 @@ class TestBuildConfigTreeLevel:
     pair, so the variance classifier promotes them to ``tree`` level.
     """
 
-    @pytest.fixture(params=[
-        ("example-data/fields-config/input-olmsted.json", None),
-        ("example-data/fields-config/input-airr.json", None),
-        ("example-data/fields-config/input-pcp.csv",
-         "example-data/fields-config/input-trees.csv"),
-    ], ids=["olmsted", "airr", "pcp"])
+    @pytest.fixture(
+        params=[
+            ("example-data/fields-config/input-olmsted.json", None),
+            ("example-data/fields-config/input-airr.json", None),
+            (
+                "example-data/fields-config/input-pcp.csv",
+                "example-data/fields-config/input-trees.csv",
+            ),
+        ],
+        ids=["olmsted", "airr", "pcp"],
+    )
     def build_config_output(self, request):
         input_path, tree_path = request.param
         cmd = ["olmsted", "build-config", "-i", input_path]
@@ -279,7 +338,7 @@ class TestBuildConfigTreeLevel:
         for name in ("foobar_method", "foobar_tree_score"):
             for i, line in enumerate(lines):
                 if f"name: {name}" in line:
-                    block = "\n".join(lines[i:i + 5])
+                    block = "\n".join(lines[i : i + 5])
                     assert "level: tree" in block, (
                         f"{name} should be at tree level:\n{block}"
                     )
@@ -326,25 +385,30 @@ class TestLooksLikeLocalPath:
 class TestBuildConfigFormatDetection:
     def test_detects_olmsted(self):
         result = subprocess.run(
-            ["olmsted", "build-config", "-i",
-             "example-data/mutations/input-olmsted.json"],
-            capture_output=True, text=True,
+            [
+                "olmsted",
+                "build-config",
+                "-i",
+                "example-data/mutations/input-olmsted.json",
+            ],
+            capture_output=True,
+            text=True,
         )
         assert "OLMSTED" in result.stderr or "OLMSTED" in result.stdout
 
     def test_detects_pcp(self):
         result = subprocess.run(
-            ["olmsted", "build-config", "-i",
-             "example-data/pcp/input-pcp.csv"],
-            capture_output=True, text=True,
+            ["olmsted", "build-config", "-i", "example-data/pcp/input-pcp.csv"],
+            capture_output=True,
+            text=True,
         )
         assert "PCP" in result.stderr or "PCP" in result.stdout
 
     def test_detects_airr(self):
         result = subprocess.run(
-            ["olmsted", "build-config", "-i",
-             "example-data/airr/input-airr.json"],
-            capture_output=True, text=True,
+            ["olmsted", "build-config", "-i", "example-data/airr/input-airr.json"],
+            capture_output=True,
+            text=True,
         )
         assert "AIRR" in result.stderr or "AIRR" in result.stdout
 
@@ -355,10 +419,7 @@ class TestMutationDemotion:
     def _make_nodes(self, field, values, seq_len=5):
         """Helper: create node dicts with a sequence and a test field."""
         seq = "A" * seq_len
-        return [
-            {"sequence_alignment_aa": seq, field: v}
-            for v in values
-        ]
+        return [{"sequence_alignment_aa": seq, field: v} for v in values]
 
     def test_list_continuous_matching_length(self):
         nodes = self._make_nodes("scores", [[0.1, 0.2, 0.3, 0.4, 0.5]] * 3)
@@ -402,10 +463,16 @@ class TestMutationDemotion:
 
     def test_records_style_detected(self):
         """Array of dicts with 'site' key detected as records encoding."""
-        nodes = self._make_nodes("custom_scores", [
-            [{"site": 0, "score": 2.5, "region": "FWR1"},
-             {"site": 3, "score": 4.1, "region": "CDR1"}],
-        ] * 3)
+        nodes = self._make_nodes(
+            "custom_scores",
+            [
+                [
+                    {"site": 0, "score": 2.5, "region": "FWR1"},
+                    {"site": 3, "score": 4.1, "region": "CDR1"},
+                ],
+            ]
+            * 3,
+        )
         result = _check_mutation_demotion(nodes, "custom_scores")
         assert result is not None
         assert result["encoding"] == "records"
@@ -448,12 +515,19 @@ class TestUnpackEncodedMutations:
 
     def test_list_encoding(self):
         """List data unpacked into mutations by index."""
-        tree = self._make_tree([
-            {"sequence_id": "n1", "scores": [0.1, None, 0.3]},
-        ])
+        tree = self._make_tree(
+            [
+                {"sequence_id": "n1", "scores": [0.1, None, 0.3]},
+            ]
+        )
         custom_fields = [
-            {"name": "scores", "level": "mutation", "encoding": "list",
-             "type": "continuous", "label": "Scores"},
+            {
+                "name": "scores",
+                "level": "mutation",
+                "encoding": "list",
+                "type": "continuous",
+                "label": "Scores",
+            },
         ]
         unpack_encoded_mutations([tree], custom_fields)
         muts = tree["nodes"][0]["mutations"]
@@ -463,12 +537,19 @@ class TestUnpackEncodedMutations:
 
     def test_json_encoding(self):
         """JSON dict data unpacked into mutations by key."""
-        tree = self._make_tree([
-            {"sequence_id": "n1", "sparse": {"0": "D", "3": "E"}},
-        ])
+        tree = self._make_tree(
+            [
+                {"sequence_id": "n1", "sparse": {"0": "D", "3": "E"}},
+            ]
+        )
         custom_fields = [
-            {"name": "sparse", "level": "mutation", "encoding": "json",
-             "type": "aa", "label": "Sparse"},
+            {
+                "name": "sparse",
+                "level": "mutation",
+                "encoding": "json",
+                "type": "aa",
+                "label": "Sparse",
+            },
         ]
         unpack_encoded_mutations([tree], custom_fields)
         muts = tree["nodes"][0]["mutations"]
@@ -478,19 +559,42 @@ class TestUnpackEncodedMutations:
 
     def test_records_encoding(self):
         """Records-style array unpacked by extracting named inner fields."""
-        tree = self._make_tree([
-            {"sequence_id": "n1", "custom_scores": [
-                {"site": 0, "score_a": 2.5, "score_b": 1.0, "region": "FWR1"},
-                {"site": 3, "score_a": 4.1, "score_b": 0.8, "region": "CDR1"},
-            ]},
-        ])
+        tree = self._make_tree(
+            [
+                {
+                    "sequence_id": "n1",
+                    "custom_scores": [
+                        {"site": 0, "score_a": 2.5, "score_b": 1.0, "region": "FWR1"},
+                        {"site": 3, "score_a": 4.1, "score_b": 0.8, "region": "CDR1"},
+                    ],
+                },
+            ]
+        )
         custom_fields = [
-            {"name": "score_a", "level": "mutation", "encoding": "records",
-             "source": "custom_scores", "type": "continuous", "label": "Score A"},
-            {"name": "score_b", "level": "mutation", "encoding": "records",
-             "source": "custom_scores", "type": "continuous", "label": "Score B"},
-            {"name": "region", "level": "mutation", "encoding": "records",
-             "source": "custom_scores", "type": "categorical", "label": "Region"},
+            {
+                "name": "score_a",
+                "level": "mutation",
+                "encoding": "records",
+                "source": "custom_scores",
+                "type": "continuous",
+                "label": "Score A",
+            },
+            {
+                "name": "score_b",
+                "level": "mutation",
+                "encoding": "records",
+                "source": "custom_scores",
+                "type": "continuous",
+                "label": "Score B",
+            },
+            {
+                "name": "region",
+                "level": "mutation",
+                "encoding": "records",
+                "source": "custom_scores",
+                "type": "categorical",
+                "label": "Region",
+            },
         ]
         unpack_encoded_mutations([tree], custom_fields)
         muts = tree["nodes"][0]["mutations"]
@@ -500,14 +604,23 @@ class TestUnpackEncodedMutations:
 
     def test_merge_with_existing_mutations(self):
         """Encoded data merges with pre-existing mutations array."""
-        tree = self._make_tree([
-            {"sequence_id": "n1",
-             "mutations": [{"site": 0, "existing_field": 99}],
-             "scores": [0.5, 0.7]},
-        ])
+        tree = self._make_tree(
+            [
+                {
+                    "sequence_id": "n1",
+                    "mutations": [{"site": 0, "existing_field": 99}],
+                    "scores": [0.5, 0.7],
+                },
+            ]
+        )
         custom_fields = [
-            {"name": "scores", "level": "mutation", "encoding": "list",
-             "type": "continuous", "label": "Scores"},
+            {
+                "name": "scores",
+                "level": "mutation",
+                "encoding": "list",
+                "type": "continuous",
+                "label": "Scores",
+            },
         ]
         unpack_encoded_mutations([tree], custom_fields)
         muts = tree["nodes"][0]["mutations"]
@@ -518,16 +631,30 @@ class TestUnpackEncodedMutations:
 
     def test_multiple_encodings_merge(self):
         """Multiple encoded fields all merge into the same mutations array."""
-        tree = self._make_tree([
-            {"sequence_id": "n1",
-             "per_site": [0.1, 0.2, 0.3],
-             "sparse_aa": {"1": "D"}},
-        ])
+        tree = self._make_tree(
+            [
+                {
+                    "sequence_id": "n1",
+                    "per_site": [0.1, 0.2, 0.3],
+                    "sparse_aa": {"1": "D"},
+                },
+            ]
+        )
         custom_fields = [
-            {"name": "per_site", "level": "mutation", "encoding": "list",
-             "type": "continuous", "label": "Per Site"},
-            {"name": "sparse_aa", "level": "mutation", "encoding": "json",
-             "type": "aa", "label": "Sparse AA"},
+            {
+                "name": "per_site",
+                "level": "mutation",
+                "encoding": "list",
+                "type": "continuous",
+                "label": "Per Site",
+            },
+            {
+                "name": "sparse_aa",
+                "level": "mutation",
+                "encoding": "json",
+                "type": "aa",
+                "label": "Sparse AA",
+            },
         ]
         unpack_encoded_mutations([tree], custom_fields)
         muts = tree["nodes"][0]["mutations"]
@@ -536,11 +663,18 @@ class TestUnpackEncodedMutations:
 
     def test_no_encoded_fields_noop(self):
         """No encoding fields → no changes."""
-        tree = self._make_tree([
-            {"sequence_id": "n1", "mutations": [{"site": 0, "score": 1.0}]},
-        ])
+        tree = self._make_tree(
+            [
+                {"sequence_id": "n1", "mutations": [{"site": 0, "score": 1.0}]},
+            ]
+        )
         custom_fields = [
-            {"name": "score", "level": "mutation", "type": "continuous", "label": "Score"},
+            {
+                "name": "score",
+                "level": "mutation",
+                "type": "continuous",
+                "label": "Score",
+            },
         ]
         unpack_encoded_mutations([tree], custom_fields)
         assert tree["nodes"][0]["mutations"] == [{"site": 0, "score": 1.0}]
@@ -552,12 +686,19 @@ class TestUnpackEncodedMutations:
 
     def test_dict_nodes_format(self):
         """Works with nodes as dict (AIRR format) not just list."""
-        tree = {"nodes": {
-            "n1": {"sequence_id": "n1", "scores": [0.5, 0.8]},
-        }}
+        tree = {
+            "nodes": {
+                "n1": {"sequence_id": "n1", "scores": [0.5, 0.8]},
+            }
+        }
         custom_fields = [
-            {"name": "scores", "level": "mutation", "encoding": "list",
-             "type": "continuous", "label": "Scores"},
+            {
+                "name": "scores",
+                "level": "mutation",
+                "encoding": "list",
+                "type": "continuous",
+                "label": "Scores",
+            },
         ]
         unpack_encoded_mutations([tree], custom_fields)
         muts = tree["nodes"]["n1"]["mutations"]
@@ -634,8 +775,10 @@ class TestDemotedFieldAppearsAsNodeSkip:
         """A records-style demoted field appears both as mutation entries
         and as a node-level skip entry."""
         yaml_output = _build_yaml(
-            "test.json", "olmsted",
-            self._make_clones(), self._make_trees_with_records(),
+            "test.json",
+            "olmsted",
+            self._make_clones(),
+            self._make_trees_with_records(),
         )
         lines = yaml_output.split("\n")
 
@@ -648,7 +791,7 @@ class TestDemotedFieldAppearsAsNodeSkip:
         for i, line in enumerate(lines):
             if "name: surprise_mutations" in line:
                 # Look at nearby lines for level: node and skip: true
-                block = "\n".join(lines[max(0, i):i + 6])
+                block = "\n".join(lines[max(0, i) : i + 6])
                 if "level: node" in block and "skip: true" in block:
                     found_node_skip = True
                     break
@@ -660,8 +803,10 @@ class TestDemotedFieldAppearsAsNodeSkip:
     def test_list_demoted_field_has_node_skip_entry(self):
         """A list-encoded demoted field appears as a node-level skip entry."""
         yaml_output = _build_yaml(
-            "test.json", "olmsted",
-            self._make_clones(), self._make_trees_with_list(),
+            "test.json",
+            "olmsted",
+            self._make_clones(),
+            self._make_trees_with_list(),
         )
         lines = yaml_output.split("\n")
 
@@ -672,7 +817,7 @@ class TestDemotedFieldAppearsAsNodeSkip:
         found_node_skip = False
         for i, line in enumerate(lines):
             if "name: per_site_scores" in line:
-                block = "\n".join(lines[max(0, i):i + 6])
+                block = "\n".join(lines[max(0, i) : i + 6])
                 if "level: node" in block and "skip: true" in block:
                     found_node_skip = True
                     break
@@ -688,16 +833,32 @@ class TestGenerateDefaultConfig:
     def test_returns_list_of_dicts(self):
         """generate_default_config returns a list of field declaration dicts."""
         clones = [{"clone_id": "c1", "unique_seqs_count": 10, "v_call": "V1"}]
-        trees = [{"nodes": [{"sequence_id": "a", "distance": 0.1, "length": 0.1,
-                              "multiplicity": 3}]}]
+        trees = [
+            {
+                "nodes": [
+                    {
+                        "sequence_id": "a",
+                        "distance": 0.1,
+                        "length": 0.1,
+                        "multiplicity": 3,
+                    }
+                ]
+            }
+        ]
         config = generate_default_config(clones, trees)
         assert isinstance(config, list)
         assert all(isinstance(cf, dict) for cf in config)
         assert all("name" in cf and "level" in cf and "type" in cf for cf in config)
 
     def test_clone_fields_discovered(self):
-        clones = [{"clone_id": "c1", "unique_seqs_count": 10, "v_call": "IGHV3-48*01",
-                    "mean_mut_freq": 0.05}]
+        clones = [
+            {
+                "clone_id": "c1",
+                "unique_seqs_count": 10,
+                "v_call": "IGHV3-48*01",
+                "mean_mut_freq": 0.05,
+            }
+        ]
         config = generate_default_config(clones, [])
         names = {cf["name"] for cf in config if cf["level"] == "clone"}
         assert "unique_seqs_count" in names
@@ -720,24 +881,39 @@ class TestGenerateDefaultConfig:
 
     def test_records_demotion(self):
         """Records-style node fields produce mutation entries with encoding."""
-        trees = [{
-            "nodes": [{
-                "sequence_id": "a", "type": "leaf",
-                "sequence_alignment_aa": "MKVL",
-                "distance": 0.1, "length": 0.1, "multiplicity": 3,
-                "surprise_mutations": [
-                    {"site": 0, "score": 2.5, "region": "FWR1"},
-                    {"site": 2, "score": 4.1, "region": "CDR1"},
+        trees = [
+            {
+                "nodes": [
+                    {
+                        "sequence_id": "a",
+                        "type": "leaf",
+                        "sequence_alignment_aa": "MKVL",
+                        "distance": 0.1,
+                        "length": 0.1,
+                        "multiplicity": 3,
+                        "surprise_mutations": [
+                            {"site": 0, "score": 2.5, "region": "FWR1"},
+                            {"site": 2, "score": 4.1, "region": "CDR1"},
+                        ],
+                    }
                 ],
-            }],
-        }]
+            }
+        ]
         config = generate_default_config([], trees)
         # Node-level skip entry for source field
-        node_entries = [cf for cf in config if cf["level"] == "node" and cf["name"] == "surprise_mutations"]
+        node_entries = [
+            cf
+            for cf in config
+            if cf["level"] == "node" and cf["name"] == "surprise_mutations"
+        ]
         assert len(node_entries) == 1
         assert node_entries[0].get("skip") is True
         # Mutation-level entries with encoding
-        mutation_entries = [cf for cf in config if cf["level"] == "mutation" and cf.get("encoding") == "records"]
+        mutation_entries = [
+            cf
+            for cf in config
+            if cf["level"] == "mutation" and cf.get("encoding") == "records"
+        ]
         assert len(mutation_entries) > 0
         assert all(cf.get("source") == "surprise_mutations" for cf in mutation_entries)
         mut_names = {cf["name"] for cf in mutation_entries}
@@ -746,13 +922,20 @@ class TestGenerateDefaultConfig:
 
     def test_derived_aa_fields(self):
         """When nodes have AA sequences but no mutations, child_aa/parent_aa are added."""
-        trees = [{
-            "nodes": [{
-                "sequence_id": "a", "type": "leaf",
-                "sequence_alignment_aa": "MKVL",
-                "distance": 0.1, "length": 0.1, "multiplicity": 3,
-            }],
-        }]
+        trees = [
+            {
+                "nodes": [
+                    {
+                        "sequence_id": "a",
+                        "type": "leaf",
+                        "sequence_alignment_aa": "MKVL",
+                        "distance": 0.1,
+                        "length": 0.1,
+                        "multiplicity": 3,
+                    }
+                ],
+            }
+        ]
         config = generate_default_config([], trees)
         mut_names = [cf["name"] for cf in config if cf["level"] == "mutation"]
         assert "child_aa" in mut_names
@@ -760,12 +943,19 @@ class TestGenerateDefaultConfig:
 
     def test_branch_fields_whitelisted(self):
         """Only known branch fields appear at branch level."""
-        trees = [{
-            "nodes": [{
-                "sequence_id": "a", "distance": 0.1, "length": 0.5,
-                "multiplicity": 3, "custom_field": "foo",
-            }],
-        }]
+        trees = [
+            {
+                "nodes": [
+                    {
+                        "sequence_id": "a",
+                        "distance": 0.1,
+                        "length": 0.5,
+                        "multiplicity": 3,
+                        "custom_field": "foo",
+                    }
+                ],
+            }
+        ]
         config = generate_default_config([], trees)
         branch_entries = [cf for cf in config if cf["level"] == "branch"]
         branch_names = {cf["name"] for cf in branch_entries}
@@ -800,33 +990,68 @@ class TestProcessMatchesBuildConfig:
         try:
             # Create olmsted JSON from AIRR
             subprocess.run(
-                ["olmsted", "process", "-f", "airr",
-                 "-i", "example-data/airr/input-airr.json",
-                 "-o", olmsted_path, "--seed", "42",
-                 "--name", "test", "-q"],
-                capture_output=True, text=True, check=True,
+                [
+                    "olmsted",
+                    "process",
+                    "-f",
+                    "airr",
+                    "-i",
+                    "example-data/airr/input-airr.json",
+                    "-o",
+                    olmsted_path,
+                    "--seed",
+                    "42",
+                    "--name",
+                    "test",
+                    "-q",
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
             )
 
             # Generate config from that JSON
             subprocess.run(
-                ["olmsted", "build-config", "-i", olmsted_path,
-                 "-o", config_path],
-                capture_output=True, text=True, check=True,
+                ["olmsted", "build-config", "-i", olmsted_path, "-o", config_path],
+                capture_output=True,
+                text=True,
+                check=True,
             )
 
             # Tag without config
             subprocess.run(
-                ["olmsted", "tag", "-i", olmsted_path,
-                 "-o", tagged_no_config, "--mode", "overwrite"],
-                capture_output=True, text=True, check=True,
+                [
+                    "olmsted",
+                    "tag",
+                    "-i",
+                    olmsted_path,
+                    "-o",
+                    tagged_no_config,
+                    "--mode",
+                    "overwrite",
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
             )
 
             # Tag with config
             subprocess.run(
-                ["olmsted", "tag", "-i", olmsted_path,
-                 "-o", tagged_with_config, "--mode", "overwrite",
-                 "-c", config_path],
-                capture_output=True, text=True, check=True,
+                [
+                    "olmsted",
+                    "tag",
+                    "-i",
+                    olmsted_path,
+                    "-o",
+                    tagged_with_config,
+                    "--mode",
+                    "overwrite",
+                    "-c",
+                    config_path,
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
             )
 
             # Compare field_metadata
@@ -835,8 +1060,9 @@ class TestProcessMatchesBuildConfig:
             with open(tagged_with_config) as f:
                 data_with_config = json.load(f)
 
-            for ds_nc, ds_wc in zip(data_no_config["datasets"],
-                                     data_with_config["datasets"]):
+            for ds_nc, ds_wc in zip(
+                data_no_config["datasets"], data_with_config["datasets"]
+            ):
                 fm_nc = ds_nc.get("field_metadata", {})
                 fm_wc = ds_wc.get("field_metadata", {})
                 assert fm_nc == fm_wc, (
@@ -861,8 +1087,17 @@ class TestBuildConfigGolden:
     @pytest.mark.parametrize(
         "scenario,cli_args",
         [
-            ("pcp", ["-f", "pcp", "-i", "example-data/pcp/input-pcp.csv",
-                     "-t", "example-data/pcp/input-trees.csv"]),
+            (
+                "pcp",
+                [
+                    "-f",
+                    "pcp",
+                    "-i",
+                    "example-data/pcp/input-pcp.csv",
+                    "-t",
+                    "example-data/pcp/input-trees.csv",
+                ],
+            ),
             ("airr", ["-i", "example-data/airr/input-airr.json"]),
             ("olmsted", ["-i", "example-data/mutations/input-olmsted.json"]),
         ],
@@ -871,7 +1106,9 @@ class TestBuildConfigGolden:
         golden_path = GOLDEN_DIR / f"{scenario}.yaml"
         result = subprocess.run(
             ["olmsted", "build-config", "-q", *cli_args],
-            capture_output=True, text=True, cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
         )
         assert result.returncode == 0, f"build-config failed: {result.stderr}"
         actual = result.stdout
@@ -887,12 +1124,14 @@ class TestBuildConfigGolden:
         )
         expected = golden_path.read_text()
         if actual != expected:
-            diff = "".join(difflib.unified_diff(
-                expected.splitlines(keepends=True),
-                actual.splitlines(keepends=True),
-                fromfile=str(golden_path),
-                tofile=f"build-config --{scenario} (actual)",
-            ))
+            diff = "".join(
+                difflib.unified_diff(
+                    expected.splitlines(keepends=True),
+                    actual.splitlines(keepends=True),
+                    fromfile=str(golden_path),
+                    tofile=f"build-config --{scenario} (actual)",
+                )
+            )
             pytest.fail(
                 f"build-config output drifted from golden ({scenario}).\n"
                 f"If the change is intentional, run "

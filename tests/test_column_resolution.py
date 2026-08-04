@@ -35,9 +35,15 @@ class TestResolveRoleColumns:
     def test_preference_id_over_bare_over_name(self):
         result = resolve_role_columns(
             [
-                "sample", "sample_id", "sample_name",
-                "family", "family_id", "family_name",
-                "tree", "tree_id", "tree_name",
+                "sample",
+                "sample_id",
+                "sample_name",
+                "family",
+                "family_id",
+                "family_name",
+                "tree",
+                "tree_id",
+                "tree_name",
             ]
         )
         assert result == {
@@ -93,9 +99,7 @@ class TestResolveRoleColumns:
 
 class TestFindPresentVariants:
     def test_lists_all_present_in_preference_order(self):
-        result = find_present_variants(
-            ["sample", "sample_id", "family", "tree_name"]
-        )
+        result = find_present_variants(["sample", "sample_id", "family", "tree_name"])
         assert result["sample"] == ["sample_id", "sample"]
         assert result["family"] == ["family"]
         assert result["tree"] == ["tree_name"]
@@ -108,9 +112,7 @@ class TestFindPresentVariants:
 class TestCheckRowRoleConflicts:
     def test_no_conflict_with_single_variant(self):
         present = {"sample": ["sample_id"], "family": ["family"], "tree": []}
-        check_row_role_conflicts(
-            {"sample_id": "S1", "family": "F1"}, present
-        )
+        check_row_role_conflicts({"sample_id": "S1", "family": "F1"}, present)
 
     def test_no_conflict_when_values_match(self):
         present = {

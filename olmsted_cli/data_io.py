@@ -54,7 +54,7 @@ import gzip
 import io
 import json
 from pathlib import Path
-from typing import Iterable, Iterator, Literal, Tuple
+from typing import Iterable, Iterator, Literal
 
 import yaml
 
@@ -139,7 +139,10 @@ def detect_file_format(file_path) -> DataFormat:
             if isinstance(data, dict):
                 # Explicit format tag in metadata
                 metadata = data.get("metadata", {})
-                if isinstance(metadata, dict) and metadata.get("format") == FORMAT_OLMSTED:
+                if (
+                    isinstance(metadata, dict)
+                    and metadata.get("format") == FORMAT_OLMSTED
+                ):
                     return FORMAT_OLMSTED
                 # Heuristic fallback: Olmsted JSON has "datasets" and "metadata"
                 if "datasets" in data and "metadata" in data:
@@ -345,7 +348,9 @@ def write_csv(rows, output_path) -> str:
     return output_path
 
 
-def write_olmsted_json(data, output_path, json_format: JsonOutputFormat = "pretty", default=None) -> str:
+def write_olmsted_json(
+    data, output_path, json_format: JsonOutputFormat = "pretty", default=None
+) -> str:
     """Write Olmsted JSON to ``output_path`` in the requested format.
 
     Three formats:
@@ -377,7 +382,9 @@ def write_olmsted_json(data, output_path, json_format: JsonOutputFormat = "prett
         with open(output_path, "wb") as raw:
             with gzip.GzipFile(filename="", fileobj=raw, mode="wb", mtime=0) as gz:
                 with io.TextIOWrapper(gz, encoding="utf-8") as fh:
-                    json.dump(data, fh, default=default, indent=indent, separators=separators)
+                    json.dump(
+                        data, fh, default=default, indent=indent, separators=separators
+                    )
     else:
         with open(output_path, "w") as fh:
             json.dump(data, fh, default=default, indent=indent, separators=separators)

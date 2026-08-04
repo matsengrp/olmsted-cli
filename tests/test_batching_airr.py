@@ -61,14 +61,22 @@ def test_airr_batch_size_matches_golden(batch_size, tmp_path):
 
 def _run_airr_gzip(output, name, batch_size):
     cmd = [
-        "olmsted", "process",
-        "-f", "airr",
-        "-i", str(AIRR_INPUT),
-        "-o", str(output),
-        "--seed", "42",
-        "--name", name,
-        "--batch-size", str(batch_size),
-        "--json-format", "gzip",
+        "olmsted",
+        "process",
+        "-f",
+        "airr",
+        "-i",
+        str(AIRR_INPUT),
+        "-o",
+        str(output),
+        "--seed",
+        "42",
+        "--name",
+        name,
+        "--batch-size",
+        str(batch_size),
+        "--json-format",
+        "gzip",
         "-q",
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)

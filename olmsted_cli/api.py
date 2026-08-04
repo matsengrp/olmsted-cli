@@ -343,7 +343,9 @@ class OlmstedData:
 
                 # Add light chain columns for paired data
                 if is_paired:
-                    row["parent_light"] = parent_node.get("sequence_alignment_light", "")
+                    row["parent_light"] = parent_node.get(
+                        "sequence_alignment_light", ""
+                    )
                     row["child_light"] = node.get("sequence_alignment_light", "")
 
                 pcp_rows.append(row)

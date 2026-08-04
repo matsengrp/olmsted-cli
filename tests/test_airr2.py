@@ -198,7 +198,11 @@ class TestDatasetSynthesis:
         # No two node fields share a label, and none collide with the webapp's
         # built-in node-field labels.
         builtin_labels = {
-            "Sequence ID", "Parent ID", "Node Type", "Distance", "Depth",
+            "Sequence ID",
+            "Parent ID",
+            "Node Type",
+            "Distance",
+            "Depth",
         }
         labels = [m["label"] for m in node_meta.values()]
         assert len(labels) == len(set(labels)), "duplicate field_metadata labels"

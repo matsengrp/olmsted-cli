@@ -16,8 +16,6 @@ import shutil
 import subprocess
 from pathlib import Path
 
-import pytest
-
 from .test_cli_processing import compare_consolidated_files
 
 REPO_ROOT = Path(__file__).parent.parent
@@ -43,14 +41,26 @@ def test_process_pcp_gzip_output_matches_golden(tmp_path):
     out = tmp_path / "out.json"
     subprocess.run(
         [
-            "olmsted", "process", "-f", "pcp",
-            "-i", str(EXAMPLE / "pcp" / "input-pcp.csv"),
-            "-t", str(EXAMPLE / "pcp" / "input-trees.csv"),
-            "-o", str(out),
-            "--seed", "42", "--name", "pcp-example",
-            "--json-format", "gzip", "-q",
+            "olmsted",
+            "process",
+            "-f",
+            "pcp",
+            "-i",
+            str(EXAMPLE / "pcp" / "input-pcp.csv"),
+            "-t",
+            str(EXAMPLE / "pcp" / "input-trees.csv"),
+            "-o",
+            str(out),
+            "--seed",
+            "42",
+            "--name",
+            "pcp-example",
+            "--json-format",
+            "gzip",
+            "-q",
         ],
-        check=True, capture_output=True,
+        check=True,
+        capture_output=True,
     )
 
     gz_out = _gz_output_path(out)
@@ -77,13 +87,24 @@ def test_process_airr_gzip_output_matches_golden(tmp_path):
     out = tmp_path / "out.json"
     subprocess.run(
         [
-            "olmsted", "process", "-f", "airr",
-            "-i", str(EXAMPLE / "airr" / "input-airr.json"),
-            "-o", str(out),
-            "--seed", "42", "--name", "airr-example",
-            "--json-format", "gzip", "-q",
+            "olmsted",
+            "process",
+            "-f",
+            "airr",
+            "-i",
+            str(EXAMPLE / "airr" / "input-airr.json"),
+            "-o",
+            str(out),
+            "--seed",
+            "42",
+            "--name",
+            "airr-example",
+            "--json-format",
+            "gzip",
+            "-q",
         ],
-        check=True, capture_output=True,
+        check=True,
+        capture_output=True,
     )
 
     gz_out = _gz_output_path(out)
@@ -106,12 +127,18 @@ def test_tag_gzip_output(tmp_path):
     out = tmp_path / "tagged.json"
     subprocess.run(
         [
-            "olmsted", "tag",
-            "-i", str(EXAMPLE / "mutations" / "input-olmsted.json"),
-            "-o", str(out),
-            "--json-format", "gzip", "-q",
+            "olmsted",
+            "tag",
+            "-i",
+            str(EXAMPLE / "mutations" / "input-olmsted.json"),
+            "-o",
+            str(out),
+            "--json-format",
+            "gzip",
+            "-q",
         ],
-        check=True, capture_output=True,
+        check=True,
+        capture_output=True,
     )
 
     gz_out = _gz_output_path(out)
@@ -126,14 +153,21 @@ def test_merge_gzip_output(tmp_path):
     out = tmp_path / "merged.json"
     subprocess.run(
         [
-            "olmsted", "merge",
-            "-i", str(EXAMPLE / "merge" / "input-olmsted.json"),
-            "--mutations", str(EXAMPLE / "merge" / "input-mutations.csv"),
+            "olmsted",
+            "merge",
+            "-i",
+            str(EXAMPLE / "merge" / "input-olmsted.json"),
+            "--mutations",
+            str(EXAMPLE / "merge" / "input-mutations.csv"),
             "--mutations-use-depth",
-            "-o", str(out),
-            "--json-format", "gzip", "-q",
+            "-o",
+            str(out),
+            "--json-format",
+            "gzip",
+            "-q",
         ],
-        check=True, capture_output=True,
+        check=True,
+        capture_output=True,
     )
 
     gz_out = _gz_output_path(out)
@@ -155,7 +189,8 @@ def test_tag_reads_gzip_input(tmp_path):
     out = tmp_path / "tagged.json"
     result = subprocess.run(
         ["olmsted", "tag", "-i", str(gz_input), "-o", str(out), "-q"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, f"tag failed on .gz input: {result.stderr}"
     assert out.exists()
@@ -173,14 +208,19 @@ def test_merge_reads_gzip_mutations_csv(tmp_path):
     out = tmp_path / "merged.json"
     result = subprocess.run(
         [
-            "olmsted", "merge",
-            "-i", str(EXAMPLE / "merge" / "input-olmsted.json"),
-            "--mutations", str(gz_csv),
+            "olmsted",
+            "merge",
+            "-i",
+            str(EXAMPLE / "merge" / "input-olmsted.json"),
+            "--mutations",
+            str(gz_csv),
             "--mutations-use-depth",
-            "-o", str(out),
+            "-o",
+            str(out),
             "-q",
         ],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, f"merge failed on .gz mutations: {result.stderr}"
     assert out.exists()
@@ -207,14 +247,19 @@ def test_merge_reads_gzip_input(tmp_path):
     out = tmp_path / "merged.json"
     result = subprocess.run(
         [
-            "olmsted", "merge",
-            "-i", str(gz_input),
-            "--mutations", str(EXAMPLE / "merge" / "input-mutations.csv"),
+            "olmsted",
+            "merge",
+            "-i",
+            str(gz_input),
+            "--mutations",
+            str(EXAMPLE / "merge" / "input-mutations.csv"),
             "--mutations-use-depth",
-            "-o", str(out),
+            "-o",
+            str(out),
             "-q",
         ],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, f"merge failed on .gz input: {result.stderr}"
     assert out.exists()
@@ -233,15 +278,28 @@ def test_process_airr_reads_gz_input(tmp_path):
     out = tmp_path / "airr_out.json"
     result = subprocess.run(
         [
-            "olmsted", "process", "-f", "airr",
-            "-i", str(gz_input),
-            "-o", str(out),
-            "--seed", "42", "--name", "airr-example",
-            "--json-format", "pretty", "-q",
+            "olmsted",
+            "process",
+            "-f",
+            "airr",
+            "-i",
+            str(gz_input),
+            "-o",
+            str(out),
+            "--seed",
+            "42",
+            "--name",
+            "airr-example",
+            "--json-format",
+            "pretty",
+            "-q",
         ],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
-    assert result.returncode == 0, f"process -f airr failed on .gz input: {result.stderr}"
+    assert result.returncode == 0, (
+        f"process -f airr failed on .gz input: {result.stderr}"
+    )
     # Can't compare to golden directly — `metadata.source_files` records the
     # temp filename, not the golden's recorded one. Structural sanity instead.
     data = json.loads(out.read_text())
@@ -258,16 +316,30 @@ def test_process_pcp_reads_gz_clones_input(tmp_path):
     out = tmp_path / "pcp_out.json"
     result = subprocess.run(
         [
-            "olmsted", "process", "-f", "pcp",
-            "-i", str(gz_clones),
-            "-t", str(EXAMPLE / "pcp" / "input-trees.csv"),
-            "-o", str(out),
-            "--seed", "42", "--name", "pcp-example",
-            "--json-format", "pretty", "-q",
+            "olmsted",
+            "process",
+            "-f",
+            "pcp",
+            "-i",
+            str(gz_clones),
+            "-t",
+            str(EXAMPLE / "pcp" / "input-trees.csv"),
+            "-o",
+            str(out),
+            "--seed",
+            "42",
+            "--name",
+            "pcp-example",
+            "--json-format",
+            "pretty",
+            "-q",
         ],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
-    assert result.returncode == 0, f"process -f pcp failed on .gz clones: {result.stderr}"
+    assert result.returncode == 0, (
+        f"process -f pcp failed on .gz clones: {result.stderr}"
+    )
     data = json.loads(out.read_text())
     assert "datasets" in data and "clones" in data and "trees" in data
     assert len(data["trees"]) > 0
@@ -282,16 +354,30 @@ def test_process_pcp_reads_gz_trees_input(tmp_path):
     out = tmp_path / "pcp_out.json"
     result = subprocess.run(
         [
-            "olmsted", "process", "-f", "pcp",
-            "-i", str(EXAMPLE / "pcp" / "input-pcp.csv"),
-            "-t", str(gz_trees),
-            "-o", str(out),
-            "--seed", "42", "--name", "pcp-example",
-            "--json-format", "pretty", "-q",
+            "olmsted",
+            "process",
+            "-f",
+            "pcp",
+            "-i",
+            str(EXAMPLE / "pcp" / "input-pcp.csv"),
+            "-t",
+            str(gz_trees),
+            "-o",
+            str(out),
+            "--seed",
+            "42",
+            "--name",
+            "pcp-example",
+            "--json-format",
+            "pretty",
+            "-q",
         ],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
-    assert result.returncode == 0, f"process -f pcp failed on .gz trees: {result.stderr}"
+    assert result.returncode == 0, (
+        f"process -f pcp failed on .gz trees: {result.stderr}"
+    )
     data = json.loads(out.read_text())
     assert "datasets" in data and "clones" in data and "trees" in data
     assert len(data["trees"]) > 0
@@ -312,4 +398,6 @@ def test_gzip_header_is_deterministic(tmp_path):
     b = tmp_path / "b.json"
     write_olmsted_json(data, a, json_format="gzip")
     write_olmsted_json(data, b, json_format="gzip")
-    assert (tmp_path / "a.json.gz").read_bytes() == (tmp_path / "b.json.gz").read_bytes()
+    assert (tmp_path / "a.json.gz").read_bytes() == (
+        tmp_path / "b.json.gz"
+    ).read_bytes()

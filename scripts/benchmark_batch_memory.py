@@ -87,9 +87,7 @@ def run_with_peak_rss(cmd, poll_interval_s: float = 0.05):
     Returns ``(returncode, peak_rss_bytes, wall_seconds)``.
     """
     t0 = time.perf_counter()
-    proc = subprocess.Popen(
-        cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-    )
+    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     p = psutil.Process(proc.pid)
     peak = 0
     try:
@@ -125,25 +123,33 @@ def format_bytes(n: int) -> str:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--families", type=int, default=300,
+        "--families",
+        type=int,
+        default=300,
         help="Number of clonal families to synthesize (default: 300)",
     )
     parser.add_argument(
-        "--leaves", type=int, default=80,
+        "--leaves",
+        type=int,
+        default=80,
         help="Leaves per family (default: 80)",
     )
     parser.add_argument(
-        "--batch-sizes", type=int, nargs="+",
+        "--batch-sizes",
+        type=int,
+        nargs="+",
         default=[1, 10, 50, 100, 0],
         help="Batch sizes to compare. 0 = legacy in-memory path. "
         "Default: 1 10 50 100 0",
     )
     parser.add_argument(
-        "--compute-metrics", action="store_true",
+        "--compute-metrics",
+        action="store_true",
         help="Pass --compute-metrics (more memory per tree).",
     )
     parser.add_argument(
-        "--keep-input", action="store_true",
+        "--keep-input",
+        action="store_true",
         help="Don't delete the synthetic input dir after the run.",
     )
     args = parser.parse_args()
@@ -153,28 +159,31 @@ def main():
     pcp_path, trees_path = generate_inputs(tmp, args.families, args.leaves)
     pcp_size = pcp_path.stat().st_size
     trees_size = trees_path.stat().st_size
-    print(
-        f"  pcp.csv: {format_bytes(pcp_size)}, trees.csv: {format_bytes(trees_size)}"
-    )
+    print(f"  pcp.csv: {format_bytes(pcp_size)}, trees.csv: {format_bytes(trees_size)}")
 
     results = []
     for batch_size in args.batch_sizes:
         out = tmp / f"out_bs{batch_size}.json"
         cmd = [
-            "olmsted", "process",
-            "-f", "pcp",
-            "-i", str(pcp_path),
-            "-t", str(trees_path),
-            "-o", str(out),
-            "--seed", "42",
-            "--batch-size", str(batch_size),
+            "olmsted",
+            "process",
+            "-f",
+            "pcp",
+            "-i",
+            str(pcp_path),
+            "-t",
+            str(trees_path),
+            "-o",
+            str(out),
+            "--seed",
+            "42",
+            "--batch-size",
+            str(batch_size),
             "-q",
         ]
         if args.compute_metrics:
             cmd.append("--compute-metrics")
-        label = f"--batch-size {batch_size}" + (
-            "  (legacy)" if batch_size == 0 else ""
-        )
+        label = f"--batch-size {batch_size}" + ("  (legacy)" if batch_size == 0 else "")
         print(f"\n>> Running {label}")
         rc, peak, wall = run_with_peak_rss(cmd)
         if rc != 0:

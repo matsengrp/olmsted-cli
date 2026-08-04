@@ -14,9 +14,7 @@ def sample_olmsted_json():
     """Create a minimal Olmsted JSON file for testing."""
     data = {
         "metadata": {"format_version": "1.0", "schema_version": "2.0.0"},
-        "datasets": [
-            {"dataset_id": "test-ds", "name": "Test"}
-        ],
+        "datasets": [{"dataset_id": "test-ds", "name": "Test"}],
         "clones": {
             "test-ds": [
                 {
@@ -64,9 +62,7 @@ def sample_olmsted_json():
             }
         ],
     }
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".json", delete=False
-    ) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         json.dump(data, f)
         return f.name
 
@@ -133,7 +129,10 @@ class TestTagCommand:
             assert tagged["clones"] == original["clones"]
             assert tagged["trees"] == original["trees"]
             # Dataset should have field_metadata added but otherwise same
-            assert tagged["datasets"][0]["dataset_id"] == original["datasets"][0]["dataset_id"]
+            assert (
+                tagged["datasets"][0]["dataset_id"]
+                == original["datasets"][0]["dataset_id"]
+            )
         finally:
             if os.path.exists(output_path):
                 os.unlink(output_path)
@@ -165,9 +164,7 @@ class TestTagCommand:
             ]
         }
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as cf:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as cf:
             yaml.dump(config, cf)
             config_path = cf.name
 
@@ -177,10 +174,14 @@ class TestTagCommand:
         try:
             result = subprocess.run(
                 [
-                    "olmsted", "tag",
-                    "-i", sample_olmsted_json,
-                    "-o", output_path,
-                    "-c", config_path,
+                    "olmsted",
+                    "tag",
+                    "-i",
+                    sample_olmsted_json,
+                    "-o",
+                    output_path,
+                    "-c",
+                    config_path,
                 ],
                 capture_output=True,
                 text=True,
@@ -233,14 +234,17 @@ class TestTagCommand:
         try:
             subprocess.run(
                 ["olmsted", "tag", "-i", sample_olmsted_json, "-o", output_path],
-                capture_output=True, text=True,
+                capture_output=True,
+                text=True,
             )
 
             # Add a fake field to the existing metadata
             with open(output_path) as f:
                 data = json.load(f)
             data["datasets"][0]["field_metadata"]["clone"]["fake_field"] = {
-                "type": "continuous", "display": "dropdown", "label": "Fake"
+                "type": "continuous",
+                "display": "dropdown",
+                "label": "Fake",
             }
             with open(output_path, "w") as f:
                 json.dump(data, f)
@@ -250,9 +254,18 @@ class TestTagCommand:
                 output_path2 = out2.name
 
             result = subprocess.run(
-                ["olmsted", "tag", "-i", output_path, "-o", output_path2,
-                 "--mode", "overwrite"],
-                capture_output=True, text=True,
+                [
+                    "olmsted",
+                    "tag",
+                    "-i",
+                    output_path,
+                    "-o",
+                    output_path2,
+                    "--mode",
+                    "overwrite",
+                ],
+                capture_output=True,
+                text=True,
             )
             assert result.returncode == 0
 
@@ -277,14 +290,17 @@ class TestTagCommand:
         try:
             subprocess.run(
                 ["olmsted", "tag", "-i", sample_olmsted_json, "-o", output_path],
-                capture_output=True, text=True,
+                capture_output=True,
+                text=True,
             )
 
             # Add a fake field to the existing metadata
             with open(output_path) as f:
                 data = json.load(f)
             data["datasets"][0]["field_metadata"]["clone"]["fake_field"] = {
-                "type": "continuous", "display": "dropdown", "label": "Fake"
+                "type": "continuous",
+                "display": "dropdown",
+                "label": "Fake",
             }
             with open(output_path, "w") as f:
                 json.dump(data, f)
@@ -295,7 +311,8 @@ class TestTagCommand:
 
             result = subprocess.run(
                 ["olmsted", "tag", "-i", output_path, "-o", output_path2],
-                capture_output=True, text=True,
+                capture_output=True,
+                text=True,
             )
             assert result.returncode == 0
 

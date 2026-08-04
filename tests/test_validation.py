@@ -8,13 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from olmsted_cli.validate import validate_file
 from olmsted_cli.process_utils import (
     validate_clone,
     validate_dataset,
     validate_tree,
-    validate_time_tree,
 )
+from olmsted_cli.validate import validate_file
 
 
 class TestValidation:
@@ -116,7 +115,7 @@ class TestValidation:
             f"AIRR consolidated golden output should be valid. Errors found:\n"
             + "\n".join(str(e) for e in errors)
         )
-        
+
         # Also test with time tree validation enabled
         is_valid_time_tree, errors_time_tree = validate_file(
             str(consolidated_file), file_type=None, verbose=True, check_time_tree=True
@@ -158,7 +157,7 @@ class TestValidation:
             f"PCP consolidated golden output should be valid. Errors found:\n"
             + "\n".join(str(e) for e in errors)
         )
-        
+
         # Also test with time tree validation enabled
         is_valid_time_tree, errors_time_tree = validate_file(
             str(consolidated_file), file_type=None, verbose=True, check_time_tree=True

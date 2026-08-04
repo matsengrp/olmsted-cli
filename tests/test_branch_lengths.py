@@ -135,8 +135,13 @@ def test_no_clobber():
         "newick": "(A:0.1,B:0.2)root;",
         "nodes": [
             {"sequence_id": "root", "type": "root", "parent": None},
-            {"sequence_id": "A", "type": "leaf", "parent": "root",
-             "length": 9.9, "distance": 9.9},
+            {
+                "sequence_id": "A",
+                "type": "leaf",
+                "parent": "root",
+                "length": 9.9,
+                "distance": 9.9,
+            },
             {"sequence_id": "B", "type": "leaf", "parent": "root"},
         ],
     }
