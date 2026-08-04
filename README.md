@@ -145,6 +145,7 @@ olmsted process -i input.csv -f pcp -o output.json
 | `--compute-metrics` | Compute LBI, LBR, affinity, and mutation frequency for all nodes |
 | `--lbi-tau FLOAT` | Time scale parameter for LBI calculation (default: 0.0125) |
 | `--standardize-names` | Rename nodes to standard format: naive (root), Node1, Node2, ... |
+| `--on-forest {reconcile,drop,skip,fail}` | How to handle a family whose edges form a disconnected forest (more than one root — an internal node with no parent edge). `reconcile` reattaches orphan roots under the primary root; `drop` discards just the orphan subtree(s) (default); `skip` discards the whole family; `fail` aborts the run. |
 
 #### AIRR-Specific Options
 
