@@ -1613,6 +1613,95 @@ def _get_descendants(node, children_map):
     return descendants
 
 
+class ForestTopologyError(Exception):
+    """Raised for a disconnected PCP family tree when ``on_forest="fail"``."""
+
+
+def _resolve_forest_topology(nodes, edges, on_forest, clone_id=None):
+    """Detect a disconnected PCP family tree (a "forest": more than one node
+    that is a parent but never a child) and resolve it per ``on_forest``.
+
+    A well-formed family has exactly one such root. Extra roots are orphan
+    internal nodes with no incoming edge — the input PCP dropped a parent
+    edge somewhere upstream (see olmsted-cli issue 35).
+
+    Args:
+        nodes: dict of {node_id: node_data} for this family.
+        edges: list of (parent, child, edge_length) tuples for this family.
+        on_forest: one of "reconcile", "drop", "skip", "fail".
+        clone_id: display identifier for warning/error messages.
+
+    Returns:
+        ``(nodes, edges)``, possibly modified. ``(None, None)`` when
+        ``on_forest="skip"`` signals the caller to skip this family.
+
+    Raises:
+        ForestTopologyError: if ``on_forest="fail"`` and a forest is detected.
+    """
+    all_children = {child for _, child, _ in edges}
+    all_parents = {parent for parent, _, _ in edges}
+    roots = all_parents - all_children
+    if len(roots) <= 1:
+        return nodes, edges
+
+    children_map = defaultdict(list)
+    for parent, child, _length in edges:
+        children_map[parent].append(child)
+
+    # Prefer "naive" as the primary root; otherwise the root with the
+    # largest subtree (same preference build_newick_from_edges uses).
+    if "naive" in roots:
+        primary_root = "naive"
+    else:
+        primary_root = max(roots, key=lambda r: len(_get_descendants(r, children_map)))
+    orphan_roots = sorted(roots - {primary_root})
+    orphan_list = ", ".join(orphan_roots)
+
+    if on_forest == "fail":
+        raise ForestTopologyError(
+            f"Clone {clone_id} has a disconnected tree (forest): orphan root(s) "
+            f"{orphan_list} have no parent edge in the input data."
+        )
+
+    if on_forest == "skip":
+        vprint.print(
+            f"WARNING: Clone {clone_id} has a disconnected tree (forest): orphan "
+            f"root(s) {orphan_list}. Skipping this family (--on-forest=skip).",
+            min_level=1,
+        )
+        return None, None
+
+    if on_forest == "drop":
+        orphan_nodes = set()
+        for orphan_root in orphan_roots:
+            orphan_nodes.add(orphan_root)
+            orphan_nodes |= _get_descendants(orphan_root, children_map)
+        vprint.print(
+            f"WARNING: Clone {clone_id} has a disconnected tree (forest): dropping "
+            f"orphan subtree(s) rooted at {orphan_list} ({len(orphan_nodes)} node(s) "
+            "total, --on-forest=drop).",
+            min_level=1,
+        )
+        nodes = {k: v for k, v in nodes.items() if k not in orphan_nodes}
+        edges = [
+            (p, c, length)
+            for p, c, length in edges
+            if p not in orphan_nodes and c not in orphan_nodes
+        ]
+        return nodes, edges
+
+    # on_forest == "reconcile"
+    vprint.print(
+        f"WARNING: Clone {clone_id} has a disconnected tree (forest): reattaching "
+        f"orphan root(s) {orphan_list} under '{primary_root}' (--on-forest=reconcile).",
+        min_level=1,
+    )
+    edges = list(edges) + [
+        (primary_root, orphan_root, 0.0) for orphan_root in orphan_roots
+    ]
+    return nodes, edges
+
+
 def build_newick_from_edges(nodes, edges):
     """
     Build a Newick string from parent-child edges.
@@ -1699,6 +1788,7 @@ class TreeProcessingConfig:
     standardize_names: bool = False
     alignment_method: str = "truncate"
     warn_disagreements: bool = False
+    on_forest: Literal["reconcile", "drop", "skip", "fail"] = "skip"
 
 
 def _build_tree_ref(
@@ -2429,6 +2519,15 @@ def _process_family_tree(
     family_meta = family_data.get("family_data", {})
     original_sample_id = family_meta.get("sample_id")
 
+    # Detect and resolve forest inputs (disconnected subtrees) before any
+    # topology merge or Newick building sees them, per config.on_forest.
+    resolved_nodes, resolved_edges = _resolve_forest_topology(
+        family_data["nodes"], family_data["edges"], config.on_forest, clone_id
+    )
+    if resolved_nodes is None:
+        return None  # on_forest == "skip"
+    family_data["nodes"], family_data["edges"] = resolved_nodes, resolved_edges
+
     (
         family_data,
         newick,
@@ -2935,6 +3034,7 @@ def process_pcp_to_olmsted(
     name: Optional[str] = None,
     verbosity: int = 1,
     custom_fields: Optional[List[Dict[str, Any]]] = None,
+    on_forest: Literal["reconcile", "drop", "skip", "fail"] = "skip",
 ) -> Tuple[List[OlmstedDataset], Dict[str, List[OlmstedClone]], List[OlmstedTree]]:
     """
     Convert PCP format data to Olmsted format.
@@ -2951,6 +3051,11 @@ def process_pcp_to_olmsted(
         alignment_method: Method for sequence alignment ("truncate" or "pad", default: "truncate")
         name: Optional name for the dataset (default: None)
         verbosity: Verbosity level (0=quiet, 1=normal, 2=verbose, 3=debug)
+        on_forest: How to handle a PCP family whose edges form a disconnected
+            forest (more than one root): "reconcile" reattaches orphan roots
+            under the primary root, "drop" discards just the orphan
+            subtree(s), "skip" discards the whole family (default), "fail"
+            raises ForestTopologyError
 
     Returns:
         Tuple of (datasets, clones_dict, trees) with proper Olmsted types
@@ -2975,6 +3080,7 @@ def process_pcp_to_olmsted(
         standardize_names=standardize_names,
         alignment_method=alignment_method,
         warn_disagreements=warn_disagreements,
+        on_forest=on_forest,
     )
 
     clones_grouped = _group_pcp_families_by_clone(pcp_families)
@@ -3112,6 +3218,15 @@ def get_args():
         help="Method for aligning sequences of different lengths for mutation frequency calculation (default: truncate - compare only overlapping region, pad - pad shorter sequence with gap characters)",
     )
     parser.add_argument(
+        "--on-forest",
+        choices=["reconcile", "drop", "skip", "fail"],
+        default="skip",
+        help="How to handle a PCP family whose edges form a disconnected forest "
+        "(more than one root): reconcile = reattach orphan roots under the "
+        "primary root, drop = discard just the orphan subtree(s), "
+        "skip = discard the whole family (default), fail = abort the run",
+    )
+    parser.add_argument(
         "--sample-col",
         dest="sample_col",
         help="CSV column supplying the sample identifier (auto-detected from sample/sample_id/sample_name).",
@@ -3204,6 +3319,7 @@ def main():
             alignment_method=args.alignment_method,
             name=args.name,
             verbosity=args.verbose,
+            on_forest=args.on_forest,
         )
 
         # Validate output data if requested
