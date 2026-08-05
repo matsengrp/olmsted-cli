@@ -2401,6 +2401,26 @@ def _process_family_tree(
             processed_nodes_light, family_data["edges"], tree_root
         )
 
+    # mean_mut_freq is always computed (unlike LBI/LBR/affinity below, it
+    # isn't gated behind --compute-metrics) -- it's a required clone-level
+    # summary stat (the webapp scatterplot's default y-axis), not an
+    # optional node-level metric. Computed first so both ingest paths (see
+    # process_airr_data.py's _process_airr_clone) share the same ordering:
+    # required stats before optional ones.
+    germlines = _get_validated_germlines(
+        processed_nodes_heavy, processed_nodes_light, is_paired, clone_id
+    )
+    if germlines is None:
+        return None
+    germline_alignment, germline_alignment_light = germlines
+
+    mean_mut_freq = _calculate_mean_mut_freq_heavy(
+        processed_nodes_heavy, germline_alignment, config, clone_id
+    )
+    mean_mut_freq_light = _calculate_mean_mut_freq_light(
+        processed_nodes_light, germline_alignment_light, is_paired, config, clone_id
+    )
+
     # Calculate phylogenetic metrics if requested (computed for both heavy and light)
     if config.compute_metrics:
         vprint.verbose(
@@ -2426,21 +2446,6 @@ def _process_family_tree(
         )
 
     meta = _extract_family_metadata(family_meta, is_paired, clone_id)
-
-    # Get germline sequence from naive node (needed for mean_mut_freq calculation)
-    germlines = _get_validated_germlines(
-        processed_nodes_heavy, processed_nodes_light, is_paired, clone_id
-    )
-    if germlines is None:
-        return None
-    germline_alignment, germline_alignment_light = germlines
-
-    mean_mut_freq = _calculate_mean_mut_freq_heavy(
-        processed_nodes_heavy, germline_alignment, config, clone_id
-    )
-    mean_mut_freq_light = _calculate_mean_mut_freq_light(
-        processed_nodes_light, germline_alignment_light, is_paired, config, clone_id
-    )
 
     # Generate pair_id for paired data (links heavy and light clone entries)
     pair_id = f"pair-{clone_id}" if is_paired else None
