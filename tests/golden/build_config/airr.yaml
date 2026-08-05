@@ -107,7 +107,7 @@ custom_fields:
     level: family
     type: continuous
     label: "Mean Mutation Frequency"
-    # sample values: 0.020477252084881513, 0.019552127731547256, 0.022644022644022644, 0.12482269503546099, 0.02605064298024658, ...
+    # sample values: 0.0198836438618455, 0.019459102902374674, 0.022998430141287288, 0.12482269503546099, 0.025774705641145798, ...
   - name: rearrangement_count
     output_name: unique_seqs_count
     level: family

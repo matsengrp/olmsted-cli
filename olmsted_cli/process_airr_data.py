@@ -14,7 +14,7 @@ from urllib.parse import parse_qs, parse_qsl
 
 from .data_io import read_airr_json
 from .identifier import IdentMinter
-from .metrics import compute_tree_metrics
+from .metrics import compute_mean_mut_freq, compute_tree_metrics
 from .process_utils import tag_field_metadata
 from .utils import vprint
 
@@ -163,6 +163,14 @@ def process_tree(args, clone_id, tree):
     return tree
 
 
+# Absolute-delta threshold for warning that an input clone's own
+# mean_mut_freq disagrees with the value olmsted-cli recomputes (issue 24).
+# Real convention differences (weighted vs unweighted, or a different
+# upstream formula) run 1e-4 to 1e-3 on real data; this is tight enough to
+# catch those while ignoring float-noise-level agreement.
+MEAN_MUT_FREQ_DIVERGENCE_TOLERANCE = 1e-6
+
+
 def process_clone(args, dataset, clone):
     # -=1 *_start positions since AIRR schema uses 1-based closed interval
     # but we need python slice conventions (0-based, open interval) for
@@ -244,6 +252,11 @@ def _process_airr_clone(
     appending to the top-level ``trees`` list. The clone's own
     ``cf["trees"]`` is rewritten to the slimmed refs (no ``nodes``).
     """
+    # Captured before process_clone touches anything, so we can compare the
+    # producer's own value (if any) against what we compute below and warn
+    # on a real divergence — see issue 24.
+    input_mean_mut_freq = clone.get("mean_mut_freq")
+
     cf = process_clone(args, dataset, clone)
     cf["repertoire_id"] = cf["sample_id"]
 
@@ -251,6 +264,38 @@ def _process_airr_clone(
     for tree in cf["trees"]:
         processed_tree = process_tree(args, cf["clone_id"], tree)
         processed_trees.append(processed_tree)
+
+    # mean_mut_freq is always computed by olmsted-cli (not gated behind
+    # --compute-metrics, matching the PCP path) using the same
+    # multiplicity-weighted formula for both ingest paths — see issue 24.
+    # Any value present on the input clone is overwritten: mean_mut_freq
+    # is not part of the AIRR Community spec, so it's not something we can
+    # trust a producer to have computed consistently. The first tree is
+    # canonical; alternate/downsampled reconstructions of the same clone
+    # draw from the same sequence pool.
+    canonical_nodes = processed_trees[0].get("nodes", []) if processed_trees else []
+    mean_mut_freq, mean_mut_freq_debug, _ = compute_mean_mut_freq(
+        cf.get("germline_alignment", ""), canonical_nodes, "truncate"
+    )
+    cf["mean_mut_freq"] = mean_mut_freq
+    if not mean_mut_freq_debug:
+        if getattr(args, "verbose", 0) >= 2:
+            vprint.verbose(
+                f"  Note: clone '{cf.get('clone_id', '?')}' has no usable leaves "
+                "for mean_mut_freq; set to 0.0"
+            )
+    elif (
+        input_mean_mut_freq is not None
+        and abs(input_mean_mut_freq - mean_mut_freq)
+        > MEAN_MUT_FREQ_DIVERGENCE_TOLERANCE
+    ):
+        vprint.status(
+            f"  Warning: clone '{cf.get('clone_id', '?')}' input mean_mut_freq "
+            f"({input_mean_mut_freq:.6f}) differs from the recomputed value "
+            f"({mean_mut_freq:.6f}, delta={abs(input_mean_mut_freq - mean_mut_freq):.6f}). "
+            "Using the recomputed value; the input was likely produced with a "
+            "different convention (e.g. unweighted vs multiplicity-weighted)."
+        )
 
     if getattr(args, "compute_metrics", False):
         lbi_tau = getattr(args, "lbi_tau", 0.0125)
