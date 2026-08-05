@@ -41,7 +41,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import ete3
 
 from .identifier import IdentMinter
-from .metrics import compute_tree_metrics
+from .metrics import compute_mean_mut_freq, compute_tree_metrics
 from .process_utils import assign_branch_lengths, tag_field_metadata
 from .schemas import SCHEMA_VERSION
 from .utils import set_verbosity, translate_dna_to_aa, vprint
@@ -282,40 +282,22 @@ def _build_nodes(
     return nodes, root_id, germline_alignment
 
 
-#: Alignment characters that don't participate in a mutation comparison.
-_NON_COMPARABLE = set(".-N")
-
-
 def _mean_mutation_frequency(
     nodes: List[Dict[str, Any]], germline_alignment: Optional[str]
 ) -> float:
     """Mean per-site SHM frequency of observed leaves vs the germline root.
 
-    For each observed leaf, counts positions differing from the germline over
-    the comparable (non-gap, non-N) length, then averages across leaves
-    (unweighted — the clean v2 schema carries no multiplicity). Sequences in a
-    tree share one alignment frame, so a position-wise comparison is exact.
+    Thin wrapper around the shared :func:`compute_mean_mut_freq` (the single
+    source of truth across PCP, AIRR, and airr2). The clean v2 schema
+    carries no per-node multiplicity, so every node is given multiplicity=1
+    — each observed leaf counts once, matching this format's inherently
+    unweighted convention.
     """
-    if not germline_alignment:
-        return 0.0
-    total, count = 0.0, 0
-    for node in nodes:
-        if node.get("type") != "leaf":
-            continue
-        seq = node.get("sequence_alignment") or ""
-        if not seq:
-            continue
-        mutations, comparable = 0, 0
-        for germ_base, leaf_base in zip(germline_alignment, seq):
-            if germ_base in _NON_COMPARABLE or leaf_base in _NON_COMPARABLE:
-                continue
-            comparable += 1
-            if germ_base != leaf_base:
-                mutations += 1
-        if comparable:
-            total += mutations / comparable
-            count += 1
-    return total / count if count else 0.0
+    unit_multiplicity_nodes = ({**node, "multiplicity": 1} for node in nodes)
+    mean_mut_freq, _, _ = compute_mean_mut_freq(
+        germline_alignment or "", unit_multiplicity_nodes
+    )
+    return mean_mut_freq
 
 
 def _rerooted_newick(clone: Dict[str, Any]) -> str:

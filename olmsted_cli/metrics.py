@@ -241,6 +241,15 @@ def compute_tree_metrics(
         nodes_dict[nid]["lbr"] = lbr_values.get(nid)
 
 
+# Positions where either sequence has one of these characters don't count as
+# a comparable (mutation-eligible) position: "." is the pad/gap sentinel this
+# module's alignment convention uses, "-" is the standard alignment-gap
+# character, and "N" is an ambiguous/undetermined base. Shared by
+# align_and_calculate_mutations and compute_mean_mut_freq so every ingest
+# path treats "no information at this position" the same way.
+NON_COMPARABLE = frozenset({"", ".", "-", "N"})
+
+
 def align_and_calculate_mutations(
     germline: str, leaf: str, alignment_method: str = "truncate"
 ) -> Tuple[int, int, str, str]:
@@ -258,9 +267,14 @@ def align_and_calculate_mutations(
             - "pad": Use max length, pad shorter sequence with "."
 
     Returns:
-        tuple: (mutation_count, alignment_length, germline_aligned, leaf_aligned)
-            - mutation_count: Number of mismatches (excluding gaps)
-            - alignment_length: Length of aligned sequences
+        tuple: (mutation_count, comparable_length, germline_aligned, leaf_aligned)
+            - mutation_count: Number of mismatches, counted only at comparable
+              positions (see NON_COMPARABLE)
+            - comparable_length: Number of positions where neither sequence
+              has a non-comparable character. This is the intended
+              denominator for a mutation frequency, not the raw aligned
+              length — a position with an unknown base carries no
+              information and shouldn't dilute the frequency.
             - germline_aligned: Aligned germline sequence
             - leaf_aligned: Aligned leaf sequence
 
@@ -270,7 +284,9 @@ def align_and_calculate_mutations(
         >>> align_and_calculate_mutations("ATG", "ATGCC", "truncate")
         (0, 3, 'ATG', 'ATG')
         >>> align_and_calculate_mutations("ATG", "ATGCC", "pad")
-        (0, 5, 'ATG..', 'ATGCC')
+        (0, 3, 'ATG..', 'ATGCC')
+        >>> align_and_calculate_mutations("ATGN", "ATGC", "truncate")
+        (0, 3, 'ATGN', 'ATGC')
     """
     if alignment_method == "truncate":
         # Truncate to shorter sequence length
@@ -283,14 +299,19 @@ def align_and_calculate_mutations(
         g_aligned = germline.ljust(length, ".")
         l_aligned = leaf.ljust(length, ".")
 
-    # Count mutations (mismatches, excluding empty strings and gaps)
-    mutations = sum(
-        1
-        for g, leaf_base in zip(g_aligned, l_aligned)
-        if g != leaf_base and g not in ("", ".") and leaf_base not in ("", ".")
-    )
+    # Count mutations and comparable positions together: a non-comparable
+    # character (gap or ambiguous base) on either side excludes the position
+    # from both the mismatch count and the denominator.
+    mutations = 0
+    comparable = 0
+    for g, leaf_base in zip(g_aligned, l_aligned):
+        if g in NON_COMPARABLE or leaf_base in NON_COMPARABLE:
+            continue
+        comparable += 1
+        if g != leaf_base:
+            mutations += 1
 
-    return mutations, length, g_aligned, l_aligned
+    return mutations, comparable, g_aligned, l_aligned
 
 
 def compute_mean_mut_freq(
@@ -303,11 +324,12 @@ def compute_mean_mut_freq(
     ``mean_mut_freq = sum_over_leaves(num_mutations / comparable_length * multiplicity)
     / sum_over_leaves(multiplicity)``
 
-    Leaves are nodes with ``type == "leaf"`` and ``multiplicity > 0``; gap
-    positions (``-``, ``.``) on either side of a mismatch are skipped,
-    matching :func:`align_and_calculate_mutations` semantics. This is the
-    single source of truth for ``mean_mut_freq`` across input formats — PCP
-    and AIRR both route through this helper so the same biological data
+    Leaves are nodes with ``type == "leaf"`` and ``multiplicity > 0``;
+    non-comparable positions (``.``, ``-``, ``N`` — see :data:`NON_COMPARABLE`)
+    on either side of a mismatch are skipped, matching
+    :func:`align_and_calculate_mutations` semantics. This is the single
+    source of truth for ``mean_mut_freq`` across input formats — PCP, AIRR,
+    and airr2 all route through this helper so the same biological data
     produces the same value regardless of which pipeline ingested it.
 
     Format-agnostic: ``nodes`` can be any iterable of node dicts (a PCP
@@ -362,8 +384,8 @@ def compute_mean_mut_freq(
                 ):
                     if (
                         g != leaf_base
-                        and g not in ("", ".")
-                        and leaf_base not in ("", ".")
+                        and g not in NON_COMPARABLE
+                        and leaf_base not in NON_COMPARABLE
                     ):
                         mutation_positions.append(
                             {"pos": pos, "germline": g, "leaf": leaf_base}
