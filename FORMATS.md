@@ -182,7 +182,7 @@ AIRR (Adaptive Immune Receptor Repertoire) format is a single JSON file followin
 | `j_call` | No | `j_call` | J gene assignment |
 | `germline_alignment` | No | `germline_alignment` | Germline sequence |
 | `unique_seqs_count` | Yes* | `unique_seqs_count` | Schema-required |
-| `mean_mut_freq` | Yes* | `mean_mut_freq` | Schema-required |
+| `mean_mut_freq` | — | `mean_mut_freq` | Computed by olmsted-cli; any input value is ignored (see below) |
 | `v_alignment_start` | No | `v_alignment_start` | 1-based → 0-based conversion |
 | `d_alignment_start` | No | `d_alignment_start` | 1-based → 0-based conversion |
 | `j_alignment_start` | No | `j_alignment_start` | 1-based → 0-based conversion |
@@ -193,6 +193,12 @@ AIRR (Adaptive Immune Receptor Repertoire) format is a single JSON file followin
 *Required by schema validation, but processing won't crash without them.
 
 **Extra fields**: Any additional fields on clone objects are preserved in the output and auto-detected by field_metadata generation.
+
+**`mean_mut_freq` computation**: olmsted-cli computes `mean_mut_freq` for both AIRR and PCP inputs using the same convention — the multiplicity-weighted mean of per-leaf mutation frequency, where mutation frequency is the fraction of non-gap positions in a leaf's `sequence_alignment` that differ from the clone's `germline_alignment` (truncating to the shorter of the two). Any `mean_mut_freq` present in an AIRR input is ignored: it is not part of the AIRR Community spec, so producers other than olmsted-cli itself cannot be relied on to compute it, or to use a consistent convention — see [issue 24](https://github.com/matsengrp/olmsted-cli/issues/24). Mixing values produced by different versions of the CLI (or by upstream pipelines that computed the field themselves before this change) on the same scatterplot can give misleading comparisons.
+
+If an input AIRR clone carries its own `mean_mut_freq` and it disagrees with the recomputed value by more than `1e-6` absolute, olmsted-cli prints a warning at default verbosity naming the clone and both values (a likely sign the producer used a different convention, e.g. unweighted). The recomputed value is used regardless — the warning is diagnostic only.
+
+This does not apply to the airr2 (AIRR-C v2 Clone/Tree) format below, which computes its own `mean_mut_freq` — necessarily *unweighted*, since that schema carries no per-node multiplicity to weight by. See [Mapping to Olmsted](#mapping-to-olmsted) in the airr2 section.
 
 ### Tree object (within clone)
 
@@ -590,7 +596,8 @@ AIRR fields are mostly passed through directly. Key transformations:
 | Tree nodes | Extracted from clones, stored in top-level `trees[]` |
 | `clone.trees` | Reduced to metadata references (nodes removed) |
 | `tree.tree_id` | Passed through from input; when absent, filled with the CLI-minted `tree.ident` to satisfy the AIRR Community schema's required-field contract. |
+| `mean_mut_freq` | (computed) — any input value is overwritten; see [Clone object](#clone-object) above |
 
 ---
 
-_Last updated: 2026-06-09_
+_Last updated: 2026-08-04_

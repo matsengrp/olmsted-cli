@@ -130,7 +130,7 @@ custom_fields:
     level: family
     type: continuous
     label: "Mean Mutation Frequency"
-    # sample values: 0.0, 0.04940923737916219, 0.0757168458781362, 0.029455393091756717, 0.08007054673721341, ...
+    # sample values: 0.0, 0.0017006802721088435, 0.003037591535044846, 0.029455393091756717, 0.0530269515730699, ...
   - name: sample_id
     level: family
     type: categorical

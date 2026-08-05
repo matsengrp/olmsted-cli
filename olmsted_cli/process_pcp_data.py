@@ -73,7 +73,7 @@ from .constants import (
     KNOWN_TREE_COLUMNS,
 )
 from .data_io import open_file
-from .metrics import compute_tree_metrics
+from .metrics import compute_mean_mut_freq, compute_tree_metrics
 
 # Import shared utilities from process_data_utils
 from .process_utils import (
@@ -1353,58 +1353,6 @@ def compute_cluster_multiplicity_for_tree(nodes_dict, edges, root_id):
     return cluster_mult
 
 
-def align_and_calculate_mutations(
-    germline: str, leaf: str, alignment_method: str = "truncate"
-) -> tuple[int, int, str, str]:
-    """
-    Align sequences and count mutations between germline and leaf.
-
-    This function consolidates the shared logic between truncate and pad alignment methods,
-    eliminating ~90% code duplication.
-
-    Args:
-        germline: Germline sequence string
-        leaf: Leaf sequence string
-        alignment_method: Either "truncate" or "pad"
-            - "truncate": Use min length, truncate longer sequence
-            - "pad": Use max length, pad shorter sequence with "."
-
-    Returns:
-        tuple: (mutation_count, alignment_length, germline_aligned, leaf_aligned)
-            - mutation_count: Number of mismatches (excluding gaps)
-            - alignment_length: Length of aligned sequences
-            - germline_aligned: Aligned germline sequence
-            - leaf_aligned: Aligned leaf sequence
-
-    Examples:
-        >>> align_and_calculate_mutations("ATGC", "ATGT", "truncate")
-        (1, 4, 'ATGC', 'ATGT')
-        >>> align_and_calculate_mutations("ATG", "ATGCC", "truncate")
-        (0, 3, 'ATG', 'ATG')
-        >>> align_and_calculate_mutations("ATG", "ATGCC", "pad")
-        (0, 5, 'ATG..', 'ATGCC')
-    """
-    if alignment_method == "truncate":
-        # Truncate to shorter sequence length
-        length = min(len(germline), len(leaf))
-        g_aligned = germline[:length]
-        l_aligned = leaf[:length]
-    else:  # pad
-        # Pad to longer sequence length
-        length = max(len(germline), len(leaf))
-        g_aligned = germline.ljust(length, ".")
-        l_aligned = leaf.ljust(length, ".")
-
-    # Count mutations (mismatches, excluding empty strings and gaps)
-    mutations = sum(
-        1
-        for g, leaf_base in zip(g_aligned, l_aligned)
-        if g != leaf_base and g not in ("", ".") and leaf_base not in ("", ".")
-    )
-
-    return mutations, length, g_aligned, l_aligned
-
-
 def log_mutation_frequency_debug(
     clone_id: str,
     germline_alignment: str,
@@ -2221,121 +2169,25 @@ def _calculate_mean_mut_freq_heavy(
 ):
     """Multiplicity-weighted mean mutation frequency across heavy-chain leaves.
 
-    mean_mut_freq = average(mutations_per_site) across all leaf nodes,
-    weighted by multiplicity. Logs per-sequence debug info at debug verbosity.
+    Thin wrapper around the shared :func:`compute_mean_mut_freq` (the single
+    source of truth across PCP and AIRR ingest paths) that logs per-sequence
+    debug info at debug verbosity.
     """
-    total_mut_freq_heavy = 0.0
-    total_sequences_heavy = 0
-    debug_info_heavy = []
-    skipped_nodes_heavy = []
-
-    for node_id, node_data in processed_nodes_heavy.items():
-        node_type = node_data.get("type")
-        multiplicity = node_data.get("multiplicity", 0)
-        # Only count LEAF nodes with observed sequences (type="leaf" and multiplicity > 0)
-        # Skip internal nodes (type="internal") and root node (type="root")
-        if node_type == "leaf" and multiplicity > 0:
-            leaf_sequence = node_data.get("sequence_alignment", "")
-
-            # Count mutations by comparing to germline
-            if germline_alignment and leaf_sequence:
-                num_mutations, seq_length, germline_aligned, leaf_aligned = (
-                    align_and_calculate_mutations(
-                        germline_alignment, leaf_sequence, config.alignment_method
-                    )
-                )
-                mut_freq = num_mutations / seq_length if seq_length > 0 else 0.0
-                total_mut_freq_heavy += mut_freq * multiplicity
-                total_sequences_heavy += multiplicity
-
-                mutation_positions = []
-                for pos, (g, leaf_base) in enumerate(
-                    zip(germline_aligned, leaf_aligned)
-                ):
-                    if (
-                        g != leaf_base
-                        and g not in ("", ".")
-                        and leaf_base not in ("", ".")
-                    ):
-                        mutation_positions.append(
-                            {"pos": pos, "germline": g, "leaf": leaf_base}
-                        )
-
-                debug_info_heavy.append(
-                    {
-                        "node": node_id,
-                        "type": node_type,
-                        "distance": node_data.get("distance", 0.0),
-                        "num_mutations": num_mutations,
-                        "seq_length": seq_length,
-                        "original_leaf_len": len(leaf_sequence),
-                        "original_germline_len": len(germline_alignment),
-                        "mut_freq": mut_freq,
-                        "multiplicity": multiplicity,
-                        "weighted_contribution": mut_freq * multiplicity,
-                        "germline_seq": germline_aligned,
-                        "leaf_seq": leaf_aligned,
-                        "mutations": mutation_positions,
-                        "was_aligned": len(germline_alignment) != len(leaf_sequence),
-                        "alignment_method": config.alignment_method,
-                    }
-                )
-            else:
-                # Track why we skipped this sequence - be specific
-                if not leaf_sequence:
-                    reason = "missing sequence (empty)"
-                elif not germline_alignment:
-                    reason = "missing germline sequence"
-                elif len(leaf_sequence) != len(germline_alignment):
-                    reason = f"sequence length mismatch (leaf={len(leaf_sequence)}, germline={len(germline_alignment)})"
-                else:
-                    reason = "unknown"
-
-                skipped_nodes_heavy.append(
-                    {
-                        "node": node_id,
-                        "type": node_type,
-                        "multiplicity": multiplicity,
-                        "reason": reason,
-                        "has_sequence": bool(leaf_sequence),
-                        "seq_len": len(leaf_sequence) if leaf_sequence else 0,
-                        "germline_len": len(germline_alignment)
-                        if germline_alignment
-                        else 0,
-                    }
-                )
-        else:
-            # Track all non-leaf nodes or leaves with multiplicity 0
-            reason = ""
-            if node_type != "leaf":
-                reason = f"not a leaf (type={node_type})"
-            elif multiplicity == 0:
-                reason = "leaf with multiplicity=0 (no observed sequences)"
-            else:
-                reason = "unknown"
-
-            skipped_nodes_heavy.append(
-                {
-                    "node": node_id,
-                    "type": node_type,
-                    "multiplicity": multiplicity,
-                    "reason": reason,
-                }
-            )
-
-    mean_mut_freq = (
-        total_mut_freq_heavy / total_sequences_heavy
-        if total_sequences_heavy > 0
-        else 0.0
+    mean_mut_freq, debug_info, skipped_nodes = compute_mean_mut_freq(
+        germline_alignment,
+        processed_nodes_heavy.values(),
+        config.alignment_method,
     )
+    total_mut_freq = sum(d["weighted_contribution"] for d in debug_info)
+    total_sequences = sum(d["multiplicity"] for d in debug_info)
 
     log_mutation_frequency_debug(
         clone_id=clone_id,
         germline_alignment=germline_alignment,
-        debug_info=debug_info_heavy,
-        skipped_nodes=skipped_nodes_heavy,
-        total_mut_freq=total_mut_freq_heavy,
-        total_sequences=total_sequences_heavy,
+        debug_info=debug_info,
+        skipped_nodes=skipped_nodes,
+        total_mut_freq=total_mut_freq,
+        total_sequences=total_sequences,
         mean_mut_freq=mean_mut_freq,
         chain_label="HEAVY CHAIN",
         vprint=vprint,
@@ -2348,46 +2200,33 @@ def _calculate_mean_mut_freq_light(
 ):
     """Multiplicity-weighted mean mutation frequency across light-chain leaves.
 
-    Routes through align_and_calculate_mutations like the heavy chain path
-    so both chains share the same alignment semantics — including
-    gap-skipping behavior that an inlined version used to diverge on.
-    Returns 0.0 (no-op) when not paired.
+    Thin wrapper around the shared :func:`compute_mean_mut_freq`, same as
+    the heavy-chain path — including full debug-level logging via
+    :func:`log_mutation_frequency_debug`. Returns 0.0 (no-op) when not paired.
     """
     if not is_paired:
         return 0.0
 
-    total_mut_freq_light = 0.0
-    total_sequences_light = 0
-
-    for node_id, node_data in processed_nodes_light.items():
-        node_type = node_data.get("type")
-        multiplicity = node_data.get("multiplicity", 0)
-
-        if node_type == "leaf" and multiplicity > 0:
-            leaf_sequence = node_data.get("sequence_alignment", "")
-
-            if germline_alignment_light and leaf_sequence:
-                num_mutations, seq_length, _, _ = align_and_calculate_mutations(
-                    germline_alignment_light, leaf_sequence, config.alignment_method
-                )
-                mut_freq = num_mutations / seq_length if seq_length > 0 else 0.0
-                total_mut_freq_light += mut_freq * multiplicity
-                total_sequences_light += multiplicity
-
-    mean_mut_freq_light = (
-        total_mut_freq_light / total_sequences_light
-        if total_sequences_light > 0
-        else 0.0
+    mean_mut_freq, debug_info, skipped_nodes = compute_mean_mut_freq(
+        germline_alignment_light,
+        processed_nodes_light.values(),
+        config.alignment_method,
     )
-    vprint.debug(f"\n=== Light chain mean_mut_freq for clone {clone_id} ===")
-    vprint.debug(f"Total mutation frequency (weighted): {total_mut_freq_light:.6f}")
-    vprint.debug(f"Total leaf sequences: {total_sequences_light}")
-    vprint.debug(f"Mean mutation frequency (light): {mean_mut_freq_light:.6f}")
-    vprint.debug(
-        f"  (This means {mean_mut_freq_light * 100:.2f}% of positions have mutations on average)"
+    total_mut_freq = sum(d["weighted_contribution"] for d in debug_info)
+    total_sequences = sum(d["multiplicity"] for d in debug_info)
+
+    log_mutation_frequency_debug(
+        clone_id=clone_id,
+        germline_alignment=germline_alignment_light,
+        debug_info=debug_info,
+        skipped_nodes=skipped_nodes,
+        total_mut_freq=total_mut_freq,
+        total_sequences=total_sequences,
+        mean_mut_freq=mean_mut_freq,
+        chain_label="LIGHT CHAIN",
+        vprint=vprint,
     )
-    vprint.debug(f"===================================================\n")
-    return mean_mut_freq_light
+    return mean_mut_freq
 
 
 def _build_light_clone(
