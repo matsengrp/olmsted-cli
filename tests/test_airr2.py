@@ -16,6 +16,7 @@ from olmsted_cli.identifier import IdentMinter
 from olmsted_cli.process_airr2_data import (
     _locus_chain,
     _mean_mutation_frequency,
+    _node_multiplicity,
     index_rearrangements,
     process_airr2_to_olmsted,
 )
@@ -238,6 +239,86 @@ class TestMeanMutationFrequency:
         nodes = [{"type": "leaf", "sequence_alignment": "A.NT"}]
         # Only positions 0 and 3 comparable; 1 mismatch of 2 → 0.5
         assert _mean_mutation_frequency(nodes, germline) == pytest.approx(0.5)
+
+    def test_weights_by_real_multiplicity_when_present(self):
+        """A node carrying Dowser's collapse_count (#45) is weighted by it,
+        not treated as count-1, unlike the noinfo (unset multiplicity) case."""
+        germline = "AAAA"
+        nodes = [
+            {"type": "leaf", "sequence_alignment": "AAAT", "multiplicity": 3},  # 1/4
+            {"type": "leaf", "sequence_alignment": "AATT", "multiplicity": 1},  # 2/4
+        ]
+        # (0.25*3 + 0.5*1) / (3+1) = 1.25/4
+        assert _mean_mutation_frequency(nodes, germline) == pytest.approx(0.3125)
+
+    def test_unset_multiplicity_falls_back_to_one(self):
+        """The noinfo schema (no per-node multiplicity) still gets an
+        unweighted mean, matching pre-#45 behavior exactly."""
+        germline = "AAAA"
+        nodes = [
+            {"type": "leaf", "sequence_alignment": "AAAT", "multiplicity": None},
+            {"type": "leaf", "sequence_alignment": "AATT"},  # key absent entirely
+        ]
+        assert _mean_mutation_frequency(nodes, germline) == pytest.approx(0.375)
+
+
+@pytest.mark.airr2
+class TestNodeMultiplicity:
+    """Reading Dowser's collapse_count from the info catchall (#45)."""
+
+    def test_reads_collapse_count_from_tipdata(self):
+        node_record = {"info": {"tipdata": {"collapse_count": 5, "tip_order": 1}}}
+        assert _node_multiplicity(node_record) == 5
+
+    def test_none_when_info_absent(self):
+        """The noinfo schema never has an `info` key at all."""
+        assert _node_multiplicity({}) is None
+
+    def test_none_when_info_is_empty_list(self):
+        """Inferred/ASR nodes carry `info: []`, not a dict — a real shape
+        gotcha in Dowser's output that must not raise or misread."""
+        assert _node_multiplicity({"info": []}) is None
+
+    def test_none_when_tipdata_missing(self):
+        assert _node_multiplicity({"info": {}}) is None
+
+    def test_none_when_collapse_count_missing(self):
+        assert _node_multiplicity({"info": {"tipdata": {"tip_order": 1}}}) is None
+
+
+@pytest.mark.airr2
+class TestInfoCatchall:
+    """End-to-end: Dowser's info catchall flows through to real output (#45)."""
+
+    def test_collapse_count_becomes_node_multiplicity(self):
+        data = _load("nocell-info")
+        clone = data["Clone"][0]
+        observed = next(n for n in clone["nodes"] if n["node_type"] == "observed")
+        observed["info"]["tipdata"]["collapse_count"] = 7
+        target_id = observed["sequence_id"]
+
+        _datasets, _clones_dict, trees = process_airr2_to_olmsted(
+            [clone], data["Rearrangement"], minter=IdentMinter(seed=42), verbosity=0
+        )
+        node = next(
+            n for t in trees for n in t["nodes"] if n["sequence_id"] == target_id
+        )
+        assert node["multiplicity"] == 7
+
+    def test_inferred_node_multiplicity_stays_unset(self):
+        """Inferred/ASR nodes have info: [] even in the info variant — no
+        collapse_count to read, so multiplicity stays None, not fabricated."""
+        _datasets, _clones_dict, trees = _run("nocell-info")
+        inferred_nodes = [
+            n for t in trees for n in t["nodes"] if n["type"] in ("root", "internal")
+        ]
+        assert inferred_nodes  # sanity: the tree actually has some
+        assert all(n["multiplicity"] is None for n in inferred_nodes)
+
+    def test_noinfo_variant_multiplicity_still_unset(self):
+        """Unchanged behavior for the noinfo schema (no info key at all)."""
+        _datasets, _clones_dict, trees = _run("nocell")
+        assert all(n["multiplicity"] is None for t in trees for n in t["nodes"])
 
 
 @pytest.mark.airr2

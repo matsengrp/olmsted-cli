@@ -17,13 +17,11 @@ Each variant comes in two flavors, both from the same underlying trees:
   clean v2 (`noinfo`) shape without Dowser's `info` catchall. These are what
   the parser and goldens currently exercise.
 - `input-{variant}-info.json` — `writeTreesJSON(...)` (Dowser's default,
-  `dowser_fields=TRUE`). Carries the extra `info` catchall (per-position
-  gene-region labels, per-node `collapse_count`/`tip_order`/user trait
-  columns, `program_origin`) that `process_airr2_data.py` doesn't fully read
-  yet — see #45 for what's read vs. still deferred. **No golden data yet**:
-  these process cleanly through the current pipeline (the extra fields are
-  silently ignored, not fatal), but there's nothing asserting on the extra
-  fields until that issue is implemented.
+  `dowser_fields=TRUE`). Carries the extra `info` catchall: per-node
+  `collapse_count` (read as node `multiplicity`, #45), plus per-position
+  gene-region labels (`Clone.info.region`), `tip_order`, user trait columns,
+  and `program_origin`, which are **not yet read** — see #45 for what's read
+  vs. still deferred.
 
 ## Files
 
@@ -33,9 +31,15 @@ Each variant comes in two flavors, both from the same underlying trees:
 | `input-unpaired.json` / `input-unpaired-info.json` | `Cell` | IGH | 2 clones, 2 trees; nodes join by `cell_id` |
 | `input-paired.json` / `input-paired-info.json` | `Cell` | IGH + IGK/IGL | 4 clones, 4 trees — heavy/light split (`-heavy`/`-light`), per-locus sequences |
 
-`*-olmsted-golden.json` are the consolidated Olmsted outputs for the `noinfo`
-inputs only (source of truth for tests). See the "Regenerating Golden Data"
-section of `CLAUDE.md` for the exact regen commands.
+`*-olmsted-golden.json` / `*-info-olmsted-golden.json` are the consolidated
+Olmsted outputs (source of truth for tests) for the `noinfo` and `info`
+inputs respectively. See the "Regenerating Golden Data" section of
+`CLAUDE.md` for the exact regen commands. (In this sample data every node's
+`collapse_count` happens to be 1, so the `info` goldens' `multiplicity`
+values look the same as the `noinfo` goldens' fallback-to-1 — the mechanism
+is still real, just not visually distinguishable in these particular
+fixtures; see `tests/test_airr2.py::TestInfoCatchall` for a test that
+injects a distinguishing value.)
 
 ## Key schema traits exercised
 

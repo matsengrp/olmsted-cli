@@ -244,7 +244,17 @@ class TestOlmstedCLI:
         )
 
     @pytest.mark.airr2
-    @pytest.mark.parametrize("variant", ["nocell", "unpaired", "paired"])
+    @pytest.mark.parametrize(
+        "variant",
+        [
+            "nocell",
+            "unpaired",
+            "paired",
+            "nocell-info",
+            "unpaired-info",
+            "paired-info",
+        ],
+    )
     def test_airr2_consolidated_processing(self, variant):
         """`process -f airr2` on each variant matches the consolidated golden.
 

@@ -31,8 +31,17 @@ Chain handling:
   same-locus ``Rearrangement`` (IGH → heavy, IGK/IGL → light). This mirrors the
   PCP-paired output model (the webapp treats heavy and light as separate clones).
 
-Deferred (see issue #36): the Dowser ``info`` catchall, streaming, and deriving
-clone-level ``v_call``/``j_call``/``cdr3_length`` when the ``Clone`` omits them.
+Dowser's ``info`` catchall (present when the input is written with the
+default ``dowser_fields=TRUE``, absent from the "clean v2" ``noinfo`` shape)
+is read for per-node ``collapse_count`` -> ``multiplicity`` (see
+``_node_multiplicity``, #45) and clone-level ``v_call``/``j_call``/
+``junction_length`` when present. Still deferred (#45): ``Clone.info.region``
+(per-position gene-region labels), ``program_origin``, and arbitrary
+Dowser ``trait=`` columns in per-node tipdata.
+
+Also deferred (see issue #36): streaming, and deriving clone-level
+``v_call``/``j_call``/``cdr3_length`` when the ``Clone`` omits them entirely
+(cf. #24).
 """
 
 from collections import defaultdict
@@ -187,6 +196,26 @@ def _tree_ref(
     }
 
 
+def _node_multiplicity(node_record: Dict[str, Any]) -> Optional[int]:
+    """Extract a node's real multiplicity from Dowser's ``info`` catchall (#45).
+
+    Present only when the input was written with ``dowser_fields=TRUE``
+    (Dowser's default): observed nodes carry
+    ``info: {"tipdata": {"collapse_count": N, ...}}``. Inferred/ASR nodes
+    (and every node in the ``noinfo`` variant) have no usable ``collapse_count``
+    — ``info`` is either absent, an empty list, or a dict without a
+    ``tipdata`` entry — and this returns ``None`` for those, matching the
+    existing "leave unset rather than fabricate" convention.
+    """
+    info = node_record.get("info")
+    if not isinstance(info, dict):
+        return None
+    tipdata = info.get("tipdata")
+    if not isinstance(tipdata, dict):
+        return None
+    return tipdata.get("collapse_count")
+
+
 def _build_nodes(
     clone: Dict[str, Any],
     chain: Optional[str],
@@ -253,9 +282,11 @@ def _build_nodes(
             "node_class": node_record.get("node_class"),
             "locus": locus,
             "parent": parent,
-            # No multiplicity/timepoint concept in the clean v2 schema; leave
-            # unset rather than fabricate (webapp renders "<unspecified>").
-            "multiplicity": None,
+            # Real multiplicity when the input carries Dowser's info catchall
+            # (#45); None for the noinfo schema / inferred nodes, matching the
+            # existing "leave unset rather than fabricate" convention (webapp
+            # renders "<unspecified>").
+            "multiplicity": _node_multiplicity(node_record),
             "timepoint_multiplicities": [],
             "lbi": None,
             "lbr": None,
@@ -288,14 +319,23 @@ def _mean_mutation_frequency(
     """Mean per-site SHM frequency of observed leaves vs the germline root.
 
     Thin wrapper around the shared :func:`compute_mean_mut_freq` (the single
-    source of truth across PCP, AIRR, and airr2). The clean v2 schema
-    carries no per-node multiplicity, so every node is given multiplicity=1
-    — each observed leaf counts once, matching this format's inherently
-    unweighted convention.
+    source of truth across PCP, AIRR, and airr2). Uses each node's real
+    multiplicity when the input carries Dowser's info catchall (#45,
+    ``collapse_count``); falls back to multiplicity=1 (each observed leaf
+    counts once) for the clean v2 (``noinfo``) schema, which carries no
+    per-node multiplicity at all.
     """
-    unit_multiplicity_nodes = ({**node, "multiplicity": 1} for node in nodes)
+    weighted_nodes = (
+        {
+            **node,
+            "multiplicity": node["multiplicity"]
+            if node.get("multiplicity") is not None
+            else 1,
+        }
+        for node in nodes
+    )
     mean_mut_freq, _, _ = compute_mean_mut_freq(
-        germline_alignment or "", unit_multiplicity_nodes
+        germline_alignment or "", weighted_nodes
     )
     return mean_mut_freq
 
