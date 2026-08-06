@@ -20,10 +20,10 @@ Each variant comes in two flavors, both from the same underlying trees:
   `dowser_fields=TRUE`). Carries the extra `info` catchall (per-position
   gene-region labels, per-node `collapse_count`/`tip_order`/user trait
   columns, `program_origin`) that `process_airr2_data.py` doesn't fully read
-  yet — see the tracking issue for what's read vs. still deferred. **No
-  golden data yet**: these process cleanly through the current pipeline
-  (the extra fields are silently ignored, not fatal), but there's nothing
-  asserting on the extra fields until that issue is implemented.
+  yet — see #45 for what's read vs. still deferred. **No golden data yet**:
+  these process cleanly through the current pipeline (the extra fields are
+  silently ignored, not fatal), but there's nothing asserting on the extra
+  fields until that issue is implemented.
 
 ## Files
 
