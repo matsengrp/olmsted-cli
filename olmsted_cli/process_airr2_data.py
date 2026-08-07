@@ -42,9 +42,13 @@ handled for paired heavy+light clones, where ``region`` covers both chains
 concatenated. Still deferred (#45): ``program_origin`` and arbitrary Dowser
 ``trait=`` columns in per-node tipdata.
 
-Also deferred (see issue #36): streaming, and deriving clone-level
-``v_call``/``j_call``/``cdr3_length`` when the ``Clone`` omits them entirely
-(cf. #24).
+Clone-level ``v_call``/``j_call`` fall back to the germline/root node's own
+``Rearrangement`` record when the ``Clone`` doesn't supply them (see
+``_build_nodes``'s ``germline_gene_calls``, cf. #24); ``d_call`` — which the
+``Clone``-level ``info`` catchall never carries at all — comes *only* from
+that fallback.
+
+Also deferred (see issue #36): streaming.
 """
 
 from collections import defaultdict
@@ -121,34 +125,28 @@ def _reroot_on_ancestor(
     return node
 
 
-def _resolve_sequence(
+def _resolve_rearrangement_record(
     node_record: Dict[str, Any],
     clone_class: str,
     chain: Optional[str],
     by_sequence_id: Dict[str, Dict[str, Any]],
     by_cell_id: Dict[str, List[Dict[str, Any]]],
-) -> Tuple[str, Optional[str]]:
-    """Join one tree node to its ``Rearrangement`` record for a given chain.
-
-    Returns ``(sequence_alignment, locus)``. ``sequence_alignment`` is ``""``
-    when no matching record exists (caller warns); ``locus`` is ``None`` then.
+) -> Optional[Dict[str, Any]]:
+    """Join one tree node to its full ``Rearrangement`` record for a given chain.
 
     - ``Rearrangement`` class: join by ``sequence_id``.
     - ``Cell`` class: join by ``cell_id``; for a paired split, pick the record
       whose locus matches ``chain`` (heavy → IGH, light → IGK/IGL). For a
       single-chain cell (``chain is None``) take the sole record.
+
+    Returns ``None`` when no matching record exists.
     """
     if clone_class == "Cell":
         records = by_cell_id.get(node_record.get("cell_id"), [])
         if chain is not None:
             records = [r for r in records if _locus_chain(r.get("locus")) == chain]
-        record = records[0] if records else None
-    else:
-        record = by_sequence_id.get(node_record.get("sequence_id"))
-
-    if record is None:
-        return "", None
-    return record.get("sequence_alignment") or "", record.get("locus")
+        return records[0] if records else None
+    return by_sequence_id.get(node_record.get("sequence_id"))
 
 
 def _clone_chains(
@@ -298,20 +296,31 @@ def _build_nodes(
     *,
     compute_metrics: bool,
     lbi_tau: float,
-) -> Tuple[List[Dict[str, Any]], str, Optional[str]]:
+) -> Tuple[List[Dict[str, Any]], str, Optional[str], Dict[str, str]]:
     """Build the Olmsted node array for one (clone, chain).
 
     Topology comes from the ``Clone.tree`` Newick (authoritative; its labels are
     the node ids), rerooted on ``inferred_ancestor``. Returns
-    ``(nodes, root_id, germline_alignment)``, or ``([], "", None)`` when the
-    Newick is missing/unparseable.
+    ``(nodes, root_id, germline_alignment, germline_gene_calls)``, or
+    ``([], "", None, {})`` when the Newick is missing/unparseable.
+
+    ``germline_gene_calls`` is ``{"v_call": ..., "d_call": ..., "j_call": ...}``
+    (only keys with a non-``None`` value) read off the germline/root node's own
+    ``Rearrangement`` record (#45/#24) — V(D)J gene usage is invariant across a
+    clone's members by definition (one recombination event founds the clone),
+    so the germline record is a clean, unbiased single source, matching the
+    same convention already used for ``germline_alignment`` (also sourced from
+    the root node). The caller uses this as a fallback for clone-level
+    ``v_call``/``j_call`` (when the ``Clone`` doesn't supply them) and as the
+    only source for ``d_call`` (which the ``Clone``-level ``info`` catchall
+    never carries).
     """
     newick = clone.get("tree")
     if not newick:
         vprint.status(
             f"  Warning: clone {clone.get('clone_id')} has no tree; skipping."
         )
-        return [], "", None
+        return [], "", None, {}
 
     ete_tree = ete3.PhyloTree(newick, format=1)
     ete_tree = _reroot_on_ancestor(ete_tree, clone.get("inferred_ancestor"))
@@ -322,6 +331,7 @@ def _build_nodes(
     nodes_by_id: Dict[str, Dict[str, Any]] = {}
     edges: List[Tuple[str, str, float]] = []
     root_id = ete_tree.name
+    germline_gene_calls: Dict[str, str] = {}
 
     for ete_node in ete_tree.traverse("postorder"):
         name = ete_node.name
@@ -335,14 +345,26 @@ def _build_nodes(
             parent = ete_node.up.name
             edges.append((ete_node.up.name, name, ete_node.dist))
 
-        sequence_alignment, locus = _resolve_sequence(
+        rearrangement_record = _resolve_rearrangement_record(
             node_record, clone_class, chain, by_sequence_id, by_cell_id
         )
+        sequence_alignment = (
+            (rearrangement_record.get("sequence_alignment") or "")
+            if rearrangement_record
+            else ""
+        )
+        locus = rearrangement_record.get("locus") if rearrangement_record else None
         if not sequence_alignment:
             vprint.status(
                 f"  Warning: node '{name}' in clone {clone.get('clone_id')} "
                 "has no matching Rearrangement sequence."
             )
+        if ete_node.up is None and rearrangement_record:
+            germline_gene_calls = {
+                field: rearrangement_record[field]
+                for field in ("v_call", "d_call", "j_call")
+                if rearrangement_record.get(field) is not None
+            }
 
         nodes_by_id[name] = {
             "sequence_id": name,
@@ -384,7 +406,7 @@ def _build_nodes(
     # Include any Newick nodes absent from the nodes list (defensive).
     nodes.extend(nodes_by_id[nid] for nid in nodes_by_id if nid not in set(ordered_ids))
 
-    return nodes, root_id, germline_alignment
+    return nodes, root_id, germline_alignment, germline_gene_calls
 
 
 def _mean_mutation_frequency(
@@ -471,7 +493,7 @@ def process_airr2_to_olmsted(
         rerooted_newick = _rerooted_newick(clone)
 
         for chain in chains:
-            nodes, _root_id, germline_alignment = _build_nodes(
+            nodes, _root_id, germline_alignment, germline_gene_calls = _build_nodes(
                 clone,
                 chain,
                 by_sequence_id,
@@ -534,6 +556,13 @@ def process_airr2_to_olmsted(
             ):
                 if clone.get(src) is not None:
                     clone_out[dst] = clone[src]
+            # Fall back to the germline Rearrangement record's own v_call/
+            # d_call/j_call for whichever of those the Clone-level info
+            # catchall didn't supply (cf. #24/#45) — this is the *only*
+            # source for d_call, which the Clone-level info never carries.
+            for field in ("v_call", "d_call", "j_call"):
+                if clone_out.get(field) is None and field in germline_gene_calls:
+                    clone_out[field] = germline_gene_calls[field]
             # Derive cdr1/cdr2/cdr3 alignment boundaries from Dowser's
             # Clone.info.region when present (#45) — the only source of
             # CDR1/CDR2 boundaries this format has at all, and a more

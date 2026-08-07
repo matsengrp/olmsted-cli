@@ -312,10 +312,15 @@ are additionally read (see `process_airr2_data.py`, issue #45):
   `germline_alignment` length, so it's safely skipped rather than
   misattributed.
 
+Clone-level `v_call`/`j_call` fall back to the germline/root node's own
+`Rearrangement` record when the `Clone` doesn't supply them (cf. #24);
+`d_call` — which the `Clone`-level `info` catchall never carries at all —
+comes only from that fallback. This works for both the `info` and `noinfo`
+variants, since it reads the `Rearrangement` table directly rather than the
+`info` catchall.
+
 Still deferred (#45): `program_origin`, and arbitrary Dowser `trait=` columns
-in per-node tipdata. Streaming and deriving clone metadata from
-`Rearrangement` when the `Clone` omits it entirely are deferred separately
-(see issue #36).
+in per-node tipdata. Streaming is deferred separately (see issue #36).
 
 See `example-data/airr2/` for `nocell`/`unpaired`/`paired` inputs + goldens,
 in both the `noinfo` and `info` flavors.

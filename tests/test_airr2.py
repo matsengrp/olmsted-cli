@@ -426,6 +426,73 @@ class TestInfoCatchall:
 
 
 @pytest.mark.airr2
+class TestGermlineGeneCallFallback:
+    """v_call/d_call/j_call derived from the germline Rearrangement record
+    (cf. #24/#45) — d_call's only source, and a fallback for v_call/j_call
+    when the Clone-level info catchall doesn't supply them."""
+
+    def _patch_germline_record(self, variant, **calls):
+        """Load `variant`, inject `calls` onto the germline's own
+        Rearrangement record, and return (clone, rearrangements)."""
+        data = _load(variant)
+        clone = data["Clone"][0]
+        germline_id = clone["inferred_ancestor"]
+        record = next(
+            r for r in data["Rearrangement"] if r.get("sequence_id") == germline_id
+        )
+        record.update(calls)
+        return clone, data["Rearrangement"]
+
+    def test_d_call_has_no_clone_level_source_and_comes_from_germline_record(self):
+        """d_call is never present on Clone (even in the info variant) — the
+        germline Rearrangement record is the only possible source."""
+        clone, rearrangements = self._patch_germline_record(
+            "nocell-info", d_call="IGHD3-10*01"
+        )
+        assert clone.get("d_call") is None  # sanity: truly absent from Clone
+        _datasets, clones_dict, _trees = process_airr2_to_olmsted(
+            [clone], rearrangements, minter=IdentMinter(seed=42), verbosity=0
+        )
+        assert _clones(clones_dict)[0]["d_call"] == "IGHD3-10*01"
+
+    def test_v_call_j_call_fall_back_to_germline_record_when_clone_omits_them(self):
+        """The noinfo variant's Clone has no v_call/j_call at all -- the
+        germline record fills the gap when it has them."""
+        clone, rearrangements = self._patch_germline_record(
+            "nocell-noinfo", v_call="IGHV1-2*02", j_call="IGHJ4*02"
+        )
+        _datasets, clones_dict, _trees = process_airr2_to_olmsted(
+            [clone], rearrangements, minter=IdentMinter(seed=42), verbosity=0
+        )
+        out_clone = _clones(clones_dict)[0]
+        assert out_clone["v_call"] == "IGHV1-2*02"
+        assert out_clone["j_call"] == "IGHJ4*02"
+
+    def test_clone_level_v_call_j_call_take_priority_over_germline_record(self):
+        """When the info variant's Clone already supplies v_call/j_call,
+        that value wins even if the germline record disagrees."""
+        clone, rearrangements = self._patch_germline_record(
+            "nocell-info", v_call="IGHV1-2*02", j_call="IGHJ4*02"
+        )
+        assert clone["v_call"] == "IGHV3-23"  # sanity: Clone-level value present
+        _datasets, clones_dict, _trees = process_airr2_to_olmsted(
+            [clone], rearrangements, minter=IdentMinter(seed=42), verbosity=0
+        )
+        out_clone = _clones(clones_dict)[0]
+        assert out_clone["v_call"] == "IGHV3-23"
+        assert out_clone["j_call"] == "IGHJ3"
+
+    def test_no_gene_calls_when_germline_record_has_none(self):
+        """Unchanged behavior for the tracked fixtures as-is (germline
+        records carry null v_call/d_call/j_call in the sample data)."""
+        _datasets, clones_dict, _trees = _run("nocell-noinfo")
+        out_clone = _clones(clones_dict)[0]
+        assert out_clone.get("v_call") is None
+        assert out_clone.get("d_call") is None
+        assert out_clone.get("j_call") is None
+
+
+@pytest.mark.airr2
 class TestMissingSequenceGraceful:
     def test_missing_rearrangement_yields_empty_sequence(self):
         """A node with no matching Rearrangement gets an empty sequence, not a crash."""
