@@ -31,8 +31,24 @@ Chain handling:
   same-locus ``Rearrangement`` (IGH → heavy, IGK/IGL → light). This mirrors the
   PCP-paired output model (the webapp treats heavy and light as separate clones).
 
-Deferred (see issue #36): the Dowser ``info`` catchall, streaming, and deriving
-clone-level ``v_call``/``j_call``/``cdr3_length`` when the ``Clone`` omits them.
+Dowser's ``info`` catchall (present when the input is written with the
+default ``dowser_fields=TRUE``, absent from the "clean v2" ``noinfo`` shape)
+is read for per-node ``collapse_count`` -> ``multiplicity`` (see
+``_node_multiplicity``, #45), clone-level ``v_call``/``j_call``/
+``junction_length`` when present, and per-position gene-region labels
+(``Clone.info.region``) -> ``cdr1``/``cdr2``/``cdr3`` ``_alignment_start``/
+``_end``/``_length`` (see ``_cdr_boundaries_from_region``, #45) — not yet
+handled for paired heavy+light clones, where ``region`` covers both chains
+concatenated. Still deferred (#45): ``program_origin`` and arbitrary Dowser
+``trait=`` columns in per-node tipdata.
+
+Clone-level ``v_call``/``j_call`` fall back to the germline/root node's own
+``Rearrangement`` record when the ``Clone`` doesn't supply them (see
+``_build_nodes``'s ``germline_gene_calls``, cf. #24); ``d_call`` — which the
+``Clone``-level ``info`` catchall never carries at all — comes *only* from
+that fallback.
+
+Also deferred (see issue #36): streaming.
 """
 
 from collections import defaultdict
@@ -109,34 +125,28 @@ def _reroot_on_ancestor(
     return node
 
 
-def _resolve_sequence(
+def _resolve_rearrangement_record(
     node_record: Dict[str, Any],
     clone_class: str,
     chain: Optional[str],
     by_sequence_id: Dict[str, Dict[str, Any]],
     by_cell_id: Dict[str, List[Dict[str, Any]]],
-) -> Tuple[str, Optional[str]]:
-    """Join one tree node to its ``Rearrangement`` record for a given chain.
-
-    Returns ``(sequence_alignment, locus)``. ``sequence_alignment`` is ``""``
-    when no matching record exists (caller warns); ``locus`` is ``None`` then.
+) -> Optional[Dict[str, Any]]:
+    """Join one tree node to its full ``Rearrangement`` record for a given chain.
 
     - ``Rearrangement`` class: join by ``sequence_id``.
     - ``Cell`` class: join by ``cell_id``; for a paired split, pick the record
       whose locus matches ``chain`` (heavy → IGH, light → IGK/IGL). For a
       single-chain cell (``chain is None``) take the sole record.
+
+    Returns ``None`` when no matching record exists.
     """
     if clone_class == "Cell":
         records = by_cell_id.get(node_record.get("cell_id"), [])
         if chain is not None:
             records = [r for r in records if _locus_chain(r.get("locus")) == chain]
-        record = records[0] if records else None
-    else:
-        record = by_sequence_id.get(node_record.get("sequence_id"))
-
-    if record is None:
-        return "", None
-    return record.get("sequence_alignment") or "", record.get("locus")
+        return records[0] if records else None
+    return by_sequence_id.get(node_record.get("sequence_id"))
 
 
 def _clone_chains(
@@ -187,6 +197,119 @@ def _tree_ref(
     }
 
 
+def _node_multiplicity(node_record: Dict[str, Any]) -> Optional[int]:
+    """Extract a node's real multiplicity from Dowser's ``info`` catchall (#45).
+
+    Present only when the input was written with ``dowser_fields=TRUE``
+    (Dowser's default): observed nodes carry
+    ``info: {"tipdata": {"collapse_count": N, ...}}``. Inferred/ASR nodes
+    (and every node in the ``noinfo`` variant) have no usable ``collapse_count``
+    — ``info`` is either absent, an empty list, or a dict without a
+    ``tipdata`` entry — and this returns ``None`` for those, matching the
+    existing "leave unset rather than fabricate" convention.
+    """
+    info = node_record.get("info")
+    if not isinstance(info, dict):
+        return None
+    tipdata = info.get("tipdata")
+    if not isinstance(tipdata, dict):
+        return None
+    return tipdata.get("collapse_count")
+
+
+#: Region labels from Dowser's Clone.info.region we surface as cdr*_alignment
+#: fields (matching PCP/legacy-AIRR's field set). fwr1-4 have no established
+#: Olmsted output field, so they're not derived here.
+_CDR_REGIONS = ("cdr1", "cdr2", "cdr3")
+
+#: IMGT/AIRR Community: junction = CDR3 plus the 2 conserved anchor residues
+#: CDR3 excludes -- the V-gene's 2nd-CYS (start) and the J-gene's TRP/PHE
+#: (end) -- so junction is exactly 1 codon (3 nucleotides = 1 amino acid)
+#: longer on each side (#46). Verified exactly against real data: a 51nt
+#: region-derived (strict) CDR3 span vs. a 57nt junction_length for the same
+#: clone, 51 + 2*3 = 57.
+_JUNCTION_ANCHOR_LENGTH = 3
+
+
+def _cdr_boundaries_from_region(
+    region: Optional[List[str]], germline_alignment: Optional[str]
+) -> Dict[str, Tuple[int, int]]:
+    """Derive cdr1/cdr2/cdr3 boundaries in ``germline_alignment``'s (gapped)
+    coordinate space from Dowser's ``Clone.info.region`` catchall (#45).
+
+    ``region`` is a per-position IMGT region label array (``fwr1``, ``cdr1``,
+    ``fwr2``, ``cdr2``, ``fwr3``, ``cdr3``, ``fwr4``) indexed against the
+    *ungapped* ``Rearrangement.sequence`` — one entry per nucleotide, no gap
+    placeholders. Olmsted's ``germline_alignment`` (what everything renders
+    against) is the *gapped* ``sequence_alignment`` — IMGT ``.`` padding for
+    CDR-loop-length harmonization. This walks ``germline_alignment``'s
+    non-gap characters in lockstep with ``region`` to remap each boundary
+    into gapped coordinates; a run of gap characters is attributed to
+    whichever region it falls within, so within-region IMGT padding doesn't
+    leak into a neighboring region's span.
+
+    The ``cdr3`` span is extended by ``_JUNCTION_ANCHOR_LENGTH`` ungapped
+    nucleotides on each side (i.e. before remapping to gapped coordinates, so
+    the extension can't land inside a run of IMGT padding) to convert
+    ``region``'s strict IMGT CDR3 into the junction convention ``cdr3_length``
+    uses everywhere else in this project (#46) — ``cdr1``/``cdr2`` have no
+    such distinction and are returned as ``region`` gives them.
+
+    Returns ``{"cdr1": (start, end), ...}`` (0-based, half-open nucleotide
+    positions — the same convention as the PCP/legacy-AIRR
+    ``cdr*_alignment_start``/``_end`` fields) for whichever of cdr1/cdr2/cdr3
+    are present in ``region``. Returns ``{}`` when ``region`` or
+    ``germline_alignment`` is missing/empty, or when the alignment's non-gap
+    character count doesn't match ``len(region)`` (defensive: a length
+    mismatch means the position mapping can't be trusted, so skip rather
+    than guess).
+
+    Known gap (not yet handled): for a paired (heavy+light) ``Cell`` clone,
+    Dowser's ``region`` is a single array covering *both* chains
+    concatenated (verified: heavy chain's positions, then light chain's
+    restarting at ``fwr1``) — this doesn't match either chain's individual
+    ``germline_alignment`` alone, so the length check above safely skips it
+    rather than misattributing one chain's boundaries to the other. Splitting
+    the combined array per-locus would need a confirmed, general concatenation
+    order from Dowser (only one example was available to infer heavy-then-
+    light from) — deferred rather than guessed.
+    """
+    if not region or not germline_alignment:
+        return {}
+
+    gapped_positions = [
+        i for i, ch in enumerate(germline_alignment) if ch not in (".", "-")
+    ]
+    if len(gapped_positions) != len(region):
+        return {}
+
+    def gapped_boundary(ungapped_idx: int) -> int:
+        return (
+            gapped_positions[ungapped_idx]
+            if ungapped_idx < len(gapped_positions)
+            else len(germline_alignment)
+        )
+
+    boundaries: Dict[str, Tuple[int, int]] = {}
+    start = 0
+    current = region[0]
+    for i in range(1, len(region) + 1):
+        label = region[i] if i < len(region) else None
+        if label != current:
+            if current in _CDR_REGIONS:
+                span_start, span_end = start, i
+                if current == "cdr3":
+                    span_start = max(0, span_start - _JUNCTION_ANCHOR_LENGTH)
+                    span_end = min(len(region), span_end + _JUNCTION_ANCHOR_LENGTH)
+                boundaries[current] = (
+                    gapped_boundary(span_start),
+                    gapped_boundary(span_end),
+                )
+            start = i
+            current = label
+    return boundaries
+
+
 def _build_nodes(
     clone: Dict[str, Any],
     chain: Optional[str],
@@ -195,20 +318,31 @@ def _build_nodes(
     *,
     compute_metrics: bool,
     lbi_tau: float,
-) -> Tuple[List[Dict[str, Any]], str, Optional[str]]:
+) -> Tuple[List[Dict[str, Any]], str, Optional[str], Dict[str, str]]:
     """Build the Olmsted node array for one (clone, chain).
 
     Topology comes from the ``Clone.tree`` Newick (authoritative; its labels are
     the node ids), rerooted on ``inferred_ancestor``. Returns
-    ``(nodes, root_id, germline_alignment)``, or ``([], "", None)`` when the
-    Newick is missing/unparseable.
+    ``(nodes, root_id, germline_alignment, germline_gene_calls)``, or
+    ``([], "", None, {})`` when the Newick is missing/unparseable.
+
+    ``germline_gene_calls`` is ``{"v_call": ..., "d_call": ..., "j_call": ...}``
+    (only keys with a non-``None`` value) read off the germline/root node's own
+    ``Rearrangement`` record (#45/#24) — V(D)J gene usage is invariant across a
+    clone's members by definition (one recombination event founds the clone),
+    so the germline record is a clean, unbiased single source, matching the
+    same convention already used for ``germline_alignment`` (also sourced from
+    the root node). The caller uses this as a fallback for clone-level
+    ``v_call``/``j_call`` (when the ``Clone`` doesn't supply them) and as the
+    only source for ``d_call`` (which the ``Clone``-level ``info`` catchall
+    never carries).
     """
     newick = clone.get("tree")
     if not newick:
         vprint.status(
             f"  Warning: clone {clone.get('clone_id')} has no tree; skipping."
         )
-        return [], "", None
+        return [], "", None, {}
 
     ete_tree = ete3.PhyloTree(newick, format=1)
     ete_tree = _reroot_on_ancestor(ete_tree, clone.get("inferred_ancestor"))
@@ -219,6 +353,7 @@ def _build_nodes(
     nodes_by_id: Dict[str, Dict[str, Any]] = {}
     edges: List[Tuple[str, str, float]] = []
     root_id = ete_tree.name
+    germline_gene_calls: Dict[str, str] = {}
 
     for ete_node in ete_tree.traverse("postorder"):
         name = ete_node.name
@@ -232,14 +367,26 @@ def _build_nodes(
             parent = ete_node.up.name
             edges.append((ete_node.up.name, name, ete_node.dist))
 
-        sequence_alignment, locus = _resolve_sequence(
+        rearrangement_record = _resolve_rearrangement_record(
             node_record, clone_class, chain, by_sequence_id, by_cell_id
         )
+        sequence_alignment = (
+            (rearrangement_record.get("sequence_alignment") or "")
+            if rearrangement_record
+            else ""
+        )
+        locus = rearrangement_record.get("locus") if rearrangement_record else None
         if not sequence_alignment:
             vprint.status(
                 f"  Warning: node '{name}' in clone {clone.get('clone_id')} "
                 "has no matching Rearrangement sequence."
             )
+        if ete_node.up is None and rearrangement_record:
+            germline_gene_calls = {
+                field: rearrangement_record[field]
+                for field in ("v_call", "d_call", "j_call")
+                if rearrangement_record.get(field) is not None
+            }
 
         nodes_by_id[name] = {
             "sequence_id": name,
@@ -253,9 +400,11 @@ def _build_nodes(
             "node_class": node_record.get("node_class"),
             "locus": locus,
             "parent": parent,
-            # No multiplicity/timepoint concept in the clean v2 schema; leave
-            # unset rather than fabricate (webapp renders "<unspecified>").
-            "multiplicity": None,
+            # Real multiplicity when the input carries Dowser's info catchall
+            # (#45); None for the noinfo schema / inferred nodes, matching the
+            # existing "leave unset rather than fabricate" convention (webapp
+            # renders "<unspecified>").
+            "multiplicity": _node_multiplicity(node_record),
             "timepoint_multiplicities": [],
             "lbi": None,
             "lbr": None,
@@ -279,7 +428,7 @@ def _build_nodes(
     # Include any Newick nodes absent from the nodes list (defensive).
     nodes.extend(nodes_by_id[nid] for nid in nodes_by_id if nid not in set(ordered_ids))
 
-    return nodes, root_id, germline_alignment
+    return nodes, root_id, germline_alignment, germline_gene_calls
 
 
 def _mean_mutation_frequency(
@@ -288,14 +437,23 @@ def _mean_mutation_frequency(
     """Mean per-site SHM frequency of observed leaves vs the germline root.
 
     Thin wrapper around the shared :func:`compute_mean_mut_freq` (the single
-    source of truth across PCP, AIRR, and airr2). The clean v2 schema
-    carries no per-node multiplicity, so every node is given multiplicity=1
-    — each observed leaf counts once, matching this format's inherently
-    unweighted convention.
+    source of truth across PCP, AIRR, and airr2). Uses each node's real
+    multiplicity when the input carries Dowser's info catchall (#45,
+    ``collapse_count``); falls back to multiplicity=1 (each observed leaf
+    counts once) for the clean v2 (``noinfo``) schema, which carries no
+    per-node multiplicity at all.
     """
-    unit_multiplicity_nodes = ({**node, "multiplicity": 1} for node in nodes)
+    weighted_nodes = (
+        {
+            **node,
+            "multiplicity": node["multiplicity"]
+            if node.get("multiplicity") is not None
+            else 1,
+        }
+        for node in nodes
+    )
     mean_mut_freq, _, _ = compute_mean_mut_freq(
-        germline_alignment or "", unit_multiplicity_nodes
+        germline_alignment or "", weighted_nodes
     )
     return mean_mut_freq
 
@@ -357,7 +515,7 @@ def process_airr2_to_olmsted(
         rerooted_newick = _rerooted_newick(clone)
 
         for chain in chains:
-            nodes, _root_id, germline_alignment = _build_nodes(
+            nodes, _root_id, germline_alignment, germline_gene_calls = _build_nodes(
                 clone,
                 chain,
                 by_sequence_id,
@@ -420,6 +578,45 @@ def process_airr2_to_olmsted(
             ):
                 if clone.get(src) is not None:
                     clone_out[dst] = clone[src]
+            # Fall back to the germline Rearrangement record's own v_call/
+            # d_call/j_call for whichever of those the Clone-level info
+            # catchall didn't supply (cf. #24/#45) — this is the *only*
+            # source for d_call, which the Clone-level info never carries.
+            for field in ("v_call", "d_call", "j_call"):
+                if clone_out.get(field) is None and field in germline_gene_calls:
+                    clone_out[field] = germline_gene_calls[field]
+            # Derive cdr1/cdr2/cdr3 alignment boundaries from Dowser's
+            # Clone.info.region when present (#45) — the only source of
+            # CDR1/CDR2 boundaries this format has at all, and a more
+            # complete cdr3 (alignment_start/end, not just a bare length).
+            #
+            # cdr3 is normalized to the junction convention (#46):
+            # _cdr_boundaries_from_region already extends region's strict
+            # IMGT cdr3 span by the 2 conserved anchor codons junction
+            # includes, since cdr3_length is a synonym for junction length
+            # everywhere else in this project (schemas.py, PCP, legacy
+            # AIRR). So when junction_length is also available, the two
+            # should now agree exactly; disagreement means something
+            # unexpected (e.g. a non-standard anchor convention) rather than
+            # the known, already-accounted-for CDR3/junction difference —
+            # worth a warning rather than silently picking one.
+            clone_info = clone.get("info")
+            region = clone_info.get("region") if isinstance(clone_info, dict) else None
+            region_boundaries = _cdr_boundaries_from_region(region, germline_alignment)
+            if "cdr3" in region_boundaries and clone.get("junction_length") is not None:
+                region_cdr3_start, region_cdr3_end = region_boundaries["cdr3"]
+                region_cdr3_length = region_cdr3_end - region_cdr3_start
+                if region_cdr3_length != clone["junction_length"]:
+                    vprint.status(
+                        f"  Warning: clone '{clone_id}' region-derived cdr3 length "
+                        f"({region_cdr3_length}, junction-normalized) disagrees with "
+                        f"junction_length ({clone['junction_length']}). Using the "
+                        "region-derived value."
+                    )
+            for cdr, (start, end) in region_boundaries.items():
+                clone_out[f"{cdr}_alignment_start"] = start
+                clone_out[f"{cdr}_alignment_end"] = end
+                clone_out[f"{cdr}_length"] = end - start
             if is_paired:
                 clone_out["is_paired"] = True
                 clone_out["pair_id"] = f"pair-{clone_id}"

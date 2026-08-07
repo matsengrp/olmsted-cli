@@ -244,7 +244,17 @@ class TestOlmstedCLI:
         )
 
     @pytest.mark.airr2
-    @pytest.mark.parametrize("variant", ["nocell", "unpaired", "paired"])
+    @pytest.mark.parametrize(
+        "variant",
+        [
+            "nocell-noinfo",
+            "unpaired-noinfo",
+            "paired-noinfo",
+            "nocell-info",
+            "unpaired-info",
+            "paired-info",
+        ],
+    )
     def test_airr2_consolidated_processing(self, variant):
         """`process -f airr2` on each variant matches the consolidated golden.
 
@@ -282,7 +292,7 @@ class TestOlmstedCLI:
     @pytest.mark.airr2
     def test_airr2_consolidated_inline_validation(self):
         """`process -f airr2 --validate` runs without error (paired variant)."""
-        input_file = self.test_data_dir / "airr2" / "input-paired.json"
+        input_file = self.test_data_dir / "airr2" / "input-paired-noinfo.json"
         output_file = Path(self.temp_dir) / "airr2_paired_validated.json"
 
         cmd = [
@@ -297,7 +307,7 @@ class TestOlmstedCLI:
             "--seed",
             "42",
             "--name",
-            "airr2-paired-example",
+            "airr2-paired-noinfo-example",
             "--json-format",
             "pretty",
             "--validate",
@@ -312,7 +322,7 @@ class TestOlmstedCLI:
     @pytest.mark.airr2
     def test_airr2_auto_format_detection(self):
         """`process` with no `-f` auto-detects the airr2 format."""
-        input_file = self.test_data_dir / "airr2" / "input-paired.json"
+        input_file = self.test_data_dir / "airr2" / "input-paired-noinfo.json"
         output_file = Path(self.temp_dir) / "airr2_auto.json"
 
         cmd = [
@@ -325,14 +335,14 @@ class TestOlmstedCLI:
             "--seed",
             "42",
             "--name",
-            "airr2-paired-example",
+            "airr2-paired-noinfo-example",
             "--json-format",
             "pretty",
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)
         assert result.returncode == 0, f"Command failed: {result.stderr}"
-        golden_file = self.test_data_dir / "airr2" / "paired-olmsted-golden.json"
+        golden_file = self.test_data_dir / "airr2" / "paired-noinfo-olmsted-golden.json"
         match, message = compare_consolidated_files(str(golden_file), str(output_file))
         assert match, f"Auto-detected output doesn't match golden:\n{message}"
 
