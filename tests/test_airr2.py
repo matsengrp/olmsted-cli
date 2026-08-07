@@ -14,6 +14,7 @@ import pytest
 
 from olmsted_cli.identifier import IdentMinter
 from olmsted_cli.process_airr2_data import (
+    _cdr_boundaries_from_region,
     _locus_chain,
     _mean_mutation_frequency,
     _node_multiplicity,
@@ -287,6 +288,69 @@ class TestNodeMultiplicity:
 
 
 @pytest.mark.airr2
+class TestCdrBoundariesFromRegion:
+    """Deriving cdr1/cdr2/cdr3 alignment boundaries from Clone.info.region (#45)."""
+
+    def test_no_gaps_maps_directly(self):
+        region = ["fwr1"] * 3 + ["cdr1"] * 2 + ["fwr2"] * 3
+        germline_alignment = "AAAAAAAA"  # 8 chars, no gaps, matches len(region)
+        boundaries = _cdr_boundaries_from_region(region, germline_alignment)
+        assert boundaries == {"cdr1": (3, 5)}
+
+    def test_remaps_through_gap_padding(self):
+        """Interior '.' padding in germline_alignment shifts boundaries, and
+        a gap run is attributed to whichever region it falls within."""
+        # Ungapped (real chars only): fwr1(3) cdr1(2) fwr2(3) -- matches
+        # region below, one entry per real nucleotide.
+        region = ["fwr1"] * 3 + ["cdr1"] * 2 + ["fwr2"] * 3
+        # Gapped: "AAAA..AAAA" -- 2 gap chars inserted between the two real
+        # cdr1 characters (positions 3 and 6).
+        germline_alignment = "AAA" + "A..A" + "AAA"  # len 10
+        boundaries = _cdr_boundaries_from_region(region, germline_alignment)
+        # cdr1's real characters land at gapped positions 3 and 6; the next
+        # region (fwr2) starts at gapped position 7 -- so the interior gap
+        # pair (positions 4, 5) is attributed to cdr1, giving span [3, 7).
+        assert boundaries["cdr1"] == (3, 7)
+
+    def test_matches_real_dowser_fixture(self):
+        """Cross-check against the real nocell-info fixture's clone 10004,
+        whose boundaries were independently hand-computed."""
+        data = _load("nocell-info")
+        clone = data["Clone"][0]
+        assert clone["clone_id"] == "10004"
+        region = clone["info"]["region"]
+        rear_by_id = {r.get("sequence_id"): r for r in data["Rearrangement"]}
+        germline = rear_by_id[clone["inferred_ancestor"]]
+        boundaries = _cdr_boundaries_from_region(region, germline["sequence_alignment"])
+        assert boundaries == {
+            "cdr1": (78, 114),
+            "cdr2": (165, 195),
+            "cdr3": (312, 363),
+        }
+
+    def test_only_cdr_regions_returned(self):
+        region = ["fwr1", "cdr1", "fwr2", "cdr2", "fwr3", "cdr3", "fwr4"]
+        boundaries = _cdr_boundaries_from_region(region, "A" * 7)
+        assert set(boundaries.keys()) == {"cdr1", "cdr2", "cdr3"}
+
+    def test_empty_when_region_missing(self):
+        assert _cdr_boundaries_from_region(None, "AAAA") == {}
+        assert _cdr_boundaries_from_region([], "AAAA") == {}
+
+    def test_empty_when_germline_alignment_missing(self):
+        assert _cdr_boundaries_from_region(["fwr1"], None) == {}
+        assert _cdr_boundaries_from_region(["fwr1"], "") == {}
+
+    def test_empty_on_length_mismatch(self):
+        """The paired heavy+light case (#45 known gap): region covers both
+        chains concatenated, so it won't match either chain's alignment
+        alone -- must skip safely, not misattribute boundaries."""
+        region = ["fwr1"] * 10
+        germline_alignment = "A" * 5  # deliberately wrong length
+        assert _cdr_boundaries_from_region(region, germline_alignment) == {}
+
+
+@pytest.mark.airr2
 class TestInfoCatchall:
     """End-to-end: Dowser's info catchall flows through to real output (#45)."""
 
@@ -319,6 +383,46 @@ class TestInfoCatchall:
         """Unchanged behavior for the noinfo schema (no info key at all)."""
         _datasets, _clones_dict, trees = _run("nocell")
         assert all(n["multiplicity"] is None for t in trees for n in t["nodes"])
+
+    def test_cdr_boundaries_appear_on_output_clone(self):
+        """Clone.info.region flows through to cdr1/cdr2/cdr3 alignment
+        fields on unpaired (single-chain) clones."""
+        _datasets, clones_dict, _trees = _run("nocell-info")
+        clone = next(c for c in _clones(clones_dict) if c["clone_id"] == "10004")
+        assert clone["cdr1_alignment_start"] == 78
+        assert clone["cdr1_alignment_end"] == 114
+        assert clone["cdr1_length"] == 36
+        assert clone["cdr2_alignment_start"] == 165
+        assert clone["cdr2_alignment_end"] == 195
+        assert clone["cdr3_alignment_start"] == 312
+        assert clone["cdr3_alignment_end"] == 363
+        # Explicit region data (strict CDR3, 51 nt) wins over the
+        # junction_length fallback (57 nt, includes 2 conserved anchor
+        # codons) — see #46 for the cross-format naming discussion this
+        # raised (cdr3_length means "junction" everywhere else).
+        assert clone["cdr3_length"] == 51
+
+    def test_noinfo_variant_has_no_cdr_alignment_fields(self):
+        """No Clone.info.region in the noinfo schema -> no alignment fields,
+        only the pre-existing junction_length-derived cdr3_length."""
+        _datasets, clones_dict, _trees = _run("nocell")
+        for clone in _clones(clones_dict):
+            assert "cdr1_alignment_start" not in clone
+            assert "cdr2_alignment_start" not in clone
+            assert "cdr3_alignment_start" not in clone
+
+    def test_paired_clones_get_no_cdr_boundaries_yet(self):
+        """Known gap (#45): a paired clone's region spans both chains
+        concatenated, which doesn't match either chain's own
+        germline_alignment length, so the safe (skip, not guess) behavior
+        kicks in -- no cdr*_alignment fields on paired output, but the
+        existing junction_length-derived cdr3_length is unaffected."""
+        _datasets, clones_dict, _trees = _run("paired-info")
+        for clone in _clones(clones_dict):
+            assert "cdr1_alignment_start" not in clone
+            assert "cdr2_alignment_start" not in clone
+            assert "cdr3_alignment_start" not in clone
+            assert "cdr3_length" in clone
 
 
 @pytest.mark.airr2

@@ -3,7 +3,7 @@
         "format": "olmsted",
         "format_version": "1.0",
         "schema_version": "2.0.0",
-        "created_at": "2026-08-06T23:40:45.227063+00:00",
+        "created_at": "2026-08-07T00:20:49.706509+00:00",
         "source_format": "airr2",
         "source_files": [
             "input-paired-info.json"
@@ -17,7 +17,7 @@
         "generated_by": {
             "tool": "olmsted-cli",
             "version": "0.4.0.post1",
-            "git_hash": "c9ea5d1"
+            "git_hash": "0618460"
         },
         "name": "airr2-paired-info-example",
         "processing_options": {

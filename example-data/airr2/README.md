@@ -18,10 +18,12 @@ Each variant comes in two flavors, both from the same underlying trees:
   the parser and goldens currently exercise.
 - `input-{variant}-info.json` — `writeTreesJSON(...)` (Dowser's default,
   `dowser_fields=TRUE`). Carries the extra `info` catchall: per-node
-  `collapse_count` (read as node `multiplicity`, #45), plus per-position
-  gene-region labels (`Clone.info.region`), `tip_order`, user trait columns,
-  and `program_origin`, which are **not yet read** — see #45 for what's read
-  vs. still deferred.
+  `collapse_count` (read as node `multiplicity`, #45) and per-position
+  gene-region labels (`Clone.info.region`, read as `cdr1`/`cdr2`/`cdr3`
+  `_alignment_start`/`_end`/`_length` for `nocell`/`unpaired` — **not yet**
+  for `paired`, whose `region` covers both chains concatenated, see #45).
+  `tip_order`, user trait columns, and `program_origin` are still **not
+  read** — see #45 for what's read vs. still deferred.
 
 ## Files
 

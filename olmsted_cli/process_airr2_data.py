@@ -34,10 +34,13 @@ Chain handling:
 Dowser's ``info`` catchall (present when the input is written with the
 default ``dowser_fields=TRUE``, absent from the "clean v2" ``noinfo`` shape)
 is read for per-node ``collapse_count`` -> ``multiplicity`` (see
-``_node_multiplicity``, #45) and clone-level ``v_call``/``j_call``/
-``junction_length`` when present. Still deferred (#45): ``Clone.info.region``
-(per-position gene-region labels), ``program_origin``, and arbitrary
-Dowser ``trait=`` columns in per-node tipdata.
+``_node_multiplicity``, #45), clone-level ``v_call``/``j_call``/
+``junction_length`` when present, and per-position gene-region labels
+(``Clone.info.region``) -> ``cdr1``/``cdr2``/``cdr3`` ``_alignment_start``/
+``_end``/``_length`` (see ``_cdr_boundaries_from_region``, #45) — not yet
+handled for paired heavy+light clones, where ``region`` covers both chains
+concatenated. Still deferred (#45): ``program_origin`` and arbitrary Dowser
+``trait=`` columns in per-node tipdata.
 
 Also deferred (see issue #36): streaming, and deriving clone-level
 ``v_call``/``j_call``/``cdr3_length`` when the ``Clone`` omits them entirely
@@ -214,6 +217,77 @@ def _node_multiplicity(node_record: Dict[str, Any]) -> Optional[int]:
     if not isinstance(tipdata, dict):
         return None
     return tipdata.get("collapse_count")
+
+
+#: Region labels from Dowser's Clone.info.region we surface as cdr*_alignment
+#: fields (matching PCP/legacy-AIRR's field set). fwr1-4 have no established
+#: Olmsted output field, so they're not derived here.
+_CDR_REGIONS = ("cdr1", "cdr2", "cdr3")
+
+
+def _cdr_boundaries_from_region(
+    region: Optional[List[str]], germline_alignment: Optional[str]
+) -> Dict[str, Tuple[int, int]]:
+    """Derive cdr1/cdr2/cdr3 boundaries in ``germline_alignment``'s (gapped)
+    coordinate space from Dowser's ``Clone.info.region`` catchall (#45).
+
+    ``region`` is a per-position IMGT region label array (``fwr1``, ``cdr1``,
+    ``fwr2``, ``cdr2``, ``fwr3``, ``cdr3``, ``fwr4``) indexed against the
+    *ungapped* ``Rearrangement.sequence`` — one entry per nucleotide, no gap
+    placeholders. Olmsted's ``germline_alignment`` (what everything renders
+    against) is the *gapped* ``sequence_alignment`` — IMGT ``.`` padding for
+    CDR-loop-length harmonization. This walks ``germline_alignment``'s
+    non-gap characters in lockstep with ``region`` to remap each boundary
+    into gapped coordinates; a run of gap characters is attributed to
+    whichever region it falls within, so within-region IMGT padding doesn't
+    leak into a neighboring region's span.
+
+    Returns ``{"cdr1": (start, end), ...}`` (0-based, half-open nucleotide
+    positions — the same convention as the PCP/legacy-AIRR
+    ``cdr*_alignment_start``/``_end`` fields) for whichever of cdr1/cdr2/cdr3
+    are present in ``region``. Returns ``{}`` when ``region`` or
+    ``germline_alignment`` is missing/empty, or when the alignment's non-gap
+    character count doesn't match ``len(region)`` (defensive: a length
+    mismatch means the position mapping can't be trusted, so skip rather
+    than guess).
+
+    Known gap (not yet handled): for a paired (heavy+light) ``Cell`` clone,
+    Dowser's ``region`` is a single array covering *both* chains
+    concatenated (verified: heavy chain's positions, then light chain's
+    restarting at ``fwr1``) — this doesn't match either chain's individual
+    ``germline_alignment`` alone, so the length check above safely skips it
+    rather than misattributing one chain's boundaries to the other. Splitting
+    the combined array per-locus would need a confirmed, general concatenation
+    order from Dowser (only one example was available to infer heavy-then-
+    light from) — deferred rather than guessed.
+    """
+    if not region or not germline_alignment:
+        return {}
+
+    gapped_positions = [
+        i for i, ch in enumerate(germline_alignment) if ch not in (".", "-")
+    ]
+    if len(gapped_positions) != len(region):
+        return {}
+
+    def gapped_boundary(ungapped_idx: int) -> int:
+        return (
+            gapped_positions[ungapped_idx]
+            if ungapped_idx < len(gapped_positions)
+            else len(germline_alignment)
+        )
+
+    boundaries: Dict[str, Tuple[int, int]] = {}
+    start = 0
+    current = region[0]
+    for i in range(1, len(region) + 1):
+        label = region[i] if i < len(region) else None
+        if label != current:
+            if current in _CDR_REGIONS:
+                boundaries[current] = (gapped_boundary(start), gapped_boundary(i))
+            start = i
+            current = label
+    return boundaries
 
 
 def _build_nodes(
@@ -460,6 +534,31 @@ def process_airr2_to_olmsted(
             ):
                 if clone.get(src) is not None:
                     clone_out[dst] = clone[src]
+            # Derive cdr1/cdr2/cdr3 alignment boundaries from Dowser's
+            # Clone.info.region when present (#45) — the only source of
+            # CDR1/CDR2 boundaries this format has at all, and a more
+            # complete cdr3 (alignment_start/end, not just a bare length).
+            #
+            # Deliberate choice (see #46 for the full discussion): this is
+            # strict IMGT CDR3, which excludes the 2 conserved anchor codons
+            # "junction" includes — so it can legitimately differ from the
+            # junction_length-derived cdr3_length set above (junction and
+            # cdr3_length are treated as synonyms everywhere else in this
+            # project — schemas.py, PCP, legacy AIRR). An explicit,
+            # directly-read boundary wins over the junction fallback when
+            # available; junction_length is used only when region data isn't
+            # (noinfo input, or the not-yet-handled paired heavy+light case).
+            # #46 tracks whether cdr3_alignment_start/end should instead be
+            # reconstructed as junction-equivalent for cross-format
+            # consistency.
+            clone_info = clone.get("info")
+            region = clone_info.get("region") if isinstance(clone_info, dict) else None
+            for cdr, (start, end) in _cdr_boundaries_from_region(
+                region, germline_alignment
+            ).items():
+                clone_out[f"{cdr}_alignment_start"] = start
+                clone_out[f"{cdr}_alignment_end"] = end
+                clone_out[f"{cdr}_length"] = end - start
             if is_paired:
                 clone_out["is_paired"] = True
                 clone_out["pair_id"] = f"pair-{clone_id}"

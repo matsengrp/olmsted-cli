@@ -286,10 +286,39 @@ every node — observed or ASR-inferred — resolves to a sequence.
 Clone-level immunological fields (`v_call`, `j_call`, `cdr3_length`) are passed
 through only when the input `Clone` supplies them (the Dowser `info` variant);
 the clean v2 (`noinfo`) variant omits them and they are left unset rather than
-fabricated. The Dowser `info` catchall, streaming, and deriving clone metadata
-from `Rearrangement` are deferred (see issue #36).
+fabricated.
 
-See `example-data/airr2/` for `nocell`/`unpaired`/`paired` inputs + goldens.
+When the input carries Dowser's `info` catchall (`dowser_fields=TRUE`, Dowser's
+default — the `noinfo` variant is written with `dowser_fields=FALSE`), these
+are additionally read (see `process_airr2_data.py`, issue #45):
+
+- `nodes[].info.tipdata.collapse_count` → node `multiplicity` (unset, not
+  fabricated `1`, for nodes/inputs without it — e.g. every node in `noinfo`
+  input, and inferred/ASR nodes even in `info` input, which carry `info: []`).
+- `Clone.info.region` (a per-position IMGT region label array, indexed
+  against the *ungapped* `Rearrangement.sequence`) → `cdr1_alignment_start`/
+  `_end`, `cdr2_alignment_start`/`_end`, `cdr3_alignment_start`/`_end`, and
+  the matching `cdr{1,2,3}_length` (0-based, half-open, nucleotide positions
+  in the *gapped* `germline_alignment` — the same convention as PCP/legacy
+  AIRR's `cdr*_alignment_start`/`_end`). This is **strict IMGT CDR3**, which
+  excludes the 2 conserved anchor codons `junction_length` includes — an
+  explicit, directly-read boundary wins over the `junction_length` fallback
+  when available; `junction_length` is used only when `region` data isn't
+  (`noinfo` input, or the paired case below). Elsewhere in this project
+  (PCP, legacy AIRR, `schemas.py`) `cdr3_length` is a synonym for junction
+  length, so this is a deliberate, tracked exception — see issue #46.
+  **Not yet handled for paired (heavy+light) clones**: `region` covers both
+  chains concatenated, which doesn't match either chain's own
+  `germline_alignment` length, so it's safely skipped rather than
+  misattributed.
+
+Still deferred (#45): `program_origin`, and arbitrary Dowser `trait=` columns
+in per-node tipdata. Streaming and deriving clone metadata from
+`Rearrangement` when the `Clone` omits it entirely are deferred separately
+(see issue #36).
+
+See `example-data/airr2/` for `nocell`/`unpaired`/`paired` inputs + goldens,
+in both the `noinfo` and `info` flavors.
 
 ---
 
