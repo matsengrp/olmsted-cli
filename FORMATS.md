@@ -300,13 +300,20 @@ are additionally read (see `process_airr2_data.py`, issue #45):
   `_end`, `cdr2_alignment_start`/`_end`, `cdr3_alignment_start`/`_end`, and
   the matching `cdr{1,2,3}_length` (0-based, half-open, nucleotide positions
   in the *gapped* `germline_alignment` — the same convention as PCP/legacy
-  AIRR's `cdr*_alignment_start`/`_end`). This is **strict IMGT CDR3**, which
-  excludes the 2 conserved anchor codons `junction_length` includes — an
-  explicit, directly-read boundary wins over the `junction_length` fallback
-  when available; `junction_length` is used only when `region` data isn't
-  (`noinfo` input, or the paired case below). Elsewhere in this project
-  (PCP, legacy AIRR, `schemas.py`) `cdr3_length` is a synonym for junction
-  length, so this is a deliberate, tracked exception — see issue #46.
+  AIRR's `cdr*_alignment_start`/`_end`). `region`'s own `cdr3` span is
+  **strict IMGT CDR3**, which excludes the 2 conserved anchor residues
+  (V-gene 2nd-CYS, J-gene TRP/PHE) that "junction" includes — per the
+  IMGT/AIRR Community convention, junction is exactly those 2 residues (1
+  codon = 3 nucleotides each) longer on both ends. Since `cdr3_length` is a
+  synonym for junction length everywhere else in this project (PCP, legacy
+  AIRR, `schemas.py`), the derived `cdr3` span is normalized to the junction
+  convention (extended by 1 anchor codon each side, in ungapped coordinates,
+  before remapping to gapped ones) — resolving the inconsistency issue #46
+  raised. When `junction_length` is also available, it's now expected to
+  agree with the normalized `cdr3_length` exactly; a real disagreement (not
+  the already-accounted-for CDR3/junction anchor difference) logs a warning
+  and keeps the `region`-derived value. `cdr1`/`cdr2` have no such
+  distinction and are used as `region` gives them.
   **Not yet handled for paired (heavy+light) clones**: `region` covers both
   chains concatenated, which doesn't match either chain's own
   `germline_alignment` length, so it's safely skipped rather than

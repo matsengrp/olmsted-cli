@@ -222,6 +222,14 @@ def _node_multiplicity(node_record: Dict[str, Any]) -> Optional[int]:
 #: Olmsted output field, so they're not derived here.
 _CDR_REGIONS = ("cdr1", "cdr2", "cdr3")
 
+#: IMGT/AIRR Community: junction = CDR3 plus the 2 conserved anchor residues
+#: CDR3 excludes -- the V-gene's 2nd-CYS (start) and the J-gene's TRP/PHE
+#: (end) -- so junction is exactly 1 codon (3 nucleotides = 1 amino acid)
+#: longer on each side (#46). Verified exactly against real data: a 51nt
+#: region-derived (strict) CDR3 span vs. a 57nt junction_length for the same
+#: clone, 51 + 2*3 = 57.
+_JUNCTION_ANCHOR_LENGTH = 3
+
 
 def _cdr_boundaries_from_region(
     region: Optional[List[str]], germline_alignment: Optional[str]
@@ -239,6 +247,13 @@ def _cdr_boundaries_from_region(
     into gapped coordinates; a run of gap characters is attributed to
     whichever region it falls within, so within-region IMGT padding doesn't
     leak into a neighboring region's span.
+
+    The ``cdr3`` span is extended by ``_JUNCTION_ANCHOR_LENGTH`` ungapped
+    nucleotides on each side (i.e. before remapping to gapped coordinates, so
+    the extension can't land inside a run of IMGT padding) to convert
+    ``region``'s strict IMGT CDR3 into the junction convention ``cdr3_length``
+    uses everywhere else in this project (#46) — ``cdr1``/``cdr2`` have no
+    such distinction and are returned as ``region`` gives them.
 
     Returns ``{"cdr1": (start, end), ...}`` (0-based, half-open nucleotide
     positions — the same convention as the PCP/legacy-AIRR
@@ -282,7 +297,14 @@ def _cdr_boundaries_from_region(
         label = region[i] if i < len(region) else None
         if label != current:
             if current in _CDR_REGIONS:
-                boundaries[current] = (gapped_boundary(start), gapped_boundary(i))
+                span_start, span_end = start, i
+                if current == "cdr3":
+                    span_start = max(0, span_start - _JUNCTION_ANCHOR_LENGTH)
+                    span_end = min(len(region), span_end + _JUNCTION_ANCHOR_LENGTH)
+                boundaries[current] = (
+                    gapped_boundary(span_start),
+                    gapped_boundary(span_end),
+                )
             start = i
             current = label
     return boundaries
@@ -568,23 +590,30 @@ def process_airr2_to_olmsted(
             # CDR1/CDR2 boundaries this format has at all, and a more
             # complete cdr3 (alignment_start/end, not just a bare length).
             #
-            # Deliberate choice (see #46 for the full discussion): this is
-            # strict IMGT CDR3, which excludes the 2 conserved anchor codons
-            # "junction" includes — so it can legitimately differ from the
-            # junction_length-derived cdr3_length set above (junction and
-            # cdr3_length are treated as synonyms everywhere else in this
-            # project — schemas.py, PCP, legacy AIRR). An explicit,
-            # directly-read boundary wins over the junction fallback when
-            # available; junction_length is used only when region data isn't
-            # (noinfo input, or the not-yet-handled paired heavy+light case).
-            # #46 tracks whether cdr3_alignment_start/end should instead be
-            # reconstructed as junction-equivalent for cross-format
-            # consistency.
+            # cdr3 is normalized to the junction convention (#46):
+            # _cdr_boundaries_from_region already extends region's strict
+            # IMGT cdr3 span by the 2 conserved anchor codons junction
+            # includes, since cdr3_length is a synonym for junction length
+            # everywhere else in this project (schemas.py, PCP, legacy
+            # AIRR). So when junction_length is also available, the two
+            # should now agree exactly; disagreement means something
+            # unexpected (e.g. a non-standard anchor convention) rather than
+            # the known, already-accounted-for CDR3/junction difference —
+            # worth a warning rather than silently picking one.
             clone_info = clone.get("info")
             region = clone_info.get("region") if isinstance(clone_info, dict) else None
-            for cdr, (start, end) in _cdr_boundaries_from_region(
-                region, germline_alignment
-            ).items():
+            region_boundaries = _cdr_boundaries_from_region(region, germline_alignment)
+            if "cdr3" in region_boundaries and clone.get("junction_length") is not None:
+                region_cdr3_start, region_cdr3_end = region_boundaries["cdr3"]
+                region_cdr3_length = region_cdr3_end - region_cdr3_start
+                if region_cdr3_length != clone["junction_length"]:
+                    vprint.status(
+                        f"  Warning: clone '{clone_id}' region-derived cdr3 length "
+                        f"({region_cdr3_length}, junction-normalized) disagrees with "
+                        f"junction_length ({clone['junction_length']}). Using the "
+                        "region-derived value."
+                    )
+            for cdr, (start, end) in region_boundaries.items():
                 clone_out[f"{cdr}_alignment_start"] = start
                 clone_out[f"{cdr}_alignment_end"] = end
                 clone_out[f"{cdr}_length"] = end - start

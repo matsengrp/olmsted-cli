@@ -3,7 +3,7 @@
         "format": "olmsted",
         "format_version": "1.0",
         "schema_version": "2.0.0",
-        "created_at": "2026-08-07T00:20:47.483334+00:00",
+        "created_at": "2026-08-07T06:22:28.065487+00:00",
         "source_format": "airr2",
         "source_files": [
             "input-nocell-info.json"
@@ -17,7 +17,7 @@
         "generated_by": {
             "tool": "olmsted-cli",
             "version": "0.4.0.post1",
-            "git_hash": "0618460"
+            "git_hash": "92e43e4"
         },
         "name": "airr2-nocell-info-example",
         "processing_options": {
@@ -186,15 +186,15 @@
                 "total_read_count": 6,
                 "v_call": "IGHV3-23",
                 "j_call": "IGHJ3",
-                "cdr3_length": 51,
+                "cdr3_length": 57,
                 "cdr1_alignment_start": 78,
                 "cdr1_alignment_end": 114,
                 "cdr1_length": 36,
                 "cdr2_alignment_start": 165,
                 "cdr2_alignment_end": 195,
                 "cdr2_length": 30,
-                "cdr3_alignment_start": 312,
-                "cdr3_alignment_end": 363
+                "cdr3_alignment_start": 309,
+                "cdr3_alignment_end": 366
             },
             {
                 "clone_id": "8232",
@@ -222,15 +222,15 @@
                 "total_read_count": 4,
                 "v_call": "IGHV4-59",
                 "j_call": "IGHJ5",
-                "cdr3_length": 36,
+                "cdr3_length": 42,
                 "cdr1_alignment_start": 78,
                 "cdr1_alignment_end": 114,
                 "cdr1_length": 36,
                 "cdr2_alignment_start": 165,
                 "cdr2_alignment_end": 195,
                 "cdr2_length": 30,
-                "cdr3_alignment_start": 312,
-                "cdr3_alignment_end": 348
+                "cdr3_alignment_start": 309,
+                "cdr3_alignment_end": 351
             }
         ]
     },

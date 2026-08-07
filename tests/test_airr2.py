@@ -312,12 +312,35 @@ class TestCdrBoundariesFromRegion:
         # pair (positions 4, 5) is attributed to cdr1, giving span [3, 7).
         assert boundaries["cdr1"] == (3, 7)
 
+    def test_cdr3_extended_by_one_anchor_codon_each_side(self):
+        """cdr3 is normalized to the junction convention (#46): region's
+        strict IMGT cdr3 span gets +1 codon (3nt) on each side for the
+        conserved anchor residues (V-gene Cys, J-gene Phe/Trp) junction
+        includes and CDR3 excludes. cdr1/cdr2 have no such distinction."""
+        region = ["fwr3"] * 6 + ["cdr3"] * 4 + ["fwr4"] * 6
+        germline_alignment = "A" * 16
+        boundaries = _cdr_boundaries_from_region(region, germline_alignment)
+        # strict cdr3 = [6, 10); junction = [6-3, 10+3) = [3, 13)
+        assert boundaries["cdr3"] == (3, 13)
+
+    def test_cdr3_extension_clamps_at_sequence_boundaries(self):
+        """A pathological cdr3 abutting the start/end of the sequence
+        clamps rather than underflows/overflows."""
+        region = ["cdr3"] * 2 + ["fwr4"] * 6
+        germline_alignment = "A" * 8
+        boundaries = _cdr_boundaries_from_region(region, germline_alignment)
+        assert boundaries["cdr3"][0] == 0
+
     def test_matches_real_dowser_fixture(self):
         """Cross-check against the real nocell-info fixture's clone 10004,
-        whose boundaries were independently hand-computed."""
+        whose boundaries were independently hand-computed. cdr3 is the
+        junction-normalized span (#46) -- strict IMGT cdr3 is (312, 363);
+        junction extends it by 1 anchor codon (3nt) each side, matching this
+        clone's junction_length of 57 (= 363-312 + 2*3) exactly."""
         data = _load("nocell-info")
         clone = data["Clone"][0]
         assert clone["clone_id"] == "10004"
+        assert clone["junction_length"] == 57
         region = clone["info"]["region"]
         rear_by_id = {r.get("sequence_id"): r for r in data["Rearrangement"]}
         germline = rear_by_id[clone["inferred_ancestor"]]
@@ -325,7 +348,7 @@ class TestCdrBoundariesFromRegion:
         assert boundaries == {
             "cdr1": (78, 114),
             "cdr2": (165, 195),
-            "cdr3": (312, 363),
+            "cdr3": (309, 366),
         }
 
     def test_only_cdr_regions_returned(self):
@@ -394,13 +417,48 @@ class TestInfoCatchall:
         assert clone["cdr1_length"] == 36
         assert clone["cdr2_alignment_start"] == 165
         assert clone["cdr2_alignment_end"] == 195
-        assert clone["cdr3_alignment_start"] == 312
-        assert clone["cdr3_alignment_end"] == 363
-        # Explicit region data (strict CDR3, 51 nt) wins over the
-        # junction_length fallback (57 nt, includes 2 conserved anchor
-        # codons) — see #46 for the cross-format naming discussion this
-        # raised (cdr3_length means "junction" everywhere else).
-        assert clone["cdr3_length"] == 51
+        # cdr3 is junction-normalized (#46): region's strict IMGT cdr3 is
+        # (312, 363)/51nt; +1 anchor codon (3nt) each side matches this
+        # clone's junction_length of 57 exactly.
+        assert clone["cdr3_alignment_start"] == 309
+        assert clone["cdr3_alignment_end"] == 366
+        assert clone["cdr3_length"] == 57
+        # matches this clone's input junction_length exactly (57), by design
+        input_clone = _load("nocell-info")["Clone"][0]
+        assert input_clone["junction_length"] == 57
+        assert clone["cdr3_length"] == input_clone["junction_length"]
+
+    def test_warns_when_junction_normalized_cdr3_disagrees_with_junction_length(
+        self, capsys
+    ):
+        """A genuine mismatch (not the already-accounted-for CDR3/junction
+        anchor-codon difference) prints a warning naming the clone and both
+        values, and the region-derived value still wins."""
+        data = _load("nocell-info")
+        clone = data["Clone"][0]
+        clone["junction_length"] = 999  # deliberately wrong
+
+        _datasets, clones_dict, _trees = process_airr2_to_olmsted(
+            [clone], data["Rearrangement"], minter=IdentMinter(seed=42), verbosity=1
+        )
+        out_clone = _clones(clones_dict)[0]
+        assert out_clone["cdr3_length"] == 57  # region-derived value kept
+
+        captured = capsys.readouterr()
+        assert "10004" in captured.out
+        assert "57" in captured.out
+        assert "999" in captured.out
+
+    def test_no_warning_when_junction_normalized_cdr3_matches(self, capsys):
+        data = _load("nocell-info")
+        process_airr2_to_olmsted(
+            data["Clone"],
+            data["Rearrangement"],
+            minter=IdentMinter(seed=42),
+            verbosity=1,
+        )
+        captured = capsys.readouterr()
+        assert "disagrees with junction_length" not in captured.out
 
     def test_noinfo_variant_has_no_cdr_alignment_fields(self):
         """No Clone.info.region in the noinfo schema -> no alignment fields,
