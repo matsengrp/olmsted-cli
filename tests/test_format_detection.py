@@ -65,7 +65,14 @@ class TestDetectFileFormat:
 
     def test_airr2_json(self):
         """AIRR-C v2 Clone/Tree (top-level Clone + Rearrangement) → airr2."""
-        for variant in ("nocell", "unpaired", "paired"):
+        for variant in (
+            "nocell-noinfo",
+            "unpaired-noinfo",
+            "paired-noinfo",
+            "nocell-info",
+            "unpaired-info",
+            "paired-info",
+        ):
             assert (
                 detect_file_format(f"example-data/airr2/input-{variant}.json")
                 == "airr2"

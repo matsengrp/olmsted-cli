@@ -3,10 +3,10 @@
         "format": "olmsted",
         "format_version": "1.0",
         "schema_version": "2.0.0",
-        "created_at": "2026-08-01T00:19:20.186422+00:00",
+        "created_at": "2026-08-07T02:50:28.357533+00:00",
         "source_format": "airr2",
         "source_files": [
-            "input-paired.json"
+            "input-paired-noinfo.json"
         ],
         "processing_info": {
             "datasets_count": 1,
@@ -17,9 +17,9 @@
         "generated_by": {
             "tool": "olmsted-cli",
             "version": "0.4.0.post1",
-            "git_hash": "7990b5a"
+            "git_hash": "e7cf493"
         },
-        "name": "airr2-paired-example",
+        "name": "airr2-paired-noinfo-example",
         "processing_options": {
             "validation": false,
             "strict_validation": false,
@@ -47,7 +47,7 @@
             "clone_count": 4,
             "subjects_count": 0,
             "timepoints_count": 0,
-            "name": "airr2-paired-example",
+            "name": "airr2-paired-noinfo-example",
             "field_metadata": {
                 "clone": {
                     "clone_class": {

@@ -13,9 +13,8 @@ clonal families (`clone_id` 10004 and 8232) per file.
 
 Each variant comes in two flavors, both from the same underlying trees:
 
-- `input-{variant}.json` — `writeTreesJSON(..., dowser_fields=FALSE)`. The
-  clean v2 (`noinfo`) shape without Dowser's `info` catchall. These are what
-  the parser and goldens currently exercise.
+- `input-{variant}-noinfo.json` — `writeTreesJSON(..., dowser_fields=FALSE)`.
+  The clean v2 (`noinfo`) shape without Dowser's `info` catchall.
 - `input-{variant}-info.json` — `writeTreesJSON(...)` (Dowser's default,
   `dowser_fields=TRUE`). Carries the extra `info` catchall: per-node
   `collapse_count` (read as node `multiplicity`, #45) and per-position
@@ -29,19 +28,19 @@ Each variant comes in two flavors, both from the same underlying trees:
 
 | File | `clone_class` | Chains | Olmsted output |
 |------|---------------|--------|----------------|
-| `input-nocell.json` / `input-nocell-info.json` | `Rearrangement` | IGH | 2 clones, 2 trees; nodes join to `Rearrangement` by `sequence_id` |
-| `input-unpaired.json` / `input-unpaired-info.json` | `Cell` | IGH | 2 clones, 2 trees; nodes join by `cell_id` |
-| `input-paired.json` / `input-paired-info.json` | `Cell` | IGH + IGK/IGL | 4 clones, 4 trees — heavy/light split (`-heavy`/`-light`), per-locus sequences |
+| `input-nocell-noinfo.json` / `input-nocell-info.json` | `Rearrangement` | IGH | 2 clones, 2 trees; nodes join to `Rearrangement` by `sequence_id` |
+| `input-unpaired-noinfo.json` / `input-unpaired-info.json` | `Cell` | IGH | 2 clones, 2 trees; nodes join by `cell_id` |
+| `input-paired-noinfo.json` / `input-paired-info.json` | `Cell` | IGH + IGK/IGL | 4 clones, 4 trees — heavy/light split (`-heavy`/`-light`), per-locus sequences |
 
-`*-olmsted-golden.json` / `*-info-olmsted-golden.json` are the consolidated
-Olmsted outputs (source of truth for tests) for the `noinfo` and `info`
-inputs respectively. See the "Regenerating Golden Data" section of
-`CLAUDE.md` for the exact regen commands. (In this sample data every node's
-`collapse_count` happens to be 1, so the `info` goldens' `multiplicity`
-values look the same as the `noinfo` goldens' fallback-to-1 — the mechanism
-is still real, just not visually distinguishable in these particular
-fixtures; see `tests/test_airr2.py::TestInfoCatchall` for a test that
-injects a distinguishing value.)
+`*-noinfo-olmsted-golden.json` / `*-info-olmsted-golden.json` are the
+consolidated Olmsted outputs (source of truth for tests) for the `noinfo`
+and `info` inputs respectively. See the "Regenerating Golden Data" section
+of `CLAUDE.md` for the exact regen commands. (In this sample data every
+node's `collapse_count` happens to be 1, so the `info` goldens'
+`multiplicity` values look the same as the `noinfo` goldens' fallback-to-1
+— the mechanism is still real, just not visually distinguishable in these
+particular fixtures; see `tests/test_airr2.py::TestInfoCatchall` for a test
+that injects a distinguishing value.)
 
 ## Key schema traits exercised
 

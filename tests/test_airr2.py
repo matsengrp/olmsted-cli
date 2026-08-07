@@ -62,7 +62,7 @@ class TestLocusChain:
 @pytest.mark.airr2
 class TestIndexRearrangements:
     def test_by_sequence_and_cell(self):
-        data = _load("paired")
+        data = _load("paired-noinfo")
         by_seq, by_cell = index_rearrangements(data["Rearrangement"])
         # Rearrangement class join key
         assert all(isinstance(v, dict) for v in by_seq.values())
@@ -74,14 +74,14 @@ class TestIndexRearrangements:
 @pytest.mark.airr2
 class TestNocell:
     def test_clone_and_tree_counts(self):
-        _datasets, clones_dict, trees = _run("nocell")
+        _datasets, clones_dict, trees = _run("nocell-noinfo")
         clones = _clones(clones_dict)
         assert len(clones) == 2
         assert len(trees) == 2
         assert {c["clone_class"] for c in clones} == {"Rearrangement"}
 
     def test_topology_root_is_germline_inferred(self):
-        _datasets, _clones_dict, trees = _run("nocell")
+        _datasets, _clones_dict, trees = _run("nocell-noinfo")
         for tree in trees:
             roots = [n for n in tree["nodes"] if n["type"] == "root"]
             assert len(roots) == 1
@@ -93,7 +93,7 @@ class TestNocell:
             assert root["parent"] is None
 
     def test_every_node_has_sequence_and_aa(self):
-        _datasets, _clones_dict, trees = _run("nocell")
+        _datasets, _clones_dict, trees = _run("nocell-noinfo")
         for tree in trees:
             for node in tree["nodes"]:
                 assert node["sequence_alignment"], node["sequence_id"]
@@ -101,7 +101,7 @@ class TestNocell:
                 assert node["node_type"] in ("observed", "inferred")
 
     def test_single_root_and_parents_resolve(self):
-        _datasets, _clones_dict, trees = _run("nocell")
+        _datasets, _clones_dict, trees = _run("nocell-noinfo")
         for tree in trees:
             ids = {n["sequence_id"] for n in tree["nodes"]}
             for node in tree["nodes"]:
@@ -112,7 +112,7 @@ class TestNocell:
 @pytest.mark.airr2
 class TestUnpairedCell:
     def test_cell_class_single_chain(self):
-        _datasets, clones_dict, trees = _run("unpaired")
+        _datasets, clones_dict, trees = _run("unpaired-noinfo")
         clones = _clones(clones_dict)
         assert len(clones) == 2
         assert {c["clone_class"] for c in clones} == {"Cell"}
@@ -124,7 +124,7 @@ class TestUnpairedCell:
 @pytest.mark.paired
 class TestPairedCell:
     def test_splits_into_heavy_and_light(self):
-        _datasets, clones_dict, trees = _run("paired")
+        _datasets, clones_dict, trees = _run("paired-noinfo")
         clones = _clones(clones_dict)
         # Two input clones → four output clones (heavy + light each).
         assert len(clones) == 4
@@ -133,14 +133,14 @@ class TestPairedCell:
         assert ids == {"10004-heavy", "10004-light", "8232-heavy", "8232-light"}
 
     def test_pair_id_links_chains(self):
-        _datasets, clones_dict, _trees = _run("paired")
+        _datasets, clones_dict, _trees = _run("paired-noinfo")
         by_id = {c["clone_id"]: c for c in _clones(clones_dict)}
         assert by_id["10004-heavy"]["pair_id"] == by_id["10004-light"]["pair_id"]
         assert by_id["10004-heavy"]["is_paired"] is True
 
     def test_per_locus_sequences_differ(self):
         """Heavy and light trees share topology but carry different sequences."""
-        _datasets, _clones_dict, trees = _run("paired")
+        _datasets, _clones_dict, trees = _run("paired-noinfo")
         by_ident = {t["ident"]: t for t in trees}
         heavy = next(t for t in trees if t["ident"].endswith("-heavy"))
         light = next(
@@ -162,7 +162,7 @@ class TestPairedCell:
         assert l_root["locus"] in ("IGK", "IGL")
 
     def test_sample_loci(self):
-        datasets, clones_dict, _trees = _run("paired")
+        datasets, clones_dict, _trees = _run("paired-noinfo")
         loci = sorted(c["sample"]["locus"] for c in _clones(clones_dict))
         assert loci == ["igh", "igh", "igk", "igl"]
         # Dataset samples dedup by sample_id (all share repertoire_id "sample").
@@ -172,7 +172,7 @@ class TestPairedCell:
 @pytest.mark.airr2
 class TestDatasetSynthesis:
     def test_dataset_shape(self):
-        datasets, clones_dict, _trees = _run("nocell", name="my-airr2")
+        datasets, clones_dict, _trees = _run("nocell-noinfo", name="my-airr2")
         assert len(datasets) == 1
         ds = datasets[0]
         assert ds["name"] == "my-airr2"
@@ -182,7 +182,7 @@ class TestDatasetSynthesis:
         assert "field_metadata" in ds
 
     def test_required_clone_fields_present(self):
-        _datasets, clones_dict, _trees = _run("nocell")
+        _datasets, clones_dict, _trees = _run("nocell-noinfo")
         for clone in _clones(clones_dict):
             assert clone["unique_seqs_count"] > 0
             assert "mean_mut_freq" in clone
@@ -194,7 +194,7 @@ class TestDatasetSynthesis:
         Two node fields with the same tooltip label produce a duplicate object
         key -> invalid Vega expression -> the webapp fails to render the tree.
         """
-        datasets, _clones_dict, _trees = _run("paired")
+        datasets, _clones_dict, _trees = _run("paired-noinfo")
         node_meta = datasets[0]["field_metadata"]["node"]
         assert node_meta["node_type"]["label"] != "Node Type"
         # No two node fields share a label, and none collide with the webapp's
@@ -214,7 +214,7 @@ class TestDatasetSynthesis:
 @pytest.mark.airr2
 class TestMetrics:
     def test_compute_metrics_populates_lbi(self):
-        _datasets, _clones_dict, trees = _run("nocell", compute_metrics=True)
+        _datasets, _clones_dict, trees = _run("nocell-noinfo", compute_metrics=True)
         # At least some nodes get a numeric LBI when metrics are requested.
         lbis = [n["lbi"] for t in trees for n in t["nodes"]]
         assert any(v is not None for v in lbis)
@@ -381,7 +381,7 @@ class TestInfoCatchall:
 
     def test_noinfo_variant_multiplicity_still_unset(self):
         """Unchanged behavior for the noinfo schema (no info key at all)."""
-        _datasets, _clones_dict, trees = _run("nocell")
+        _datasets, _clones_dict, trees = _run("nocell-noinfo")
         assert all(n["multiplicity"] is None for t in trees for n in t["nodes"])
 
     def test_cdr_boundaries_appear_on_output_clone(self):
@@ -405,7 +405,7 @@ class TestInfoCatchall:
     def test_noinfo_variant_has_no_cdr_alignment_fields(self):
         """No Clone.info.region in the noinfo schema -> no alignment fields,
         only the pre-existing junction_length-derived cdr3_length."""
-        _datasets, clones_dict, _trees = _run("nocell")
+        _datasets, clones_dict, _trees = _run("nocell-noinfo")
         for clone in _clones(clones_dict):
             assert "cdr1_alignment_start" not in clone
             assert "cdr2_alignment_start" not in clone
@@ -429,7 +429,7 @@ class TestInfoCatchall:
 class TestMissingSequenceGraceful:
     def test_missing_rearrangement_yields_empty_sequence(self):
         """A node with no matching Rearrangement gets an empty sequence, not a crash."""
-        data = _load("nocell")
+        data = _load("nocell-noinfo")
         # Drop one observed leaf's Rearrangement record.
         clone = data["Clone"][0]
         leaf = next(n for n in clone["nodes"] if n["node_type"] == "observed")

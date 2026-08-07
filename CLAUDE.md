@@ -141,9 +141,9 @@ each in the clean `noinfo` shape and the `dowser_fields=TRUE` `info`-catchall
 shape — see `example-data/airr2/README.md` and issue #45):
 
 ```bash
-olmsted process -f airr2 -i example-data/airr2/input-nocell.json -o example-data/airr2/nocell-olmsted-golden.json --seed 42 --name airr2-nocell-example --json-format pretty -q
-olmsted process -f airr2 -i example-data/airr2/input-unpaired.json -o example-data/airr2/unpaired-olmsted-golden.json --seed 42 --name airr2-unpaired-example --json-format pretty -q
-olmsted process -f airr2 -i example-data/airr2/input-paired.json -o example-data/airr2/paired-olmsted-golden.json --seed 42 --name airr2-paired-example --json-format pretty -q
+olmsted process -f airr2 -i example-data/airr2/input-nocell-noinfo.json -o example-data/airr2/nocell-noinfo-olmsted-golden.json --seed 42 --name airr2-nocell-noinfo-example --json-format pretty -q
+olmsted process -f airr2 -i example-data/airr2/input-unpaired-noinfo.json -o example-data/airr2/unpaired-noinfo-olmsted-golden.json --seed 42 --name airr2-unpaired-noinfo-example --json-format pretty -q
+olmsted process -f airr2 -i example-data/airr2/input-paired-noinfo.json -o example-data/airr2/paired-noinfo-olmsted-golden.json --seed 42 --name airr2-paired-noinfo-example --json-format pretty -q
 olmsted process -f airr2 -i example-data/airr2/input-nocell-info.json -o example-data/airr2/nocell-info-olmsted-golden.json --seed 42 --name airr2-nocell-info-example --json-format pretty -q
 olmsted process -f airr2 -i example-data/airr2/input-unpaired-info.json -o example-data/airr2/unpaired-info-olmsted-golden.json --seed 42 --name airr2-unpaired-info-example --json-format pretty -q
 olmsted process -f airr2 -i example-data/airr2/input-paired-info.json -o example-data/airr2/paired-info-olmsted-golden.json --seed 42 --name airr2-paired-info-example --json-format pretty -q
