@@ -3,7 +3,6 @@
 
 import json
 import logging
-import os
 import subprocess
 from pathlib import Path
 
@@ -79,34 +78,6 @@ def compare_json_files(file1, file2):
     )
 
 
-def compare_directories(dir1, dir2):
-    """Compare all JSON files in two directories with detailed error reporting."""
-    files1 = set(f for f in os.listdir(dir1) if f.endswith(".json"))
-    files2 = set(f for f in os.listdir(dir2) if f.endswith(".json"))
-
-    if files1 != files2:
-        missing_in_dir2 = files1 - files2
-        missing_in_dir1 = files2 - files1
-        error_msg = []
-        if missing_in_dir2:
-            error_msg.append(f"Files missing in {dir2}: {missing_in_dir2}")
-        if missing_in_dir1:
-            error_msg.append(f"Files missing in {dir1}: {missing_in_dir1}")
-        return False, "\n".join(error_msg)
-
-    all_differences = []
-    for fname in sorted(files1):
-        file1 = os.path.join(dir1, fname)
-        file2 = os.path.join(dir2, fname)
-        if not compare_json_files(file1, file2):
-            all_differences.append(format_json_diff(file1, file2))
-
-    if all_differences:
-        return False, "\n\n".join(all_differences)
-
-    return True, "All files match"
-
-
 class TestOlmstedCLI:
     """Test suite for olmsted-cli."""
 
@@ -116,8 +87,6 @@ class TestOlmstedCLI:
         # Get paths relative to the package root
         self.cli_root = Path(__file__).parent.parent
         self.test_data_dir = self.cli_root / "example-data"
-        self.golden_airr_dir = self.test_data_dir / "airr" / "split-golden-data"
-        self.golden_pcp_dir = self.test_data_dir / "pcp" / "split-golden-data"
         self.consolidated_airr_file = (
             self.test_data_dir / "airr" / "airr-olmsted-golden.json"
         )
@@ -134,40 +103,6 @@ class TestOlmstedCLI:
         self.json_assertions = json_assertions
 
         yield
-
-    @pytest.mark.airr
-    def test_airr_processing(self):
-        """`process --split-files` on AIRR matches the split-format golden.
-
-        Pure shape check on the legacy split-file output (datasets.json,
-        clones.*.json, tree.*.json). Validation is covered separately;
-        this test fails specifically when split-format output drifts.
-        """
-        input_file = self.test_data_dir / "airr" / "input-airr.json"
-        output_dir = Path(self.temp_dir) / "airr_output"
-
-        cmd = [
-            "olmsted",
-            "process",
-            "-f",
-            "airr",
-            "-i",
-            str(input_file),
-            "--split-files",
-            str(output_dir),
-            "--seed",
-            "42",
-            "--name",
-            "airr-example",
-            "--json-format",
-            "pretty",
-        ]
-
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        assert result.returncode == 0, f"Command failed: {result.stderr}"
-
-        match, message = compare_directories(str(self.golden_airr_dir), str(output_dir))
-        assert match, f"Output doesn't match golden data: {message}"
 
     @pytest.mark.airr
     def test_airr_consolidated_processing(self):
@@ -352,7 +287,7 @@ class TestOlmstedCLI:
         # Input and output paths
         input_clones = self.test_data_dir / "pcp" / "input-pcp.csv"
         input_trees = self.test_data_dir / "pcp" / "input-trees.csv"
-        output_dir = Path(self.temp_dir) / "pcp_trees_output"
+        output_file = Path(self.temp_dir) / "pcp_trees_output.json"
 
         # Run the process command with --tree argument
         cmd = [
@@ -364,8 +299,8 @@ class TestOlmstedCLI:
             str(input_clones),
             "--tree",
             str(input_trees),
-            "--split-files",
-            str(output_dir),
+            "-o",
+            str(output_file),
             "--seed",
             "42",
             "--name",
@@ -377,19 +312,16 @@ class TestOlmstedCLI:
 
         # Check command succeeded
         assert result.returncode == 0, f"Command failed: {result.stderr}"
-
-        # Check that tree files were created
-        tree_files = list(output_dir.glob("tree.*.json"))
-        assert len(tree_files) > 0, "No tree files were created"
+        assert output_file.exists(), f"Output file not created: {output_file}"
 
         # Verify that trees contain newick data
-        for tree_file in tree_files:
-            with open(tree_file) as f:
-                tree_data = json.load(f)
-                assert "newick" in tree_data, (
-                    f"Tree file {tree_file} missing newick data"
-                )
-                assert "nodes" in tree_data, f"Tree file {tree_file} missing nodes data"
+        with open(output_file) as f:
+            data = json.load(f)
+        trees = data["trees"]
+        assert len(trees) > 0, "No trees were created"
+        for tree_data in trees:
+            assert "newick" in tree_data, "Tree missing newick data"
+            assert "nodes" in tree_data, "Tree missing nodes data"
 
     @pytest.mark.pcp
     def test_pcp_with_trees_short_option(self):
@@ -433,43 +365,6 @@ class TestOlmstedCLI:
             first_tree = data["trees"][0]
             assert "newick" in first_tree, "First tree missing newick data"
             assert "nodes" in first_tree, "First tree missing nodes data"
-
-    @pytest.mark.pcp
-    def test_pcp_processing(self):
-        """`process --split-files` on PCP matches the split-format golden.
-
-        Pure shape check on the legacy split-file output. See the AIRR
-        counterpart for the rationale on splitting shape from
-        validation coverage.
-        """
-        input_clones = self.test_data_dir / "pcp" / "input-pcp.csv"
-        input_trees = self.test_data_dir / "pcp" / "input-trees.csv"
-        output_dir = Path(self.temp_dir) / "pcp_output"
-
-        cmd = [
-            "olmsted",
-            "process",
-            "-f",
-            "pcp",
-            "-i",
-            str(input_clones),
-            "-t",
-            str(input_trees),
-            "--split-files",
-            str(output_dir),
-            "--seed",
-            "42",
-            "--name",
-            "pcp-example",
-            "--json-format",
-            "pretty",
-        ]
-
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        assert result.returncode == 0, f"Command failed: {result.stderr}"
-
-        match, message = compare_directories(str(self.golden_pcp_dir), str(output_dir))
-        assert match, f"Output doesn't match golden data: {message}"
 
     @pytest.mark.pcp
     def test_pcp_consolidated_processing(self):
@@ -554,7 +449,7 @@ class TestOlmstedCLI:
         """Test automatic format detection for AIRR JSON files."""
         # Input and output paths
         input_file = self.test_data_dir / "airr" / "input-airr.json"
-        output_dir = Path(self.temp_dir) / "auto_airr_output"
+        output_file = Path(self.temp_dir) / "auto_airr_output.json"
 
         # Run without specifying format using subcommand
         cmd = [
@@ -562,8 +457,8 @@ class TestOlmstedCLI:
             "process",
             "-i",
             str(input_file),
-            "--split-files",
-            str(output_dir),
+            "-o",
+            str(output_file),
             "-f",
             "auto",  # Explicit auto-detection
             "--seed",
@@ -576,15 +471,13 @@ class TestOlmstedCLI:
         assert result.returncode == 0, f"Command failed: {result.stderr}"
 
         # Verify it detected AIRR format
-        assert (
-            "airr" in result.stdout.lower() or len(list(output_dir.glob("*.json"))) > 0
-        )
+        assert "airr" in result.stdout.lower() or output_file.exists()
 
     def test_auto_format_detection_pcp(self):
         """Test automatic format detection for PCP CSV files."""
         # Input and output paths
         input_clones = self.test_data_dir / "pcp" / "input-pcp.csv"
-        output_dir = Path(self.temp_dir) / "auto_pcp_output"
+        output_file = Path(self.temp_dir) / "auto_pcp_output.json"
 
         # Run without specifying format using subcommand
         cmd = [
@@ -592,8 +485,8 @@ class TestOlmstedCLI:
             "process",
             "-i",
             str(input_clones),
-            "--split-files",
-            str(output_dir),
+            "-o",
+            str(output_file),
             "-f",
             "auto",  # Explicit auto-detection
             "--seed",
@@ -606,21 +499,19 @@ class TestOlmstedCLI:
         assert result.returncode == 0, f"Command failed: {result.stderr}"
 
         # Verify it detected PCP format
-        assert (
-            "pcp" in result.stdout.lower() or len(list(output_dir.glob("*.json"))) > 0
-        )
+        assert "pcp" in result.stdout.lower() or output_file.exists()
 
     def test_invalid_input_file(self):
         """Test handling of invalid input file."""
-        output_dir = Path(self.temp_dir) / "invalid_output"
+        output_file = Path(self.temp_dir) / "invalid_output.json"
 
         cmd = [
             "olmsted",
             "process",
             "-i",
             "nonexistent_file.json",
-            "--split-files",
-            str(output_dir),
+            "-o",
+            str(output_file),
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)

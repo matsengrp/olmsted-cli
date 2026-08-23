@@ -49,7 +49,6 @@ is stream-stitched with `metadata` first. Primitives live in
 The pipeline falls back to the legacy in-memory path when:
 
 - `--batch-size 0` (explicit opt-out)
-- `--split-files` (multi-file output)
 - `--validate` (per-batch validation not yet wired)
 - Input fits in one batch (single-batch fast path — skips spool round-trip)
 
@@ -154,13 +153,6 @@ Gzipped consolidated goldens (tracked alongside the plain JSON for `.json.gz` up
 ```bash
 olmsted process -f airr -i example-data/airr/input-airr.json -o example-data/airr/airr-olmsted-golden.json --seed 42 --name airr-example --json-format gzip -q
 olmsted process -f pcp -i example-data/pcp/input-pcp.csv -t example-data/pcp/input-trees.csv -o example-data/pcp/pcp-olmsted-golden.json --seed 42 --name pcp-example --json-format gzip -q
-```
-
-Split-format goldens (legacy, pinned for integrity testing as long as `--split-files` is supported):
-
-```bash
-olmsted process -f airr -i example-data/airr/input-airr.json --split-files example-data/airr/split-golden-data --seed 42 --name airr-example --json-format pretty -q
-olmsted process -f pcp -i example-data/pcp/input-pcp.csv -t example-data/pcp/input-trees.csv --split-files example-data/pcp/split-golden-data --seed 42 --name pcp-example --json-format pretty -q
 ```
 
 Merge golden (post-merge source-of-truth):

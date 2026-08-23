@@ -2993,12 +2993,6 @@ def get_args():
         help="Output file path for consolidated JSON (default behavior)",
     )
     parser.add_argument(
-        "--split-files",
-        metavar="DIR",
-        dest="output_dir",
-        help="Output to multiple files in specified directory (datasets.json, clones.*.json, tree.*.json) instead of single consolidated file",
-    )
-    parser.add_argument(
         "-n",
         "--name",
         help="Optional name for the dataset (stored in metadata)",
@@ -3107,8 +3101,6 @@ def main():
         vprint.verbose(f"  Input trees file: {args.input_trees}")
     if args.output:
         vprint.verbose(f"  Output file: {args.output}")
-    if args.output_dir:
-        vprint.verbose(f"  Output directory: {args.output_dir}")
     if args.name:
         vprint.verbose(f"  Dataset name: {args.name}")
     vprint.verbose(f"  Verbosity level: {args.verbose}")
@@ -3176,31 +3168,20 @@ def main():
                     sys.exit(1)
 
         # Write output
-        if args.output_dir:
-            # Multi-file output to specified directory
-            os.makedirs(args.output_dir, exist_ok=True)
-            vprint.status(f"Writing multiple files to {args.output_dir}")
-            write_out(datasets, args.output_dir, "datasets.json", args)
-            for dataset_id, clones in clones_dict.items():
-                write_out(clones, args.output_dir, f"clones.{dataset_id}.json", args)
-            for tree in trees:
-                write_out(tree, args.output_dir, f"tree.{tree['ident']}.json", args)
-        else:
-            # Single consolidated file output (default)
-            # Build input files list for metadata
-            input_files = [args.input_pcp]
-            if args.input_trees:
-                input_files.append(args.input_trees)
+        # Build input files list for metadata
+        input_files = [args.input_pcp]
+        if args.input_trees:
+            input_files.append(args.input_trees)
 
-            consolidated_data = create_consolidated_data(
-                datasets, clones_dict, trees, input_files, "pcp", args
-            )
-            # Ensure output directory exists
-            output_dir = os.path.dirname(args.output) or "."
-            output_file = os.path.basename(args.output)
-            os.makedirs(output_dir, exist_ok=True)
-            vprint.status(f"Writing consolidated output to {args.output}")
-            write_out(consolidated_data, output_dir, output_file, args)
+        consolidated_data = create_consolidated_data(
+            datasets, clones_dict, trees, input_files, "pcp", args
+        )
+        # Ensure output directory exists
+        output_dir = os.path.dirname(args.output) or "."
+        output_file = os.path.basename(args.output)
+        os.makedirs(output_dir, exist_ok=True)
+        vprint.status(f"Writing consolidated output to {args.output}")
+        write_out(consolidated_data, output_dir, output_file, args)
 
         vprint.status("Processing complete!")
 

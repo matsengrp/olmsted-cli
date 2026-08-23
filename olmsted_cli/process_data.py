@@ -9,9 +9,7 @@ Supported formats:
 - AIRR JSON: Standard AIRR format with clones and trees
 - PCP CSV: Parent-Child Pair format with optional Newick trees
 
-Output modes:
-- Single Olmsted JSON file (default): All data in one file
-- Multiple files (--split-files): Separate datasets.json, clones.*.json, tree.*.json
+Output: a single consolidated Olmsted JSON file.
 """
 
 import argparse
@@ -193,7 +191,6 @@ def process_airr_format(args):
     # Map common arguments
     airr_args.inputs = args.inputs
     airr_args.output = args.output
-    airr_args.data_outdir = getattr(args, "split_files", None)  # For split files mode
     airr_args.verbose = args.verbose
     airr_args.validate = args.validate
     airr_args.strict_validation = args.strict_validation
@@ -329,36 +326,15 @@ def process_airr_format(args):
             sys.exit(1)
 
     # Write output
-    if args.split_files:
-        # Multi-file output to specified directory
-        output_dir = args.split_files
-        os.makedirs(output_dir, exist_ok=True)
-        write_out(datasets, output_dir, "datasets.json", airr_args)
-        for dataset_id, clones in clones_dict.items():
-            write_out(
-                clones,
-                output_dir + "/",
-                "clones." + dataset_id + ".json",
-                airr_args,
-            )
-        for tree in trees:
-            write_out(
-                tree,
-                output_dir + "/",
-                "tree." + tree["ident"] + ".json",
-                airr_args,
-            )
-    else:
-        # Olmsted JSON output (default)
-        consolidated_data = create_consolidated_data(
-            datasets, clones_dict, trees, args.inputs, FORMAT_AIRR, args
-        )
-        # Ensure output directory exists
-        output_dir = os.path.dirname(args.output) or "."
-        output_file = os.path.basename(args.output)
-        os.makedirs(output_dir, exist_ok=True)
-        vprint.status(f"Writing Olmsted JSON output to {args.output}")
-        write_out(consolidated_data, output_dir, output_file, airr_args)
+    consolidated_data = create_consolidated_data(
+        datasets, clones_dict, trees, args.inputs, FORMAT_AIRR, args
+    )
+    # Ensure output directory exists
+    output_dir = os.path.dirname(args.output) or "."
+    output_file = os.path.basename(args.output)
+    os.makedirs(output_dir, exist_ok=True)
+    vprint.status(f"Writing Olmsted JSON output to {args.output}")
+    write_out(consolidated_data, output_dir, output_file, airr_args)
 
 
 def _begin_mutations_merge(args, mutations_path):
@@ -418,8 +394,6 @@ def _should_stream_pcp(args) -> bool:
     Bail out to the legacy in-memory path when:
 
     - ``--batch-size 0`` — explicit opt-out.
-    - ``--split-files`` — multi-file output predates streaming and has a
-      different write shape.
     - ``--validate`` — per-batch validation isn't wired yet; today
       ``validate_output_data`` consumes the whole assembled output.
 
@@ -429,8 +403,6 @@ def _should_stream_pcp(args) -> bool:
     the in-memory pipeline saves, so the legacy path runs instead.
     """
     if getattr(args, "batch_size", 0) <= 0:
-        return False
-    if getattr(args, "split_files", None):
         return False
     if getattr(args, "validate", False):
         return False
@@ -783,8 +755,6 @@ def process_pcp_format(args):
         vprint.verbose(f"  Input trees file: {args.tree}")
     if args.output:
         vprint.verbose(f"  Output file: {args.output}")
-    if args.split_files:
-        vprint.verbose(f"  Output directory: {args.split_files}")
     if hasattr(args, "name") and args.name:
         vprint.verbose(f"  Dataset name: {args.name}")
     vprint.verbose(f"  Verbosity level: {args.verbose}")
@@ -918,27 +888,15 @@ def process_pcp_format(args):
                     sys.exit(1)
 
         # Write output
-        if args.split_files:
-            # Multi-file output to specified directory
-            output_dir = args.split_files
-            os.makedirs(output_dir, exist_ok=True)
-            vprint.status(f"Writing output to {output_dir}")
-            write_out(datasets, output_dir, "datasets.json", args)
-            for dataset_id, clones in clones_dict.items():
-                write_out(clones, output_dir, f"clones.{dataset_id}.json", args)
-            for tree in trees:
-                write_out(tree, output_dir, f"tree.{tree['ident']}.json", args)
-        else:
-            # Olmsted JSON output (default)
-            consolidated_data = create_consolidated_data(
-                datasets, clones_dict, trees, args.inputs, FORMAT_PCP, args
-            )
-            # Ensure output directory exists
-            output_dir = os.path.dirname(args.output) or "."
-            output_file = os.path.basename(args.output)
-            os.makedirs(output_dir, exist_ok=True)
-            vprint.status(f"Writing Olmsted JSON output to {args.output}")
-            write_out(consolidated_data, output_dir, output_file, args)
+        consolidated_data = create_consolidated_data(
+            datasets, clones_dict, trees, args.inputs, FORMAT_PCP, args
+        )
+        # Ensure output directory exists
+        output_dir = os.path.dirname(args.output) or "."
+        output_file = os.path.basename(args.output)
+        os.makedirs(output_dir, exist_ok=True)
+        vprint.status(f"Writing Olmsted JSON output to {args.output}")
+        write_out(consolidated_data, output_dir, output_file, args)
 
         vprint.status("Processing complete!")
 
@@ -1038,24 +996,14 @@ def process_airr2_format(args):
                     )
                     sys.exit(1)
 
-        if args.split_files:
-            output_dir = args.split_files
-            os.makedirs(output_dir, exist_ok=True)
-            vprint.status(f"Writing output to {output_dir}")
-            write_out(datasets, output_dir, "datasets.json", args)
-            for dataset_id, clones in clones_dict.items():
-                write_out(clones, output_dir, f"clones.{dataset_id}.json", args)
-            for tree in trees:
-                write_out(tree, output_dir, f"tree.{tree['ident']}.json", args)
-        else:
-            consolidated_data = create_consolidated_data(
-                datasets, clones_dict, trees, args.inputs, FORMAT_AIRR2, args
-            )
-            output_dir = os.path.dirname(args.output) or "."
-            output_file = os.path.basename(args.output)
-            os.makedirs(output_dir, exist_ok=True)
-            vprint.status(f"Writing Olmsted JSON output to {args.output}")
-            write_out(consolidated_data, output_dir, output_file, args)
+        consolidated_data = create_consolidated_data(
+            datasets, clones_dict, trees, args.inputs, FORMAT_AIRR2, args
+        )
+        output_dir = os.path.dirname(args.output) or "."
+        output_file = os.path.basename(args.output)
+        os.makedirs(output_dir, exist_ok=True)
+        vprint.status(f"Writing Olmsted JSON output to {args.output}")
+        write_out(consolidated_data, output_dir, output_file, args)
 
         vprint.status("Processing complete!")
 
@@ -1236,11 +1184,6 @@ Examples:
         help="JSON output format (default: pretty)",
     )
     parser.add_argument(
-        "--split-files",
-        metavar="DIR",
-        help="Output split files instead of single Olmsted JSON (legacy)",
-    )
-    parser.add_argument(
         "--batch-size",
         type=int,
         default=50,
@@ -1305,7 +1248,6 @@ _CONFIG_KEY_MAP = {
     "inputs": "inputs",
     "output": "output",
     "format": "format",
-    "split_files": "split_files",
     "json_format": "json_format",
     "name": "name",
     "description": "description",
@@ -1376,7 +1318,7 @@ def load_config(config_path):
         if config_key in raw_config:
             value = raw_config[config_key]
             # Resolve file paths relative to config file directory
-            if config_key in ("inputs", "tree", "output", "split_files"):
+            if config_key in ("inputs", "tree", "output"):
                 value = _resolve_paths(value, config_dir)
             config_dict[arg_dest] = value
 
@@ -1527,12 +1469,8 @@ def main():
     set_verbosity(args.verbose)
 
     # Validate output arguments
-    if not args.output and not args.split_files:
-        vprint.error("Error: Either -o/--output or --split-files must be specified")
-        sys.exit(1)
-
-    if args.output and args.split_files:
-        vprint.error("Error: Cannot specify both -o/--output and --split-files")
+    if not args.output:
+        vprint.error("Error: -o/--output must be specified")
         sys.exit(1)
 
     # Validate inputs
