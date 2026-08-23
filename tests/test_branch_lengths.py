@@ -10,6 +10,7 @@ See issue #29.
 import pytest
 
 from olmsted_cli.process_utils import (
+    assign_branch_lengths,
     populate_branch_lengths_from_newick,
     validate_tree,
 )
@@ -96,37 +97,39 @@ def test_none_sequence_id_excluded():
     assert "distance" not in none_node
 
 
-def test_airr_reroot_measures_distance_from_naive():
-    """process_tree_nodes(reroot=True) reroots on the naive node and measures
-    cumulative distance from it — the path the old get_distance(naive) branch
-    handled, now routed through the shared assign_branch_lengths core."""
+def test_reroot_measures_distance_from_naive():
+    """assign_branch_lengths measures distance from an already-rerooted
+    tree's root — the reroot-on-naive/germline path AIRR ingest uses (see
+    process_airr_data._reroot_on_ancestor) before calling this shared core."""
     import ete3
 
-    from olmsted_cli.process_airr_data import process_tree_nodes
-
-    class _Args:
-        naive_name = "naive"
-
     newick = "((A:0.1,B:0.2)inner:0.3,naive:0.05)root;"
-    nodes = {n: {"sequence_id": n} for n in ("A", "B", "inner", "naive", "root")}
-    out = process_tree_nodes(
-        _Args(), ete3.PhyloTree(newick, format=1), nodes, reroot=True
-    )
-    by_id = {d["sequence_id"]: d for d in out if d.get("sequence_id")}
+    tree = ete3.PhyloTree(newick, format=1)
 
-    # Naive is the rerooted origin: typed root, no parent, anchored at zero.
-    assert by_id["naive"]["type"] == "root"
-    assert by_id["naive"]["parent"] is None
-    assert by_id["naive"]["length"] == 0.0
-    assert by_id["naive"]["distance"] == 0.0
+    # Reroot on "naive", mirroring process_airr_data._reroot_on_ancestor.
+    naive = tree.search_nodes(name="naive")[0]
+    tree.set_outgroup(naive)
+    tree.remove_child(naive)
+    naive.add_child(tree)
+    naive.dist = 0
+    tree = naive
+
+    nodes = {n.name: {"sequence_id": n.name} for n in tree.traverse() if n.name}
+    assign_branch_lengths(tree, nodes, overwrite=True)
+
+    # Naive is the rerooted origin: anchored at zero.
+    assert nodes["naive"]["length"] == 0.0
+    assert nodes["naive"]["distance"] == 0.0
 
     # Every other node's distance is measured from naive and is monotonic down
     # the (rerooted) tree — i.e. distances are from-naive, not from-old-root.
-    for d in out:
-        parent_id = d.get("parent")
-        if parent_id is None or parent_id not in by_id:
+    for ete_node in tree.traverse():
+        if ete_node.up is None or not ete_node.name or not ete_node.up.name:
             continue
-        assert d["distance"] >= by_id[parent_id]["distance"] - 1e-9
+        assert (
+            nodes[ete_node.name]["distance"]
+            >= nodes[ete_node.up.name]["distance"] - 1e-9
+        )
 
 
 def test_no_clobber():

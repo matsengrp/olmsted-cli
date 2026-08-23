@@ -3,10 +3,10 @@
         "format": "olmsted",
         "format_version": "1.0",
         "schema_version": "2.0.0",
-        "created_at": "2026-08-07T00:20:49.706509+00:00",
-        "source_format": "airr2",
+        "created_at": "2026-08-23T20:50:37.847918+00:00",
+        "source_format": "airr",
         "source_files": [
-            "input-paired-info.json"
+            "input-paired-noinfo.json"
         ],
         "processing_info": {
             "datasets_count": 1,
@@ -17,13 +17,16 @@
         "generated_by": {
             "tool": "olmsted-cli",
             "version": "0.4.0.post1",
-            "git_hash": "0618460"
+            "git_hash": "0fcd7f0"
         },
-        "name": "airr2-paired-info-example",
+        "name": "airr-paired-noinfo-example",
         "processing_options": {
             "validation": false,
             "strict_validation": false,
-            "seed": 42
+            "seed": 42,
+            "airr": {
+                "root": null
+            }
         }
     },
     "datasets": [
@@ -32,7 +35,7 @@
             "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
             "schema_version": "2.0.0",
             "build": {
-                "commit": "airr2-import",
+                "commit": "airr-import",
                 "time": ""
             },
             "subjects": [],
@@ -47,15 +50,9 @@
             "clone_count": 4,
             "subjects_count": 0,
             "timepoints_count": 0,
-            "name": "airr2-paired-info-example",
+            "name": "airr-paired-noinfo-example",
             "field_metadata": {
                 "clone": {
-                    "cdr3_length": {
-                        "type": "continuous",
-                        "display": "dropdown",
-                        "label": "CDR3 Length",
-                        "description": "Length of the CDR3 (junction) region, in nucleotides."
-                    },
                     "clone_class": {
                         "type": "categorical",
                         "display": "dropdown",
@@ -65,11 +62,6 @@
                         "type": "categorical",
                         "display": "dropdown",
                         "label": "Is Paired"
-                    },
-                    "j_call": {
-                        "type": "categorical",
-                        "display": "dropdown",
-                        "label": "J Gene"
                     },
                     "locus": {
                         "type": "categorical",
@@ -95,11 +87,6 @@
                         "type": "continuous",
                         "display": "dropdown",
                         "label": "Unique Sequences Count"
-                    },
-                    "v_call": {
-                        "type": "categorical",
-                        "display": "dropdown",
-                        "label": "V Gene"
                     }
                 },
                 "node": {
@@ -112,11 +99,6 @@
                         "type": "categorical",
                         "display": "dropdown",
                         "label": "Locus"
-                    },
-                    "multiplicity": {
-                        "type": "continuous",
-                        "display": "dropdown",
-                        "label": "Multiplicity"
                     },
                     "node_class": {
                         "type": "categorical",
@@ -177,9 +159,6 @@
                     "locus": "igh"
                 },
                 "total_read_count": 6,
-                "v_call": "IGHV3-23",
-                "j_call": "IGHJ3",
-                "cdr3_length": 57,
                 "is_paired": true,
                 "pair_id": "pair-10004"
             },
@@ -207,9 +186,6 @@
                     "locus": "igk"
                 },
                 "total_read_count": 6,
-                "v_call": "IGHV3-23",
-                "j_call": "IGHJ3",
-                "cdr3_length": 57,
                 "is_paired": true,
                 "pair_id": "pair-10004"
             },
@@ -237,9 +213,6 @@
                     "locus": "igh"
                 },
                 "total_read_count": 4,
-                "v_call": "IGHV4-59",
-                "j_call": "IGHJ5",
-                "cdr3_length": 42,
                 "is_paired": true,
                 "pair_id": "pair-8232"
             },
@@ -267,9 +240,6 @@
                     "locus": "igl"
                 },
                 "total_read_count": 4,
-                "v_call": "IGHV4-59",
-                "j_call": "IGHJ5",
-                "cdr3_length": 42,
                 "is_paired": true,
                 "pair_id": "pair-8232"
             }
@@ -293,7 +263,7 @@
                     "node_class": "Cell",
                     "locus": "IGH",
                     "parent": "Node12-10004",
-                    "multiplicity": 1,
+                    "multiplicity": null,
                     "timepoint_multiplicities": [],
                     "lbi": null,
                     "lbr": null,
@@ -312,7 +282,7 @@
                     "node_class": "Cell",
                     "locus": "IGH",
                     "parent": "Node11-10004",
-                    "multiplicity": 1,
+                    "multiplicity": null,
                     "timepoint_multiplicities": [],
                     "lbi": null,
                     "lbr": null,
@@ -331,7 +301,7 @@
                     "node_class": "Cell",
                     "locus": "IGH",
                     "parent": "Node9-10004",
-                    "multiplicity": 1,
+                    "multiplicity": null,
                     "timepoint_multiplicities": [],
                     "lbi": null,
                     "lbr": null,
@@ -350,7 +320,7 @@
                     "node_class": "Cell",
                     "locus": "IGH",
                     "parent": "Node11-10004",
-                    "multiplicity": 1,
+                    "multiplicity": null,
                     "timepoint_multiplicities": [],
                     "lbi": null,
                     "lbr": null,
@@ -369,7 +339,7 @@
                     "node_class": "Cell",
                     "locus": "IGH",
                     "parent": "Node10-10004",
-                    "multiplicity": 1,
+                    "multiplicity": null,
                     "timepoint_multiplicities": [],
                     "lbi": null,
                     "lbr": null,
@@ -388,7 +358,7 @@
                     "node_class": "Cell",
                     "locus": "IGH",
                     "parent": "Node13-10004",
-                    "multiplicity": 1,
+                    "multiplicity": null,
                     "timepoint_multiplicities": [],
                     "lbi": null,
                     "lbr": null,
@@ -549,7 +519,7 @@
                     "node_class": "Cell",
                     "locus": "IGK",
                     "parent": "Node12-10004",
-                    "multiplicity": 1,
+                    "multiplicity": null,
                     "timepoint_multiplicities": [],
                     "lbi": null,
                     "lbr": null,
@@ -568,7 +538,7 @@
                     "node_class": "Cell",
                     "locus": "IGK",
                     "parent": "Node11-10004",
-                    "multiplicity": 1,
+                    "multiplicity": null,
                     "timepoint_multiplicities": [],
                     "lbi": null,
                     "lbr": null,
@@ -587,7 +557,7 @@
                     "node_class": "Cell",
                     "locus": "IGK",
                     "parent": "Node9-10004",
-                    "multiplicity": 1,
+                    "multiplicity": null,
                     "timepoint_multiplicities": [],
                     "lbi": null,
                     "lbr": null,
@@ -606,7 +576,7 @@
                     "node_class": "Cell",
                     "locus": "IGK",
                     "parent": "Node11-10004",
-                    "multiplicity": 1,
+                    "multiplicity": null,
                     "timepoint_multiplicities": [],
                     "lbi": null,
                     "lbr": null,
@@ -625,7 +595,7 @@
                     "node_class": "Cell",
                     "locus": "IGK",
                     "parent": "Node10-10004",
-                    "multiplicity": 1,
+                    "multiplicity": null,
                     "timepoint_multiplicities": [],
                     "lbi": null,
                     "lbr": null,
@@ -644,7 +614,7 @@
                     "node_class": "Cell",
                     "locus": "IGK",
                     "parent": "Node13-10004",
-                    "multiplicity": 1,
+                    "multiplicity": null,
                     "timepoint_multiplicities": [],
                     "lbi": null,
                     "lbr": null,
@@ -805,7 +775,7 @@
                     "node_class": "Cell",
                     "locus": "IGH",
                     "parent": "Node8-8232",
-                    "multiplicity": 1,
+                    "multiplicity": null,
                     "timepoint_multiplicities": [],
                     "lbi": null,
                     "lbr": null,
@@ -824,7 +794,7 @@
                     "node_class": "Cell",
                     "locus": "IGH",
                     "parent": "Node8-8232",
-                    "multiplicity": 1,
+                    "multiplicity": null,
                     "timepoint_multiplicities": [],
                     "lbi": null,
                     "lbr": null,
@@ -843,7 +813,7 @@
                     "node_class": "Cell",
                     "locus": "IGH",
                     "parent": "Node7-8232",
-                    "multiplicity": 1,
+                    "multiplicity": null,
                     "timepoint_multiplicities": [],
                     "lbi": null,
                     "lbr": null,
@@ -862,7 +832,7 @@
                     "node_class": "Cell",
                     "locus": "IGH",
                     "parent": "Node7-8232",
-                    "multiplicity": 1,
+                    "multiplicity": null,
                     "timepoint_multiplicities": [],
                     "lbi": null,
                     "lbr": null,
@@ -985,7 +955,7 @@
                     "node_class": "Cell",
                     "locus": "IGL",
                     "parent": "Node8-8232",
-                    "multiplicity": 1,
+                    "multiplicity": null,
                     "timepoint_multiplicities": [],
                     "lbi": null,
                     "lbr": null,
@@ -1004,7 +974,7 @@
                     "node_class": "Cell",
                     "locus": "IGL",
                     "parent": "Node8-8232",
-                    "multiplicity": 1,
+                    "multiplicity": null,
                     "timepoint_multiplicities": [],
                     "lbi": null,
                     "lbr": null,
@@ -1023,7 +993,7 @@
                     "node_class": "Cell",
                     "locus": "IGL",
                     "parent": "Node7-8232",
-                    "multiplicity": 1,
+                    "multiplicity": null,
                     "timepoint_multiplicities": [],
                     "lbi": null,
                     "lbr": null,
@@ -1042,7 +1012,7 @@
                     "node_class": "Cell",
                     "locus": "IGL",
                     "parent": "Node7-8232",
-                    "multiplicity": 1,
+                    "multiplicity": null,
                     "timepoint_multiplicities": [],
                     "lbi": null,
                     "lbr": null,

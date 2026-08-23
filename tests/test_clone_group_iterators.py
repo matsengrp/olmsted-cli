@@ -1,31 +1,23 @@
 """Round-trip tests for the per-clone-group iterators.
 
 Phase 1 of the streaming-batch refactor introduces ``iter_pcp_clone_groups``
-(PCP) and ``iter_airr_clones`` (AIRR). These tests assert the property the
-streaming pipeline depends on: iterating with any ``batch_size`` produces the
-same concatenated clones and trees as iterating with ``batch_size=None``.
+(PCP). These tests assert the property the streaming pipeline depends on:
+iterating with any ``batch_size`` produces the same concatenated clones and
+trees as iterating with ``batch_size=None``. (AIRR has no equivalent
+iterator — it has no streaming/batching support at all, see issue #36.)
 """
 
 from __future__ import annotations
 
-import argparse
 import copy
-from pathlib import Path
 
-import pytest
-
-from olmsted_cli.data_io import read_airr_json
 from olmsted_cli.identifier import IdentMinter
-from olmsted_cli.process_airr_data import iter_airr_clones
 from olmsted_cli.process_pcp_data import (
     TreeProcessingConfig,
     iter_pcp_clone_groups,
     parse_newick_csv,
     parse_pcp_csv,
 )
-
-EXAMPLE_DATA = Path(__file__).parent.parent / "example-data"
-
 
 # Two-tree-per-family, two-family PCP input gives the iterator enough material
 # to slice at every meaningful boundary (1, 2, all-at-once).
@@ -151,42 +143,3 @@ def test_iter_pcp_clone_groups_groups_alt_reconstructions_in_same_yield(tmp_path
     assert len(f2_clones) == 1
     assert f2_clones[0]["clone_id"] == "S1_F2"
     assert len(f2_trees) == 1
-
-
-def _airr_args(seed: int) -> argparse.Namespace:
-    args = argparse.Namespace()
-    args.minter = IdentMinter(seed=seed)
-    args.verbose = 0
-    args.compute_metrics = False
-    args.lbi_tau = 0.0125
-    args.naive_name = "naive"
-    args.root_trees = False
-    args.custom_fields = None
-    return args
-
-
-def _run_airr(dataset: dict, batch_size, seed: int = 42):
-    args = _airr_args(seed)
-    clones, trees, yields = _drain(
-        iter_airr_clones(args, dataset, batch_size=batch_size)
-    )
-    return clones, trees, yields
-
-
-@pytest.fixture(scope="module")
-def airr_input():
-    return read_airr_json(EXAMPLE_DATA / "airr" / "input-airr.json")
-
-
-def test_iter_airr_clones_concatenation_invariant(airr_input):
-    baseline_clones, baseline_trees, baseline_yields = _run_airr(
-        copy.deepcopy(airr_input), batch_size=None
-    )
-    assert baseline_yields == 1
-    assert baseline_clones, "expected at least one clone in example AIRR data"
-
-    for size in (1, 3, 100):
-        clones, trees, yields = _run_airr(copy.deepcopy(airr_input), batch_size=size)
-        assert clones == baseline_clones, f"batch_size={size}: clones differ"
-        assert trees == baseline_trees, f"batch_size={size}: trees differ"
-        assert yields >= 1

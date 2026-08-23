@@ -87,9 +87,6 @@ class TestOlmstedCLI:
         # Get paths relative to the package root
         self.cli_root = Path(__file__).parent.parent
         self.test_data_dir = self.cli_root / "example-data"
-        self.consolidated_airr_file = (
-            self.test_data_dir / "airr" / "airr-olmsted-golden.json"
-        )
         self.consolidated_pcp_file = (
             self.test_data_dir / "pcp" / "pcp-olmsted-golden.json"
         )
@@ -105,80 +102,6 @@ class TestOlmstedCLI:
         yield
 
     @pytest.mark.airr
-    def test_airr_consolidated_processing(self):
-        """`process` on AIRR produces output matching the golden (data shape).
-
-        Pure shape check — no `--validate`. Schema/time-tree validation is
-        covered separately by `test_airr_consolidated_inline_validation`
-        and `test_validate_airr_consolidated_golden_output`, so a failure
-        here unambiguously points at processing rather than validation.
-        """
-        input_file = self.test_data_dir / "airr" / "input-airr.json"
-        output_file = Path(self.temp_dir) / "airr_consolidated.json"
-
-        cmd = [
-            "olmsted",
-            "process",
-            "-f",
-            "airr",
-            "-i",
-            str(input_file),
-            "-o",
-            str(output_file),
-            "--seed",
-            "42",
-            "--name",
-            "airr-example",
-            "--json-format",
-            "pretty",
-        ]
-
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        assert result.returncode == 0, f"Command failed: {result.stderr}"
-        assert output_file.exists(), f"Output file not created: {output_file}"
-
-        # Compare against consolidated golden data (ignoring volatile fields)
-        match, message = compare_consolidated_files(
-            str(self.consolidated_airr_file), str(output_file)
-        )
-        assert match, f"Output doesn't match consolidated golden data:\n{message}"
-
-    @pytest.mark.airr
-    def test_airr_consolidated_inline_validation(self):
-        """`process --validate` on AIRR runs without error.
-
-        Exercises the inline-validation code path through the CLI. A
-        regression here means either inline validation broke or the
-        AIRR output became schema/time-tree-invalid.
-        """
-        input_file = self.test_data_dir / "airr" / "input-airr.json"
-        output_file = Path(self.temp_dir) / "airr_inline_validated.json"
-
-        cmd = [
-            "olmsted",
-            "process",
-            "-f",
-            "airr",
-            "-i",
-            str(input_file),
-            "-o",
-            str(output_file),
-            "--seed",
-            "42",
-            "--name",
-            "airr-example",
-            "--json-format",
-            "pretty",
-            "--validate",
-        ]
-
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        assert result.returncode == 0, (
-            f"`process --validate` failed:\n"
-            f"stdout: {result.stdout}\nstderr: {result.stderr}"
-        )
-
-    @pytest.mark.airr2
     @pytest.mark.parametrize(
         "variant",
         [
@@ -190,21 +113,21 @@ class TestOlmstedCLI:
             "paired-info",
         ],
     )
-    def test_airr2_consolidated_processing(self, variant):
-        """`process -f airr2` on each variant matches the consolidated golden.
+    def test_airr_consolidated_processing(self, variant):
+        """`process -f airr` on each variant matches the consolidated golden.
 
         Pure shape check (no `--validate`); the golden files are schema-valid
         by construction (see the regen commands in CLAUDE.md).
         """
-        input_file = self.test_data_dir / "airr2" / f"input-{variant}.json"
-        golden_file = self.test_data_dir / "airr2" / f"{variant}-olmsted-golden.json"
-        output_file = Path(self.temp_dir) / f"airr2_{variant}.json"
+        input_file = self.test_data_dir / "airr" / f"input-{variant}.json"
+        golden_file = self.test_data_dir / "airr" / f"{variant}-olmsted-golden.json"
+        output_file = Path(self.temp_dir) / f"airr_{variant}.json"
 
         cmd = [
             "olmsted",
             "process",
             "-f",
-            "airr2",
+            "airr",
             "-i",
             str(input_file),
             "-o",
@@ -212,7 +135,7 @@ class TestOlmstedCLI:
             "--seed",
             "42",
             "--name",
-            f"airr2-{variant}-example",
+            f"airr-{variant}-example",
             "--json-format",
             "pretty",
         ]
@@ -224,17 +147,17 @@ class TestOlmstedCLI:
         match, message = compare_consolidated_files(str(golden_file), str(output_file))
         assert match, f"Output doesn't match consolidated golden data:\n{message}"
 
-    @pytest.mark.airr2
-    def test_airr2_consolidated_inline_validation(self):
-        """`process -f airr2 --validate` runs without error (paired variant)."""
-        input_file = self.test_data_dir / "airr2" / "input-paired-noinfo.json"
-        output_file = Path(self.temp_dir) / "airr2_paired_validated.json"
+    @pytest.mark.airr
+    def test_airr_consolidated_inline_validation(self):
+        """`process -f airr --validate` runs without error (paired variant)."""
+        input_file = self.test_data_dir / "airr" / "input-paired-noinfo.json"
+        output_file = Path(self.temp_dir) / "airr_paired_validated.json"
 
         cmd = [
             "olmsted",
             "process",
             "-f",
-            "airr2",
+            "airr",
             "-i",
             str(input_file),
             "-o",
@@ -242,7 +165,7 @@ class TestOlmstedCLI:
             "--seed",
             "42",
             "--name",
-            "airr2-paired-noinfo-example",
+            "airr-paired-noinfo-example",
             "--json-format",
             "pretty",
             "--validate",
@@ -254,11 +177,11 @@ class TestOlmstedCLI:
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
 
-    @pytest.mark.airr2
-    def test_airr2_auto_format_detection(self):
-        """`process` with no `-f` auto-detects the airr2 format."""
-        input_file = self.test_data_dir / "airr2" / "input-paired-noinfo.json"
-        output_file = Path(self.temp_dir) / "airr2_auto.json"
+    @pytest.mark.airr
+    def test_airr_auto_format_detection(self):
+        """`process` with no `-f` auto-detects the airr format."""
+        input_file = self.test_data_dir / "airr" / "input-paired-noinfo.json"
+        output_file = Path(self.temp_dir) / "airr_auto.json"
 
         cmd = [
             "olmsted",
@@ -270,14 +193,14 @@ class TestOlmstedCLI:
             "--seed",
             "42",
             "--name",
-            "airr2-paired-noinfo-example",
+            "airr-paired-noinfo-example",
             "--json-format",
             "pretty",
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)
         assert result.returncode == 0, f"Command failed: {result.stderr}"
-        golden_file = self.test_data_dir / "airr2" / "paired-noinfo-olmsted-golden.json"
+        golden_file = self.test_data_dir / "airr" / "paired-noinfo-olmsted-golden.json"
         match, message = compare_consolidated_files(str(golden_file), str(output_file))
         assert match, f"Auto-detected output doesn't match golden:\n{message}"
 
@@ -444,34 +367,6 @@ class TestOlmstedCLI:
             f"`process --validate` failed:\n"
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
-
-    def test_auto_format_detection_airr(self):
-        """Test automatic format detection for AIRR JSON files."""
-        # Input and output paths
-        input_file = self.test_data_dir / "airr" / "input-airr.json"
-        output_file = Path(self.temp_dir) / "auto_airr_output.json"
-
-        # Run without specifying format using subcommand
-        cmd = [
-            "olmsted",
-            "process",
-            "-i",
-            str(input_file),
-            "-o",
-            str(output_file),
-            "-f",
-            "auto",  # Explicit auto-detection
-            "--seed",
-            "42",
-        ]
-
-        result = subprocess.run(cmd, capture_output=True, text=True)
-
-        # Check command succeeded
-        assert result.returncode == 0, f"Command failed: {result.stderr}"
-
-        # Verify it detected AIRR format
-        assert "airr" in result.stdout.lower() or output_file.exists()
 
     def test_auto_format_detection_pcp(self):
         """Test automatic format detection for PCP CSV files."""

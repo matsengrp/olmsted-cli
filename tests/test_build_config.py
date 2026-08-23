@@ -127,23 +127,6 @@ class TestBuildConfigOlmsted:
         assert "rearrangement_count" in result.stdout  # in alias reference
         assert "unique_seqs_count" in result.stdout  # in alias reference
 
-    def test_alias_suggestions_on_airr(self):
-        """AIRR fields with aliases get output_name suggestions."""
-        result = subprocess.run(
-            ["olmsted", "build-config", "-i", "example-data/airr/input-airr.json"],
-            capture_output=True,
-            text=True,
-        )
-        # rearrangement_count should have output_name: unique_seqs_count
-        lines = result.stdout.split("\n")
-        for i, line in enumerate(lines):
-            if "name: rearrangement_count" in line:
-                # Next line should be output_name
-                assert "output_name: unique_seqs_count" in lines[i + 1]
-                break
-        else:
-            pytest.fail("rearrangement_count not found in build-config output")
-
 
 class TestBuildConfigPcp:
     def test_pcp_with_trees(self):
@@ -213,7 +196,12 @@ class TestBuildConfigAirr:
     def test_airr(self):
         """build-config on AIRR JSON discovers fields."""
         result = subprocess.run(
-            ["olmsted", "build-config", "-i", "example-data/airr/input-airr.json"],
+            [
+                "olmsted",
+                "build-config",
+                "-i",
+                "example-data/airr/input-nocell-noinfo.json",
+            ],
             capture_output=True,
             text=True,
         )
@@ -224,18 +212,23 @@ class TestBuildConfigAirr:
 
 
 class TestBuildConfigNewTypes:
-    """Tests for list, json, path detection in build-config output."""
+    """Tests for list, json, path detection in build-config output.
+
+    No "airr" case: unlike PCP/Olmsted JSON, the AIRR-C v2 Clone/Tree
+    ingest path builds each clone/node dict from a fixed field set — it
+    doesn't pass through arbitrary custom fields at all, so there's no
+    equivalent fixture to exercise here (see issue #47).
+    """
 
     @pytest.fixture(
         params=[
             ("example-data/fields-config/input-olmsted.json", None),
-            ("example-data/fields-config/input-airr.json", None),
             (
                 "example-data/fields-config/input-pcp.csv",
                 "example-data/fields-config/input-trees.csv",
             ),
         ],
-        ids=["olmsted", "airr", "pcp"],
+        ids=["olmsted", "pcp"],
     )
     def build_config_output(self, request):
         input_path, tree_path = request.param
@@ -303,23 +296,24 @@ class TestBuildConfigNewTypes:
 
 
 class TestBuildConfigTreeLevel:
-    """Tree-level coverage across all three fields-config formats.
+    """Tree-level coverage across the fields-config formats.
 
-    `clone-A` (AIRR / Olmsted) and `fam-1` (PCP) each carry two trees
-    with `foobar_method` / `foobar_tree_score` differing across the
-    pair, so the variance classifier promotes them to ``tree`` level.
+    `clone-A` (Olmsted) and `fam-1` (PCP) each carry two trees with
+    `foobar_method` / `foobar_tree_score` differing across the pair, so
+    the variance classifier promotes them to ``tree`` level. No "airr"
+    case: see the note on `TestBuildConfigNewTypes` — the AIRR ingest
+    path doesn't pass through arbitrary custom fields at all.
     """
 
     @pytest.fixture(
         params=[
             ("example-data/fields-config/input-olmsted.json", None),
-            ("example-data/fields-config/input-airr.json", None),
             (
                 "example-data/fields-config/input-pcp.csv",
                 "example-data/fields-config/input-trees.csv",
             ),
         ],
-        ids=["olmsted", "airr", "pcp"],
+        ids=["olmsted", "pcp"],
     )
     def build_config_output(self, request):
         input_path, tree_path = request.param
@@ -406,7 +400,12 @@ class TestBuildConfigFormatDetection:
 
     def test_detects_airr(self):
         result = subprocess.run(
-            ["olmsted", "build-config", "-i", "example-data/airr/input-airr.json"],
+            [
+                "olmsted",
+                "build-config",
+                "-i",
+                "example-data/airr/input-nocell-noinfo.json",
+            ],
             capture_output=True,
             text=True,
         )
@@ -996,7 +995,7 @@ class TestProcessMatchesBuildConfig:
                     "-f",
                     "airr",
                     "-i",
-                    "example-data/airr/input-airr.json",
+                    "example-data/airr/input-nocell-noinfo.json",
                     "-o",
                     olmsted_path,
                     "--seed",
@@ -1098,7 +1097,7 @@ class TestBuildConfigGolden:
                     "example-data/pcp/input-trees.csv",
                 ],
             ),
-            ("airr", ["-i", "example-data/airr/input-airr.json"]),
+            ("airr", ["-i", "example-data/airr/input-nocell-noinfo.json"]),
             ("olmsted", ["-i", "example-data/mutations/input-olmsted.json"]),
         ],
     )

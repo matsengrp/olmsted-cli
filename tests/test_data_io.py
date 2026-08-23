@@ -14,7 +14,6 @@ from olmsted_cli.constants import (
 )
 from olmsted_cli.data_io import (
     open_file,
-    read_airr_json,
     read_csv_rows,
     read_olmsted_json,
     read_pcp_csv_rows,
@@ -38,7 +37,7 @@ def test_open_file_detects_olmsted():
 
 
 def test_open_file_detects_airr():
-    handle, fmt = open_file(EXAMPLE / "airr" / "input-airr.json")
+    handle, fmt = open_file(EXAMPLE / "airr" / "input-nocell-noinfo.json")
     handle.close()
     assert fmt == FORMAT_AIRR
 
@@ -128,14 +127,15 @@ def test_open_file_rejects_expected_mismatch():
     """Asking for olmsted on an airr file fails fast."""
     with pytest.raises(ValueError, match="Expected.*olmsted.*detected 'airr'"):
         open_file(
-            EXAMPLE / "airr" / "input-airr.json", expected_formats=(FORMAT_OLMSTED,)
+            EXAMPLE / "airr" / "input-nocell-noinfo.json",
+            expected_formats=(FORMAT_OLMSTED,),
         )
 
 
 def test_open_file_accepts_when_in_expected_set():
     """Multi-format expected_formats works."""
     handle, fmt = open_file(
-        EXAMPLE / "airr" / "input-airr.json",
+        EXAMPLE / "airr" / "input-nocell-noinfo.json",
         expected_formats=(FORMAT_AIRR, FORMAT_PCP),
     )
     handle.close()
@@ -153,7 +153,7 @@ def test_read_olmsted_json_happy():
 def test_read_olmsted_json_rejects_airr_file():
     """Passing an AIRR file is a format mismatch — detected as airr, not olmsted."""
     with pytest.raises(ValueError, match="Expected.*olmsted"):
-        read_olmsted_json(EXAMPLE / "airr" / "input-airr.json")
+        read_olmsted_json(EXAMPLE / "airr" / "input-nocell-noinfo.json")
 
 
 def test_read_olmsted_json_rejects_malformed_json(tmp_path):
@@ -174,20 +174,6 @@ def test_read_olmsted_json_rejects_missing_required_keys(tmp_path):
     skeletal.write_text('{"metadata": {"format": "olmsted"}, "datasets": []}')
     with pytest.raises(ValueError, match="missing required Olmsted top-level keys"):
         read_olmsted_json(skeletal)
-
-
-# --- read_airr_json ---------------------------------------------------------
-
-
-def test_read_airr_json_happy():
-    data = read_airr_json(EXAMPLE / "airr" / "input-airr.json")
-    # AIRR file has clones; structural validation is the caller's job.
-    assert "clones" in data
-
-
-def test_read_airr_json_rejects_olmsted_file():
-    with pytest.raises(ValueError, match="Expected.*airr"):
-        read_airr_json(EXAMPLE / "mutations" / "input-olmsted.json")
 
 
 # --- read_pcp_csv_rows ------------------------------------------------------
@@ -212,7 +198,7 @@ def test_read_pcp_csv_rows_handles_gz(tmp_path):
 def test_read_pcp_csv_rows_rejects_non_pcp_file():
     """A JSON file isn't PCP — should fail fast."""
     with pytest.raises(ValueError, match="Expected.*pcp"):
-        list(read_pcp_csv_rows(EXAMPLE / "airr" / "input-airr.json"))
+        list(read_pcp_csv_rows(EXAMPLE / "airr" / "input-nocell-noinfo.json"))
 
 
 # --- read_csv_rows ----------------------------------------------------------

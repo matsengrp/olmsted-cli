@@ -29,7 +29,6 @@ Format-specific recipes layered on ``open_file`` — they encapsulate the
 "open + parse + structural-validate" pattern:
 
 - ``read_olmsted_json(path)``     — parsed dict; checks required top-level keys
-- ``read_airr_json(path)``        — parsed dict (caller validates AIRR-shape)
 - ``read_pcp_csv_rows(path)``     — iterates ``DictReader`` rows from PCP CSV
 - ``read_csv_rows(path)``         — generic CSV iteration (no format detection)
 - ``read_yaml_config(path)``      — parsed dict from a YAML config file
@@ -60,7 +59,6 @@ import yaml
 
 from .constants import (
     FORMAT_AIRR,
-    FORMAT_AIRR2,
     FORMAT_OLMSTED,
     FORMAT_PCP,
     FORMAT_UNKNOWN,
@@ -71,7 +69,7 @@ from .utils import vprint
 # Closed set of values returned by detect_file_format / accepted by open_file's
 # expected_formats. Keeps callers honest at type-check time instead of letting
 # typos like expected_formats=("plc",) silently never match.
-DataFormat = Literal["airr", "airr2", "pcp", "olmsted", "unknown"]
+DataFormat = Literal["airr", "pcp", "olmsted", "unknown"]
 JsonOutputFormat = Literal["pretty", "compact", "gzip"]
 OutputKind = Literal["olmsted_json"]
 
@@ -115,10 +113,11 @@ def _maybe_unzip(path, mode: str = "rt"):
 def detect_file_format(file_path) -> DataFormat:
     """Identify a file's data format by extension + content peek.
 
-    Returns one of ``FORMAT_AIRR``, ``FORMAT_PCP``, ``FORMAT_OLMSTED``,
-    or ``FORMAT_UNKNOWN``. ``.gz``-wrapped files are inspected
-    transparently via ``_maybe_unzip``; format detection always operates
-    on the (logically) plain content underneath.
+    Returns one of ``FORMAT_AIRR`` (top-level ``Clone``/``Rearrangement``
+    tables — the AIRR-C v2 Clone/Tree/Node/Cell schema, see issue #47),
+    ``FORMAT_PCP``, ``FORMAT_OLMSTED``, or ``FORMAT_UNKNOWN``. ``.gz``-wrapped
+    files are inspected transparently via ``_maybe_unzip``; format detection
+    always operates on the (logically) plain content underneath.
     """
     file_path = Path(file_path)
 
@@ -148,21 +147,13 @@ def detect_file_format(file_path) -> DataFormat:
                 if "datasets" in data and "metadata" in data:
                     return FORMAT_OLMSTED
                 # AIRR-C v2 Clone/Tree schema: top-level Clone + Rearrangement
-                # tables. Checked before the legacy AIRR heuristic because a v2
-                # file has neither "clones"/"dataset_id"/"ident" nor the Olmsted
-                # markers, so this is the only branch that claims it.
+                # tables.
                 if "Clone" in data and "Rearrangement" in data:
-                    return FORMAT_AIRR2
-                # AIRR JSON has "clones" or other standard AIRR keys
-                if "dataset_id" in data or "clones" in data or "ident" in data:
                     return FORMAT_AIRR
-            elif isinstance(data, list):
-                # Multi-dataset AIRR
-                return FORMAT_AIRR
             vprint.verbose(
                 f"detect_file_format: {file_path} parses as JSON but lacks "
                 f"Olmsted/AIRR markers (no metadata.format='olmsted', no "
-                f"datasets/metadata pair, no dataset_id/clones/ident)."
+                f"datasets/metadata pair, no top-level Clone/Rearrangement)."
             )
         except (json.JSONDecodeError, OSError, ValueError) as e:
             vprint.verbose(
@@ -261,16 +252,6 @@ def read_olmsted_json(path) -> dict:
             f"{path}: missing required Olmsted top-level keys: {sorted(missing)}"
         )
     return data
-
-
-def read_airr_json(path) -> dict:
-    """Open + parse an AIRR JSON file. Caller validates AIRR-specific shape."""
-    handle, _ = open_file(path, expected_formats=(FORMAT_AIRR,))
-    with handle:
-        try:
-            return json.load(handle)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"{path}: invalid JSON ({e})") from e
 
 
 def read_pcp_csv_rows(path) -> Iterator[dict]:
