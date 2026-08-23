@@ -12,6 +12,7 @@ Usage:
 """
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -38,7 +39,7 @@ from .constants import (
     SUGGESTED_DISPLAY_MODES,
     SUGGESTED_SKIP_FIELDS,
 )
-from .data_io import detect_file_format, read_airr_json, read_olmsted_json
+from .data_io import detect_file_format, read_olmsted_json
 from .field_metadata import (
     classify_tree_extras,
     collect_keys,
@@ -179,39 +180,25 @@ def _load_pcp(input_path, trees_path, seed, compute_metrics):
     return all_clones, trees
 
 
-def _load_airr(input_path):
+def _load_airr(input_path, seed):
     """Process AIRR data and return clones and trees."""
-    from argparse import Namespace
-
     # Deferred: process_airr_data pulls in heavy processing dependencies
-    from .process_airr_data import process_dataset
+    from .process_airr_data import process_airr_to_olmsted
 
-    data = read_airr_json(input_path)
+    with open(input_path) as f:
+        data = json.load(f)
 
-    # Handle single-dataset or multi-dataset AIRR
-    if isinstance(data, list):
-        datasets_raw = data
-    else:
-        datasets_raw = [data]
-
-    args = Namespace(
-        root=None,  # no rooting for build-config introspection
-        naive_name="naive",  # default for process_dataset compatibility
-        root_trees=False,  # no rooting for build-config introspection
-        verbose=0,
-        custom_fields=None,
-        minter=IdentMinter(),
+    datasets, clones_dict, trees = process_airr_to_olmsted(
+        data.get("Clone", []),
+        data.get("Rearrangement", []),
+        minter=IdentMinter(seed=seed),
+        verbosity=0,
     )
 
     all_clones = []
-    all_trees = []
-    for dataset in datasets_raw:
-        clones_dict = {}
-        trees = []
-        process_dataset(args, dataset, clones_dict, trees)
-        for ds_clones in clones_dict.values():
-            all_clones.extend(ds_clones)
-        all_trees.extend(trees)
+    for ds_clones in clones_dict.values():
+        all_clones.extend(ds_clones)
+    all_trees = trees
 
     return all_clones, all_trees
 
@@ -891,7 +878,7 @@ def main():
             input_path, trees_path, args.seed, args.compute_metrics
         )
     elif detected_format == FORMAT_AIRR:
-        all_clones, all_trees = _load_airr(input_path)
+        all_clones, all_trees = _load_airr(input_path, args.seed)
     else:
         vprint.error(f"Error: Unsupported format: {detected_format}")
         sys.exit(1)

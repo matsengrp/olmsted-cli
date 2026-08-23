@@ -3,8 +3,8 @@
         "format": "olmsted",
         "format_version": "1.0",
         "schema_version": "2.0.0",
-        "created_at": "2026-08-07T06:22:28.065487+00:00",
-        "source_format": "airr2",
+        "created_at": "2026-08-23T20:50:38.866283+00:00",
+        "source_format": "airr",
         "source_files": [
             "input-nocell-info.json"
         ],
@@ -17,13 +17,16 @@
         "generated_by": {
             "tool": "olmsted-cli",
             "version": "0.4.0.post1",
-            "git_hash": "92e43e4"
+            "git_hash": "0fcd7f0"
         },
-        "name": "airr2-nocell-info-example",
+        "name": "airr-nocell-info-example",
         "processing_options": {
             "validation": false,
             "strict_validation": false,
-            "seed": 42
+            "seed": 42,
+            "airr": {
+                "root": null
+            }
         }
     },
     "datasets": [
@@ -32,7 +35,7 @@
             "dataset_id": "dataset-14b429db-6afa-5d76-5c16-dd7dab2897af",
             "schema_version": "2.0.0",
             "build": {
-                "commit": "airr2-import",
+                "commit": "airr-import",
                 "time": ""
             },
             "subjects": [],
@@ -47,7 +50,7 @@
             "clone_count": 2,
             "subjects_count": 0,
             "timepoints_count": 0,
-            "name": "airr2-nocell-info-example",
+            "name": "airr-nocell-info-example",
             "field_metadata": {
                 "clone": {
                     "cdr1_length": {

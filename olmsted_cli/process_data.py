@@ -6,7 +6,7 @@ This script can process both AIRR JSON and PCP CSV formats, automatically
 detecting the input format or using user-specified format type.
 
 Supported formats:
-- AIRR JSON: Standard AIRR format with clones and trees
+- AIRR JSON: AIRR-C v2 Clone/Tree/Node/Cell schema (AIRR Schema v2.0.0)
 - PCP CSV: Parent-Child Pair format with optional Newick trees
 
 Output: a single consolidated Olmsted JSON file.
@@ -19,18 +19,14 @@ import os
 import sys
 import traceback
 from pathlib import Path
-from typing import Any, Dict, List
 
-import jsonschema
 import yaml
-from tqdm import tqdm
 
 from .constants import (
     DISPLAY_MODES,
     FIELD_LEVELS,
     FIELD_TYPES,
     FORMAT_AIRR,
-    FORMAT_AIRR2,
     FORMAT_AUTO,
     FORMAT_OLMSTED,
     FORMAT_PCP,
@@ -38,7 +34,7 @@ from .constants import (
     MUTATION_ENCODINGS,
     normalize_level,
 )
-from .data_io import detect_file_format, open_file, read_airr_json, read_yaml_config
+from .data_io import detect_file_format, open_file, read_yaml_config
 from .identifier import IdentMinter
 from .merge_mutations import (
     apply_mutations_csv,
@@ -48,13 +44,7 @@ from .merge_mutations import (
     load_mutations_csv,
     report_merge_stats,
 )
-from .process_airr2_data import process_airr2_to_olmsted
-from .process_airr_data import (
-    clone_spec,
-    ensure_ident,
-    iter_airr_clones,
-    process_dataset,
-)
+from .process_airr_data import process_airr_to_olmsted
 from .process_pcp_data import (
     TreeProcessingConfig,
     _group_pcp_families_by_clone,
@@ -71,7 +61,6 @@ from .process_utils import (
     resolve_verbosity,
     retag_datasets_field_metadata,
     unpack_encoded_mutations,
-    validate_dataset,
     validate_output_data,
     write_out,
 )
@@ -87,52 +76,19 @@ from .utils import set_verbosity, vprint
 
 def validate_airr_file(file_path):
     """
-    Validate that a file contains valid AIRR JSON data.
+    Validate that a file contains AIRR-C v2 Clone/Tree JSON.
 
-    Args:
-        file_path: Path to the AIRR JSON file
-
-    Returns:
-        bool: True if valid AIRR format, False otherwise
-    """
-    try:
-        handle, _ = open_file(file_path, expected_formats=(FORMAT_AIRR,))
-        with handle as f:
-            data = json.load(f)
-
-        # Check for required AIRR fields
-        if isinstance(data, dict):
-            # Single dataset format
-            required_fields = ["dataset_id", "clones"]
-            return all(field in data for field in required_fields)
-        elif isinstance(data, list):
-            # Multiple datasets format
-            return all(
-                isinstance(item, dict)
-                and all(field in item for field in ["dataset_id", "clones"])
-                for item in data
-            )
-    except Exception:
-        return False
-
-    return False
-
-
-def validate_airr2_file(file_path):
-    """
-    Validate that a file contains AIRR-C v2 Clone/Tree ("airr2") JSON.
-
-    The v2 schema is a single JSON object with top-level ``Clone`` and
-    ``Rearrangement`` tables (see ``process_airr2_data``).
+    A single JSON object with top-level ``Clone`` and ``Rearrangement``
+    tables (see ``process_airr_data``).
 
     Args:
         file_path: Path to the JSON file
 
     Returns:
-        bool: True if the file looks like an airr2 file, False otherwise
+        bool: True if the file looks like an AIRR file, False otherwise
     """
     try:
-        handle, _ = open_file(file_path, expected_formats=(FORMAT_AIRR2,))
+        handle, _ = open_file(file_path, expected_formats=(FORMAT_AIRR,))
         with handle as f:
             data = json.load(f)
 
@@ -173,168 +129,6 @@ def validate_pcp_file(file_path):
         return False
 
     return False
-
-
-def process_airr_format(args):
-    """
-    Process AIRR format files using the existing AIRR processor.
-
-    Args:
-        args: Parsed command line arguments
-    """
-
-    vprint.status("Processing AIRR format...")
-
-    # Convert unified args to AIRR-specific args
-    airr_args = argparse.Namespace()
-
-    # Map common arguments
-    airr_args.inputs = args.inputs
-    airr_args.output = args.output
-    airr_args.verbose = args.verbose
-    airr_args.validate = args.validate
-    airr_args.strict_validation = args.strict_validation
-    airr_args.schema_dir = getattr(args, "schema_dir", None)
-
-    # AIRR-specific arguments with defaults
-    # --root consolidates --naive-name and --root-trees:
-    # --root → root at "naive"; --root NAME → root at NAME; not specified → no rooting
-    root_arg = getattr(args, "root", None)
-    airr_args.naive_name = root_arg if root_arg else "naive"
-    airr_args.root_trees = root_arg is not None
-    airr_args.remove_invalid_clones = getattr(args, "remove_invalid_clones", False)
-    airr_args.display_schema_html = None
-    airr_args.display_schema = False
-    airr_args.write_schema_yaml = False
-    airr_args.compute_metrics = getattr(args, "compute_metrics", False)
-    airr_args.lbi_tau = getattr(args, "lbi_tau", 0.0125)
-    airr_args.custom_fields = getattr(args, "custom_fields", None)
-    airr_args.minter = IdentMinter(seed=getattr(args, "seed", None))
-    airr_args.allow_duplicate_ids = getattr(args, "allow_duplicate_ids", False)
-    airr_args.json_format = getattr(args, "json_format", "pretty")
-
-    # Streaming pipeline (#26): same fallback conditions as PCP — see
-    # _should_stream_airr / _should_stream_pcp.
-    if _should_stream_airr(args):
-        _process_airr_streaming(args, airr_args)
-        return
-
-    # Process using AIRR logic (adapted from process_airr_data.py)
-    datasets, clones_dict, trees = [], {}, []
-
-    # Process input files with progress bar
-    input_files = airr_args.inputs or []
-    with tqdm(
-        input_files,
-        desc="Processing AIRR files",
-        unit="file",
-        disable=len(input_files) == 1,
-    ) as pbar:
-        for infile in pbar:
-            pbar.set_description(f"Processing {Path(infile).name}")
-
-            if len(input_files) == 1 or airr_args.verbose:
-                vprint.status(f"\nProcessing AIRR file: {infile}")
-
-            try:
-                dataset = read_airr_json(infile)
-
-                # Filter invalid clones if requested
-                if airr_args.remove_invalid_clones:
-                    original_count = len(dataset.get("clones", []))
-                    dataset["clones"] = list(
-                        filter(
-                            jsonschema.Draft4Validator(clone_spec).is_valid,
-                            dataset["clones"],
-                        )
-                    )
-                    filtered_count = original_count - len(dataset["clones"])
-                    if filtered_count > 0:
-                        pbar.set_postfix({"filtered": filtered_count})
-
-                # Use unified validation from validate module
-                errors = validate_dataset(dataset, verbose=airr_args.verbose).errors
-                if errors:
-                    error_msg = "Dataset validation failed"
-                    if airr_args.verbose:
-                        vprint.error("Dataset validation failed:")
-                        for error in errors:
-                            vprint.error(f"  - {error}")
-                    else:
-                        error_msg += ". Please rerun with `-v` for detailed errors"
-                    raise Exception(error_msg)
-
-                # Process dataset
-                dataset = process_dataset(airr_args, dataset, clones_dict, trees)
-                datasets.append(dataset)
-
-                # Update progress bar with clone count
-                if "clones" in dataset:
-                    pbar.set_postfix({"clones": len(dataset["clones"])})
-
-            except Exception:
-                vprint.error(f"\nUnable to process AIRR file: {infile}")
-                if airr_args.verbose:
-                    exc_info = sys.exc_info()
-                    traceback.print_exception(*exc_info)
-                else:
-                    vprint.error("Please rerun with `-v` for detailed errors.")
-                sys.exit(1)
-
-    # Merge mutations CSV if --mutations was specified
-    mutations_path = getattr(args, "mutations", None)
-    if mutations_path:
-        try:
-            apply_mutations_csv(
-                mutations_path,
-                trees,
-                use_depth=getattr(args, "mutations_use_depth", False),
-                allow_mismatch=getattr(args, "mutations_allow_mismatch", False),
-                only_listed=getattr(args, "mutations_listed_only", False),
-            )
-        except ValueError as e:
-            vprint.error(f"Error: {e}")
-            sys.exit(1)
-        retag_datasets_field_metadata(
-            datasets,
-            clones_dict,
-            trees,
-            custom_fields=getattr(args, "custom_fields", None),
-        )
-
-    # Enforce *_id uniqueness before writing. --allow-duplicate-ids downgrades
-    # collisions to a warning; otherwise we fail fast so silent overwrites
-    # downstream are impossible.
-    try:
-        check_output_id_uniqueness(
-            datasets,
-            clones_dict,
-            allow_duplicates=getattr(args, "allow_duplicate_ids", False),
-        )
-    except ValueError as e:
-        vprint.error(f"Error: {e}")
-        sys.exit(1)
-
-    # Validate data before writing if requested
-    if airr_args.validate and not validate_output_data(
-        datasets, clones_dict, trees, airr_args
-    ):
-        if airr_args.strict_validation:
-            vprint.error(
-                "\nExiting due to validation errors (--strict-validation enabled)"
-            )
-            sys.exit(1)
-
-    # Write output
-    consolidated_data = create_consolidated_data(
-        datasets, clones_dict, trees, args.inputs, FORMAT_AIRR, args
-    )
-    # Ensure output directory exists
-    output_dir = os.path.dirname(args.output) or "."
-    output_file = os.path.basename(args.output)
-    os.makedirs(output_dir, exist_ok=True)
-    vprint.status(f"Writing Olmsted JSON output to {args.output}")
-    write_out(consolidated_data, output_dir, output_file, airr_args)
 
 
 def _begin_mutations_merge(args, mutations_path):
@@ -407,14 +201,6 @@ def _should_stream_pcp(args) -> bool:
     if getattr(args, "validate", False):
         return False
     return True
-
-
-def _should_stream_airr(args) -> bool:
-    """Decide whether ``process_airr_format`` runs the streaming pipeline.
-
-    Same fallback conditions as PCP — see :func:`_should_stream_pcp`.
-    """
-    return _should_stream_pcp(args)
 
 
 def _process_pcp_streaming(args, pcp_families, newick_trees, minter, input_files):
@@ -534,194 +320,6 @@ def _process_pcp_streaming(args, pcp_families, newick_trees, minter, input_files
             [],
             input_files,
             FORMAT_PCP,
-            args,
-        )
-        wrapper["metadata"]["processing_info"] = accumulator.finalize_totals()
-
-        output_dir = os.path.dirname(args.output) or "."
-        os.makedirs(output_dir, exist_ok=True)
-        vprint.status(f"Writing Olmsted JSON output to {args.output}")
-        write_olmsted_json_streaming(
-            wrapper["metadata"],
-            wrapper["datasets"],
-            spooler,
-            args.output,
-            json_format=getattr(args, "json_format", "pretty"),
-        )
-
-
-def _process_airr_streaming(args, airr_args):
-    """Streaming AIRR pipeline: per-file dataset stub + per-batch spool.
-
-    Iterates each AIRR input file the same way the legacy
-    ``process_airr_format`` does — reading the dataset, optionally
-    filtering invalid clones, validating the dataset envelope — but
-    consumes the per-file clones via :func:`iter_airr_clones`, so peak
-    memory tracks one batch's worth of parsed trees rather than every
-    clone in every input file.  A shared :class:`BatchAccumulator` and
-    :class:`BatchSpooler` aggregate across files; a single
-    :class:`MergeContext` carries ``--mutations`` state across batches.
-    """
-    vprint.status(f"Streaming with --batch-size={args.batch_size}")
-
-    custom_fields = getattr(airr_args, "custom_fields", None)
-    allow_dup = getattr(airr_args, "allow_duplicate_ids", False)
-    accumulator = BatchAccumulator(allow_duplicate_ids=allow_dup)
-
-    mutations_path = getattr(args, "mutations", None)
-    merge_ctx, total_csv_rows = _begin_mutations_merge(args, mutations_path)
-    only_listed = getattr(args, "mutations_listed_only", False)
-
-    dataset_headers: List[Dict[str, Any]] = []
-
-    with BatchSpooler() as spooler:
-        input_files = airr_args.inputs or []
-        with tqdm(
-            input_files,
-            desc="Processing AIRR files",
-            unit="file",
-            disable=len(input_files) == 1,
-        ) as pbar:
-            for infile in pbar:
-                pbar.set_description(f"Processing {Path(infile).name}")
-                if len(input_files) == 1 or airr_args.verbose:
-                    vprint.status(f"\nProcessing AIRR file: {infile}")
-
-                try:
-                    dataset_in = read_airr_json(infile)
-
-                    if airr_args.remove_invalid_clones:
-                        original_count = len(dataset_in.get("clones", []))
-                        dataset_in["clones"] = list(
-                            filter(
-                                jsonschema.Draft4Validator(clone_spec).is_valid,
-                                dataset_in["clones"],
-                            )
-                        )
-                        filtered_count = original_count - len(dataset_in["clones"])
-                        if filtered_count > 0:
-                            pbar.set_postfix({"filtered": filtered_count})
-
-                    errors = validate_dataset(
-                        dataset_in, verbose=airr_args.verbose
-                    ).errors
-                    if errors:
-                        error_msg = "Dataset validation failed"
-                        if airr_args.verbose:
-                            vprint.error("Dataset validation failed:")
-                            for error in errors:
-                                vprint.error(f"  - {error}")
-                        else:
-                            error_msg += ". Please rerun with `-v` for detailed errors"
-                        raise Exception(error_msg)
-
-                    dataset_id = dataset_in["dataset_id"]
-                    accumulator.register_dataset(
-                        dataset_id, hoist_tree_extras_to_clone=False
-                    )
-                    accumulator.add_samples(
-                        dataset_id, dataset_in.get("samples", []) or []
-                    )
-
-                    input_clones = dataset_in.get("clones", []) or []
-                    input_clone_count = len(input_clones)
-                    subjects_count = len(
-                        {
-                            cf["subject_id"]
-                            for cf in input_clones
-                            if cf.get("subject_id")
-                        }
-                    )
-                    timepoints_count = len(
-                        {
-                            s["timepoint_id"]
-                            for s in dataset_in.get("samples", []) or []
-                            if s.get("timepoint_id")
-                        }
-                    )
-
-                    for batch_clones, batch_trees in iter_airr_clones(
-                        airr_args,
-                        dataset_in,
-                        batch_size=args.batch_size,
-                    ):
-                        if custom_fields:
-                            unpack_encoded_mutations(batch_trees, custom_fields)
-                        if merge_ctx is not None:
-                            apply_mutations_to_trees(
-                                merge_ctx, batch_trees, only_listed=only_listed
-                            )
-                        try:
-                            accumulator.observe_batch(
-                                dataset_id, batch_clones, batch_trees
-                            )
-                        except DuplicateIdError as e:
-                            vprint.error(f"Error: {e}")
-                            sys.exit(1)
-                        spooler.write_batch(dataset_id, batch_clones, batch_trees)
-
-                    # Build dataset header (input minus consumed clones).
-                    # Mirrors process_dataset's mutations to the dataset dict,
-                    # finalized after iter_airr_clones drained dataset_in["clones"].
-                    dataset_header = {
-                        k: v for k, v in dataset_in.items() if k != "clones"
-                    }
-                    dataset_header["clone_count"] = input_clone_count
-                    dataset_header["subjects_count"] = subjects_count
-                    dataset_header["timepoints_count"] = timepoints_count
-                    dataset_header["schema_version"] = SCHEMA_VERSION
-                    dataset_header = ensure_ident(
-                        dataset_header, "dataset", airr_args.minter
-                    )
-                    dataset_headers.append(dataset_header)
-
-                    if len(input_files) > 1:
-                        pbar.set_postfix({"clones": input_clone_count})
-
-                except Exception:
-                    vprint.error(f"\nUnable to process AIRR file: {infile}")
-                    if airr_args.verbose:
-                        exc_info = sys.exc_info()
-                        traceback.print_exception(*exc_info)
-                    else:
-                        vprint.error("Please rerun with `-v` for detailed errors.")
-                    sys.exit(1)
-
-        _finalize_mutations_merge(args, merge_ctx, total_csv_rows)
-
-        for warning in accumulator.duplicate_warnings:
-            vprint.error(f"Warning: {warning}")
-
-        # AIRR data places tree-level fields on trees natively; the
-        # PCP-style data hoist would strip them from trees and emit
-        # phantom clone-level entries.  The accumulator is configured
-        # with hoist_tree_extras_to_clone=False for this case, so the
-        # finalize step also leaves clone-level metadata alone.
-        for dataset_header in dataset_headers:
-            dataset_id = dataset_header["dataset_id"]
-            dataset_header["field_metadata"] = accumulator.finalize_field_metadata(
-                dataset_id, custom_fields
-            )
-
-        # Streaming-side id-uniqueness check. The accumulator has
-        # already enforced clone_id / tree_id during observe_batch;
-        # check_output_id_uniqueness covers dataset_id, sample_id,
-        # subject_id — important for AIRR where input files can carry
-        # duplicates the legacy path would have rejected before write.
-        empty_clones = {h["dataset_id"]: [] for h in dataset_headers}
-        try:
-            check_output_id_uniqueness(
-                dataset_headers, empty_clones, allow_duplicates=allow_dup
-            )
-        except ValueError as e:
-            vprint.error(f"Error: {e}")
-            sys.exit(1)
-        wrapper = create_consolidated_data(
-            dataset_headers,
-            empty_clones,
-            [],
-            args.inputs,
-            FORMAT_AIRR,
             args,
         )
         wrapper["metadata"]["processing_info"] = accumulator.finalize_totals()
@@ -907,16 +505,16 @@ def process_pcp_format(args):
         sys.exit(1)
 
 
-def process_airr2_format(args):
-    """Process an AIRR-C v2 Clone/Tree ("airr2") file into Olmsted JSON.
+def process_airr_format(args):
+    """Process an AIRR-C v2 Clone/Tree file into Olmsted JSON.
 
     Parses the single ``{Clone, Rearrangement}`` JSON, converts it via
-    ``process_airr2_to_olmsted``, then runs the same tail as the other formats
+    ``process_airr_to_olmsted``, then runs the same tail as the other formats
     (optional ``--mutations`` merge, id-uniqueness enforcement, optional
-    validation, split/consolidated output). Runs in-memory only — streaming is
-    a deferred follow-up (issue #36).
+    validation, consolidated output). Runs in-memory only — streaming is a
+    deferred follow-up (issue #36).
     """
-    vprint.status("Processing AIRR v2 Clone/Tree format...")
+    vprint.status("Processing AIRR format...")
 
     minter = IdentMinter(seed=getattr(args, "seed", None))
     if getattr(args, "seed", None) is not None:
@@ -924,15 +522,13 @@ def process_airr2_format(args):
 
     try:
         input_file = args.inputs[0]
-        vprint.status(f"Reading AIRR v2 file: {input_file}")
-        # Read directly (read_airr_json pins expected_formats=airr, which would
-        # reject an airr2-detected file).
-        handle, _ = open_file(input_file, expected_formats=(FORMAT_AIRR2,))
+        vprint.status(f"Reading AIRR file: {input_file}")
+        handle, _ = open_file(input_file, expected_formats=(FORMAT_AIRR,))
         with handle as fh:
             data = json.load(fh)
         if not isinstance(data, dict) or "Clone" not in data:
             vprint.error(
-                f"Error: {input_file} is not a valid AIRR v2 Clone/Tree file "
+                f"Error: {input_file} is not a valid AIRR Clone/Tree file "
                 "(expected top-level 'Clone' and 'Rearrangement')."
             )
             sys.exit(1)
@@ -945,7 +541,7 @@ def process_airr2_format(args):
         )
 
         vprint.status("Converting to Olmsted format...")
-        datasets, clones_dict, trees = process_airr2_to_olmsted(
+        datasets, clones_dict, trees = process_airr_to_olmsted(
             clone_records,
             rearrangement_records,
             minter=minter,
@@ -997,7 +593,7 @@ def process_airr2_format(args):
                     sys.exit(1)
 
         consolidated_data = create_consolidated_data(
-            datasets, clones_dict, trees, args.inputs, FORMAT_AIRR2, args
+            datasets, clones_dict, trees, args.inputs, FORMAT_AIRR, args
         )
         output_dir = os.path.dirname(args.output) or "."
         output_file = os.path.basename(args.output)
@@ -1042,7 +638,7 @@ Examples:
         "--inputs",
         dest="inputs",
         nargs="+",
-        help="Input file(s). AIRR: JSON file(s). PCP: CSV file",
+        help="Input file(s). AIRR: single JSON file (only the first is used). PCP: CSV file",
     )
     parser.add_argument(
         "-t",
@@ -1062,10 +658,12 @@ Examples:
     parser.add_argument(
         "-f",
         "--format",
-        choices=[FORMAT_AIRR, FORMAT_AIRR2, FORMAT_PCP, FORMAT_AUTO],
+        choices=[FORMAT_AIRR, FORMAT_PCP, FORMAT_AUTO],
         default=FORMAT_AUTO,
-        help="Input format (default: auto-detect). 'airr2' is the AIRR-C v2 "
-        "Clone/Tree schema (Dowser writeTreesJSON output).",
+        help="Input format (default: auto-detect). 'airr' is the AIRR-C v2 "
+        "Clone/Tree/Node/Cell schema, AIRR Schema v2.0.0 (Dowser "
+        "writeTreesJSON output) — see "
+        "https://docs.airr-community.org/en/latest/datarep/clone.html.",
     )
 
     # --- Column overrides (PCP CSV inputs) ---
@@ -1499,13 +1097,9 @@ def main():
 
     # Validate format matches file content
     if format_to_use == FORMAT_AIRR:
-        for input_file in args.inputs:
-            if not validate_airr_file(input_file):
-                vprint.status(f"Warning: {input_file} may not be valid AIRR format")
-    elif format_to_use == FORMAT_AIRR2:
-        if not validate_airr2_file(args.inputs[0]):
+        if not validate_airr_file(args.inputs[0]):
             vprint.status(
-                f"Warning: {args.inputs[0]} may not be valid AIRR v2 Clone/Tree format"
+                f"Warning: {args.inputs[0]} may not be valid AIRR Clone/Tree format"
             )
     elif format_to_use == FORMAT_PCP:
         if not validate_pcp_file(args.inputs[0]):
@@ -1515,8 +1109,6 @@ def main():
     try:
         if format_to_use == FORMAT_AIRR:
             process_airr_format(args)
-        elif format_to_use == FORMAT_AIRR2:
-            process_airr2_format(args)
         elif format_to_use == FORMAT_PCP:
             process_pcp_format(args)
         elif format_to_use == FORMAT_OLMSTED:

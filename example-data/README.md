@@ -6,7 +6,7 @@ This directory contains example datasets for testing and demonstrating the Olmst
 
 | Dataset | Format | Families/Clones | Description | Chain Type |
 |---------|--------|-----------------|-------------|------------|
-| **airr** | AIRR JSON | 8 clones | Real BCR data from AIRR Community format | Heavy chain (IGH) |
+| **airr** | AIRR JSON (AIRR-C v2 Clone/Tree) | 2–4 clones per variant | Dowser `writeTreesJSON` output — 3 node-class variants (`nocell`/`unpaired`/`paired`) × 2 info shapes (`noinfo`/`info`); see `airr/README.md` | Heavy chain (IGH), paired variant also Light (IGK/IGL) |
 | **pcp** | PCP CSV | 8 families | Real BCR data, heavy chain only dataset | Heavy chain (IGH) |
 | **pcp-light** | PCP CSV | 8 families | Real BCR data, light chain only dataset | Light chain (IGK) |
 | **pcp-paired** | PCP CSV | 8 families | Real BCR data, paired heavy and light chain data | Heavy (IGH) + Light (IGL/IGK) |
@@ -49,7 +49,7 @@ olmsted enrich -i example-data/mutations/input-olmsted.json \
 
 ```bash
 # Process AIRR format
-olmsted process -i example-data/airr/input-airr.json -o output.json
+olmsted process -i example-data/airr/input-nocell-noinfo.json -o output.json
 
 # Process PCP format with trees
 olmsted process -i example-data/pcp/input-pcp.csv -t example-data/pcp/input-trees.csv -o output.json
@@ -68,8 +68,9 @@ olmsted process -c example-data/mutations/mutations-config.yaml
 
 ## Golden Data
 
-Each dataset folder includes a single consolidated golden used by the test suite:
+Each dataset folder includes one or more consolidated goldens used by the test suite:
 
-- `{folder}-olmsted-golden.json` — expected consolidated output for that dataset (e.g., `airr/airr-olmsted-golden.json`, `pcp/pcp-olmsted-golden.json`)
+- `{folder}-olmsted-golden.json` — expected consolidated output for that dataset (e.g., `pcp/pcp-olmsted-golden.json`)
+- `airr/` has one golden per variant instead (`{variant}-olmsted-golden.json` for each of the 6 `nocell`/`unpaired`/`paired` × `noinfo`/`info` combinations) — see `airr/README.md`.
 
 Regenerate after output-format changes — see CLAUDE.md or DEVELOPMENT.md for the regeneration commands.

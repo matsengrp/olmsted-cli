@@ -27,11 +27,10 @@ from __future__ import annotations
 import csv
 import gzip
 import json
-from argparse import Namespace
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
-from .data_io import read_airr_json, read_olmsted_json
+from .data_io import read_olmsted_json
 from .identifier import IdentMinter
 from .types import (
     OlmstedClone,
@@ -173,7 +172,8 @@ class OlmstedData:
         verbosity: int = 1,
     ) -> "OlmstedData":
         """
-        Load data from AIRR JSON format.
+        Load data from AIRR JSON format (the AIRR-C v2 Clone/Tree/Node/Cell
+        schema, AIRR Schema v2.0.0 — top-level ``{Clone, Rearrangement}``).
 
         Args:
             filepath: Path to AIRR JSON file
@@ -191,29 +191,20 @@ class OlmstedData:
             For full AIRR processing options, use the CLI:
             `olmsted process -f airr -i input.json -o output.json`
         """
-        from .process_airr_data import process_dataset
+        from .process_airr_data import process_airr_to_olmsted
 
-        # Load AIRR JSON
-        airr_data = read_airr_json(filepath)
+        with open(filepath) as f:
+            airr_data = json.load(f)
 
-        args = Namespace(
+        datasets, clones, trees = process_airr_to_olmsted(
+            airr_data.get("Clone", []),
+            airr_data.get("Rearrangement", []),
             minter=IdentMinter(seed=seed),
-            verbose=verbosity > 0,
             name=name,
+            verbosity=verbosity,
         )
 
-        # Process datasets
-        datasets: List[OlmstedDataset] = []
-        clones_dict: Dict[str, List[OlmstedClone]] = {}
-        trees: List[OlmstedTree] = []
-
-        # AIRR format has datasets at the top level
-        for dataset in airr_data.get("datasets", [airr_data]):
-            processed_dataset = process_dataset(args, dataset, clones_dict, trees)
-            if processed_dataset:
-                datasets.append(processed_dataset)
-
-        return cls(datasets=datasets, clones=clones_dict, trees=trees)
+        return cls(datasets=datasets, clones=clones, trees=trees)
 
     # -------------------------------------------------------------------------
     # Methods for saving data

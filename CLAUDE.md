@@ -128,30 +128,28 @@ decompressed content, not gzipped bytes.
 Consolidated goldens (the canonical single-file output for each dataset):
 
 ```bash
-olmsted process -f airr -i example-data/airr/input-airr.json -o example-data/airr/airr-olmsted-golden.json --seed 42 --name airr-example --json-format pretty -q
 olmsted process -f pcp -i example-data/pcp/input-pcp.csv -t example-data/pcp/input-trees.csv -o example-data/pcp/pcp-olmsted-golden.json --seed 42 --name pcp-example --json-format pretty -q
 olmsted process -f pcp -i example-data/pcp-byhand/input-pcp.csv -t example-data/pcp-byhand/input-trees.csv -o example-data/pcp-byhand/pcp-byhand-olmsted-golden.json --seed 42 --name pcp-byhand-example --json-format pretty -q
 olmsted process -f pcp -i example-data/pcp-light/input-pcp.csv -t example-data/pcp-light/input-trees.csv -o example-data/pcp-light/pcp-light-olmsted-golden.json --seed 42 --name pcp-light-example --json-format pretty -q
 olmsted process -f pcp -i example-data/pcp-paired/input-pcp.csv -t example-data/pcp-paired/input-trees.csv -o example-data/pcp-paired/pcp-paired-olmsted-golden.json --seed 42 --name pcp-paired-example --json-format pretty -q
 ```
 
-AIRR-C v2 Clone/Tree ("airr2") goldens (the three Dowser node-class variants,
+AIRR-C v2 Clone/Tree goldens (the three Dowser node-class variants,
 each in the clean `noinfo` shape and the `dowser_fields=TRUE` `info`-catchall
-shape — see `example-data/airr2/README.md` and issue #45):
+shape — see `example-data/airr/README.md` and issue #45):
 
 ```bash
-olmsted process -f airr2 -i example-data/airr2/input-nocell-noinfo.json -o example-data/airr2/nocell-noinfo-olmsted-golden.json --seed 42 --name airr2-nocell-noinfo-example --json-format pretty -q
-olmsted process -f airr2 -i example-data/airr2/input-unpaired-noinfo.json -o example-data/airr2/unpaired-noinfo-olmsted-golden.json --seed 42 --name airr2-unpaired-noinfo-example --json-format pretty -q
-olmsted process -f airr2 -i example-data/airr2/input-paired-noinfo.json -o example-data/airr2/paired-noinfo-olmsted-golden.json --seed 42 --name airr2-paired-noinfo-example --json-format pretty -q
-olmsted process -f airr2 -i example-data/airr2/input-nocell-info.json -o example-data/airr2/nocell-info-olmsted-golden.json --seed 42 --name airr2-nocell-info-example --json-format pretty -q
-olmsted process -f airr2 -i example-data/airr2/input-unpaired-info.json -o example-data/airr2/unpaired-info-olmsted-golden.json --seed 42 --name airr2-unpaired-info-example --json-format pretty -q
-olmsted process -f airr2 -i example-data/airr2/input-paired-info.json -o example-data/airr2/paired-info-olmsted-golden.json --seed 42 --name airr2-paired-info-example --json-format pretty -q
+olmsted process -f airr -i example-data/airr/input-nocell-noinfo.json -o example-data/airr/nocell-noinfo-olmsted-golden.json --seed 42 --name airr-nocell-noinfo-example --json-format pretty -q
+olmsted process -f airr -i example-data/airr/input-unpaired-noinfo.json -o example-data/airr/unpaired-noinfo-olmsted-golden.json --seed 42 --name airr-unpaired-noinfo-example --json-format pretty -q
+olmsted process -f airr -i example-data/airr/input-paired-noinfo.json -o example-data/airr/paired-noinfo-olmsted-golden.json --seed 42 --name airr-paired-noinfo-example --json-format pretty -q
+olmsted process -f airr -i example-data/airr/input-nocell-info.json -o example-data/airr/nocell-info-olmsted-golden.json --seed 42 --name airr-nocell-info-example --json-format pretty -q
+olmsted process -f airr -i example-data/airr/input-unpaired-info.json -o example-data/airr/unpaired-info-olmsted-golden.json --seed 42 --name airr-unpaired-info-example --json-format pretty -q
+olmsted process -f airr -i example-data/airr/input-paired-info.json -o example-data/airr/paired-info-olmsted-golden.json --seed 42 --name airr-paired-info-example --json-format pretty -q
 ```
 
-Gzipped consolidated goldens (tracked alongside the plain JSON for `.json.gz` upload coverage):
+Gzipped consolidated goldens (tracked alongside the plain JSON for `.json.gz` upload coverage; PCP only — no tracked `.json.gz` golden for AIRR):
 
 ```bash
-olmsted process -f airr -i example-data/airr/input-airr.json -o example-data/airr/airr-olmsted-golden.json --seed 42 --name airr-example --json-format gzip -q
 olmsted process -f pcp -i example-data/pcp/input-pcp.csv -t example-data/pcp/input-trees.csv -o example-data/pcp/pcp-olmsted-golden.json --seed 42 --name pcp-example --json-format gzip -q
 ```
 

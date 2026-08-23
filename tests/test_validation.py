@@ -19,87 +19,13 @@ from olmsted_cli.validate import validate_file
 class TestValidation:
     """Test validation functionality."""
 
-    def test_validate_airr_golden_outputs(self):
-        """Validate every split-format AIRR golden file individually."""
-        golden_dir = (
-            Path(__file__).parent.parent / "example-data" / "airr" / "split-golden-data"
-        )
-
-        if not golden_dir.exists():
-            pytest.skip(f"Golden AIRR data directory not found: {golden_dir}")
-
-        json_files = list(golden_dir.glob("*.json"))
-        assert len(json_files) > 0, f"No JSON files found in {golden_dir}"
-
-        # Schema validation (default).
-        validation_errors = []
-        for json_file in json_files:
-            is_valid, errors = validate_file(
-                str(json_file), file_type=None, verbose=True, check_time_tree=False
-            )
-            if not is_valid:
-                validation_errors.append(f"{json_file.name}: {errors}")
-        assert len(validation_errors) == 0, (
-            "AIRR golden outputs should be valid. Errors found:\n"
-            + "\n".join(validation_errors)
-        )
-
-        # Time-tree validation.
-        validation_errors_time_tree = []
-        for json_file in json_files:
-            is_valid, errors = validate_file(
-                str(json_file), file_type=None, verbose=True, check_time_tree=True
-            )
-            if not is_valid:
-                validation_errors_time_tree.append(f"{json_file.name}: {errors}")
-        assert len(validation_errors_time_tree) == 0, (
-            "AIRR golden outputs should be valid time trees. Errors found:\n"
-            + "\n".join(validation_errors_time_tree)
-        )
-
-    def test_validate_pcp_golden_outputs(self):
-        """Validate every split-format PCP golden file individually."""
-        golden_dir = (
-            Path(__file__).parent.parent / "example-data" / "pcp" / "split-golden-data"
-        )
-
-        if not golden_dir.exists():
-            pytest.skip(f"Golden PCP data directory not found: {golden_dir}")
-
-        json_files = list(golden_dir.glob("*.json"))
-        assert len(json_files) > 0, f"No JSON files found in {golden_dir}"
-
-        validation_errors = []
-        for json_file in json_files:
-            is_valid, errors = validate_file(
-                str(json_file), file_type=None, verbose=True, check_time_tree=False
-            )
-            if not is_valid:
-                validation_errors.append(f"{json_file.name}: {errors}")
-        assert len(validation_errors) == 0, (
-            "PCP golden outputs should be valid. Errors found:\n"
-            + "\n".join(validation_errors)
-        )
-
-        validation_errors_time_tree = []
-        for json_file in json_files:
-            is_valid, errors = validate_file(
-                str(json_file), file_type=None, verbose=True, check_time_tree=True
-            )
-            if not is_valid:
-                validation_errors_time_tree.append(f"{json_file.name}: {errors}")
-        assert len(validation_errors_time_tree) == 0, (
-            "PCP golden outputs should be valid time trees. Errors found:\n"
-            + "\n".join(validation_errors_time_tree)
-        )
-
     def test_validate_airr_consolidated_golden_output(self):
         """Test that AIRR consolidated golden output is valid."""
         consolidated_file = (
             Path(__file__).parent.parent
             / "example-data"
             / "airr"
-            / "airr-olmsted-golden.json"
+            / "nocell-noinfo-olmsted-golden.json"
         )
 
         if not consolidated_file.exists():
