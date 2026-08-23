@@ -16,6 +16,7 @@ See also:
 - [Project Structure](#project-structure)
 - [Common Tasks](#common-tasks)
 - [Linting](#linting)
+- [Removed Features](#removed-features)
 - [Release](#release)
 
 ---
@@ -227,6 +228,16 @@ ruff check .
 ruff format .
 ```
 
+## Removed Features
+
+Historical record for anyone tracing a stale reference to a format that no
+longer exists — check the linked PR for the exact merge commit.
+
+| Feature | Removed by | Notes |
+|---|---|---|
+| `--split-files` legacy multi-file output (`datasets.json` + `clones.*.json` + `tree.*.json`) | [#43](https://github.com/matsengrp/olmsted-cli/issues/43), [PR #48](https://github.com/matsengrp/olmsted-cli/pull/48) (commit `0fcd7f0` on the PR branch as of writing; see the PR for the actual merge commit) | Predated the streaming pipeline (#26). `validate.py`'s unrelated `--split` flag and the separate `olmsted split` subcommand (`split.py`) are unaffected — different features that happened to share a variable name. |
+| Legacy `-f airr` (the original, Olmsted-flavored `{dataset_id, clones, ...}` container) | [#47](https://github.com/matsengrp/olmsted-cli/issues/47), [PR #49](https://github.com/matsengrp/olmsted-cli/pull/49) (commit `762d4cc` on the PR branch as of writing; see the PR for the actual merge commit) | Research found it never corresponded to an official AIRR Community schema release at any version. `-f airr2` (the real AIRR-C v2 Clone/Tree/Node/Cell schema, AIRR Schema v2.0.0) was renamed to take over as the sole `-f airr` — see [FORMATS.md](./FORMATS.md#airr-input-format). |
+
 ## Release
 
 Releases are **tag-driven**: the version comes from the git tag (via
@@ -243,4 +254,4 @@ path, version-number guidance, and one-time trusted-publishing setup.
 
 ---
 
-_Last updated: 2026-06-11_
+_Last updated: 2026-08-23_
