@@ -526,12 +526,6 @@ def get_args():
         required=True,
         help="Output file path for consolidated JSON (default behavior)",
     )
-    parser.add_argument(
-        "--split-files",
-        metavar="DIR",
-        dest="data_outdir",
-        help="Output to multiple files in specified directory (datasets.json, clones.*.json, tree.*.json) instead of single consolidated file",
-    )
     parser.add_argument("--naive-name", default="naive")
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument(
@@ -640,28 +634,15 @@ def main():
                 sys.exit(1)
 
     # write out data
-    if args.data_outdir:
-        # Multi-file output to specified directory
-        write_out(datasets, args.data_outdir, "datasets.json", args)
-        for dataset_id, clones in clones_dict.items():
-            write_out(
-                clones, args.data_outdir + "/", "clones." + dataset_id + ".json", args
-            )
-        for tree in trees:
-            write_out(
-                tree, args.data_outdir + "/", "tree." + tree["ident"] + ".json", args
-            )
-    else:
-        # Single consolidated file output (default)
-        consolidated_data = create_consolidated_data(
-            datasets, clones_dict, trees, args.inputs, "airr", args
-        )
-        # Ensure output directory exists
-        output_dir = os.path.dirname(args.output) or "."
-        output_file = os.path.basename(args.output)
-        os.makedirs(output_dir, exist_ok=True)
-        vprint.status(f"Writing consolidated output to {args.output}")
-        write_out(consolidated_data, output_dir, output_file, args)
+    consolidated_data = create_consolidated_data(
+        datasets, clones_dict, trees, args.inputs, "airr", args
+    )
+    # Ensure output directory exists
+    output_dir = os.path.dirname(args.output) or "."
+    output_file = os.path.basename(args.output)
+    os.makedirs(output_dir, exist_ok=True)
+    vprint.status(f"Writing consolidated output to {args.output}")
+    write_out(consolidated_data, output_dir, output_file, args)
 
 
 if __name__ == "__main__":

@@ -72,6 +72,4 @@ Each dataset folder includes a single consolidated golden used by the test suite
 
 - `{folder}-olmsted-golden.json` — expected consolidated output for that dataset (e.g., `airr/airr-olmsted-golden.json`, `pcp/pcp-olmsted-golden.json`)
 
-The `airr/` and `pcp/` folders additionally carry a `split-golden-data/` directory pinning the legacy split-format output (`datasets.json`, `clones.*.json`, `tree.*.json`). These are maintained as integrity coverage for the `--split-files` CLI flag and will be removed if/when split-format support is officially dropped.
-
 Regenerate after output-format changes — see CLAUDE.md or DEVELOPMENT.md for the regeneration commands.

@@ -124,15 +124,6 @@ olmsted process -f pcp -i example-data/pcp/input-pcp.csv -t example-data/pcp/inp
   -o example-data/pcp/pcp-olmsted-golden.json --seed 42 --name pcp-example --json-format gzip -q
 ```
 
-Split-format goldens (legacy, kept for integrity testing while `--split-files` is supported):
-
-```bash
-olmsted process -f airr -i example-data/airr/input-airr.json \
-  --split-files example-data/airr/split-golden-data --seed 42 --name airr-example --json-format pretty -q
-olmsted process -f pcp -i example-data/pcp/input-pcp.csv -t example-data/pcp/input-trees.csv \
-  --split-files example-data/pcp/split-golden-data --seed 42 --name pcp-example --json-format pretty -q
-```
-
 Merge golden (post-merge drift coverage for `olmsted merge`):
 
 ```bash

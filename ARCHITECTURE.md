@@ -262,7 +262,6 @@ write_olmsted_json_streaming()
 | Condition | Why |
 |---|---|
 | `--batch-size 0` | Explicit opt-out. |
-| `--split-files DIR` | Multi-file output has a different write shape. |
 | `--validate` | Per-batch validation isn't wired yet; `validate_output_data` consumes the whole assembled output. |
 | Single-batch fast path (PCP only): `n_families ≤ batch_size` | Spool round-trip would cost more than the in-memory pipeline; skipped automatically. |
 

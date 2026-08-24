@@ -196,7 +196,6 @@ def test_streaming_default_path_uses_streaming_for_pcp(tmp_path):
 
     args = argparse.Namespace(
         batch_size=50,
-        split_files=None,
         mutations=None,
         validate=False,
     )
@@ -211,11 +210,6 @@ def test_streaming_default_path_uses_streaming_for_pcp(tmp_path):
     args.validate = True
     assert _should_stream_pcp(args) is False
     args.validate = False
-
-    # Split-files: streaming bypassed.
-    args.split_files = "/tmp/x"
-    assert _should_stream_pcp(args) is False
-    args.split_files = None
 
     # batch_size 0: explicit opt-out.
     args.batch_size = 0
