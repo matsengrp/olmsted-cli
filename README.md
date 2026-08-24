@@ -91,7 +91,6 @@ olmsted process -i sequences.csv --tree trees.csv -o output/data.json --compute-
 | **`build-config`** | Generate a YAML config from your data for editing |
 | **`validate`** | Verify data files conform to Olmsted schema |
 | **`summary`** | Generate statistics and metadata report for processed data |
-| **`split`** | Divide large consolidated files into smaller chunks for performance |
 
 ---
 
@@ -519,31 +518,6 @@ Metrics Available:
   - Affinity: Yes
   - Mean Mutation Frequency: Yes
 ```
-
----
-
-### `split` - Split Large Files
-
-Split consolidated Olmsted data files into smaller files for better performance.
-
-#### Basic Usage
-
-```bash
-# Split into files with max 100 clones each
-olmsted split -i large_data.json -o output_dir --max-clones 100
-
-# Split with custom naming
-olmsted split -i data.json -o splits --max-clones 50 --base-name my_dataset
-```
-
-#### Options
-
-| Option | Description |
-|--------|-------------|
-| `-i, --input FILE` | Input consolidated JSON file to split |
-| `-o, --output-dir DIR` | Output directory for split files |
-| `--max-clones INT` | Maximum clones per output file (default: 100) |
-| `--base-name NAME` | Base name for output files |
 
 ---
 

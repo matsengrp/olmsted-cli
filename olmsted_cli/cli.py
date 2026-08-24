@@ -4,7 +4,7 @@
 import argparse
 import sys
 
-from olmsted_cli import build_config, merge, process_data, split, summary, tag, validate
+from olmsted_cli import build_config, merge, process_data, summary, tag, validate
 from olmsted_cli.version import version_string
 
 # Dispatch table: command name -> (help text, handler module)
@@ -19,7 +19,6 @@ COMMANDS = {
     ),
     "validate": ("Validate data files against schemas", validate),
     "summary": ("Generate summary statistics for Olmsted JSON files", summary),
-    "split": ("Split Olmsted JSON files into smaller files (legacy)", split),
 }
 
 
