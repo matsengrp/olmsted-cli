@@ -2,6 +2,12 @@
 
 Minimal datasets with foobar bogus metrics at every field level and type, for testing the `field_metadata` system end-to-end.
 
+**Olmsted JSON and PCP only** — the AIRR-C v2 Clone/Tree ingest path
+(`-f airr`, see issue #47) builds each clone/node dict from a fixed field
+set and doesn't pass through arbitrary custom fields at all, so there's no
+equivalent AIRR fixture here. An earlier `input-airr.json` covering the
+legacy `-f airr` container was removed along with that format.
+
 ## Foobar Fields by Level
 
 | Level | Field | Type | Description |
@@ -29,7 +35,6 @@ Minimal datasets with foobar bogus metrics at every field level and type, for te
 | File | Format | Contains custom fields in data? |
 |------|--------|---------------------------------|
 | `input-olmsted.json` | Olmsted JSON | Yes — all levels including mutation |
-| `input-airr.json` | AIRR JSON | Yes — clone, node, and mutation levels |
 | `input-pcp.csv` + `input-trees.csv` | PCP CSV | Yes — includes JSON-encoded list/dict columns |
 | `config.yaml` | YAML config | Declares all foobar fields for any format |
 
@@ -39,21 +44,17 @@ Minimal datasets with foobar bogus metrics at every field level and type, for te
 # Olmsted JSON: enrich directly
 olmsted enrich -i input-olmsted.json -o enriched.json -c config.yaml
 
-# AIRR: process with config
-olmsted process -i input-airr.json -o output.json -c config.yaml
-
 # PCP: process with config
 olmsted process -i input-pcp.csv -t input-trees.csv -o output.json -c config.yaml
 
 # Dump fields from any format
 olmsted build-config -i input-olmsted.json
-olmsted build-config -i input-airr.json
 olmsted build-config -i input-pcp.csv -t input-trees.csv
 ```
 
 ## Tree-level Coverage
 
-`clone-A` (AIRR / Olmsted JSON) and `fam-1` (PCP) each have **two trees**
+`clone-A` (Olmsted JSON) and `fam-1` (PCP) each have **two trees**
 with different reconstruction methods. Tree-level foobar fields differ
 across those two trees, so the variance classifier auto-promotes them to
 `field_metadata.tree`. `clone-B` / `fam-2` have a single tree each — the

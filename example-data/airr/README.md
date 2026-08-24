@@ -1,8 +1,10 @@
-# AIRR-C v2 Clone/Tree ("airr2") example data
+# AIRR-C v2 Clone/Tree example data
 
-Inputs for the `-f airr2` format — the AIRR-C v2 Clone & Tree schema that
-Dowser's `writeTreesJSON` emits. See issue #36 and `FORMATS.md` for the format
-spec, and `olmsted_cli/process_airr2_data.py` for the parser.
+Inputs for the `-f airr` format — the AIRR-C v2 Clone & Tree schema (AIRR
+Schema v2.0.0) that Dowser's `writeTreesJSON` emits. See issue #36 and
+`FORMATS.md` for the format spec, and `olmsted_cli/process_airr_data.py` for
+the parser. (This replaced an earlier, Olmsted-flavored `-f airr` container
+that never corresponded to an official AIRR release — see issue #47.)
 
 ## Provenance
 
@@ -39,7 +41,7 @@ of `CLAUDE.md` for the exact regen commands. (In this sample data every
 node's `collapse_count` happens to be 1, so the `info` goldens'
 `multiplicity` values look the same as the `noinfo` goldens' fallback-to-1
 — the mechanism is still real, just not visually distinguishable in these
-particular fixtures; see `tests/test_airr2.py::TestInfoCatchall` for a test
+particular fixtures; see `tests/test_airr.py::TestInfoCatchall` for a test
 that injects a distinguishing value.)
 
 ## Key schema traits exercised

@@ -16,6 +16,7 @@ See also:
 - [Project Structure](#project-structure)
 - [Common Tasks](#common-tasks)
 - [Linting](#linting)
+- [Removed Features](#removed-features)
 - [Release](#release)
 
 ---
@@ -95,16 +96,14 @@ PCP regen-output expectations (post-issue #23):
   `(sample, family)` pair rather than silently merging.
 - `clone_id` is synthesized as `{sample}_{family}` for the same reason.
 - `field_metadata.tree` appears only for datasets where at least one
-  clone has multiple alternate reconstructions (AIRR's
-  `downsampling_strategy`, or PCP inputs with a `tree_name` column).
+  clone has multiple alternate reconstructions (PCP inputs with a
+  `tree_name` column).
 - Each tree record carries a `tree_name` field — either the input
   tree-role value or the synthesized `tree-{clone_id}` fallback.
 
 Consolidated goldens (one per dataset folder):
 
 ```bash
-olmsted process -f airr -i example-data/airr/input-airr.json \
-  -o example-data/airr/airr-olmsted-golden.json --seed 42 --name airr-example --json-format pretty -q
 olmsted process -f pcp -i example-data/pcp/input-pcp.csv -t example-data/pcp/input-trees.csv \
   -o example-data/pcp/pcp-olmsted-golden.json --seed 42 --name pcp-example --json-format pretty -q
 olmsted process -f pcp -i example-data/pcp-byhand/input-pcp.csv -t example-data/pcp-byhand/input-trees.csv \
@@ -115,11 +114,28 @@ olmsted process -f pcp -i example-data/pcp-paired/input-pcp.csv -t example-data/
   -o example-data/pcp-paired/pcp-paired-olmsted-golden.json --seed 42 --name pcp-paired-example --json-format pretty -q
 ```
 
-Gzipped consolidated goldens (tracked alongside plain JSON for `.json.gz` upload coverage):
+AIRR-C v2 Clone/Tree goldens (the three Dowser node-class variants, each in
+the clean `noinfo` shape and the `dowser_fields=TRUE` `info`-catchall shape
+— see `example-data/airr/README.md` and issue #45):
 
 ```bash
-olmsted process -f airr -i example-data/airr/input-airr.json \
-  -o example-data/airr/airr-olmsted-golden.json --seed 42 --name airr-example --json-format gzip -q
+olmsted process -f airr -i example-data/airr/input-nocell-noinfo.json \
+  -o example-data/airr/nocell-noinfo-olmsted-golden.json --seed 42 --name airr-nocell-noinfo-example --json-format pretty -q
+olmsted process -f airr -i example-data/airr/input-unpaired-noinfo.json \
+  -o example-data/airr/unpaired-noinfo-olmsted-golden.json --seed 42 --name airr-unpaired-noinfo-example --json-format pretty -q
+olmsted process -f airr -i example-data/airr/input-paired-noinfo.json \
+  -o example-data/airr/paired-noinfo-olmsted-golden.json --seed 42 --name airr-paired-noinfo-example --json-format pretty -q
+olmsted process -f airr -i example-data/airr/input-nocell-info.json \
+  -o example-data/airr/nocell-info-olmsted-golden.json --seed 42 --name airr-nocell-info-example --json-format pretty -q
+olmsted process -f airr -i example-data/airr/input-unpaired-info.json \
+  -o example-data/airr/unpaired-info-olmsted-golden.json --seed 42 --name airr-unpaired-info-example --json-format pretty -q
+olmsted process -f airr -i example-data/airr/input-paired-info.json \
+  -o example-data/airr/paired-info-olmsted-golden.json --seed 42 --name airr-paired-info-example --json-format pretty -q
+```
+
+Gzipped consolidated goldens (tracked alongside plain JSON for `.json.gz` upload coverage; PCP only — no tracked `.json.gz` golden for AIRR):
+
+```bash
 olmsted process -f pcp -i example-data/pcp/input-pcp.csv -t example-data/pcp/input-trees.csv \
   -o example-data/pcp/pcp-olmsted-golden.json --seed 42 --name pcp-example --json-format gzip -q
 ```
@@ -212,6 +228,16 @@ ruff check .
 ruff format .
 ```
 
+## Removed Features
+
+Historical record for anyone tracing a stale reference to a format that no
+longer exists — check the linked PR for the exact merge commit.
+
+| Feature | Removed by | Notes |
+|---|---|---|
+| `--split-files` legacy multi-file output (`datasets.json` + `clones.*.json` + `tree.*.json`) | [#43](https://github.com/matsengrp/olmsted-cli/issues/43), [PR #48](https://github.com/matsengrp/olmsted-cli/pull/48) (commit `0fcd7f0` on the PR branch as of writing; see the PR for the actual merge commit) | Predated the streaming pipeline (#26). `validate.py`'s unrelated `--split` flag and the separate `olmsted split` subcommand (`split.py`) are unaffected — different features that happened to share a variable name. |
+| Legacy `-f airr` (the original, Olmsted-flavored `{dataset_id, clones, ...}` container) | [#47](https://github.com/matsengrp/olmsted-cli/issues/47), [PR #49](https://github.com/matsengrp/olmsted-cli/pull/49) (commit `762d4cc` on the PR branch as of writing; see the PR for the actual merge commit) | Research found it never corresponded to an official AIRR Community schema release at any version. `-f airr2` (the real AIRR-C v2 Clone/Tree/Node/Cell schema, AIRR Schema v2.0.0) was renamed to take over as the sole `-f airr` — see [FORMATS.md](./FORMATS.md#airr-input-format). |
+
 ## Release
 
 Releases are **tag-driven**: the version comes from the git tag (via
@@ -228,4 +254,4 @@ path, version-number guidance, and one-time trusted-publishing setup.
 
 ---
 
-_Last updated: 2026-06-11_
+_Last updated: 2026-08-23_

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Unit tests for the AIRR-C v2 Clone/Tree ("airr2") processor.
+"""Unit tests for the AIRR-C v2 Clone/Tree processor.
 
-Covers the ``process_airr2_data`` module: Rearrangement indexing, Newick-driven
+Covers the ``process_airr_data`` module: Rearrangement indexing, Newick-driven
 topology with reroot-on-germline, node → sequence joins (incl. inferred
 germline), ``node_type`` passthrough, the paired heavy/light split, dataset
 synthesis, and graceful handling of a missing sequence.
@@ -13,16 +13,16 @@ from pathlib import Path
 import pytest
 
 from olmsted_cli.identifier import IdentMinter
-from olmsted_cli.process_airr2_data import (
+from olmsted_cli.process_airr_data import (
     _cdr_boundaries_from_region,
     _locus_chain,
     _mean_mutation_frequency,
     _node_multiplicity,
     index_rearrangements,
-    process_airr2_to_olmsted,
+    process_airr_to_olmsted,
 )
 
-EXAMPLE_DIR = Path(__file__).parent.parent / "example-data" / "airr2"
+EXAMPLE_DIR = Path(__file__).parent.parent / "example-data" / "airr"
 
 
 def _load(variant):
@@ -32,7 +32,7 @@ def _load(variant):
 
 def _run(variant, **kwargs):
     data = _load(variant)
-    return process_airr2_to_olmsted(
+    return process_airr_to_olmsted(
         data["Clone"],
         data["Rearrangement"],
         minter=IdentMinter(seed=42),
@@ -45,7 +45,7 @@ def _clones(clones_dict):
     return [c for cl in clones_dict.values() for c in cl]
 
 
-@pytest.mark.airr2
+@pytest.mark.airr
 class TestLocusChain:
     def test_heavy(self):
         assert _locus_chain("IGH") == "heavy"
@@ -59,7 +59,7 @@ class TestLocusChain:
         assert _locus_chain(None) is None
 
 
-@pytest.mark.airr2
+@pytest.mark.airr
 class TestIndexRearrangements:
     def test_by_sequence_and_cell(self):
         data = _load("paired-noinfo")
@@ -71,7 +71,7 @@ class TestIndexRearrangements:
         assert counts == {2}
 
 
-@pytest.mark.airr2
+@pytest.mark.airr
 class TestNocell:
     def test_clone_and_tree_counts(self):
         _datasets, clones_dict, trees = _run("nocell-noinfo")
@@ -109,7 +109,7 @@ class TestNocell:
                     assert node["parent"] in ids
 
 
-@pytest.mark.airr2
+@pytest.mark.airr
 class TestUnpairedCell:
     def test_cell_class_single_chain(self):
         _datasets, clones_dict, trees = _run("unpaired-noinfo")
@@ -120,7 +120,7 @@ class TestUnpairedCell:
         assert all("-heavy" not in c["clone_id"] for c in clones)
 
 
-@pytest.mark.airr2
+@pytest.mark.airr
 @pytest.mark.paired
 class TestPairedCell:
     def test_splits_into_heavy_and_light(self):
@@ -169,13 +169,13 @@ class TestPairedCell:
         assert len(datasets[0]["samples"]) == 1
 
 
-@pytest.mark.airr2
+@pytest.mark.airr
 class TestDatasetSynthesis:
     def test_dataset_shape(self):
-        datasets, clones_dict, _trees = _run("nocell-noinfo", name="my-airr2")
+        datasets, clones_dict, _trees = _run("nocell-noinfo", name="my-airr")
         assert len(datasets) == 1
         ds = datasets[0]
-        assert ds["name"] == "my-airr2"
+        assert ds["name"] == "my-airr"
         assert ds["dataset_id"] in clones_dict
         assert ds["clone_count"] == 2
         assert ds["subjects"] == []
@@ -211,7 +211,7 @@ class TestDatasetSynthesis:
         assert not (set(labels) & builtin_labels), "collides with a built-in label"
 
 
-@pytest.mark.airr2
+@pytest.mark.airr
 class TestMetrics:
     def test_compute_metrics_populates_lbi(self):
         _datasets, _clones_dict, trees = _run("nocell-noinfo", compute_metrics=True)
@@ -220,7 +220,7 @@ class TestMetrics:
         assert any(v is not None for v in lbis)
 
 
-@pytest.mark.airr2
+@pytest.mark.airr
 class TestMeanMutationFrequency:
     def test_zero_without_germline(self):
         assert _mean_mutation_frequency([], None) == 0.0
@@ -263,7 +263,7 @@ class TestMeanMutationFrequency:
         assert _mean_mutation_frequency(nodes, germline) == pytest.approx(0.375)
 
 
-@pytest.mark.airr2
+@pytest.mark.airr
 class TestNodeMultiplicity:
     """Reading Dowser's collapse_count from the info catchall (#45)."""
 
@@ -287,7 +287,7 @@ class TestNodeMultiplicity:
         assert _node_multiplicity({"info": {"tipdata": {"tip_order": 1}}}) is None
 
 
-@pytest.mark.airr2
+@pytest.mark.airr
 class TestCdrBoundariesFromRegion:
     """Deriving cdr1/cdr2/cdr3 alignment boundaries from Clone.info.region (#45)."""
 
@@ -373,7 +373,7 @@ class TestCdrBoundariesFromRegion:
         assert _cdr_boundaries_from_region(region, germline_alignment) == {}
 
 
-@pytest.mark.airr2
+@pytest.mark.airr
 class TestInfoCatchall:
     """End-to-end: Dowser's info catchall flows through to real output (#45)."""
 
@@ -384,7 +384,7 @@ class TestInfoCatchall:
         observed["info"]["tipdata"]["collapse_count"] = 7
         target_id = observed["sequence_id"]
 
-        _datasets, _clones_dict, trees = process_airr2_to_olmsted(
+        _datasets, _clones_dict, trees = process_airr_to_olmsted(
             [clone], data["Rearrangement"], minter=IdentMinter(seed=42), verbosity=0
         )
         node = next(
@@ -438,7 +438,7 @@ class TestInfoCatchall:
         clone = data["Clone"][0]
         clone["junction_length"] = 999  # deliberately wrong
 
-        _datasets, clones_dict, _trees = process_airr2_to_olmsted(
+        _datasets, clones_dict, _trees = process_airr_to_olmsted(
             [clone], data["Rearrangement"], minter=IdentMinter(seed=42), verbosity=1
         )
         out_clone = _clones(clones_dict)[0]
@@ -451,7 +451,7 @@ class TestInfoCatchall:
 
     def test_no_warning_when_junction_normalized_cdr3_matches(self, capsys):
         data = _load("nocell-info")
-        process_airr2_to_olmsted(
+        process_airr_to_olmsted(
             data["Clone"],
             data["Rearrangement"],
             minter=IdentMinter(seed=42),
@@ -483,7 +483,7 @@ class TestInfoCatchall:
             assert "cdr3_length" in clone
 
 
-@pytest.mark.airr2
+@pytest.mark.airr
 class TestGermlineGeneCallFallback:
     """v_call/d_call/j_call derived from the germline Rearrangement record
     (cf. #24/#45) — d_call's only source, and a fallback for v_call/j_call
@@ -508,7 +508,7 @@ class TestGermlineGeneCallFallback:
             "nocell-info", d_call="IGHD3-10*01"
         )
         assert clone.get("d_call") is None  # sanity: truly absent from Clone
-        _datasets, clones_dict, _trees = process_airr2_to_olmsted(
+        _datasets, clones_dict, _trees = process_airr_to_olmsted(
             [clone], rearrangements, minter=IdentMinter(seed=42), verbosity=0
         )
         assert _clones(clones_dict)[0]["d_call"] == "IGHD3-10*01"
@@ -519,7 +519,7 @@ class TestGermlineGeneCallFallback:
         clone, rearrangements = self._patch_germline_record(
             "nocell-noinfo", v_call="IGHV1-2*02", j_call="IGHJ4*02"
         )
-        _datasets, clones_dict, _trees = process_airr2_to_olmsted(
+        _datasets, clones_dict, _trees = process_airr_to_olmsted(
             [clone], rearrangements, minter=IdentMinter(seed=42), verbosity=0
         )
         out_clone = _clones(clones_dict)[0]
@@ -533,7 +533,7 @@ class TestGermlineGeneCallFallback:
             "nocell-info", v_call="IGHV1-2*02", j_call="IGHJ4*02"
         )
         assert clone["v_call"] == "IGHV3-23"  # sanity: Clone-level value present
-        _datasets, clones_dict, _trees = process_airr2_to_olmsted(
+        _datasets, clones_dict, _trees = process_airr_to_olmsted(
             [clone], rearrangements, minter=IdentMinter(seed=42), verbosity=0
         )
         out_clone = _clones(clones_dict)[0]
@@ -550,7 +550,7 @@ class TestGermlineGeneCallFallback:
         assert out_clone.get("j_call") is None
 
 
-@pytest.mark.airr2
+@pytest.mark.airr
 class TestMissingSequenceGraceful:
     def test_missing_rearrangement_yields_empty_sequence(self):
         """A node with no matching Rearrangement gets an empty sequence, not a crash."""
@@ -562,7 +562,7 @@ class TestMissingSequenceGraceful:
         rearrangements = [
             r for r in data["Rearrangement"] if r.get("sequence_id") != dropped_id
         ]
-        _datasets, _clones_dict, trees = process_airr2_to_olmsted(
+        _datasets, _clones_dict, trees = process_airr_to_olmsted(
             [clone], rearrangements, minter=IdentMinter(seed=42), verbosity=0
         )
         node = next(

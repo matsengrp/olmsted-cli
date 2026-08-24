@@ -1,5 +1,5 @@
 # =============================================================================
-# Field configuration generated from: input-airr.json
+# Field configuration generated from: input-nocell-noinfo.json
 # Detected format: airr
 # =============================================================================
 #
@@ -16,7 +16,7 @@
 # Processing Options (uncomment and edit as needed)
 # =============================================================================
 
-inputs: [example-data/airr/input-airr.json]
+inputs: [example-data/airr/input-nocell-noinfo.json]
 output: output.json
 format: airr
 
@@ -77,126 +77,65 @@ format: airr
 custom_fields:
 
   # --- Family level (clonal family — scatterplot axes, color, facet) ---
-  - name: cdr3_length
-    level: family
-    type: continuous
-    label: "CDR3 Length"
-    description: "Length of the CDR3 (junction) region, in nucleotides."
-    # sample values: 51, 63, 48, 60, 81, ...
-  - name: d_call
+  - name: clone_class
     level: family
     type: categorical
-    label: "D Gene"
-    # sample values: IGHD1-26*01, IGHD2-2*02, IGHD6-13*01, IGHD2-2*02, IGHD2-15*01, ...
-  - name: has_seed
-    level: family
-    type: categorical
-    label: "Has Seed"
-    # sample values: False, True, False, False, False, ...
-  - name: j_call
-    level: family
-    type: categorical
-    label: "J Gene"
-    # sample values: IGHJ4*02, IGHJ3*02, IGHJ4*02, IGHJ1*01, IGHJ5*02, ...
+    label: "Clone Class"
+    # sample values: Rearrangement, Rearrangement
   - name: locus
     level: family
     type: categorical
     label: "Locus"
-    # sample values: igh, igh, igh, igh, igh, ...
+    # sample values: igh, igh
   - name: mean_mut_freq
     level: family
     type: continuous
     label: "Mean Mutation Frequency"
-    # sample values: 0.0198836438618455, 0.019459102902374674, 0.022998430141287288, 0.12482269503546099, 0.025774705641145798, ...
-  - name: rearrangement_count
-    output_name: unique_seqs_count
-    level: family
-    type: continuous
-    label: "Rearrangement Count"
-    # sample values: 33, 39, 33, 15, 38, ...
+    # sample values: 0.0744047619047619, 0.031994047619047616
   - name: sample_id
     level: family
     type: categorical
     label: "Sample"
-    # sample values: simulation-test, simulation-test, simulation-test, simulation-test, simulation-test, ...
-  - name: sampled_seqs_count
-    output_name: unique_seqs_count
-    level: family
-    type: continuous
-    label: "Sampled Sequences Count"
-    # sample values: 33, 39, 33, 15, 38, ...
-  - name: size
-    output_name: total_read_count
-    level: family
-    type: continuous
-    label: "Size"
-    # sample values: 46, 39, 48, 46, 45, ...
-  - name: subject_id
-    level: family
-    type: categorical
-    label: "Subject"
-    # sample values: None, None, None, None, None, ...
+    # sample values: sample, sample
   - name: total_read_count
     level: family
     type: continuous
     label: "Total Read Count"
-    # sample values: 37, 40, 35, 15, 43, ...
+    # sample values: 6, 4
   - name: unique_seqs_count
     level: family
     type: continuous
     label: "Unique Sequences Count"
-    # sample values: 33, 39, 33, 15, 38, ...
-  - name: v_call
-    level: family
-    type: categorical
-    label: "V Gene"
-    # sample values: IGHV1-18*01, IGHV3-64*04, IGHV3-23*01, IGHV1-2*02, IGHV1-2*02, ...
-
-  # --- Tree level (per-tree-within-clone — tree dropdown color/filter/sort) ---
-  - name: downsampling_strategy
-    level: tree
-    type: categorical
-    label: "Downsampling Strategy"
-    # sample values: min_adcl, seed_lineage, min_adcl, min_adcl, min_adcl, ...
+    # sample values: 13, 9
 
   # --- Node level (tree node properties, tooltips) ---
-  - name: cluster_multiplicity
-    level: node
-    type: continuous
-    label: "Cluster Multiplicity"
-    # sample values: 1, 1, 1, 1, 1, ...
   - name: distance
     level: node
     type: continuous
     label: "Distance from Root"
-    # sample values: 0.01638, 0.016321000000000002, 0.008089999999999998, 0.027694999999999997, 0.038137, ...
-  - name: lbi
-    level: node
-    type: continuous
-    label: "LBI"
-    # sample values: 0.008065821247190111, 0.008263772145157134, 0.38176616743175124, 0.0016274896738440574, 0.012257284181679581, ...
-  - name: lbr
-    level: node
-    type: continuous
-    label: "LBR"
-    # sample values: 0.0, 0.0, 0.056411670854125504, 0.0, 0.0, ...
-  - name: multiplicity
-    level: node
-    type: continuous
-    label: "Multiplicity"
-    # sample values: 1, 1, 1, 1, 1, ...
-  - name: timepoint_id
+    # sample values: 0.038666666665, 0.025333333335, 0.082666666665, 0.097333333335, 0.080000000001, ...
+  - name: locus
     level: node
     type: categorical
-    label: "Timepoint"
-    # sample values: no-timepoint, no-timepoint, no-timepoint, no-timepoint, no-timepoint, ...
+    label: "Locus"
+    # sample values: IGH, IGH, IGH, IGH, IGH, ...
+  - name: node_class
+    level: node
+    type: categorical
+    label: "Node Class"
+    # sample values: Rearrangement, Rearrangement, Rearrangement, Rearrangement, Rearrangement, ...
+  - name: node_type
+    level: node
+    type: categorical
+    label: "Observed/Inferred"
+    # sample values: observed, observed, observed, observed, observed, ...
 
   # --- Branch level (tree branch coloring, width) ---
   - name: length
     level: branch
     type: continuous
     label: "Branch Length"
-    # sample values: 0.00829, 0.008231, 0.005378, 0.011597, 0.005465, ...
+    # sample values: 0.008, 0.008, 0.01333333333, 0.044, 0.005333333333, ...
 
   # --- Mutation level (alignment coloring) ---
   # The following fields are derived by the web app from
@@ -215,108 +154,28 @@ custom_fields:
   # Skipped fields (not included in output metadata)
   # Remove 'skip: true' to include a field, or delete the entry
   # =================================================================
-  - name: cdr3_alignment_start
-    level: family
-    skip: true
-    type: continuous
-    label: "CDR3 Alignment Start"
-    # sample values: 285, 285, 285, 285, 285, ...
   - name: clone_id
     level: family
     skip: true
     type: categorical
     label: "Clone ID"
-    # sample values: clust-3, seed-cluster, clust-1, clust-4, clust-6, ...
-  - name: d_alignment_end
-    level: family
-    skip: true
-    type: continuous
-    label: "D Alignment End"
-    # sample values: 314, 327, 306, 328, 318, ...
-  - name: d_alignment_start
-    level: family
-    skip: true
-    type: continuous
-    label: "D Alignment Start"
-    # sample values: 301, 299, 301, 326, 296, ...
+    # sample values: 10004, 8232
   - name: dataset_id
     level: family
     skip: true
     type: categorical
     label: "Dataset ID"
-    # sample values: test-input-2020.01.30, test-input-2020.01.30, test-input-2020.01.30, test-input-2020.01.30, test-input-2020.01.30, ...
+    # sample values: dataset-14b429db-6afa-5d76-5c16-dd7dab2897af, dataset-14b429db-6afa-5d76-5c16-dd7dab2897af
   - name: ident
     level: family
     skip: true
     type: categorical
     label: "Ident"
-    # sample values: 08da722a-704b-3e9d-9743-7759549f7257, 5eb2526f-7e92-33a0-953d-8382e9d24955, a11ac61f-6de7-3e03-adc0-e7dec3c1fa3c, 7c385455-287d-3e67-a0a4-93b3889bbb46, 483d588f-b377-313d-9f3e-e94ccea7d0fa, ...
-  - name: j_alignment_end
-    level: family
-    skip: true
-    type: continuous
-    label: "J Alignment End"
-    # sample values: 367, 379, 364, 376, 397, ...
-  - name: j_alignment_start
-    level: family
-    skip: true
-    type: continuous
-    label: "J Alignment Start"
-    # sample values: 324, 329, 316, 329, 362, ...
-  - name: partition
-    level: family
-    skip: true
-    type: json
-    display: tooltip
-    label: "Partition"
-    # sample values: {'id': 'unseeded-part-5'}, {'id': 'seed-part-3'}, {'id': 'unseeded-part-5'}, {'id': 'unseeded-part-5'}, {'id': 'unseeded-part-5'}, ...
-  - name: path
-    level: family
-    skip: true
-    type: list
-    display: tooltip
-    label: "Path"
-    # sample values: ['output/test-input/None/simulation-test/unseeded-part-5/clust-3'], ['output/test-input/None/simulation-test/-1118600317502690934/seed-part-3/seed-cluster'], ['output/test-input/None/simulation-test/unseeded-part-5/clust-1'], ['output/test-input/None/simulation-test/unseeded-part-5/clust-4'], ['output/test-input/None/simulation-test/unseeded-part-5/clust-6'], ...
-  - name: repertoire_id
-    level: family
-    skip: true
-    type: categorical
-    label: "Repertoire ID"
-    # sample values: simulation-test, simulation-test, simulation-test, simulation-test, simulation-test, ...
-  - name: seed_id
-    level: family
-    skip: true
-    type: categorical
-    label: "Seed ID"
-    # sample values: -1118600317502690934
-  - name: sorted_index
-    level: family
-    skip: true
-    type: continuous
-    label: "Sorted Index"
-    # sample values: 3, 1, 4, 6, 0, ...
-  - name: type
-    level: family
-    skip: true
-    type: categorical
-    label: "Type"
-    # sample values: cft.cluster, cft.cluster, cft.cluster, cft.cluster, cft.cluster, ...
-  - name: v_alignment_end
-    level: family
-    skip: true
-    type: continuous
-    label: "V Alignment End"
-    # sample values: 296, 296, 292, 295, 290, ...
-  - name: v_alignment_start
-    level: family
-    skip: true
-    type: continuous
-    label: "V Alignment Start"
-    # sample values: 0, 0, 0, 0, 0, ...
+    # sample values: clone-6a5eb4e0-90d9-e591-ee20-6debc0f4b040, clone-6fad0c6f-ef46-f158-7391-728cb379fcec
   - name: type
     level: node
     skip: true
     type: categorical
     label: "Type"
-    # sample values: leaf, leaf, node, leaf, leaf, ...
+    # sample values: leaf, leaf, leaf, leaf, leaf, ...
 

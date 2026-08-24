@@ -27,8 +27,7 @@ olmsted process -i pcp.csv --tree trees.csv -o olmsted_data.json --compute-metri
 
 ### Supported Formats
 
-- **AIRR (Adaptive Immune Receptor Repertoire)**: JSON format following AIRR Community standards
-- **AIRR-C v2 Clone/Tree (`airr2`)**: the AIRR-C v2 Clone & Tree schema (Dowser `writeTreesJSON` output) — clones with inline trees + a separate `Rearrangement` sequence table; supports observed/inferred (ASR) nodes and paired H+L chains. See [FORMATS.md](./FORMATS.md#airr-c-v2-clonetree-airr2-input-format)
+- **AIRR (Adaptive Immune Receptor Repertoire)**: the AIRR-C v2 Clone/Tree/Node/Cell schema, AIRR Schema v2.0.0 (Dowser `writeTreesJSON` output) — clones with inline trees + a separate `Rearrangement` sequence table; supports observed/inferred (ASR) nodes and paired H+L chains. See [FORMATS.md](./FORMATS.md#airr-input-format)
 - **PCP (Parent-Child Pair)**: CSV file containing parent-child pairs with separate trees CSV file containing Newick strings
 
 ### Output Formats
@@ -116,10 +115,9 @@ olmsted process -i input.csv -f pcp -o output.json
 
 | Option | Description |
 |--------|-------------|
-| `-i, --inputs FILES` | Input file(s). For AIRR: one or more JSON files. For PCP: CSV file |
+| `-i, --inputs FILE` | Input file. For AIRR: a single JSON file. For PCP: CSV file |
 | `-o, --output FILE` | Output file path for consolidated JSON |
-| `--unbundle DIR` | Unbundle output into separate component files (datasets.json, clones.*.json, tree.*.json) for backwards compatibility with Olmsted web app |
-| `-f, --format {airr,airr2,pcp,auto}` | Input format (default: auto-detect) |
+| `-f, --format {airr,pcp,auto}` | Input format (default: auto-detect) |
 | `-t, --tree FILE` | Trees file for PCP format (optional, can be gzipped) |
 | `--mutations FILE` | Mutation-level CSV file to merge into tree nodes after processing (see `merge` command) |
 | `-c, --config FILE` | YAML configuration file (CLI arguments override config values) |
@@ -147,18 +145,16 @@ olmsted process -i input.csv -f pcp -o output.json
 | `--standardize-names` | Rename nodes to standard format: naive (root), Node1, Node2, ... |
 | `--on-forest {reconcile,drop,skip,fail}` | How to handle a family whose edges form a disconnected forest (more than one root — an internal node with no parent edge). `reconcile` reattaches orphan roots under the primary root; `drop` discards just the orphan subtree(s); `skip` discards the whole family (default); `fail` aborts the run. |
 
-#### AIRR-Specific Options
-
-| Option | Description |
-|--------|-------------|
-| `--naive-name NAME` | Name of naive/root node for tree rooting (default: "naive") |
-| `-r, --root-trees` | Root trees using naive node |
+AIRR input has no format-specific CLI options — trees are always rerooted
+on the `Clone.inferred_ancestor` the input itself supplies (see
+[FORMATS.md](./FORMATS.md#mapping-to-olmsted)); `-r, --root [NAME]` (above)
+is a PCP-only option.
 
 #### Examples
 
 ```bash
-# Auto-detect AIRR format and process multiple input files
-olmsted process -i dataset1.json dataset2.json -o combined.json
+# Auto-detect AIRR format
+olmsted process -i dataset.json -o output.json
 
 # Process PCP format with separate trees file and compute metrics
 olmsted process -i sequences.csv --tree trees.csv -o output.json --compute-metrics

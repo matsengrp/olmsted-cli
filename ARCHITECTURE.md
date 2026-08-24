@@ -53,7 +53,7 @@ utils.py                (no project imports — general-purpose utilities)
     │
     ├── process_utils.py    (imports build_config, field_metadata, schemas, utils)
     ├── process_pcp_data.py (imports constants, metrics, process_utils)
-    ├── process_airr_data.py(imports constants, metrics, process_utils)
+    ├── process_airr_data.py(imports metrics, process_utils, schemas)
     │
     ├── merge_mutations.py  (imports constants, process_utils, utils)
     │
@@ -110,15 +110,17 @@ detect_file_format()
     │
     └── AIRR: process_airr_format(args)
             │
-            ├── _should_stream_airr(args)?
-            │   ├── yes → _process_airr_streaming() — see Streaming Pipeline
-            │   └── no → process_dataset() for each input file
-            │             ├── iter_airr_clones()
-            │             ├── _process_airr_clone() (positions, sample lookup,
-            │             │     process_tree(), compute_tree_metrics())
-            │             └── tag_field_metadata()
-            │           create_consolidated_data() → write_out()
+            └── process_airr_to_olmsted(clone_records, rearrangement_records, ...)
+                  ├── index_rearrangements() (sequence_id/cell_id → Rearrangement)
+                  ├── _build_nodes() (Newick topology, reroot on inferred_ancestor,
+                  │     join sequences, compute_tree_metrics() if requested)
+                  └── tag_field_metadata()
+                create_consolidated_data() → write_out()
 ```
+
+AIRR always runs in-memory — it has no streaming path (`--batch-size` is
+accepted but ignored; see [issue #36](https://github.com/matsengrp/olmsted-cli/issues/36)
+and the note in [FORMATS.md](./FORMATS.md#airr-input-format)).
 
 ### `tag` Command
 
@@ -183,7 +185,7 @@ detect_file_format()
     │
     ├── Olmsted: load directly
     ├── PCP: process through pipeline in memory
-    └── AIRR: process through pipeline in memory
+    └── AIRR: process_airr_to_olmsted() directly (always in-memory)
     │
     ▼
 _build_yaml()
@@ -203,25 +205,26 @@ _build_yaml()
 
 ## Streaming Pipeline
 
-`olmsted process` ships with always-on family-batched streaming so peak
-memory tracks `--batch-size` (default 50 families) rather than total
-dataset size. Each batch's clones and trees are spooled to JSONL temp
-files; the final consolidated JSON is written by stream-stitching
-`metadata` → `datasets` → `clones` → `trees` directly from disk.
+`olmsted process` ships with always-on family-batched streaming **for PCP**
+so peak memory tracks `--batch-size` (default 50 families) rather than
+total dataset size. Each batch's clones and trees are spooled to JSONL
+temp files; the final consolidated JSON is written by stream-stitching
+`metadata` → `datasets` → `clones` → `trees` directly from disk. AIRR has
+no equivalent — it always runs in-memory (see the `process` Command
+section above).
 
 ```
-parse_pcp_csv() / read_airr_json()
+parse_pcp_csv()
     │
     ▼
-BatchAccumulator.register_dataset(dataset_id, hoist_tree_extras_to_clone=?)
-    └── PCP: True   (tree-csv extras hoist to clone-level)
-        AIRR: False (tree-level fields live on trees natively)
+BatchAccumulator.register_dataset(dataset_id, hoist_tree_extras_to_clone=True)
+    └── tree-csv extras hoist to clone-level
     │
     ▼
 begin_merge(mutations_csv)            (optional, --mutations)
     │
     ▼
-for batch in iter_pcp_clone_groups | iter_airr_clones(batch_size=N):
+for batch in iter_pcp_clone_groups(batch_size=N):
     ├── unpack_encoded_mutations()    (if user passed custom_fields with encoding)
     ├── apply_mutations_to_trees()    (if --mutations)
     ├── BatchAccumulator.observe_batch()
@@ -254,16 +257,16 @@ write_olmsted_json_streaming()
         legacy data_io.write_olmsted_json).
 ```
 
-### Fallback to the legacy in-memory path
+### Fallback to the legacy in-memory path (PCP only)
 
-`_should_stream_pcp` / `_should_stream_airr` route through
-`process_pcp_to_olmsted` / `process_dataset` + `write_out` when:
+`_should_stream_pcp` routes through `process_pcp_to_olmsted` + `write_out`
+when:
 
 | Condition | Why |
 |---|---|
 | `--batch-size 0` | Explicit opt-out. |
 | `--validate` | Per-batch validation isn't wired yet; `validate_output_data` consumes the whole assembled output. |
-| Single-batch fast path (PCP only): `n_families ≤ batch_size` | Spool round-trip would cost more than the in-memory pipeline; skipped automatically. |
+| Single-batch fast path: `n_families ≤ batch_size` | Spool round-trip would cost more than the in-memory pipeline; skipped automatically. |
 
 ### Per-batch correctness notes
 
@@ -288,8 +291,7 @@ write_olmsted_json_streaming()
 |---|---|
 | `olmsted_cli/streaming.py` | `FieldTypeEvidence`, `RangeEvidence`, `BatchAccumulator`, `BatchSpooler`, `write_olmsted_json_streaming`, `apply_dataset_hoist` |
 | `olmsted_cli/process_pcp_data.py` | `iter_pcp_clone_groups`, `_process_clone_group`, `_hoist_clone_invariant_extras` |
-| `olmsted_cli/process_airr_data.py` | `iter_airr_clones`, `_process_airr_clone` |
-| `olmsted_cli/process_data.py` | `_should_stream_pcp` / `_should_stream_airr`, `_process_pcp_streaming` / `_process_airr_streaming`, `_begin_mutations_merge` / `_finalize_mutations_merge` |
+| `olmsted_cli/process_data.py` | `_should_stream_pcp`, `_process_pcp_streaming`, `_begin_mutations_merge` / `_finalize_mutations_merge` |
 | `olmsted_cli/merge_mutations.py` | `MergeContext`, `begin_merge`, `apply_mutations_to_trees`, `finalize_merge`, `report_merge_stats` |
 
 ---

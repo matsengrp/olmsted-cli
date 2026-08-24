@@ -1,649 +1,654 @@
 #!/usr/bin/env python
+"""Ingest AIRR input (the AIRR-C v2 Clone/Tree/Node/Cell schema, AIRR Schema
+v2.0.0: https://docs.airr-community.org/en/latest/datarep/clone.html) into
+Olmsted format.
 
-from __future__ import annotations
+This is the format Dowser's ``writeTreesJSON`` emits (see issue #36 and the
+Apr–Jun 2026 AIRR-C standards thread that converged on naming it this way).
+olmsted-cli's earlier, Olmsted-flavored ``-f airr`` container predated this
+and never corresponded to an official AIRR release at any version (see
+issue #47) — it was removed once this format became the sole ``-f airr``.
 
-import argparse
-import html
-import os
-import pprint
-import sys
-import traceback
-from collections import OrderedDict
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple
-from urllib.parse import parse_qs, parse_qsl
+This implementation is a pragmatic mapping of the schema's concepts onto
+Olmsted's own JSON shape, not a byte-for-byte implementation of it — e.g.
+``Clone.nodes`` here is a list, where the official schema's ``Tree.nodes``
+is a dict keyed by ``sequence_id``:
 
-from .data_io import read_airr_json
-from .identifier import IdentMinter
-from .metrics import compute_mean_mut_freq, compute_tree_metrics
-from .process_utils import tag_field_metadata
-from .utils import vprint
+    {
+      "Clone":        [ {clone_id, clone_class, tree(newick), nodes:[...], ...}, ... ],
+      "Rearrangement":[ {sequence_id | cell_id, sequence_alignment, locus, ...}, ... ]
+    }
 
-if TYPE_CHECKING:
-    from argparse import Namespace
+Each ``Clone`` carries its tree inline as a Newick string plus a ``nodes`` list.
+Nodes do **not** carry sequences directly; they point into the separate
+``Rearrangement`` table by ``sequence_id`` (``clone_class: Rearrangement``) or
+``cell_id`` (``clone_class: Cell``). Inferred internal/germline nodes get their
+own synthesized ``Rearrangement`` records (e.g. ``sequence_id: Germline-10004``),
+so every node — observed or ASR-inferred — joins to a sequence.
 
-    from .types import OlmstedClone, OlmstedDataset, OlmstedTree
+Structurally this is far closer to PCP than to legacy AIRR (synthesize a dataset
+from flat records + build trees), so the assembly mirrors
+``process_pcp_data.process_pcp_to_olmsted`` and returns the same
+``([dataset], clones_dict, trees)`` contract.
 
-import jsonschema
-import ntpl
-import yaml
+Chain handling:
 
-# Python 3.13+ compatibility: make cgi module available before ete3 import
-try:
-    import cgi  # noqa: F401
-except ImportError:
-    # Create a mock cgi module using our compatibility layer
+- ``clone_class: Rearrangement`` (H only) → one clone + one tree.
+- ``clone_class: Cell``, single locus (H only) → one clone + one tree.
+- ``clone_class: Cell``, paired H+L → **two** clones + two trees sharing one
+  topology, suffixed ``-heavy`` / ``-light``, each node's sequence taken from the
+  same-locus ``Rearrangement`` (IGH → heavy, IGK/IGL → light). This mirrors the
+  PCP-paired output model (the webapp treats heavy and light as separate clones).
 
-    class CGIModule:
-        """Mock cgi module for Python 3.13+ compatibility."""
+Dowser's ``info`` catchall (present when the input is written with the
+default ``dowser_fields=TRUE``, absent from the "clean v2" ``noinfo`` shape)
+is read for per-node ``collapse_count`` -> ``multiplicity`` (see
+``_node_multiplicity``, #45), clone-level ``v_call``/``j_call``/
+``junction_length`` when present, and per-position gene-region labels
+(``Clone.info.region``) -> ``cdr1``/``cdr2``/``cdr3`` ``_alignment_start``/
+``_end``/``_length`` (see ``_cdr_boundaries_from_region``, #45) — not yet
+handled for paired heavy+light clones, where ``region`` covers both chains
+concatenated. Still deferred (#45): ``program_origin`` and arbitrary Dowser
+``trait=`` columns in per-node tipdata.
 
-        escape = html.escape
+Clone-level ``v_call``/``j_call`` fall back to the germline/root node's own
+``Rearrangement`` record when the ``Clone`` doesn't supply them (see
+``_build_nodes``'s ``germline_gene_calls``, cf. #24); ``d_call`` — which the
+``Clone``-level ``info`` catchall never carries at all — comes *only* from
+that fallback.
 
-        # Add other cgi functions that might be needed by ete3
-        def parse_qs(self, *args, **kwargs):
-            return parse_qs(*args, **kwargs)
+Also deferred (see issue #36): streaming.
+"""
 
-        def parse_qsl(self, *args, **kwargs):
-            return parse_qsl(*args, **kwargs)
-
-    # Make cgi available as a module
-    sys.modules["cgi"] = CGIModule()
+from collections import defaultdict
+from typing import Any, Dict, List, Optional, Tuple
 
 import ete3
 
-from .process_utils import (
-    SCHEMA_VERSION,
-    assign_branch_lengths,
-    create_consolidated_data,
-    dict_subset,
-    is_nullable_string,
-    merge,
-    validate_dataset,
-    validate_output_data,
-    write_out,
-)
-from .schemas import (
-    clone_spec,
-    dataset_spec,
-)
+from .identifier import IdentMinter
+from .metrics import compute_mean_mut_freq, compute_tree_metrics
+from .process_utils import assign_branch_lengths, tag_field_metadata
+from .schemas import SCHEMA_VERSION
+from .utils import set_verbosity, translate_dna_to_aa, vprint
 
-type_checker = jsonschema.Draft4Validator.TYPE_CHECKER.redefine(
-    "string", is_nullable_string
-)
-CustomValidator = jsonschema.validators.extend(
-    jsonschema.Draft4Validator, type_checker=type_checker
-)
-
-# Should update to get draft7?
-olmsted_dataset_schema = jsonschema.Draft4Validator(dataset_spec)
-airr_clone_schema = None
-try:
-    with open("../airr-standards/specs/airr-schema.yaml") as stream:
-        airr_clone_schema_dict = yaml.load(stream, Loader=yaml.FullLoader).get("Clone")
-        airr_clone_schema = CustomValidator(airr_clone_schema_dict)
-except FileNotFoundError:
-    # AIRR schema file not found - skip AIRR validation
-    pass
+#: Loci that map to the heavy / light chain split.
+HEAVY_LOCI = {"IGH"}
+LIGHT_LOCI = {"IGK", "IGL"}
 
 
-def ensure_ident(record, datatype: str, minter: IdentMinter):
-    """Attach an ``ident`` to ``record`` if absent, using ``minter``.
+def _locus_chain(locus: Optional[str]) -> Optional[str]:
+    """Map an AIRR ``locus`` (e.g. ``"IGH"``) to ``"heavy"``/``"light"``/None."""
+    if not locus:
+        return None
+    locus = locus.upper()
+    if locus in HEAVY_LOCI:
+        return "heavy"
+    if locus in LIGHT_LOCI:
+        return "light"
+    return None
 
-    Lets callers supply their own ident (pass-through) without forcing it.
-    When the minter is deterministic (seed-backed), generated idents are
-    reproducible across runs.
+
+def index_rearrangements(
+    rearrangements: List[Dict[str, Any]],
+) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, List[Dict[str, Any]]]]:
+    """Index the ``Rearrangement`` table for node → sequence joins.
+
+    Returns ``(by_sequence_id, by_cell_id)`` where ``by_cell_id`` maps each
+    ``cell_id`` to the list of its records (paired cells carry one per locus).
     """
-    if record.get("ident"):
-        return record
-    return merge(record, {"ident": minter.mint(datatype)})
+    by_sequence_id: Dict[str, Dict[str, Any]] = {}
+    by_cell_id: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    for record in rearrangements:
+        seq_id = record.get("sequence_id")
+        if seq_id:
+            by_sequence_id[seq_id] = record
+        cell_id = record.get("cell_id")
+        if cell_id:
+            by_cell_id[cell_id].append(record)
+    return by_sequence_id, by_cell_id
 
 
-# reroot the tree on node matching regex pattern.
-# Usually this is used to root on the naive germline sequence
-# NOTE duplicates fcn in plot_tree.py
-# TODO this is just one way to "reroot" trees; it's worth considering removing this function from the script so that we are not responsible for this job since it isn't trivial (e.g. if given an unrooted tree, ete3.Tree.set_outgroup will add an empty-string-named taxon)
-def reroot_tree(args, tree):
-    # find naive node
-    node = tree.search_nodes(name=args.naive_name)[0]
-    # if equal, then the root is already the naive, so done
-    if tree != node:
-        # In general this would be necessary, but we are actually assuming that naive has been set as an
-        # outgroup in dnaml, and if it hasn't, we want to raise an error, as below
-        tree.set_outgroup(node)
-        # This actually assumes the `not in` condition above, but we check as above for clarity
-        tree.remove_child(node)
-        node.add_child(tree)
-        tree.dist = node.dist
+def _reroot_on_ancestor(
+    ete_tree: "ete3.TreeNode", ancestor_name: Optional[str]
+) -> "ete3.TreeNode":
+    """Reroot ``ete_tree`` so ``ancestor_name`` (the germline) is the root.
 
-        node.dist = 0
-        tree = node
-    return tree
-
-
-def process_tree_nodes(args, tree, nodes, reroot=False):
-    if reroot:
-        tree = reroot_tree(args, tree)
-
-    result = []
-    index = {}
-    for node in tree.traverse("postorder"):
-        datum = nodes.get(node.name, {})
-        if node.up:
-            datum["type"] = "leaf" if node.is_leaf() else "node"
-            datum["parent"] = node.up.name
-        else:
-            # node is root
-            datum["type"] = "root"
-            datum["parent"] = None
-        result.append(datum)
-        index[node.name] = datum
-
-    # Populate per-node length/distance from the (possibly rerooted) tree,
-    # measured against its root. After reroot_tree the naive node is the root,
-    # so distance-from-root equals the former distance-to-naive. overwrite=True
-    # preserves the historical behavior of always (re)computing these from the
-    # newick rather than trusting any values on the input nodes. Shared with the
-    # merge backfill path (process_utils.assign_branch_lengths).
-    assign_branch_lengths(tree, index, overwrite=True)
-    return result
+    Dowser writes the germline as a zero-length outgroup tip hanging off the
+    Newick's internal root; Olmsted's convention (like PCP and the legacy AIRR
+    path) puts the naive/germline at the root. When the ancestor can't be found,
+    the tree is returned unrerooted. Mirrors ``process_airr_data.reroot_tree``
+    but keyed on the explicit ``inferred_ancestor`` field rather than a regex.
+    """
+    if not ancestor_name:
+        return ete_tree
+    matches = ete_tree.search_nodes(name=ancestor_name)
+    if not matches:
+        return ete_tree
+    node = matches[0]
+    if ete_tree == node:
+        return ete_tree
+    ete_tree.set_outgroup(node)
+    ete_tree.remove_child(node)
+    node.add_child(ete_tree)
+    node.dist = 0
+    return node
 
 
-def process_tree(args, clone_id, tree):
-    # add clone_id to satisfy AIRR schema
-    tree["clone_id"] = clone_id
-    ete_tree = ete3.PhyloTree(tree["newick"], format=1)
-    tree["nodes"] = process_tree_nodes(
-        args, ete_tree, tree["nodes"], reroot=args.root_trees
-    )
-    # AIRR Community's Tree schema marks tree_id as required. Input may or
-    # may not supply it; when absent, fall back to the CLI-minted ident so
-    # both fields are populated and the webapp dropdown has a stable label.
-    tree = ensure_ident(tree, "tree", args.minter)
-    if not tree.get("tree_id"):
-        tree["tree_id"] = tree["ident"]
-    return tree
+def _resolve_rearrangement_record(
+    node_record: Dict[str, Any],
+    clone_class: str,
+    chain: Optional[str],
+    by_sequence_id: Dict[str, Dict[str, Any]],
+    by_cell_id: Dict[str, List[Dict[str, Any]]],
+) -> Optional[Dict[str, Any]]:
+    """Join one tree node to its full ``Rearrangement`` record for a given chain.
+
+    - ``Rearrangement`` class: join by ``sequence_id``.
+    - ``Cell`` class: join by ``cell_id``; for a paired split, pick the record
+      whose locus matches ``chain`` (heavy → IGH, light → IGK/IGL). For a
+      single-chain cell (``chain is None``) take the sole record.
+
+    Returns ``None`` when no matching record exists.
+    """
+    if clone_class == "Cell":
+        records = by_cell_id.get(node_record.get("cell_id"), [])
+        if chain is not None:
+            records = [r for r in records if _locus_chain(r.get("locus")) == chain]
+        return records[0] if records else None
+    return by_sequence_id.get(node_record.get("sequence_id"))
 
 
-# Absolute-delta threshold for warning that an input clone's own
-# mean_mut_freq disagrees with the value olmsted-cli recomputes (issue 24).
-# Real convention differences (weighted vs unweighted, or a different
-# upstream formula) run 1e-4 to 1e-3 on real data; this is tight enough to
-# catch those while ignoring float-noise-level agreement.
-MEAN_MUT_FREQ_DIVERGENCE_TOLERANCE = 1e-6
-
-
-def process_clone(args, dataset, clone):
-    # -=1 *_start positions since AIRR schema uses 1-based closed interval
-    # but we need python slice conventions (0-based, open interval) for
-    # source code (vega visualization). Gracefully skip missing positions.
-    _missing_fields = []
-    for start_pos_key in [
-        "v_alignment_start",
-        "d_alignment_start",
-        "j_alignment_start",
-        "junction_start",
-    ]:
-        if start_pos_key in clone and clone[start_pos_key] is not None:
-            clone[start_pos_key] -= 1
-        else:
-            _missing_fields.append(start_pos_key)
-
-    if _missing_fields and getattr(args, "verbose", 0) >= 2:
-        clone_id = clone.get("clone_id", "unknown")
-        vprint.verbose(
-            f"  Note: clone '{clone_id}' missing position fields: {_missing_fields}"
-        )
-
-    # Look up matching sample from the dataset to denormalize onto the clone
-    # as clone["sample"]. The webapp reads clone.sample.locus and other
-    # sample-level fields at render time (see src/selectors/clonalFamilies.js).
-    # When the sample can't be resolved, leave clone["sample"] unset rather
-    # than fabricating a placeholder — the webapp is responsible for
-    # rendering its own "unknown" marker.
-    matching_samples = [
-        s
-        for s in dataset.get("samples", [])
-        if s.get("sample_id") == clone.get("sample_id")
-    ]
-    if matching_samples:
-        clone["sample"] = matching_samples[0]
-    elif getattr(args, "verbose", 0) >= 1:
-        vprint.status(
-            f"  Note: clone '{clone.get('clone_id', '?')}' sample_id "
-            f"'{clone.get('sample_id')}' not found in dataset samples"
-        )
-
-    # Map the AIRR-standard junction_* fields onto the Olmsted output names
-    # (cdr3_*), the webapp's clonal-family field names. Values carry through
-    # unchanged; junction_start was already converted to 0-based above.
-    for src, dst in (
-        ("junction_start", "cdr3_alignment_start"),
-        ("junction_end", "cdr3_alignment_end"),
-        ("junction_length", "cdr3_length"),
-    ):
-        if src in clone:
-            clone[dst] = clone.pop(src)
-
-    # Derive CDR region lengths from the cdr{1,2}_start/end positions when
-    # both bounds are present. AIRR rarely carries CDR1/CDR2 positions, but
-    # honor them if it does. Positions are nucleotide coordinates, so
-    # length = end - start.
-    for region in ("cdr1", "cdr2"):
-        start = clone.get(f"{region}_start")
-        end = clone.get(f"{region}_end")
-        if isinstance(start, int) and isinstance(end, int) and end > start:
-            clone[f"{region}_length"] = end - start
-
-    return ensure_ident(clone, "clone", args.minter)
-
-
-def _process_airr_clone(
-    args: Namespace,
-    dataset: Dict[str, Any],
+def _clone_chains(
     clone: Dict[str, Any],
-) -> Tuple[OlmstedClone, List[OlmstedTree]]:
-    """Process one AIRR clone → ``(clone, [processed_trees])``.
+    by_sequence_id: Dict[str, Dict[str, Any]],
+    by_cell_id: Dict[str, List[Dict[str, Any]]],
+) -> List[Optional[str]]:
+    """Decide which chain(s) to emit for a clone.
 
-    Runs the per-clone work that the legacy ``process_dataset`` body did:
-    position adjustment + sample denormalization (via ``process_clone``),
-    ``repertoire_id`` assignment, per-tree processing, optional metric
-    computation, and stripping ``nodes`` from the clone's tree refs.
-
-    ``processed_trees`` are the full per-tree records (with ``nodes``) for
-    appending to the top-level ``trees`` list. The clone's own
-    ``cf["trees"]`` is rewritten to the slimmed refs (no ``nodes``).
+    ``[None]`` for single-chain data (one clone, no suffix); ``["heavy",
+    "light"]`` when a ``Cell`` clone spans both a heavy and a light locus.
     """
-    # Captured before process_clone touches anything, so we can compare the
-    # producer's own value (if any) against what we compute below and warn
-    # on a real divergence — see issue 24.
-    input_mean_mut_freq = clone.get("mean_mut_freq")
+    clone_class = clone.get("clone_class")
+    if clone_class != "Cell":
+        return [None]
 
-    cf = process_clone(args, dataset, clone)
-    cf["repertoire_id"] = cf["sample_id"]
+    chains = set()
+    for node in clone.get("nodes", []):
+        for record in by_cell_id.get(node.get("cell_id"), []):
+            chain = _locus_chain(record.get("locus"))
+            if chain:
+                chains.add(chain)
+    if "heavy" in chains and "light" in chains:
+        return ["heavy", "light"]
+    return [None]
 
-    processed_trees: List[OlmstedTree] = []
-    for tree in cf["trees"]:
-        processed_tree = process_tree(args, cf["clone_id"], tree)
-        processed_trees.append(processed_tree)
 
-    # mean_mut_freq is always computed by olmsted-cli (not gated behind
-    # --compute-metrics, matching the PCP path) using the same
-    # multiplicity-weighted formula for both ingest paths — see issue 24.
-    # Any value present on the input clone is overwritten: mean_mut_freq
-    # is not part of the AIRR Community spec, so it's not something we can
-    # trust a producer to have computed consistently. The first tree is
-    # canonical; alternate/downsampled reconstructions of the same clone
-    # draw from the same sequence pool.
-    canonical_nodes = processed_trees[0].get("nodes", []) if processed_trees else []
-    mean_mut_freq, mean_mut_freq_debug, _ = compute_mean_mut_freq(
-        cf.get("germline_alignment", ""), canonical_nodes, "truncate"
-    )
-    cf["mean_mut_freq"] = mean_mut_freq
-    if not mean_mut_freq_debug:
-        if getattr(args, "verbose", 0) >= 2:
-            vprint.verbose(
-                f"  Note: clone '{cf.get('clone_id', '?')}' has no usable leaves "
-                "for mean_mut_freq; set to 0.0"
-            )
-    elif (
-        input_mean_mut_freq is not None
-        and abs(input_mean_mut_freq - mean_mut_freq)
-        > MEAN_MUT_FREQ_DIVERGENCE_TOLERANCE
-    ):
-        vprint.status(
-            f"  Warning: clone '{cf.get('clone_id', '?')}' input mean_mut_freq "
-            f"({input_mean_mut_freq:.6f}) differs from the recomputed value "
-            f"({mean_mut_freq:.6f}, delta={abs(input_mean_mut_freq - mean_mut_freq):.6f}). "
-            "Using the recomputed value; the input was likely produced with a "
-            "different convention (e.g. unweighted vs multiplicity-weighted)."
+def _tree_ref(
+    *,
+    tree_ident: str,
+    clone_id: str,
+    tree_id: str,
+    chain: Optional[str],
+    newick: str,
+) -> Dict[str, Any]:
+    """Build a ``clone.trees[]`` reference / top-level tree header.
+
+    Applies the ``-heavy`` / ``-light`` suffix to ident/clone_id/tree_id for
+    paired data, matching ``process_pcp_data._build_tree_ref``.
+    """
+    suffix = f"-{chain}" if chain is not None else ""
+    return {
+        "ident": f"{tree_ident}{suffix}",
+        "clone_id": f"{clone_id}{suffix}",
+        "tree_id": f"{tree_id}{suffix}",
+        "tree_name": f"{tree_id}{suffix}",
+        "newick": newick,
+    }
+
+
+def _node_multiplicity(node_record: Dict[str, Any]) -> Optional[int]:
+    """Extract a node's real multiplicity from Dowser's ``info`` catchall (#45).
+
+    Present only when the input was written with ``dowser_fields=TRUE``
+    (Dowser's default): observed nodes carry
+    ``info: {"tipdata": {"collapse_count": N, ...}}``. Inferred/ASR nodes
+    (and every node in the ``noinfo`` variant) have no usable ``collapse_count``
+    — ``info`` is either absent, an empty list, or a dict without a
+    ``tipdata`` entry — and this returns ``None`` for those, matching the
+    existing "leave unset rather than fabricate" convention.
+    """
+    info = node_record.get("info")
+    if not isinstance(info, dict):
+        return None
+    tipdata = info.get("tipdata")
+    if not isinstance(tipdata, dict):
+        return None
+    return tipdata.get("collapse_count")
+
+
+#: Region labels from Dowser's Clone.info.region we surface as cdr*_alignment
+#: fields (matching PCP/legacy-AIRR's field set). fwr1-4 have no established
+#: Olmsted output field, so they're not derived here.
+_CDR_REGIONS = ("cdr1", "cdr2", "cdr3")
+
+#: IMGT/AIRR Community: junction = CDR3 plus the 2 conserved anchor residues
+#: CDR3 excludes -- the V-gene's 2nd-CYS (start) and the J-gene's TRP/PHE
+#: (end) -- so junction is exactly 1 codon (3 nucleotides = 1 amino acid)
+#: longer on each side (#46). Verified exactly against real data: a 51nt
+#: region-derived (strict) CDR3 span vs. a 57nt junction_length for the same
+#: clone, 51 + 2*3 = 57.
+_JUNCTION_ANCHOR_LENGTH = 3
+
+
+def _cdr_boundaries_from_region(
+    region: Optional[List[str]], germline_alignment: Optional[str]
+) -> Dict[str, Tuple[int, int]]:
+    """Derive cdr1/cdr2/cdr3 boundaries in ``germline_alignment``'s (gapped)
+    coordinate space from Dowser's ``Clone.info.region`` catchall (#45).
+
+    ``region`` is a per-position IMGT region label array (``fwr1``, ``cdr1``,
+    ``fwr2``, ``cdr2``, ``fwr3``, ``cdr3``, ``fwr4``) indexed against the
+    *ungapped* ``Rearrangement.sequence`` — one entry per nucleotide, no gap
+    placeholders. Olmsted's ``germline_alignment`` (what everything renders
+    against) is the *gapped* ``sequence_alignment`` — IMGT ``.`` padding for
+    CDR-loop-length harmonization. This walks ``germline_alignment``'s
+    non-gap characters in lockstep with ``region`` to remap each boundary
+    into gapped coordinates; a run of gap characters is attributed to
+    whichever region it falls within, so within-region IMGT padding doesn't
+    leak into a neighboring region's span.
+
+    The ``cdr3`` span is extended by ``_JUNCTION_ANCHOR_LENGTH`` ungapped
+    nucleotides on each side (i.e. before remapping to gapped coordinates, so
+    the extension can't land inside a run of IMGT padding) to convert
+    ``region``'s strict IMGT CDR3 into the junction convention ``cdr3_length``
+    uses everywhere else in this project (#46) — ``cdr1``/``cdr2`` have no
+    such distinction and are returned as ``region`` gives them.
+
+    Returns ``{"cdr1": (start, end), ...}`` (0-based, half-open nucleotide
+    positions — the same convention as the PCP/legacy-AIRR
+    ``cdr*_alignment_start``/``_end`` fields) for whichever of cdr1/cdr2/cdr3
+    are present in ``region``. Returns ``{}`` when ``region`` or
+    ``germline_alignment`` is missing/empty, or when the alignment's non-gap
+    character count doesn't match ``len(region)`` (defensive: a length
+    mismatch means the position mapping can't be trusted, so skip rather
+    than guess).
+
+    Known gap (not yet handled): for a paired (heavy+light) ``Cell`` clone,
+    Dowser's ``region`` is a single array covering *both* chains
+    concatenated (verified: heavy chain's positions, then light chain's
+    restarting at ``fwr1``) — this doesn't match either chain's individual
+    ``germline_alignment`` alone, so the length check above safely skips it
+    rather than misattributing one chain's boundaries to the other. Splitting
+    the combined array per-locus would need a confirmed, general concatenation
+    order from Dowser (only one example was available to infer heavy-then-
+    light from) — deferred rather than guessed.
+    """
+    if not region or not germline_alignment:
+        return {}
+
+    gapped_positions = [
+        i for i, ch in enumerate(germline_alignment) if ch not in (".", "-")
+    ]
+    if len(gapped_positions) != len(region):
+        return {}
+
+    def gapped_boundary(ungapped_idx: int) -> int:
+        return (
+            gapped_positions[ungapped_idx]
+            if ungapped_idx < len(gapped_positions)
+            else len(germline_alignment)
         )
 
-    if getattr(args, "compute_metrics", False):
-        lbi_tau = getattr(args, "lbi_tau", 0.0125)
-        for tree in processed_trees:
-            nodes = tree.get("nodes", {})
+    boundaries: Dict[str, Tuple[int, int]] = {}
+    start = 0
+    current = region[0]
+    for i in range(1, len(region) + 1):
+        label = region[i] if i < len(region) else None
+        if label != current:
+            if current in _CDR_REGIONS:
+                span_start, span_end = start, i
+                if current == "cdr3":
+                    span_start = max(0, span_start - _JUNCTION_ANCHOR_LENGTH)
+                    span_end = min(len(region), span_end + _JUNCTION_ANCHOR_LENGTH)
+                boundaries[current] = (
+                    gapped_boundary(span_start),
+                    gapped_boundary(span_end),
+                )
+            start = i
+            current = label
+    return boundaries
+
+
+def _build_nodes(
+    clone: Dict[str, Any],
+    chain: Optional[str],
+    by_sequence_id: Dict[str, Dict[str, Any]],
+    by_cell_id: Dict[str, List[Dict[str, Any]]],
+    *,
+    compute_metrics: bool,
+    lbi_tau: float,
+) -> Tuple[List[Dict[str, Any]], str, Optional[str], Dict[str, str]]:
+    """Build the Olmsted node array for one (clone, chain).
+
+    Topology comes from the ``Clone.tree`` Newick (authoritative; its labels are
+    the node ids), rerooted on ``inferred_ancestor``. Returns
+    ``(nodes, root_id, germline_alignment, germline_gene_calls)``, or
+    ``([], "", None, {})`` when the Newick is missing/unparseable.
+
+    ``germline_gene_calls`` is ``{"v_call": ..., "d_call": ..., "j_call": ...}``
+    (only keys with a non-``None`` value) read off the germline/root node's own
+    ``Rearrangement`` record (#45/#24) — V(D)J gene usage is invariant across a
+    clone's members by definition (one recombination event founds the clone),
+    so the germline record is a clean, unbiased single source, matching the
+    same convention already used for ``germline_alignment`` (also sourced from
+    the root node). The caller uses this as a fallback for clone-level
+    ``v_call``/``j_call`` (when the ``Clone`` doesn't supply them) and as the
+    only source for ``d_call`` (which the ``Clone``-level ``info`` catchall
+    never carries).
+    """
+    newick = clone.get("tree")
+    if not newick:
+        vprint.status(
+            f"  Warning: clone {clone.get('clone_id')} has no tree; skipping."
+        )
+        return [], "", None, {}
+
+    ete_tree = ete3.PhyloTree(newick, format=1)
+    ete_tree = _reroot_on_ancestor(ete_tree, clone.get("inferred_ancestor"))
+
+    clone_class = clone.get("clone_class", "Rearrangement")
+    node_records = {n.get("node_id"): n for n in clone.get("nodes", [])}
+
+    nodes_by_id: Dict[str, Dict[str, Any]] = {}
+    edges: List[Tuple[str, str, float]] = []
+    root_id = ete_tree.name
+    germline_gene_calls: Dict[str, str] = {}
+
+    for ete_node in ete_tree.traverse("postorder"):
+        name = ete_node.name
+        node_record = node_records.get(name, {})
+
+        if ete_node.up is None:
+            node_type_topo = "root"
+            parent = None
+        else:
+            node_type_topo = "leaf" if ete_node.is_leaf() else "internal"
+            parent = ete_node.up.name
+            edges.append((ete_node.up.name, name, ete_node.dist))
+
+        rearrangement_record = _resolve_rearrangement_record(
+            node_record, clone_class, chain, by_sequence_id, by_cell_id
+        )
+        sequence_alignment = (
+            (rearrangement_record.get("sequence_alignment") or "")
+            if rearrangement_record
+            else ""
+        )
+        locus = rearrangement_record.get("locus") if rearrangement_record else None
+        if not sequence_alignment:
+            vprint.status(
+                f"  Warning: node '{name}' in clone {clone.get('clone_id')} "
+                "has no matching Rearrangement sequence."
+            )
+        if ete_node.up is None and rearrangement_record:
+            germline_gene_calls = {
+                field: rearrangement_record[field]
+                for field in ("v_call", "d_call", "j_call")
+                if rearrangement_record.get(field) is not None
+            }
+
+        nodes_by_id[name] = {
+            "sequence_id": name,
+            "node_id": name,
+            "sequence_alignment": sequence_alignment,
+            "sequence_alignment_aa": translate_dna_to_aa(sequence_alignment),
+            "type": node_type_topo,
+            # observed / inferred — the v2 axis distinguishing measured
+            # sequences from ASR-reconstructed ancestors.
+            "node_type": node_record.get("node_type"),
+            "node_class": node_record.get("node_class"),
+            "locus": locus,
+            "parent": parent,
+            # Real multiplicity when the input carries Dowser's info catchall
+            # (#45); None for the noinfo schema / inferred nodes, matching the
+            # existing "leave unset rather than fabricate" convention (webapp
+            # renders "<unspecified>").
+            "multiplicity": _node_multiplicity(node_record),
+            "timepoint_multiplicities": [],
+            "lbi": None,
+            "lbr": None,
+            "affinity": None,
+            "scaled_affinity": None,
+        }
+
+    # Branch length / distance from the (rerooted) Newick — same helper the
+    # legacy AIRR and merge paths use. Keyed by sequence_id == Newick label.
+    assign_branch_lengths(ete_tree, nodes_by_id, overwrite=True)
+
+    if compute_metrics and root_id in nodes_by_id:
+        compute_tree_metrics(nodes_by_id, edges, root_id, tau=lbi_tau)
+
+    root_node = nodes_by_id.get(root_id, {})
+    germline_alignment = root_node.get("sequence_alignment") or None
+
+    # Emit nodes in the clone's original node order for stable output.
+    ordered_ids = [n.get("node_id") for n in clone.get("nodes", [])]
+    nodes = [nodes_by_id[nid] for nid in ordered_ids if nid in nodes_by_id]
+    # Include any Newick nodes absent from the nodes list (defensive).
+    nodes.extend(nodes_by_id[nid] for nid in nodes_by_id if nid not in set(ordered_ids))
+
+    return nodes, root_id, germline_alignment, germline_gene_calls
+
+
+def _mean_mutation_frequency(
+    nodes: List[Dict[str, Any]], germline_alignment: Optional[str]
+) -> float:
+    """Mean per-site SHM frequency of observed leaves vs the germline root.
+
+    Thin wrapper around the shared :func:`compute_mean_mut_freq` (the single
+    source of truth across PCP and AIRR). Uses each node's real
+    multiplicity when the input carries Dowser's info catchall (#45,
+    ``collapse_count``); falls back to multiplicity=1 (each observed leaf
+    counts once) for the clean (``noinfo``) shape, which carries no
+    per-node multiplicity at all.
+    """
+    weighted_nodes = (
+        {
+            **node,
+            "multiplicity": node["multiplicity"]
+            if node.get("multiplicity") is not None
+            else 1,
+        }
+        for node in nodes
+    )
+    mean_mut_freq, _, _ = compute_mean_mut_freq(
+        germline_alignment or "", weighted_nodes
+    )
+    return mean_mut_freq
+
+
+def _rerooted_newick(clone: Dict[str, Any]) -> str:
+    """The clone's Newick rerooted on ``inferred_ancestor``, as a string.
+
+    Emitted on tree/clone records so the Newick agrees with the ``parent`` links
+    built from the same rerooted topology.
+    """
+    ete_tree = ete3.PhyloTree(clone["tree"], format=1)
+    ete_tree = _reroot_on_ancestor(ete_tree, clone.get("inferred_ancestor"))
+    return ete_tree.write(format=1, format_root_node=True)
+
+
+def process_airr_to_olmsted(
+    clone_records: List[Dict[str, Any]],
+    rearrangement_records: List[Dict[str, Any]],
+    minter: Optional[IdentMinter] = None,
+    name: Optional[str] = None,
+    compute_metrics: bool = False,
+    lbi_tau: float = 0.0125,
+    verbosity: int = 1,
+    custom_fields: Optional[List[Dict[str, Any]]] = None,
+) -> Tuple[List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]], List[Dict[str, Any]]]:
+    """Convert AIRR-C v2 Clone/Tree records to Olmsted format.
+
+    Returns ``([dataset], clones_dict, trees)`` — the same contract as
+    ``process_pcp_to_olmsted`` — so the shared assembly, ``tag_field_metadata``,
+    validation, and output-writing paths are reused unchanged.
+    """
+    set_verbosity(verbosity)
+
+    if minter is None:
+        minter = IdentMinter()
+
+    by_sequence_id, by_cell_id = index_rearrangements(rearrangement_records)
+
+    # Two dataset mints (semantic foreign key + internal ident), matching PCP.
+    dataset_id = minter.mint("dataset")
+    dataset_ident = minter.mint("dataset")
+
+    clones: List[Dict[str, Any]] = []
+    trees: List[Dict[str, Any]] = []
+    # One dataset-level sample per repertoire_id (sample_id must be unique within
+    # dataset.samples). Per-clone locus lives on the clone's own denormalized
+    # ``sample`` dict below — matching the PCP-paired model, where heavy/light
+    # clones share a sample_id but carry different clone.sample.locus values.
+    dataset_samples_by_id: Dict[Optional[str], Dict[str, Any]] = {}
+
+    for clone in clone_records:
+        clone_id = str(clone.get("clone_id"))
+        repertoire_id = clone.get("repertoire_id")
+        clone_class = clone.get("clone_class", "Rearrangement")
+        clone_ident = minter.mint("clone")
+        tree_ident = minter.mint("tree")
+        chains = _clone_chains(clone, by_sequence_id, by_cell_id)
+        is_paired = chains == ["heavy", "light"]
+        rerooted_newick = _rerooted_newick(clone)
+
+        for chain in chains:
+            nodes, _root_id, germline_alignment, germline_gene_calls = _build_nodes(
+                clone,
+                chain,
+                by_sequence_id,
+                by_cell_id,
+                compute_metrics=compute_metrics,
+                lbi_tau=lbi_tau,
+            )
             if not nodes:
                 continue
-            if isinstance(nodes, list):
-                nodes_dict = {n["sequence_id"]: n for n in nodes}
-            else:
-                nodes_dict = nodes
-            edges = []
-            root_id = None
-            for nid, ndata in nodes_dict.items():
-                parent = ndata.get("parent")
-                if parent is None:
-                    root_id = nid
-                else:
-                    length = ndata.get("length", 0.0) or 0.0
-                    edges.append((parent, nid, length))
-            if root_id is None:
-                continue
 
-            compute_tree_metrics(nodes_dict, edges, root_id, tau=lbi_tau)
+            suffix = f"-{chain}" if chain is not None else ""
+            # Locus for this chain: the dominant locus among its nodes.
+            locus = next((n["locus"] for n in nodes if n.get("locus")), None)
+            olmsted_locus = locus.lower() if locus else None
 
-            if isinstance(tree["nodes"], list):
-                tree["nodes"] = list(nodes_dict.values())
+            # Register one dataset-level sample per repertoire_id (first locus
+            # seen wins its locus label); the per-clone sample below carries the
+            # chain-specific locus the webapp reads.
+            if repertoire_id not in dataset_samples_by_id:
+                dataset_samples_by_id[repertoire_id] = {
+                    "ident": minter.mint("sample"),
+                    "sample_id": repertoire_id,
+                    "locus": olmsted_locus,
+                }
+            sample = {
+                "ident": f"{clone_ident}{suffix}",
+                "sample_id": repertoire_id,
+                "locus": olmsted_locus,
+            }
 
-    cf["trees"] = [
-        dict_subset(tree, set(tree.keys()) - {"nodes"}) for tree in processed_trees
-    ]
+            tree_ref = _tree_ref(
+                tree_ident=tree_ident,
+                clone_id=clone_id,
+                tree_id=f"tree-{clone_id}",
+                chain=chain,
+                newick=rerooted_newick,
+            )
 
-    return cf, processed_trees
+            clone_out: Dict[str, Any] = {
+                "clone_id": f"{clone_id}{suffix}",
+                "ident": f"{clone_ident}{suffix}",
+                "dataset_id": dataset_id,
+                "clone_class": clone_class,
+                "sample_id": repertoire_id,
+                "unique_seqs_count": len(nodes),
+                "mean_mut_freq": _mean_mutation_frequency(nodes, germline_alignment),
+                "germline_alignment": germline_alignment,
+                "trees": [tree_ref],
+                "sample": sample,
+            }
+            if clone.get("clone_count") is not None:
+                clone_out["total_read_count"] = clone.get("clone_count")
+            # Pass through clone-level immunological fields only when the input
+            # supplies them (the Dowser "info" variant does; the clean v2
+            # "noinfo" variant does not — those are left unset, not fabricated).
+            for src, dst in (
+                ("v_call", "v_call"),
+                ("j_call", "j_call"),
+                ("junction_length", "cdr3_length"),
+            ):
+                if clone.get(src) is not None:
+                    clone_out[dst] = clone[src]
+            # Fall back to the germline Rearrangement record's own v_call/
+            # d_call/j_call for whichever of those the Clone-level info
+            # catchall didn't supply (cf. #24/#45) — this is the *only*
+            # source for d_call, which the Clone-level info never carries.
+            for field in ("v_call", "d_call", "j_call"):
+                if clone_out.get(field) is None and field in germline_gene_calls:
+                    clone_out[field] = germline_gene_calls[field]
+            # Derive cdr1/cdr2/cdr3 alignment boundaries from Dowser's
+            # Clone.info.region when present (#45) — the only source of
+            # CDR1/CDR2 boundaries this format has at all, and a more
+            # complete cdr3 (alignment_start/end, not just a bare length).
+            #
+            # cdr3 is normalized to the junction convention (#46):
+            # _cdr_boundaries_from_region already extends region's strict
+            # IMGT cdr3 span by the 2 conserved anchor codons junction
+            # includes, since cdr3_length is a synonym for junction length
+            # everywhere else in this project (schemas.py, PCP, legacy
+            # AIRR). So when junction_length is also available, the two
+            # should now agree exactly; disagreement means something
+            # unexpected (e.g. a non-standard anchor convention) rather than
+            # the known, already-accounted-for CDR3/junction difference —
+            # worth a warning rather than silently picking one.
+            clone_info = clone.get("info")
+            region = clone_info.get("region") if isinstance(clone_info, dict) else None
+            region_boundaries = _cdr_boundaries_from_region(region, germline_alignment)
+            if "cdr3" in region_boundaries and clone.get("junction_length") is not None:
+                region_cdr3_start, region_cdr3_end = region_boundaries["cdr3"]
+                region_cdr3_length = region_cdr3_end - region_cdr3_start
+                if region_cdr3_length != clone["junction_length"]:
+                    vprint.status(
+                        f"  Warning: clone '{clone_id}' region-derived cdr3 length "
+                        f"({region_cdr3_length}, junction-normalized) disagrees with "
+                        f"junction_length ({clone['junction_length']}). Using the "
+                        "region-derived value."
+                    )
+            for cdr, (start, end) in region_boundaries.items():
+                clone_out[f"{cdr}_alignment_start"] = start
+                clone_out[f"{cdr}_alignment_end"] = end
+                clone_out[f"{cdr}_length"] = end - start
+            if is_paired:
+                clone_out["is_paired"] = True
+                clone_out["pair_id"] = f"pair-{clone_id}"
 
+            clones.append(clone_out)
+            trees.append({**tree_ref, "nodes": nodes})
 
-def iter_airr_clones(
-    args: Namespace,
-    dataset: Dict[str, Any],
-    *,
-    batch_size: Optional[int] = None,
-) -> Iterator[Tuple[List[OlmstedClone], List[OlmstedTree]]]:
-    """Yield ``(batch_clones, batch_trees)`` as AIRR clones are processed.
+    dataset: Dict[str, Any] = {
+        "ident": dataset_ident,
+        "dataset_id": dataset_id,
+        "schema_version": SCHEMA_VERSION,
+        "build": {"commit": "airr-import", "time": ""},
+        "subjects": [],
+        "samples": list(dataset_samples_by_id.values()),
+        "seeds": [],
+        "clone_count": len(clones),
+        "subjects_count": 0,
+        "timepoints_count": 0,
+    }
+    if name:
+        dataset["name"] = name
 
-    ``batch_size`` counts clones; ``None`` yields a single batch containing
-    every clone. Empty batches are skipped.
-    """
-    batch_clones: List[OlmstedClone] = []
-    batch_trees: List[OlmstedTree] = []
-    in_batch = 0
-
-    for clone in dataset["clones"]:
-        cf, processed_trees = _process_airr_clone(args, dataset, clone)
-        batch_clones.append(cf)
-        batch_trees.extend(processed_trees)
-        in_batch += 1
-
-        if batch_size is not None and in_batch >= batch_size:
-            if batch_clones or batch_trees:
-                yield batch_clones, batch_trees
-            batch_clones = []
-            batch_trees = []
-            in_batch = 0
-
-    if batch_clones or batch_trees:
-        yield batch_clones, batch_trees
-
-
-def process_dataset(
-    args: Namespace,
-    dataset: Dict[str, Any],
-    clones_dict: Dict[str, List[OlmstedClone]],
-    trees: List[OlmstedTree],
-) -> Optional[OlmstedDataset]:
-    """
-    Process a dataset from AIRR format to Olmsted format.
-
-    Args:
-        args: Command line arguments namespace
-        dataset: AIRR dataset dictionary
-        clones_dict: Dictionary to populate with clones keyed by dataset_id
-        trees: List to populate with processed trees
-
-    Returns:
-        Processed dataset in Olmsted format, or None if processing fails
-    """
-    dataset["clone_count"] = len(dataset["clones"])
-    # Count only clones/samples that actually carry the reference field —
-    # missing values don't collapse into a synthetic "unknown" bucket.
-    dataset["subjects_count"] = len(
-        {cf["subject_id"] for cf in dataset["clones"] if cf.get("subject_id")}
-    )
-    dataset["timepoints_count"] = len(
-        {s["timepoint_id"] for s in dataset.get("samples", []) if s.get("timepoint_id")}
-    )
-
-    clones: List[OlmstedClone] = []
-    for batch_clones, batch_trees in iter_airr_clones(args, dataset, batch_size=None):
-        clones.extend(batch_clones)
-        trees.extend(batch_trees)
-    clones_dict[dataset["dataset_id"]] = clones
-
-    custom_fields = getattr(args, "custom_fields", None)
+    clones_dict: Dict[str, List[Dict[str, Any]]] = {dataset_id: clones}
     dataset["field_metadata"] = tag_field_metadata(clones, trees, custom_fields)
 
-    del dataset["clones"]
-    dataset["schema_version"] = SCHEMA_VERSION
-    return ensure_ident(dataset, "dataset", args.minter)
-
-
-def hiccup_rep(schema, depth=1, property=None):
-    depth = min(depth, 2)
-    if depth == 1 or schema["type"] == "object":
-        style = (
-            "padding-left: 10;"
-            + "margin-left: 25;"
-            + "margin-top: 40;"
-            + "border-left-style: solid;"
-            + "border-color: grey;"
-        )
-    else:
-        style = "padding-left: 10;" + "margin-left: 25;" + "margin-top: 10;"
-    return [
-        "div",
-        {"style": style},
-        ["h" + str(depth), schema.get("title")] if schema.get("title") else "",
-        ["p", ["b", "Description: "], ["span", schema.get("description")]]
-        if schema.get("description")
-        else "",
-        ["p", ["b", "Required: "], ["code", str(schema.get("required"))]]
-        if schema.get("required")
-        else "",
-        ["p", ["b", "Type: "], ["code", str(schema.get("type"))]]
-        if schema.get("type")
-        else "",
-        ["div", ["h" + str(depth + 1), "Properties:"]]
-        + [
-            [
-                "div",
-                {"style": "margin-left: 10px;"},
-                ["h3", ["code", k]],
-                # Assume val is either a title, as produced in hiccup_rep2, or an actual schema
-                ["b", {"style": "padding-left: 15; font-size: 18;"}, "{%s}" % val]
-                if isinstance(val, str)
-                else hiccup_rep(val, depth=depth + 1),
-            ]
-            for k, val in schema.get("properties").items()
-        ]
-        if schema.get("properties")
-        else "",
-        [
-            "div",
-            ["h" + str(depth + 1), "Array Items:"],
-            # As above, assume and display a title if string, otherwise recurse
-            [
-                "b",
-                {"style": "padding-left: 15; font-size: 18;"},
-                "{%s}" % schema["items"],
-            ]
-            if isinstance(schema.get("items"), str)
-            else hiccup_rep(schema.get("items"), depth=depth + 1),
-        ]
-        if schema.get("items")
-        else "",
-        [
-            "div",
-            ["h" + str(depth + 1), "Object with values of type:"],
-            # As above, assume and display a title if string, otherwise recurse
-            [
-                "b",
-                {"style": "padding-left: 15; font-size: 18;"},
-                "{%s}" % schema["additionalProperties"],
-            ]
-            if isinstance(schema.get("additionalProperties"), str)
-            else hiccup_rep(schema.get("additionalProperties"), depth=depth + 1),
-        ]
-        if schema.get("additionalProperties")
-        else "",
-    ]
-
-
-def hiccup_rep2(schema):
-    def flatten_schema_by_title(schema):
-        items_schemas, properties_schemas = [], []
-        items = schema.get("items")
-        # if this is an array, check title
-        if items and items.get("title"):
-            schema["items"] = items["title"]
-            items_schemas = flatten_schema_by_title(items)
-        # object
-        additionalProperties = schema.get("additionalProperties")
-        if additionalProperties and additionalProperties.get("title"):
-            schema["additionalProperties"] = additionalProperties["title"]
-            items_schemas = flatten_schema_by_title(additionalProperties)
-        for key, subschema in schema.get("properties", {}).items():
-            # handle case of being a single reference, with a title
-            title = subschema.get("title")
-            if title:
-                properties_schemas += flatten_schema_by_title(subschema)
-                schema["properties"][key] = title
-            # handle array/items case
-            items = subschema.get("items")
-            if items and items.get("title"):
-                properties_schemas += flatten_schema_by_title(items)
-                subschema["items"] = items["title"]
-            # object
-            additionalProperties = subschema.get("additionalProperties")
-            if additionalProperties and additionalProperties.get("title"):
-                properties_schemas += flatten_schema_by_title(additionalProperties)
-                subschema["additionalProperties"] = additionalProperties["title"]
-        return list(
-            OrderedDict(
-                [
-                    (schema["title"], schema)
-                    for schema in [schema] + items_schemas + properties_schemas
-                ]
-            ).values()
-        )
-
-    return ["div", list(map(hiccup_rep, flatten_schema_by_title(schema)))]
-
-
-def get_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--inputs", nargs="+")
-    parser.add_argument(
-        "-o",
-        "--output",
-        required=True,
-        help="Output file path for consolidated JSON (default behavior)",
-    )
-    parser.add_argument("--naive-name", default="naive")
-    parser.add_argument("-v", "--verbose", action="store_true")
-    parser.add_argument(
-        "-c",
-        "--remove-invalid-clones",
-        action="store_true",
-        help="validate clones individually against the olmsted schema, removing the invalid ones and try to build the dataset using the remaining clones. Note that processing can still be crashed by clones which are invalid according to the AIRR clones and trees schema (see airr-standards/specs/airr-schema.yaml).",
-    )
-    parser.add_argument("-S", "--display-schema-html")
-    parser.add_argument(
-        "-s",
-        "--display-schema",
-        action="store_true",
-        help="print schema to stdout for display",
-    )
-    parser.add_argument(
-        "-y",
-        "--write-schema-yaml",
-        action="store_true",
-        help="write the schema to a yaml format file.",
-    )
-    parser.add_argument(
-        "-r", "--root-trees", action="store_true", help="Root trees using --naive-name."
-    )
-    parser.add_argument(
-        "--validate",
-        action="store_true",
-        help="Validate output data against AIRR JSON schemas before writing",
-    )
-    parser.add_argument(
-        "--strict-validation",
-        action="store_true",
-        help="Exit with error if validation fails (requires --validate)",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        help="Random seed for deterministic processing (currently unused for AIRR format, added for API consistency)",
-    )
-    return parser.parse_args()
-
-
-def main():
-    args = get_args()
-    args.minter = IdentMinter(seed=getattr(args, "seed", None))
-    datasets, clones_dict, trees = [], {}, []
-    for infile in args.inputs or []:
-        vprint.status(f"\nProcessing infile: {str(infile)}")
-        try:
-            dataset = read_airr_json(infile)
-            if args.remove_invalid_clones:
-                dataset["clones"] = list(
-                    filter(
-                        jsonschema.Draft4Validator(clone_spec).is_valid,
-                        dataset["clones"],
-                    )
-                )
-            # Use unified validation from validate module
-            errors = validate_dataset(dataset, verbose=args.verbose).errors
-            if errors:
-                error_msg = "Dataset validation failed"
-                if args.verbose:
-                    vprint.error(f"Dataset validation failed:")
-                    for error in errors:
-                        vprint.error(f"  - {error}")
-                else:
-                    error_msg += ". Please rerun with `-v` for detailed errors"
-                raise Exception(error_msg)
-            # Process the dataset, including validation of clones, trees against the AIRR schema
-            dataset = process_dataset(args, dataset, clones_dict, trees)
-            datasets.append(dataset)
-        except Exception:
-            vprint.error(f"Unable to process infile: {infile}")
-            if args.verbose:
-                exc_info = sys.exc_info()
-                traceback.print_exception(*exc_info)
-            else:
-                vprint.error("Please rerun with `-v` for detailed errors.")
-            sys.exit(1)
-    # write out schema
-    if args.write_schema_yaml:
-        with open("schema.yaml", "w") as yamlf:
-            yaml.dump(dataset_spec, yamlf)
-    if args.display_schema:
-        pprint.pprint(dataset_spec)
-    if args.display_schema_html:
-        with open(args.display_schema_html, "w") as fh:
-            fh.write(
-                ntpl.render(
-                    [
-                        "html",
-                        [
-                            "body",
-                            hiccup_rep2(dataset_spec),
-                        ],
-                    ]
-                )
-            )
-    # Validate data before writing if requested
-    if args.validate:
-        if not validate_output_data(datasets, clones_dict, trees, args):
-            if args.strict_validation:
-                vprint.error(
-                    "\nExiting due to validation errors (--strict-validation enabled)"
-                )
-                sys.exit(1)
-
-    # write out data
-    consolidated_data = create_consolidated_data(
-        datasets, clones_dict, trees, args.inputs, "airr", args
-    )
-    # Ensure output directory exists
-    output_dir = os.path.dirname(args.output) or "."
-    output_file = os.path.basename(args.output)
-    os.makedirs(output_dir, exist_ok=True)
-    vprint.status(f"Writing consolidated output to {args.output}")
-    write_out(consolidated_data, output_dir, output_file, args)
-
-
-if __name__ == "__main__":
-    main()
+    return [dataset], clones_dict, trees

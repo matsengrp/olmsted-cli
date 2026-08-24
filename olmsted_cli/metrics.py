@@ -328,8 +328,8 @@ def compute_mean_mut_freq(
     non-comparable positions (``.``, ``-``, ``N`` — see :data:`NON_COMPARABLE`)
     on either side of a mismatch are skipped, matching
     :func:`align_and_calculate_mutations` semantics. This is the single
-    source of truth for ``mean_mut_freq`` across input formats — PCP, AIRR,
-    and airr2 all route through this helper so the same biological data
+    source of truth for ``mean_mut_freq`` across input formats — PCP and
+    AIRR both route through this helper so the same biological data
     produces the same value regardless of which pipeline ingested it.
 
     Format-agnostic: ``nodes`` can be any iterable of node dicts (a PCP

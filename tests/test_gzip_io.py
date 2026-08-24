@@ -92,13 +92,13 @@ def test_process_airr_gzip_output_matches_golden(tmp_path):
             "-f",
             "airr",
             "-i",
-            str(EXAMPLE / "airr" / "input-airr.json"),
+            str(EXAMPLE / "airr" / "input-nocell-noinfo.json"),
             "-o",
             str(out),
             "--seed",
             "42",
             "--name",
-            "airr-example",
+            "airr-nocell-noinfo-example",
             "--json-format",
             "gzip",
             "-q",
@@ -116,7 +116,7 @@ def test_process_airr_gzip_output_matches_golden(tmp_path):
         ofh.write(fh.read())
 
     match, message = compare_consolidated_files(
-        str(EXAMPLE / "airr" / "airr-olmsted-golden.json"),
+        str(EXAMPLE / "airr" / "nocell-noinfo-olmsted-golden.json"),
         str(decompressed),
     )
     assert match, f"Decompressed gzip output doesn't match golden:\n{message}"
@@ -271,7 +271,7 @@ def test_merge_reads_gzip_input(tmp_path):
 def test_process_airr_reads_gz_input(tmp_path):
     """`process -f airr` accepts a gzipped AIRR JSON input (the gz gap that
     motivated this PR)."""
-    src = EXAMPLE / "airr" / "input-airr.json"
+    src = EXAMPLE / "airr" / "input-nocell-noinfo.json"
     gz_input = tmp_path / "input.json.gz"
     _gzip_copy(src, gz_input)
 
@@ -289,7 +289,7 @@ def test_process_airr_reads_gz_input(tmp_path):
             "--seed",
             "42",
             "--name",
-            "airr-example",
+            "airr-nocell-noinfo-example",
             "--json-format",
             "pretty",
             "-q",

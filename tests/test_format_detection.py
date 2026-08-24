@@ -11,9 +11,6 @@ class TestDetectFileFormat:
     def test_pcp_csv(self):
         assert detect_file_format("example-data/pcp/input-pcp.csv") == "pcp"
 
-    def test_airr_json(self):
-        assert detect_file_format("example-data/airr/input-airr.json") == "airr"
-
     def test_olmsted_json_with_format_tag(self):
         assert (
             detect_file_format("example-data/mutations/input-olmsted.json") == "olmsted"
@@ -43,28 +40,8 @@ class TestDetectFileFormat:
         finally:
             os.unlink(path)
 
-    def test_airr_json_not_misdetected_as_olmsted(self):
-        """AIRR JSON (has clones but no datasets/metadata) → airr."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump(
-                {
-                    "dataset_id": "test",
-                    "ident": "abc",
-                    "clones": [],
-                    "subjects": [],
-                    "samples": [],
-                },
-                f,
-            )
-            path = f.name
-
-        try:
-            assert detect_file_format(path) == "airr"
-        finally:
-            os.unlink(path)
-
-    def test_airr2_json(self):
-        """AIRR-C v2 Clone/Tree (top-level Clone + Rearrangement) → airr2."""
+    def test_airr_json_variants(self):
+        """AIRR-C v2 Clone/Tree (top-level Clone + Rearrangement) → airr."""
         for variant in (
             "nocell-noinfo",
             "unpaired-noinfo",
@@ -74,18 +51,17 @@ class TestDetectFileFormat:
             "paired-info",
         ):
             assert (
-                detect_file_format(f"example-data/airr2/input-{variant}.json")
-                == "airr2"
+                detect_file_format(f"example-data/airr/input-{variant}.json") == "airr"
             )
 
-    def test_airr2_not_misdetected_as_airr(self):
-        """A minimal {Clone, Rearrangement} object → airr2, not airr."""
+    def test_minimal_clone_rearrangement_detects_as_airr(self):
+        """A minimal {Clone, Rearrangement} object → airr."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump({"Clone": [], "Rearrangement": []}, f)
             path = f.name
 
         try:
-            assert detect_file_format(path) == "airr2"
+            assert detect_file_format(path) == "airr"
         finally:
             os.unlink(path)
 

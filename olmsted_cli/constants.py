@@ -29,21 +29,21 @@ VERBOSITY_HELP = (
 
 #: Input/output file formats recognized by olmsted-cli.
 FORMAT_PCP = "pcp"
+#: AIRR-C v2 Clone/Tree/Node/Cell schema, AIRR Schema v2.0.0 (the format
+#: Dowser's writeTreesJSON emits): top-level ``{Clone:[...],
+#: Rearrangement:[...]}``. Parsed by ``process_airr_data.py``. See issue #47
+#: for the earlier, Olmsted-flavored ``-f airr`` container this replaced —
+#: it never corresponded to an official AIRR release at any version.
 FORMAT_AIRR = "airr"
-#: AIRR-C v2 Clone & Tree schema (the format Dowser's writeTreesJSON emits):
-#: top-level ``{Clone:[...], Rearrangement:[...]}``. Structurally distinct from
-#: the legacy Olmsted-flavored ``FORMAT_AIRR`` input; parsed by
-#: ``process_airr2_data.py``.
-FORMAT_AIRR2 = "airr2"
 FORMAT_OLMSTED = "olmsted"
 FORMAT_AUTO = "auto"
 FORMAT_UNKNOWN = "unknown"
 
 #: All input formats (for argparse choices)
-INPUT_FORMATS = {FORMAT_PCP, FORMAT_AIRR, FORMAT_AIRR2, FORMAT_AUTO}
+INPUT_FORMATS = {FORMAT_PCP, FORMAT_AIRR, FORMAT_AUTO}
 
 #: All detectable formats
-ALL_FORMATS = {FORMAT_PCP, FORMAT_AIRR, FORMAT_AIRR2, FORMAT_OLMSTED}
+ALL_FORMATS = {FORMAT_PCP, FORMAT_AIRR, FORMAT_OLMSTED}
 
 # --- Identifier Datatypes ---
 
@@ -198,7 +198,7 @@ KNOWN_NODE_FIELDS = {
     # AIRR-C v2 node axes. node_type keeps its AIRR-standard field name but a
     # distinct label: the webapp's built-in topological ``type`` field already
     # uses "Node Type", and two fields sharing a tooltip label produce a
-    # duplicate object key (invalid Vega expression). See process_airr2_data.
+    # duplicate object key (invalid Vega expression). See process_airr_data.
     "node_type": {"type": "categorical", "label": "Observed/Inferred"},
     "node_class": {"type": "categorical", "label": "Node Class"},
     "locus": {"type": "categorical", "label": "Locus"},

@@ -14,7 +14,6 @@ See also:
 
 - [PCP Input Format](#pcp-input-format)
 - [AIRR Input Format](#airr-input-format)
-- [AIRR-C v2 Clone/Tree ("airr2") Input Format](#airr-c-v2-clonetree-airr2-input-format)
 - [Mutations CSV Format](#mutations-csv-format)
 - [Olmsted JSON Output Format](#olmsted-json-output-format)
 - [Field Metadata](#field-metadata)
@@ -155,90 +154,30 @@ Missing gene calls, CDR positions, and alignment positions are handled gracefull
 
 ## AIRR Input Format
 
-AIRR (Adaptive Immune Receptor Repertoire) format is a single JSON file following the [AIRR Community standards](https://docs.airr-community.org/).
+`-f airr` (auto-detected) reads the **AIRR-C v2 Clone/Tree/Node/Cell schema**
+— **AIRR Schema v2.0.0** (released 2026-06-05/08), documented at
+[docs.airr-community.org/en/latest/datarep/clone.html](https://docs.airr-community.org/en/latest/datarep/clone.html)
+— the format Dowser's `writeTreesJSON` emits. It is handled by
+`process_airr_data.py` (entry point `process_airr_to_olmsted`).
 
-### Top-level structure
+This is a pragmatic mapping of the schema's concepts onto Olmsted's own JSON
+shape, not a byte-for-byte implementation of it — most notably, `Clone.nodes`
+here is a **list**, where the official schema's `Tree.nodes` is a **dict
+keyed by `sequence_id`**. Don't assume this input round-trips through a
+generic AIRR-schema validator unchanged.
 
-```json
-{
-  "dataset_id": "...",           // Required
-  "ident": "...",
-  "subjects": [...],
-  "samples": [...],
-  "seeds": [...],
-  "clones": [...]                // Required: array of clone objects
-}
-```
+(An earlier, Olmsted-flavored `-f airr` container predated this and never
+corresponded to an official AIRR release at any version — see
+[issue #47](https://github.com/matsengrp/olmsted-cli/issues/47) for the
+research and the removal.)
 
-### Clone object
-
-| Field | Required | Maps to | Notes |
-|-------|----------|---------|-------|
-| `clone_id` | Yes | `clone_id` | Unique family identifier |
-| `sample_id` | Yes | `sample_id` | Links to samples array |
-| `subject_id` | No | `subject_id` | Defaults to `"unknown"` |
-| `v_call` | No | `v_call` | V gene assignment |
-| `d_call` | No | `d_call` | D gene assignment |
-| `j_call` | No | `j_call` | J gene assignment |
-| `germline_alignment` | No | `germline_alignment` | Germline sequence |
-| `unique_seqs_count` | Yes* | `unique_seqs_count` | Schema-required |
-| `mean_mut_freq` | — | `mean_mut_freq` | Computed by olmsted-cli; any input value is ignored (see below) |
-| `v_alignment_start` | No | `v_alignment_start` | 1-based → 0-based conversion |
-| `d_alignment_start` | No | `d_alignment_start` | 1-based → 0-based conversion |
-| `j_alignment_start` | No | `j_alignment_start` | 1-based → 0-based conversion |
-| `junction_start` | No | `cdr3_alignment_start` | 1-based → 0-based conversion, then renamed from the AIRR-standard `junction_start` |
-| `junction_length` | No | `cdr3_length` | Renamed from the AIRR-standard `junction_length`; value (nucleotides) carried through unchanged |
-| `trees` | Yes | `trees` | Array of tree objects |
-
-*Required by schema validation, but processing won't crash without them.
-
-**Extra fields**: Any additional fields on clone objects are preserved in the output and auto-detected by field_metadata generation.
-
-**`mean_mut_freq` computation**: olmsted-cli computes `mean_mut_freq` for both AIRR and PCP inputs using the same convention — the multiplicity-weighted mean of per-leaf mutation frequency, where mutation frequency is the fraction of non-gap positions in a leaf's `sequence_alignment` that differ from the clone's `germline_alignment` (truncating to the shorter of the two). Any `mean_mut_freq` present in an AIRR input is ignored: it is not part of the AIRR Community spec, so producers other than olmsted-cli itself cannot be relied on to compute it, or to use a consistent convention — see [issue 24](https://github.com/matsengrp/olmsted-cli/issues/24). Mixing values produced by different versions of the CLI (or by upstream pipelines that computed the field themselves before this change) on the same scatterplot can give misleading comparisons.
-
-If an input AIRR clone carries its own `mean_mut_freq` and it disagrees with the recomputed value by more than `1e-6` absolute, olmsted-cli prints a warning at default verbosity naming the clone and both values (a likely sign the producer used a different convention, e.g. unweighted). The recomputed value is used regardless — the warning is diagnostic only.
-
-This does not apply to the airr2 (AIRR-C v2 Clone/Tree) format below, which computes its own `mean_mut_freq` — necessarily *unweighted*, since that schema carries no per-node multiplicity to weight by. See [Mapping to Olmsted](#mapping-to-olmsted) in the airr2 section.
-
-### Tree object (within clone)
-
-| Field | Required | Notes |
-|-------|----------|-------|
-| `newick` | Yes | Newick tree string (schema-required) |
-| `tree_id` | No | Tree identifier |
-| `nodes` | Yes | Dict or array of node objects |
-
-### Node object (within tree)
-
-| Field | Required | Notes |
-|-------|----------|-------|
-| `sequence_id` | Yes | Node identifier (schema-required) |
-| `sequence_alignment` | Yes | DNA sequence (schema-required) |
-| `sequence_alignment_aa` | Yes | Amino acid sequence (schema-required) |
-| `parent` | No | Parent node ID (null for root) |
-| `type` | No | `"root"`, `"internal"`, or `"leaf"` |
-| `length` | No | Branch length to parent |
-| `distance` | No | Cumulative distance from root |
-| `multiplicity` | No | Sequence abundance |
-| `lbi`, `lbr` | No | Computed with `--compute-metrics` |
-| `affinity` | No | |
-| `timepoint_id` | No | Sampling timepoint |
-| `mutations` | No | Array of per-mutation records |
-
-**Extra fields**: Preserved in output and auto-detected.
-
-### AIRR Position Convention
-
-AIRR uses 1-based closed intervals. olmsted-cli converts `*_start` positions to 0-based (subtracting 1) during processing. Missing positions are skipped gracefully.
-
----
-
-## AIRR-C v2 Clone/Tree ("airr2") Input Format
-
-`-f airr2` (auto-detected) reads the **AIRR-C v2 Clone & Tree schema** — the
-format Dowser's `writeTreesJSON` emits. It is structurally distinct from the
-legacy `-f airr` input above and is handled by `process_airr2_data.py`
-(entry point `process_airr2_to_olmsted`).
+**`mean_mut_freq` computation**: olmsted-cli always computes `mean_mut_freq`
+for AIRR input — the Clone schema carries no such field to read or override,
+unlike PCP where an upstream-supplied value could in principle disagree with
+the recomputed one (see [issue 24](https://github.com/matsengrp/olmsted-cli/issues/24)).
+Unlike PCP's multiplicity-weighted convention, AIRR's is necessarily
+*unweighted* when the input has no real per-node multiplicity (the `noinfo`
+shape, see below) — see [Mapping to Olmsted](#mapping-to-olmsted).
 
 ### Top-level structure
 
@@ -271,9 +210,8 @@ every node — observed or ASR-inferred — resolves to a sequence.
 ### Mapping to Olmsted
 
 - **Topology** comes from `Clone.tree` (Newick; its labels are the node ids),
-  rerooted so `inferred_ancestor` (the germline) is the root — matching the
-  PCP/legacy-AIRR naive-at-root convention. Branch lengths are read from the
-  Newick.
+  rerooted so `inferred_ancestor` (the germline) is the root — matching PCP's
+  naive-at-root convention. Branch lengths are read from the Newick.
 - **Sequences** are joined from `Rearrangement`; `sequence_alignment_aa` is
   translated. `mean_mut_freq` is computed from observed leaves vs the germline.
 - **Chains**: `Rearrangement`-class and single-locus `Cell`-class clones → one
@@ -290,7 +228,7 @@ fabricated.
 
 When the input carries Dowser's `info` catchall (`dowser_fields=TRUE`, Dowser's
 default — the `noinfo` variant is written with `dowser_fields=FALSE`), these
-are additionally read (see `process_airr2_data.py`, issue #45):
+are additionally read (see `process_airr_data.py`, issue #45):
 
 - `nodes[].info.tipdata.collapse_count` → node `multiplicity` (unset, not
   fabricated `1`, for nodes/inputs without it — e.g. every node in `noinfo`
@@ -299,14 +237,14 @@ are additionally read (see `process_airr2_data.py`, issue #45):
   against the *ungapped* `Rearrangement.sequence`) → `cdr1_alignment_start`/
   `_end`, `cdr2_alignment_start`/`_end`, `cdr3_alignment_start`/`_end`, and
   the matching `cdr{1,2,3}_length` (0-based, half-open, nucleotide positions
-  in the *gapped* `germline_alignment` — the same convention as PCP/legacy
-  AIRR's `cdr*_alignment_start`/`_end`). `region`'s own `cdr3` span is
+  in the *gapped* `germline_alignment` — the same convention as PCP's
+  `cdr*_alignment_start`/`_end`). `region`'s own `cdr3` span is
   **strict IMGT CDR3**, which excludes the 2 conserved anchor residues
   (V-gene 2nd-CYS, J-gene TRP/PHE) that "junction" includes — per the
   IMGT/AIRR Community convention, junction is exactly those 2 residues (1
   codon = 3 nucleotides each) longer on both ends. Since `cdr3_length` is a
-  synonym for junction length everywhere else in this project (PCP, legacy
-  AIRR, `schemas.py`), the derived `cdr3` span is normalized to the junction
+  synonym for junction length everywhere else in this project (PCP,
+  `schemas.py`), the derived `cdr3` span is normalized to the junction
   convention (extended by 1 anchor codon each side, in ungapped coordinates,
   before remapping to gapped ones) — resolving the inconsistency issue #46
   raised. When `junction_length` is also available, it's now expected to
@@ -326,10 +264,16 @@ comes only from that fallback. This works for both the `info` and `noinfo`
 variants, since it reads the `Rearrangement` table directly rather than the
 `info` catchall.
 
-Still deferred (#45): `program_origin`, and arbitrary Dowser `trait=` columns
-in per-node tipdata. Streaming is deferred separately (see issue #36).
+Still deferred (#45): `program_origin`, arbitrary Dowser `trait=` columns in
+per-node tipdata, and **arbitrary custom fields generally** — unlike PCP and
+Olmsted JSON, this format's clone/node dicts are built from a fixed field
+set, so there's no equivalent to those formats' `--capture-all`/custom-field
+passthrough (see `example-data/fields-config/README.md`).
 
-See `example-data/airr2/` for `nocell`/`unpaired`/`paired` inputs + goldens,
+**Streaming** (`--batch-size`) is not supported for this format — it always
+runs in-memory regardless of `--batch-size`, unlike PCP (see issue #36).
+
+See `example-data/airr/` for `nocell`/`unpaired`/`paired` inputs + goldens,
 in both the `noinfo` and `info` flavors.
 
 ---
@@ -567,7 +511,6 @@ All schemas allow `additionalProperties: true` — extra fields are preserved.
 | `v/d/j_alignment_start` | Skipped (not adjusted), notification at verbose ≥ 2 |
 | `subject_id` | Left unset; webapp renders its own unknown marker |
 | `timepoint_id` | Left unset; webapp renders its own unknown marker |
-| Sample not found for `sample_id` (AIRR) | `clone.sample` left unset, notification at verbose ≥ 1 |
 | Gene calls (`v_call`, `d_call`, `j_call`) | Empty string; locus is inferred from V-gene prefix when possible, else left unset |
 | CDR/alignment positions | Zero values |
 | Tree file (PCP) | Trees built from parent-child edges |
@@ -598,7 +541,7 @@ Pass `--allow-duplicate-ids` to downgrade these to warnings and let the data pas
 | `.csv` extension | `pcp` |
 | JSON with `metadata.format == "olmsted"` | `olmsted` (explicit tag) |
 | JSON with `datasets` + `metadata` keys | `olmsted` (heuristic) |
-| JSON with `dataset_id` or `clones` key | `airr` |
+| JSON with top-level `Clone` + `Rearrangement` keys | `airr` |
 | Otherwise | `unknown` |
 
 ---
@@ -628,17 +571,21 @@ Pass `--allow-duplicate-ids` to downgrade these to warnings and let the data pas
 
 ### AIRR → Olmsted JSON
 
-AIRR fields are mostly passed through directly. Key transformations:
+| Source | Output Location | Output Field |
+|--------|-----------------|-------------|
+| `Clone.tree` (Newick, rerooted on `inferred_ancestor`) | tree | `newick`, node `parent`/`length`/`distance` |
+| `Rearrangement.sequence_alignment` (joined via node) | node | `sequence_alignment` |
+| (translated) | node | `sequence_alignment_aa` |
+| `Rearrangement.v_call`/`d_call`/`j_call` (germline fallback) | clone | `v_call`/`d_call`/`j_call` |
+| `nodes[].node_type` | node | `node_type` (`observed`/`inferred`) |
+| (computed) | clone | `mean_mut_freq` |
+| `Clone.info.tipdata.collapse_count` (when present) | node | `multiplicity` |
+| `Clone.info.region` (when present, junction-normalized) | clone | `cdr{1,2,3}_alignment_start`/`_end`/`_length` |
+| Paired `Cell` clones (IGH + IGK/IGL) | 2 clones + 2 trees | `-heavy`/`-light` suffix, per-locus sequences |
+| (synthesized) | dataset | one sample per `repertoire_id` |
 
-| Transformation | Description |
-|---------------|-------------|
-| `*_start` positions | 1-based → 0-based (subtract 1) |
-| Matching `dataset.samples[]` entry | Denormalized as `clone.sample` (webapp reads `clone.sample.locus` etc.) |
-| Tree nodes | Extracted from clones, stored in top-level `trees[]` |
-| `clone.trees` | Reduced to metadata references (nodes removed) |
-| `tree.tree_id` | Passed through from input; when absent, filled with the CLI-minted `tree.ident` to satisfy the AIRR Community schema's required-field contract. |
-| `mean_mut_freq` | (computed) — any input value is overwritten; see [Clone object](#clone-object) above |
+See [Mapping to Olmsted](#mapping-to-olmsted) in the AIRR section above for the full detail.
 
 ---
 
-_Last updated: 2026-08-04_
+_Last updated: 2026-08-23_
