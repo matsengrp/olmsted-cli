@@ -34,7 +34,7 @@ pytest
 
 - **Python**: 3.8+
 - **pip**: For package installation
-- **Dependencies**: Automatically installed (ete3, jsonschema, numpy, pyyaml, scipy, etc.)
+- **Dependencies**: Automatically installed (ete3, jsonschema, numpy, pyyaml, tqdm, etc.)
 
 ## Running Tests
 
