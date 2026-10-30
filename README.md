@@ -545,11 +545,8 @@ ls pcp/
 - **Dependencies** (automatically installed):
   - ete3 ≥3.1.0
   - jsonschema ≥4.0.0
-  - lxml ≥4.6.0
   - numpy ≥1.20.0
   - pyyaml ≥6.0
-  - scipy ≥1.7.0
-  - ntpl ≥0.0.4
   - tqdm ≥4.65.0
 
 ---

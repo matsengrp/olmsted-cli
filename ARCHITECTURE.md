@@ -33,7 +33,6 @@ olmsted-cli converts immunological sequencing data (AIRR JSON, PCP CSV) into Olm
 - **ete3**: Newick tree parsing
 - **pyyaml**: YAML config support
 - **jsonschema**: Output validation
-- **numpy/scipy**: Metric computations
 
 ---
 
