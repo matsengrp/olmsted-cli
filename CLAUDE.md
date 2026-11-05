@@ -29,6 +29,8 @@ olmsted-cli is a Python CLI tool that processes immunological data (AIRR JSON an
 | `ruff check .` | Lint |
 | `ruff format .` | Format |
 
+The repo venv is `.venv` (gitignored). Tests call `olmsted` as a subprocess, so activate the venv (or put `.venv/bin` on `PATH`) before `pytest`. Otherwise about 125 tests fail with `FileNotFoundError: 'olmsted'`. The full suite takes about 2 minutes.
+
 ## Code Quality Rules
 
 - **No inline TODOs** — file GitHub issues instead
