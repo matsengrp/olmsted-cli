@@ -27,7 +27,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Set, Tuple
 
-from .constants import MUTATIONS_CSV_KEY_COLUMNS, MUTATIONS_CSV_NAME_ALIASES
+from .constants import (
+    MAX_UNMATCHED_EXAMPLES,
+    MUTATIONS_CSV_KEY_COLUMNS,
+    MUTATIONS_CSV_NAME_ALIASES,
+)
 from .data_io import open_file
 from .process_utils import coerce_csv_value
 from .utils import vprint
@@ -66,6 +70,9 @@ class MergeStats:
     # Count of CSV rows whose match key had no corresponding derived mutation
     # in the matched tree (within families that did match a tree).
     unmatched_mutations: int = 0
+    # Up to MAX_UNMATCHED_EXAMPLES human-readable descriptions of unmatched
+    # keys (family, key, root residue at the site), fallback modes only.
+    unmatched_examples: List[str] = field(default_factory=list)
     # Count of CSV rows that matched more than one node-mutation pair. This
     # indicates a potentially-ambiguous join: the same residue substitution
     # at the same site (and depth, if present) occurred on multiple lineages.
@@ -662,6 +669,37 @@ def _merge_name_keyed(
             )
 
 
+def _describe_unmatched_key(
+    clone_id: str, key: Tuple, nodes: List[Dict[str, Any]]
+) -> str:
+    """Describe an unmatched fallback key, with the root residue at its site.
+
+    The root residue makes a coordinate-gauge shift visible: the CSV's
+    ``parent_aa`` should equal the root's residue at ``site`` for a first
+    substitution, and a ``site`` past the sequence end is a clear sign of
+    a different gauge.
+    """
+    site, paa, caa = key[:3]
+    desc = f"{clone_id} site {site} {paa}->{caa}"
+    if len(key) > 3:
+        desc += f" depth {key[3]}"
+    root_seq = next(
+        (
+            n.get("sequence_alignment_aa")
+            for n in nodes
+            if isinstance(n, dict)
+            and not n.get("parent")
+            and n.get("sequence_alignment_aa")
+        ),
+        None,
+    )
+    if root_seq is None:
+        return desc
+    if isinstance(site, int) and 0 <= site < len(root_seq):
+        return f"{desc} (root has '{root_seq[site]}' at that site)"
+    return f"{desc} (site is outside the root sequence, length {len(root_seq)})"
+
+
 def _merge_site_keyed(
     trees: List[Dict[str, Any]],
     mutations_by_family: Dict[str, List[Dict[str, Any]]],
@@ -750,6 +788,12 @@ def _merge_site_keyed(
         unmatched_in_family = [k for k, c in csv_match_counts.items() if c == 0]
         if unmatched_in_family:
             stats.unmatched_mutations += len(unmatched_in_family)
+            for key in unmatched_in_family:
+                if len(stats.unmatched_examples) >= MAX_UNMATCHED_EXAMPLES:
+                    break
+                stats.unmatched_examples.append(
+                    _describe_unmatched_key(clone_id, key, nodes)
+                )
             sample = unmatched_in_family[:3]
             vprint.verbose(
                 f"  {clone_id}: {len(unmatched_in_family)} CSV mutations had no "
@@ -764,6 +808,13 @@ def _merge_site_keyed(
                 f"  {clone_id}: {len(broadcast_in_family)} CSV rows broadcast to "
                 f"multiple nodes (e.g., {sample})"
             )
+
+
+def _examples_suffix(stats: MergeStats) -> str:
+    """Return `` (e.g., a; b; c)`` for the recorded unmatched keys, or ''."""
+    if not stats.unmatched_examples:
+        return ""
+    return f" (e.g., {'; '.join(stats.unmatched_examples)})"
 
 
 def report_merge_stats(stats: MergeStats, total_csv_rows: int) -> None:
@@ -824,7 +875,8 @@ def report_merge_stats(stats: MergeStats, total_csv_rows: int) -> None:
     if stats.unmatched_mutations:
         vprint.error(
             f"Warning: {stats.unmatched_mutations} CSV mutation records in matched "
-            f"families had no corresponding derived mutation in any node. "
+            f"families had no corresponding derived mutation in any node"
+            f"{_examples_suffix(stats)}. "
             f"Run with -v 2 to see per-family details."
         )
     if stats.broadcast_csv_rows:
@@ -872,12 +924,12 @@ def merge_gate_error(stats: MergeStats, allow_mismatch: bool) -> Optional[str]:
         return (
             f"{stats.unmatched_mutations} CSV mutation keys in matched families "
             f"had no corresponding derived mutation (match mode "
-            f"{stats.match_mode}). This usually means `site` is in a different "
-            f"coordinate gauge than the tree's sequence_alignment_aa; it can "
-            f"also mean the CSV scores a gap/ambiguous residue. Unmatched keys "
-            f"were skipped (never attached). Run with -v 2 for per-family "
-            f"examples, or re-run with --mutations-allow-mismatch to proceed "
-            f"anyway."
+            f"{stats.match_mode}){_examples_suffix(stats)}. This usually means "
+            f"`site` is in a different coordinate gauge than the tree's "
+            f"sequence_alignment_aa; it can also mean the CSV scores a "
+            f"gap/ambiguous residue. Unmatched keys were skipped (never "
+            f"attached). Run with -v 2 for per-family details, or re-run with "
+            f"--mutations-allow-mismatch to proceed anyway."
         )
     return None
 
