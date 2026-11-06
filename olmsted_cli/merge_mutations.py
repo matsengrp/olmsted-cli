@@ -41,6 +41,7 @@ MatchMode = Literal["", "name_site", "site_paa_caa", "site_paa_caa_depth"]
 MATCH_MODE_NAME_SITE: MatchMode = "name_site"
 MATCH_MODE_SITE_PAA_CAA: MatchMode = "site_paa_caa"
 MATCH_MODE_SITE_PAA_CAA_DEPTH: MatchMode = "site_paa_caa_depth"
+_FALLBACK_MATCH_MODES = (MATCH_MODE_SITE_PAA_CAA, MATCH_MODE_SITE_PAA_CAA_DEPTH)
 
 
 @dataclass
@@ -842,6 +843,45 @@ def report_merge_stats(stats: MergeStats, total_csv_rows: int) -> None:
         )
 
 
+def merge_gate_error(stats: MergeStats, allow_mismatch: bool) -> Optional[str]:
+    """Return the fatal-error message for a finished merge, or None if it may proceed.
+
+    Shared by ``apply_mutations_csv`` and the streaming ``process`` exit so
+    both paths apply the same checks and wording. Two conditions are fatal
+    unless ``allow_mismatch`` is set:
+
+    - integrity mismatches (``name_site`` mode);
+    - unmatched match keys in a tree-matched family in the fallback modes
+      (``site_paa_caa`` and ``site_paa_caa_depth``). A ``site`` in the wrong
+      coordinate gauge shows up this way. A correctly-gauged CSV can also
+      trigger it by scoring a position olmsted treats as a gap/ambiguous
+      residue (``derive_node_mutations`` skips those).
+
+    Unmatched families (no clone match) are never fatal.
+    """
+    if allow_mismatch:
+        return None
+    if stats.integrity_mismatches:
+        return (
+            f"{stats.integrity_mismatches} integrity mismatches between CSV "
+            f"rows and tree mutations. Mismatched rows were skipped "
+            f"(never attached). Re-run with --mutations-allow-mismatch to "
+            f"proceed anyway — but investigate the CSV/tree disagreement first."
+        )
+    if stats.unmatched_mutations and stats.match_mode in _FALLBACK_MATCH_MODES:
+        return (
+            f"{stats.unmatched_mutations} CSV mutation keys in matched families "
+            f"had no corresponding derived mutation (match mode "
+            f"{stats.match_mode}). This usually means `site` is in a different "
+            f"coordinate gauge than the tree's sequence_alignment_aa; it can "
+            f"also mean the CSV scores a gap/ambiguous residue. Unmatched keys "
+            f"were skipped (never attached). Run with -v 2 for per-family "
+            f"examples, or re-run with --mutations-allow-mismatch to proceed "
+            f"anyway."
+        )
+    return None
+
+
 def apply_mutations_csv(
     mutations_path: Optional[str],
     trees: List[Dict[str, Any]],
@@ -879,9 +919,10 @@ def apply_mutations_csv(
     Per-family detail is at -v 2.
 
     Raises:
-        ValueError: When at least one integrity mismatch was recorded and
-            ``allow_mismatch`` is False (the default). The merge has still
-            been applied to the rows that matched cleanly; mismatched rows
+        ValueError: When ``merge_gate_error`` reports a fatal condition
+            (integrity mismatch, or unmatched keys in a fallback match mode)
+            and ``allow_mismatch`` is False (the default). The merge has
+            still been applied to the rows that matched cleanly; the others
             are skipped.
     """
     if not mutations_path:
@@ -899,12 +940,8 @@ def apply_mutations_csv(
     )
     report_merge_stats(stats, total_csv_rows)
 
-    if stats.integrity_mismatches and not allow_mismatch:
-        raise ValueError(
-            f"{stats.integrity_mismatches} integrity mismatches between CSV "
-            f"rows and tree mutations. Mismatched rows were skipped "
-            f"(never attached). Re-run with --mutations-allow-mismatch to "
-            f"proceed anyway — but investigate the CSV/tree disagreement first."
-        )
+    error = merge_gate_error(stats, allow_mismatch)
+    if error:
+        raise ValueError(error)
 
     return stats

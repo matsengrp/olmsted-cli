@@ -75,7 +75,10 @@ Examples:
         "when any CSV row matches a (node, site) but its parent_aa, "
         "child_aa, or depth disagree with what the tree derives at that "
         "position; mismatched rows are always skipped regardless of this "
-        "flag. Use only after investigating the disagreement.",
+        "flag. Also proceeds past unmatched (site, parent_aa, child_aa) keys "
+        "in the fallback match modes, which by default fail the command "
+        "(a common cause is `site` in a different coordinate gauge than the "
+        "tree). Use only after investigating the disagreement.",
     )
     parser.add_argument(
         "--mutations-listed-only",
