@@ -713,12 +713,11 @@ Examples:
     mutations_group.add_argument(
         "--mutations-allow-mismatch",
         action="store_true",
-        help="Exit zero even if some mutations CSV rows can't be applied to "
-        "the trees. By default the command exits non-zero in two cases: "
-        "(1) a CSV row whose parent_aa, child_aa or depth conflicts with "
-        "what the tree derives at that node and site; (2) in the "
-        "site_paa_caa and site_paa_caa_depth match modes, a CSV key that "
-        "matches no derived mutation. Rows in both cases are always "
+        help="Downgrade two failures to warnings. By default the command "
+        "exits non-zero when (1) a CSV row's parent_aa, child_aa or depth "
+        "conflicts with what the tree derives at that node and site; or "
+        "(2) in the site_paa_caa and site_paa_caa_depth match modes, a CSV "
+        "key matches no derived mutation. Rows in both cases are always "
         "skipped; this flag only changes the exit status. Use only after "
         "investigating the disagreement.",
     )
