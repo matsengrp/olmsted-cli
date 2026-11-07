@@ -329,8 +329,8 @@ In `name_site` mode, `parent_aa`/`child_aa` (and `depth`, only when `--mutations
 - **Default:** any integrity mismatch raises `ValueError` → the command exits non-zero. Callers can't accidentally ship a partially-wrong merge.
 - **`--mutations-allow-mismatch`:** downgrade to a warning; skipped rows are still reported via `MergeStats.integrity_mismatches` but the command exits 0.
 
-**Unmatched keys in the fallback modes.** In `site_paa_caa` and `site_paa_caa_depth` modes, `parent_aa`/`child_aa` (and `depth`) are part of the join key, so a disagreement shows up as a key with no derived mutation instead of an integrity mismatch. A `site` in a different coordinate gauge than the tree's `sequence_alignment_aa` fails the same way, and so does a CSV that scores a gap/ambiguous residue (`derive_node_mutations` skips those). The same gate applies:
-- **Default:** any unmatched key in a tree-matched family is fatal. The error quotes up to `MAX_UNMATCHED_EXAMPLES` keys with the root's residue at that site (`MergeStats.unmatched_examples`), which makes a gauge shift visible.
+**Unmatched keys in the fallback modes.** In `site_paa_caa` and `site_paa_caa_depth` modes, `parent_aa`/`child_aa` (and `depth`) are part of the join key, so a disagreement shows up as a key with no derived mutation instead of an integrity mismatch. A `site` numbered differently from the tree's `sequence_alignment_aa` fails the same way, and so does a CSV that scores a gap/ambiguous residue (`derive_node_mutations` skips those). The same gate applies:
+- **Default:** any unmatched key in a tree-matched family is fatal. The error quotes up to `MAX_UNMATCHED_EXAMPLES` keys with the root's residue at that site (`MergeStats.unmatched_examples`), which makes a numbering shift visible.
 - **`--mutations-allow-mismatch`:** downgrade to a warning. Unmatched keys are never attached either way.
 
 `merge_gate_error()` in `merge_mutations.py` holds both checks. `apply_mutations_csv` (the `merge` command and the legacy `process` path) raises its message as `ValueError`; `_finalize_mutations_merge` (the streaming `process` path) prints it and exits 1. Both paths share the wording.
@@ -402,7 +402,7 @@ Warnings (at error level, exit 0):
 
 Hard failures (exit non-zero):
 - **Integrity mismatches** in `name_site` mode — the CSV's `parent_aa`/`child_aa`/`depth` disagreed with what the tree derived at that position. Mismatched rows are always skipped (never attached); the default is to also exit non-zero. `--mutations-allow-mismatch` downgrades this to a warning and keeps exit 0.
-- **Unmatched keys in the fallback modes** (`site_paa_caa[_depth]`) — a `(site, parent_aa, child_aa[, depth])` key in a matched family finds no derived mutation. Usually a `site` in the wrong coordinate gauge, or a gap/ambiguous residue. Skipped keys are never attached; the default is to exit non-zero. `--mutations-allow-mismatch` downgrades this to a warning and keeps exit 0.
+- **Unmatched keys in the fallback modes** (`site_paa_caa[_depth]`) — a `(site, parent_aa, child_aa[, depth])` key in a matched family finds no derived mutation. Usually a `site` numbered differently from the tree's `sequence_alignment_aa`, or a gap/ambiguous residue. Skipped keys are never attached; the default is to exit non-zero. `--mutations-allow-mismatch` downgrades this to a warning and keeps exit 0.
 
 Per-family detail at `-v 2`: which keys went unmatched, which broadcast, and which failed integrity.
 

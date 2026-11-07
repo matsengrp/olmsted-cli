@@ -674,10 +674,10 @@ def _describe_unmatched_key(
 ) -> str:
     """Describe an unmatched fallback key, with the root residue at its site.
 
-    The root residue makes a coordinate-gauge shift visible: the CSV's
+    The root residue makes a numbering shift visible: the CSV's
     ``parent_aa`` should equal the root's residue at ``site`` for a first
     substitution, and a ``site`` past the sequence end is a clear sign of
-    a different gauge.
+    a different numbering.
     """
     site, paa, caa = key[:3]
     desc = f"{clone_id} site {site} {paa}->{caa}"
@@ -906,8 +906,9 @@ def merge_gate_error(stats: MergeStats, allow_mismatch: bool) -> Optional[str]:
 
     - integrity mismatches (``name_site`` mode);
     - unmatched match keys in a tree-matched family in the fallback modes
-      (``site_paa_caa`` and ``site_paa_caa_depth``). A ``site`` in the wrong
-      coordinate gauge shows up this way. A correctly-gauged CSV can also
+      (``site_paa_caa`` and ``site_paa_caa_depth``). A ``site`` numbered
+      differently from the tree's sequence shows up this way. A correctly
+      numbered CSV can also
       trigger it by scoring a position olmsted treats as a gap/ambiguous
       residue (``derive_node_mutations`` skips those).
 
@@ -927,7 +928,7 @@ def merge_gate_error(stats: MergeStats, allow_mismatch: bool) -> Optional[str]:
             f"{stats.unmatched_mutations} CSV mutation keys in matched families "
             f"had no corresponding derived mutation (match mode "
             f"{stats.match_mode}){_examples_suffix(stats)}. This usually means "
-            f"`site` is in a different coordinate gauge than the tree's "
+            f"`site` is numbered differently from the tree's "
             f"sequence_alignment_aa; it can also mean the CSV scores a "
             f"gap/ambiguous residue. Unmatched keys were skipped (never "
             f"attached). Run with -v 2 for per-family details, or re-run with "

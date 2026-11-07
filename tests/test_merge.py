@@ -283,11 +283,11 @@ def _fam1_child_mutations(out_path):
     return child["mutations"]
 
 
-# Correct gauge: 0-based site 1 is K in the root and R in the child.
-GAUGE_CORRECT_CSV = "family,site,parent_aa,child_aa,score\nfam1,1,K,R,1.0\n"
-# Gauge-shifted by one (a 1-based producer): site 2 is T in the root.
-GAUGE_SHIFTED_CSV = "family,site,parent_aa,child_aa,score\nfam1,2,K,R,1.0\n"
-GAUGE_SHIFTED_DEPTH_CSV = (
+# Correct numbering: 0-based site 1 is K in the root and R in the child.
+NUMBERING_CORRECT_CSV = "family,site,parent_aa,child_aa,score\nfam1,1,K,R,1.0\n"
+# Numbering shifted by one (a 1-based producer): site 2 is T in the root.
+NUMBERING_SHIFTED_CSV = "family,site,parent_aa,child_aa,score\nfam1,2,K,R,1.0\n"
+NUMBERING_SHIFTED_DEPTH_CSV = (
     "family,site,parent_aa,child_aa,depth,score\nfam1,2,K,R,1,1.0\n"
 )
 
@@ -296,22 +296,22 @@ GAUGE_SHIFTED_DEPTH_CSV = (
     "csv_text, extra_args, expected_example",
     [
         (
-            GAUGE_SHIFTED_CSV,
+            NUMBERING_SHIFTED_CSV,
             [],
             "fam1 site 2 K->R (root has 'T' at that site)",
         ),
         (
-            GAUGE_SHIFTED_DEPTH_CSV,
+            NUMBERING_SHIFTED_DEPTH_CSV,
             ["--mutations-use-depth"],
             "fam1 site 2 K->R depth 1 (root has 'T' at that site)",
         ),
     ],
     ids=["site_paa_caa", "site_paa_caa_depth"],
 )
-def test_merge_gauge_shifted_csv_fails(
+def test_merge_shifted_numbering_csv_fails(
     sample_olmsted_json, tmp_path, csv_text, extra_args, expected_example
 ):
-    """A gauge-shifted `site` fails by default and the message pinpoints it (#55)."""
+    """A `site` numbered differently from the tree fails by default and the message pinpoints it (#55)."""
     result, out_path = _run_gate_merge(
         sample_olmsted_json, csv_text, tmp_path, *extra_args
     )
@@ -322,11 +322,11 @@ def test_merge_gauge_shifted_csv_fails(
     assert not out_path.exists()
 
 
-def test_merge_gauge_shifted_csv_allowed_with_flag(sample_olmsted_json, tmp_path):
+def test_merge_shifted_numbering_csv_allowed_with_flag(sample_olmsted_json, tmp_path):
     """The same shifted CSV exits 0 with the flag, warns, and attaches nothing."""
     result, out_path = _run_gate_merge(
         sample_olmsted_json,
-        GAUGE_SHIFTED_CSV,
+        NUMBERING_SHIFTED_CSV,
         tmp_path,
         "--mutations-allow-mismatch",
     )
@@ -357,9 +357,13 @@ def test_merge_name_site_unmatched_key_still_exits_zero(sample_olmsted_json, tmp
     ]
 
 
-def test_merge_gauge_correct_csv_has_no_unmatched_keys(sample_olmsted_json, tmp_path):
-    """A correctly-gauged, gapless fallback CSV merges cleanly (no false positive)."""
-    result, out_path = _run_gate_merge(sample_olmsted_json, GAUGE_CORRECT_CSV, tmp_path)
+def test_merge_correct_numbering_csv_has_no_unmatched_keys(
+    sample_olmsted_json, tmp_path
+):
+    """A correctly numbered, gapless fallback CSV merges cleanly (no false positive)."""
+    result, out_path = _run_gate_merge(
+        sample_olmsted_json, NUMBERING_CORRECT_CSV, tmp_path
+    )
     combined = result.stdout + result.stderr
     assert result.returncode == 0, combined
     assert "Match mode: site_paa_caa" in combined
