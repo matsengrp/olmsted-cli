@@ -155,7 +155,7 @@ Gzipped consolidated goldens (tracked alongside the plain JSON for `.json.gz` up
 olmsted process -f pcp -i example-data/pcp/input-pcp.csv -t example-data/pcp/input-trees.csv -o example-data/pcp/pcp-olmsted-golden.json --seed 42 --name pcp-example --json-format gzip -q
 ```
 
-Merge golden (post-merge source-of-truth). `--mutations-allow-mismatch` is required: 19 of the fixture's 37 keys are deliberately unmatched, and the default fails on unmatched keys:
+Merge golden (post-merge source-of-truth). `--mutations-allow-mismatch` is required: 19 of the fixture's 37 keys are unmatched, and the default fails on unmatched keys:
 
 ```bash
 olmsted merge -i example-data/merge/input-olmsted.json --mutations example-data/merge/input-mutations.csv --mutations-use-depth --mutations-allow-mismatch -o example-data/merge/merge-olmsted-golden.json --json-format pretty -q

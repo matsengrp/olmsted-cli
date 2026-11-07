@@ -140,7 +140,7 @@ olmsted process -f pcp -i example-data/pcp/input-pcp.csv -t example-data/pcp/inp
   -o example-data/pcp/pcp-olmsted-golden.json --seed 42 --name pcp-example --json-format gzip -q
 ```
 
-Merge golden (post-merge drift coverage for `olmsted merge`). `--mutations-allow-mismatch` is required: 19 of the fixture's 37 keys are deliberately unmatched, and the default fails on unmatched keys:
+Merge golden (post-merge drift coverage for `olmsted merge`). `--mutations-allow-mismatch` is required: 19 of the fixture's 37 keys are unmatched, and the default fails on unmatched keys:
 
 ```bash
 olmsted merge -i example-data/merge/input-olmsted.json \
