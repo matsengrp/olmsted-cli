@@ -244,7 +244,7 @@ def test_merge_command_reports_unmatched(sample_olmsted_json, sample_csv, tmp_pa
     combined = result.stdout + result.stderr
     assert "1 families in the mutations CSV had no matching clone" in combined
     assert "fam99" in combined
-    assert "1 CSV mutation records" in combined
+    assert "1 CSV mutation keys" in combined
 
 
 def _run_gate_merge(sample_olmsted_json, csv_text, tmp_path, *extra_args):
@@ -332,7 +332,7 @@ def test_merge_gauge_shifted_csv_allowed_with_flag(sample_olmsted_json, tmp_path
     )
     combined = result.stdout + result.stderr
     assert result.returncode == 0, combined
-    assert "1 CSV mutation records in matched families" in combined
+    assert "1 CSV mutation keys in matched families" in combined
     assert "fam1 site 2 K->R" in combined
     # The derived mutation is present but no CSV score reached it.
     assert _fam1_child_mutations(out_path) == [

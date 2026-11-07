@@ -794,7 +794,7 @@ def _merge_site_keyed(
                 stats.unmatched_examples.append(
                     _describe_unmatched_key(clone_id, key, nodes)
                 )
-            sample = unmatched_in_family[:3]
+            sample = unmatched_in_family[:MAX_UNMATCHED_EXAMPLES]
             vprint.verbose(
                 f"  {clone_id}: {len(unmatched_in_family)} CSV mutations had no "
                 f"matching node (e.g., {sample})"
@@ -873,8 +873,10 @@ def report_merge_stats(stats: MergeStats, total_csv_rows: int) -> None:
             f"had no matching clone (e.g., {sample})"
         )
     if stats.unmatched_mutations:
+        # Fallback modes count distinct keys; name_site counts CSV rows.
+        noun = "keys" if stats.match_mode in _FALLBACK_MATCH_MODES else "records"
         vprint.error(
-            f"Warning: {stats.unmatched_mutations} CSV mutation records in matched "
+            f"Warning: {stats.unmatched_mutations} CSV mutation {noun} in matched "
             f"families had no corresponding derived mutation in any node"
             f"{_examples_suffix(stats)}. "
             f"Run with -v 2 to see per-family details."
