@@ -70,15 +70,13 @@ Examples:
     parser.add_argument(
         "--mutations-allow-mismatch",
         action="store_true",
-        help="Proceed past integrity mismatches between the mutations CSV "
-        "and the tree's derived mutations. By default the command fails "
-        "when any CSV row matches a (node, site) but its parent_aa, "
-        "child_aa, or depth disagree with what the tree derives at that "
-        "position; mismatched rows are always skipped regardless of this "
-        "flag. Also proceeds past unmatched (site, parent_aa, child_aa) keys "
-        "in the site_paa_caa and site_paa_caa_depth match modes, which by "
-        "default fail the command (a common cause is `site` numbered "
-        "differently from the tree's sequence_alignment_aa). Use only after "
+        help="Exit zero even if some mutations CSV rows can't be applied to "
+        "the trees. By default the command exits non-zero in two cases: "
+        "(1) a CSV row whose parent_aa, child_aa or depth conflicts with "
+        "what the tree derives at that node and site; (2) in the "
+        "site_paa_caa and site_paa_caa_depth match modes, a CSV key that "
+        "matches no derived mutation. Rows in both cases are always "
+        "skipped; this flag only changes the exit status. Use only after "
         "investigating the disagreement.",
     )
     parser.add_argument(

@@ -719,7 +719,8 @@ Examples:
         "what the tree derives at that node and site; (2) in the "
         "site_paa_caa and site_paa_caa_depth match modes, a CSV key that "
         "matches no derived mutation. Rows in both cases are always "
-        "skipped; this flag only changes the exit status.",
+        "skipped; this flag only changes the exit status. Use only after "
+        "investigating the disagreement.",
     )
     mutations_group.add_argument(
         "--mutations-listed-only",
