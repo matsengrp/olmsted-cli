@@ -76,9 +76,10 @@ Examples:
         "child_aa, or depth disagree with what the tree derives at that "
         "position; mismatched rows are always skipped regardless of this "
         "flag. Also proceeds past unmatched (site, parent_aa, child_aa) keys "
-        "in the fallback match modes, which by default fail the command "
-        "(a common cause is `site` in a different coordinate gauge than the "
-        "tree). Use only after investigating the disagreement.",
+        "in the site_paa_caa and site_paa_caa_depth match modes, which by "
+        "default fail the command (a common cause is `site` numbered "
+        "differently from the tree's sequence_alignment_aa). Use only after "
+        "investigating the disagreement.",
     )
     parser.add_argument(
         "--mutations-listed-only",
