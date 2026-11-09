@@ -6,6 +6,7 @@ import subprocess
 import pytest
 
 from olmsted_cli.merge_mutations import (
+    _describe_unmatched_key,
     derive_node_mutations,
     load_mutations_csv,
     merge_mutations_into_trees,
@@ -1623,3 +1624,48 @@ def test_process_rejects_mutation_flags_without_mutations(tmp_path, flag):
     combined = result.stdout + result.stderr
     assert "--mutations" in combined
     assert "require" in combined.lower()
+
+
+# --- _describe_unmatched_key: which node counts as the root ---
+
+
+def _node(seq_id, aa, parent=None, node_type="node"):
+    return {
+        "sequence_id": seq_id,
+        "sequence_alignment_aa": aa,
+        "parent": parent,
+        "type": node_type,
+    }
+
+
+def test_describe_unmatched_key_uses_parentless_root():
+    nodes = [_node("child", "ARCD", parent="root"), _node("root", "AKCD")]
+    desc = _describe_unmatched_key("fam1", (1, "K", "R"), nodes)
+    assert desc == "fam1 site 1 K->R (root has 'K' at that site)"
+
+
+def test_describe_unmatched_key_uses_type_root_even_with_parent():
+    # A node typed "root" is the root even when its parent field is set.
+    nodes = [
+        _node("child", "ARCD", parent="top"),
+        _node("top", "AKCD", parent="outside", node_type="root"),
+    ]
+    desc = _describe_unmatched_key("fam1", (1, "K", "R"), nodes)
+    assert desc == "fam1 site 1 K->R (root has 'K' at that site)"
+
+
+def test_describe_unmatched_key_empty_parent_is_not_root():
+    # parent == "" is not None, so that node is not the root; the real root
+    # (parent None) supplies the residue.
+    nodes = [
+        _node("odd", "AXCD", parent=""),
+        _node("root", "AKCD"),
+    ]
+    desc = _describe_unmatched_key("fam1", (1, "K", "R"), nodes)
+    assert desc == "fam1 site 1 K->R (root has 'K' at that site)"
+
+
+def test_describe_unmatched_key_without_root_gives_plain_description():
+    nodes = [_node("a", "AXCD", parent="b"), _node("b", "AYCD", parent="a")]
+    desc = _describe_unmatched_key("fam1", (1, "K", "R"), nodes)
+    assert desc == "fam1 site 1 K->R"
