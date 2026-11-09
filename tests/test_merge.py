@@ -6,6 +6,7 @@ import subprocess
 import pytest
 
 from olmsted_cli.merge_mutations import (
+    _describe_unmatched_key,
     derive_node_mutations,
     load_mutations_csv,
     merge_mutations_into_trees,
@@ -204,7 +205,11 @@ def test_merge_mutations_into_trees_only_listed_stat(tmp_path):
 
 
 def test_merge_command_reports_unmatched(sample_olmsted_json, sample_csv, tmp_path):
-    """The merge command should surface unmatched families/mutations as errors."""
+    """Unmatched keys fail by default and downgrade to warnings with the flag.
+
+    The fixture CSV is in a fallback match mode and carries a site-99 key that
+    matches no derived mutation (#55).
+    """
     json_path = tmp_path / "input.json"
     csv_path = tmp_path / "muts.csv"
     out_path = tmp_path / "output.json"
@@ -212,6 +217,48 @@ def test_merge_command_reports_unmatched(sample_olmsted_json, sample_csv, tmp_pa
     json_path.write_text(json.dumps(sample_olmsted_json))
     csv_path.write_text(sample_csv)
 
+    base_cmd = [
+        "olmsted",
+        "merge",
+        "-i",
+        str(json_path),
+        "--mutations",
+        str(csv_path),
+        "-o",
+        str(out_path),
+    ]
+
+    # Default: the unmatched key is fatal.
+    result = subprocess.run(base_cmd, capture_output=True, text=True)
+    assert result.returncode == 1
+    combined = result.stdout + result.stderr
+    assert "1 CSV mutation keys in matched families" in combined
+    assert "fam1 site 99 X->Y (site is outside the root sequence, length 4)" in combined
+    assert "--mutations-allow-mismatch" in combined
+
+    # With the flag: exit 0 and the same warnings.
+    result = subprocess.run(
+        base_cmd + ["--mutations-allow-mismatch"], capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    # Combined output (status goes to stderr in VerbosePrinter)
+    combined = result.stdout + result.stderr
+    assert "1 families in the mutations CSV had no matching clone" in combined
+    assert "fam99" in combined
+    assert "1 CSV mutation keys" in combined
+
+
+def _run_gate_merge(sample_olmsted_json, csv_text, tmp_path, *extra_args):
+    """Merge ``csv_text`` into the sample trees; return (result, output path).
+
+    fam1's tree is root ``MKTV`` -> child ``MRTV``: one gapless K->R
+    substitution at 0-based site 1, at depth 1.
+    """
+    json_path = tmp_path / "input.json"
+    csv_path = tmp_path / "muts.csv"
+    out_path = tmp_path / "output.json"
+    json_path.write_text(json.dumps(sample_olmsted_json))
+    csv_path.write_text(csv_text)
     result = subprocess.run(
         [
             "olmsted",
@@ -222,16 +269,110 @@ def test_merge_command_reports_unmatched(sample_olmsted_json, sample_csv, tmp_pa
             str(csv_path),
             "-o",
             str(out_path),
+            *extra_args,
         ],
         capture_output=True,
         text=True,
     )
-    assert result.returncode == 0
-    # Combined output (status goes to stderr in VerbosePrinter)
+    return result, out_path
+
+
+def _fam1_child_mutations(out_path):
+    out = json.loads(out_path.read_text())
+    tree = next(t for t in out["trees"] if t["clone_id"] == "fam1")
+    child = next(n for n in tree["nodes"] if n["sequence_id"] == "child")
+    return child["mutations"]
+
+
+# Correct numbering: 0-based site 1 is K in the root and R in the child.
+NUMBERING_CORRECT_CSV = "family,site,parent_aa,child_aa,score\nfam1,1,K,R,1.0\n"
+# Numbering shifted by one (a 1-based producer): site 2 is T in the root.
+NUMBERING_SHIFTED_CSV = "family,site,parent_aa,child_aa,score\nfam1,2,K,R,1.0\n"
+NUMBERING_SHIFTED_DEPTH_CSV = (
+    "family,site,parent_aa,child_aa,depth,score\nfam1,2,K,R,1,1.0\n"
+)
+
+
+@pytest.mark.parametrize(
+    "csv_text, extra_args, expected_example",
+    [
+        (
+            NUMBERING_SHIFTED_CSV,
+            [],
+            "fam1 site 2 K->R (root has 'T' at that site)",
+        ),
+        (
+            NUMBERING_SHIFTED_DEPTH_CSV,
+            ["--mutations-use-depth"],
+            "fam1 site 2 K->R depth 1 (root has 'T' at that site)",
+        ),
+    ],
+    ids=["site_paa_caa", "site_paa_caa_depth"],
+)
+def test_merge_shifted_numbering_csv_fails(
+    sample_olmsted_json, tmp_path, csv_text, extra_args, expected_example
+):
+    """A `site` numbered differently from the tree fails by default and the message pinpoints it (#55)."""
+    result, out_path = _run_gate_merge(
+        sample_olmsted_json, csv_text, tmp_path, *extra_args
+    )
     combined = result.stdout + result.stderr
-    assert "1 families in the mutations CSV had no matching clone" in combined
-    assert "fam99" in combined
-    assert "1 CSV mutation records" in combined
+    assert result.returncode == 1, combined
+    assert expected_example in combined
+    assert "--mutations-allow-mismatch" in combined
+    assert not out_path.exists()
+
+
+def test_merge_shifted_numbering_csv_allowed_with_flag(sample_olmsted_json, tmp_path):
+    """The same shifted CSV exits 0 with the flag, warns, and attaches nothing."""
+    result, out_path = _run_gate_merge(
+        sample_olmsted_json,
+        NUMBERING_SHIFTED_CSV,
+        tmp_path,
+        "--mutations-allow-mismatch",
+    )
+    combined = result.stdout + result.stderr
+    assert result.returncode == 0, combined
+    assert "1 CSV mutation keys in matched families" in combined
+    assert "fam1 site 2 K->R" in combined
+    # The derived mutation is present but no CSV score reached it.
+    assert _fam1_child_mutations(out_path) == [
+        {"site": 1, "parent_aa": "K", "child_aa": "R"}
+    ]
+
+
+def test_merge_name_site_unmatched_key_still_exits_zero(sample_olmsted_json, tmp_path):
+    """`name_site` mode is out of the gate's scope: an unmatched key only warns."""
+    csv_text = (
+        "family,node_name,site,parent_aa,child_aa,score\n"
+        "fam1,child,1,K,R,1.0\n"
+        "fam1,child,99,X,Y,2.0\n"  # child has no mutation at site 99
+    )
+    result, out_path = _run_gate_merge(sample_olmsted_json, csv_text, tmp_path)
+    combined = result.stdout + result.stderr
+    assert result.returncode == 0, combined
+    assert "Match mode: name_site" in combined
+    assert "1 CSV mutation records in matched families" in combined
+    assert _fam1_child_mutations(out_path) == [
+        {"site": 1, "parent_aa": "K", "child_aa": "R", "score": 1.0}
+    ]
+
+
+def test_merge_correct_numbering_csv_has_no_unmatched_keys(
+    sample_olmsted_json, tmp_path
+):
+    """A correctly numbered, gapless fallback CSV merges cleanly (no false positive)."""
+    result, out_path = _run_gate_merge(
+        sample_olmsted_json, NUMBERING_CORRECT_CSV, tmp_path
+    )
+    combined = result.stdout + result.stderr
+    assert result.returncode == 0, combined
+    assert "Match mode: site_paa_caa" in combined
+    assert "Unmatched" not in combined
+    assert "no corresponding derived mutation" not in combined
+    assert _fam1_child_mutations(out_path) == [
+        {"site": 1, "parent_aa": "K", "child_aa": "R", "score": 1.0}
+    ]
 
 
 def test_merge_command_end_to_end(sample_olmsted_json, sample_csv, tmp_path):
@@ -251,6 +392,7 @@ def test_merge_command_end_to_end(sample_olmsted_json, sample_csv, tmp_path):
             str(json_path),
             "--mutations",
             str(csv_path),
+            "--mutations-allow-mismatch",
             "-o",
             str(out_path),
             "-q",
@@ -297,6 +439,7 @@ def test_merge_backfills_branch_lengths(sample_olmsted_json, sample_csv, tmp_pat
             str(json_path),
             "--mutations",
             str(csv_path),
+            "--mutations-allow-mismatch",
             "-o",
             str(out_path),
             "-q",
@@ -515,6 +658,7 @@ def test_merge_command_in_place(sample_olmsted_json, sample_csv, tmp_path):
             str(json_path),
             "--mutations",
             str(csv_path),
+            "--mutations-allow-mismatch",
             "--in-place",
             "-q",
         ],
@@ -527,6 +671,40 @@ def test_merge_command_in_place(sample_olmsted_json, sample_csv, tmp_path):
     fam1_tree = next(t for t in out["trees"] if t["clone_id"] == "fam1")
     child = next(n for n in fam1_tree["nodes"] if n["sequence_id"] == "child")
     assert child["mutations"][0]["surprise_mutsel"] == 4.2
+
+
+def test_merge_command_in_place_untouched_when_gate_fails(
+    sample_olmsted_json, sample_csv, tmp_path
+):
+    """A gate failure under --in-place must leave the input file byte-identical.
+
+    The merge mutates the loaded trees in memory before the gate raises, and
+    --in-place overwrites the user's only copy, so the write must never run.
+    """
+    json_path = tmp_path / "input.json"
+    csv_path = tmp_path / "muts.csv"
+    json_path.write_text(json.dumps(sample_olmsted_json))
+    csv_path.write_text(sample_csv)
+    before = json_path.read_bytes()
+
+    result = subprocess.run(
+        [
+            "olmsted",
+            "merge",
+            "-i",
+            str(json_path),
+            "--mutations",
+            str(csv_path),
+            "--in-place",
+            "-q",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 1
+    assert "--mutations-allow-mismatch" in result.stdout + result.stderr
+    assert json_path.read_bytes() == before
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["input.json", "muts.csv"]
 
 
 def _name_keyed_fixture(tmp_path):
@@ -1130,6 +1308,7 @@ def test_only_listed_leaves_unmatched_families_alone(
             str(json_path),
             "--mutations",
             str(csv_path),
+            "--mutations-allow-mismatch",
             "--mutations-listed-only",
             "-o",
             str(out_path),
@@ -1301,6 +1480,9 @@ def test_only_listed_deletes_empty_mutations_array(tmp_path, mode):
     else:
         csv_path.write_text("family,site,parent_aa,child_aa,score\nfam1,99,X,Y,1.0\n")
 
+    # The site-99 key is unmatched. In site_keyed (fallback) mode that is fatal
+    # by default (#55), so the flag is needed there; name_keyed is not gated.
+    gate_flag = ["--mutations-allow-mismatch"] if mode == "site_keyed" else []
     result = subprocess.run(
         [
             "olmsted",
@@ -1309,6 +1491,7 @@ def test_only_listed_deletes_empty_mutations_array(tmp_path, mode):
             str(json_path),
             "--mutations",
             str(csv_path),
+            *gate_flag,
             "--mutations-listed-only",
             "-o",
             str(out_path),
@@ -1441,3 +1624,48 @@ def test_process_rejects_mutation_flags_without_mutations(tmp_path, flag):
     combined = result.stdout + result.stderr
     assert "--mutations" in combined
     assert "require" in combined.lower()
+
+
+# --- _describe_unmatched_key: which node counts as the root ---
+
+
+def _node(seq_id, aa, parent=None, node_type="node"):
+    return {
+        "sequence_id": seq_id,
+        "sequence_alignment_aa": aa,
+        "parent": parent,
+        "type": node_type,
+    }
+
+
+def test_describe_unmatched_key_uses_parentless_root():
+    nodes = [_node("child", "ARCD", parent="root"), _node("root", "AKCD")]
+    desc = _describe_unmatched_key("fam1", (1, "K", "R"), nodes)
+    assert desc == "fam1 site 1 K->R (root has 'K' at that site)"
+
+
+def test_describe_unmatched_key_uses_type_root_even_with_parent():
+    # A node typed "root" is the root even when its parent field is set.
+    nodes = [
+        _node("child", "ARCD", parent="top"),
+        _node("top", "AKCD", parent="outside", node_type="root"),
+    ]
+    desc = _describe_unmatched_key("fam1", (1, "K", "R"), nodes)
+    assert desc == "fam1 site 1 K->R (root has 'K' at that site)"
+
+
+def test_describe_unmatched_key_empty_parent_is_not_root():
+    # parent == "" is not None, so that node is not the root; the real root
+    # (parent None) supplies the residue.
+    nodes = [
+        _node("odd", "AXCD", parent=""),
+        _node("root", "AKCD"),
+    ]
+    desc = _describe_unmatched_key("fam1", (1, "K", "R"), nodes)
+    assert desc == "fam1 site 1 K->R (root has 'K' at that site)"
+
+
+def test_describe_unmatched_key_without_root_gives_plain_description():
+    nodes = [_node("a", "AXCD", parent="b"), _node("b", "AYCD", parent="a")]
+    desc = _describe_unmatched_key("fam1", (1, "K", "R"), nodes)
+    assert desc == "fam1 site 1 K->R"

@@ -202,6 +202,73 @@ def test_process_mutations_allow_mismatch_streaming(batch_size, tmp_path):
     )
 
 
+@pytest.mark.parametrize("batch_size", [1, 10000])
+def test_process_mutations_unmatched_keys_gate_streaming(batch_size, tmp_path):
+    """Unmatched fallback keys are fatal on ``process --mutations`` (#55).
+
+    The CSV has no ``node_name`` column (fallback ``site_paa_caa`` mode) and
+    each family carries one correct row plus one site-99 key that matches no
+    derived mutation. ``--batch-size 1`` forces two batches through the
+    streaming pipeline (``_finalize_mutations_merge``), so the count of 2 also
+    checks that stats aggregate across batches; 10000 fits in one batch and
+    takes the legacy in-memory path.
+
+    - Default → exit non-zero; the error counts both keys and names a family.
+    - ``--mutations-allow-mismatch`` → exit 0, the correct rows still attach.
+    """
+    pcp_path, _ = _write_inputs(tmp_path)
+    mutations_path = tmp_path / "unmatched.csv"
+    mutations_path.write_text(
+        "family,site,parent_aa,child_aa,surprise_mutsel\n"
+        "S1_F1,0,M,V,2.5\n"
+        "S1_F1,99,K,R,1.0\n"
+        "S1_F2,0,M,V,4.2\n"
+        "S1_F2,99,K,R,1.0\n"
+    )
+    out_path = tmp_path / f"out_bs{batch_size}.json"
+
+    base_cmd = [
+        "olmsted",
+        "process",
+        "-f",
+        "pcp",
+        "-i",
+        str(pcp_path),
+        "--mutations",
+        str(mutations_path),
+        "-o",
+        str(out_path),
+        "--seed",
+        "42",
+        "--name",
+        "unmatched-gate-test",
+        "--batch-size",
+        str(batch_size),
+    ]
+
+    fail = subprocess.run(base_cmd, capture_output=True, text=True)
+    fail_output = fail.stdout + fail.stderr
+    assert fail.returncode == 1, fail_output
+    assert "2 CSV mutation keys in matched families" in fail_output
+    assert "S1_F1 site 99 K->R" in fail_output
+    assert "--mutations-allow-mismatch" in fail_output
+
+    ok = subprocess.run(
+        base_cmd + ["--mutations-allow-mismatch"], capture_output=True, text=True
+    )
+    assert ok.returncode == 0, ok.stdout + ok.stderr
+
+    data = json.loads(out_path.read_text())
+    scores = sorted(
+        (tree["clone_id"], mut["surprise_mutsel"])
+        for tree in data["trees"]
+        for node in tree.get("nodes", []) or []
+        for mut in node.get("mutations", []) or []
+        if "surprise_mutsel" in mut
+    )
+    assert scores == [("S1_F1", 2.5), ("S1_F2", 4.2)]
+
+
 def test_process_mutations_streaming_reports_unmatched_family(tmp_path):
     """Unmatched-family warnings accumulate across batches and print at finalize."""
     pcp_path = tmp_path / "input-pcp.csv"

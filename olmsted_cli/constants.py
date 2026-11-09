@@ -20,6 +20,17 @@ VERBOSITY_HELP = (
     "Verbosity level: 0=errors only, 1=normal (default), 2=verbose, 3=debug"
 )
 
+# Shared by `olmsted merge` and `olmsted process` so the two stay in step.
+MUTATIONS_ALLOW_MISMATCH_HELP = (
+    "Downgrade two failures to warnings. By default the command "
+    "exits non-zero when (1) a CSV row's parent_aa, child_aa or depth "
+    "conflicts with what the tree derives at that node and site; or "
+    "(2) in the site_paa_caa and site_paa_caa_depth match modes, a CSV "
+    "key matches no derived mutation. Rows in both cases are always "
+    "skipped; this flag only changes the exit status. Use only after "
+    "investigating the disagreement."
+)
+
 
 # =============================================================================
 # Enumerated Types
@@ -262,6 +273,10 @@ MUTATIONS_CSV_KEY_COLUMNS = {
 #: alias found (in this order) wins; others are still treated as structural
 #: columns and stripped from the output mutation record.
 MUTATIONS_CSV_NAME_ALIASES = ("node_name", "child_name")
+
+#: Maximum number of unmatched mutation keys (family, key, root residue)
+#: quoted in the merge diagnostic and gate error.
+MAX_UNMATCHED_EXAMPLES = 3
 
 #: Top-level keys required on a consolidated Olmsted JSON file. Commands
 #: that operate on all three (e.g. ``merge``) validate presence against

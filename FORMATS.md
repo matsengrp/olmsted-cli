@@ -328,7 +328,15 @@ For each tree whose `clone_id` matches a CSV `family`:
 
 ### Unmatched rows
 
-Rows whose `family` doesn't appear in the JSON, or whose `(site, parent_aa, child_aa)` doesn't appear on any node in the matched tree, are reported as warnings. The merge still completes; warnings include counts at normal verbosity and per-family detail at `-v 2`.
+Unmatched rows are handled by kind:
+
+- **Unmatched family.** A row whose `family` doesn't appear in the JSON is reported as a warning. The merge still completes.
+- **Unmatched keys in a matched family (`site_paa_caa`, `site_paa_caa_depth`).** The family matched a tree, but a row's `(site, parent_aa, child_aa[, depth])` matches no mutation derived from that tree. The merge exits non-zero unless you pass `--mutations-allow-mismatch`. The error gives the count and example keys; `-v 2` adds per-family detail. Two causes are common:
+  - `site` is numbered differently from the tree's `sequence_alignment_aa` (for example, 1-based instead of 0-based).
+  - The row scores a gap or ambiguous residue, which the merge skips.
+- **Unmatched rows in `name_site` mode.** A row whose `(node_name, site)` matches nothing is reported as a warning only. The only fatal check in this mode is the integrity-mismatch check.
+
+Unmatched rows are skipped and never attached, including when `--mutations-allow-mismatch` lets the merge proceed.
 
 ### Example
 

@@ -32,6 +32,7 @@ from .constants import (
     FORMAT_PCP,
     FORMAT_UNKNOWN,
     MUTATION_ENCODINGS,
+    MUTATIONS_ALLOW_MISMATCH_HELP,
     normalize_level,
 )
 from .data_io import detect_file_format, open_file, read_yaml_config
@@ -42,6 +43,7 @@ from .merge_mutations import (
     begin_merge,
     finalize_merge,
     load_mutations_csv,
+    merge_gate_error,
     report_merge_stats,
 )
 from .process_airr_data import process_airr_to_olmsted
@@ -160,24 +162,19 @@ def _begin_mutations_merge(args, mutations_path):
 
 
 def _finalize_mutations_merge(args, merge_ctx, total_csv_rows):
-    """Seal a streaming mutations merge: emit the summary lines + raise on mismatch.
+    """Seal a streaming mutations merge: emit the summary lines + raise on a fatal gate.
 
-    No-op when ``merge_ctx`` is None.  Exits non-zero if any integrity
-    mismatch was recorded and ``--mutations-allow-mismatch`` is off.
+    No-op when ``merge_ctx`` is None.  Exits non-zero when
+    ``merge_gate_error`` reports a fatal condition and
+    ``--mutations-allow-mismatch`` is off.
     """
     if merge_ctx is None:
         return
     stats = finalize_merge(merge_ctx)
     report_merge_stats(stats, total_csv_rows)
-    if stats.integrity_mismatches and not getattr(
-        args, "mutations_allow_mismatch", False
-    ):
-        vprint.error(
-            f"Error: {stats.integrity_mismatches} integrity mismatches between CSV "
-            f"rows and tree mutations. Mismatched rows were skipped "
-            f"(never attached). Re-run with --mutations-allow-mismatch to "
-            f"proceed anyway — but investigate the CSV/tree disagreement first."
-        )
+    error = merge_gate_error(stats, getattr(args, "mutations_allow_mismatch", False))
+    if error:
+        vprint.error(f"Error: {error}")
         sys.exit(1)
 
 
@@ -717,10 +714,7 @@ Examples:
     mutations_group.add_argument(
         "--mutations-allow-mismatch",
         action="store_true",
-        help="Proceed past integrity mismatches between the mutations CSV "
-        "and the tree's derived mutations. By default processing fails on "
-        "any such mismatch. Mismatched rows are always skipped; the flag "
-        "only controls whether the command exits non-zero afterwards.",
+        help=MUTATIONS_ALLOW_MISMATCH_HELP,
     )
     mutations_group.add_argument(
         "--mutations-listed-only",
