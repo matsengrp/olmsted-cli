@@ -20,6 +20,17 @@ VERBOSITY_HELP = (
     "Verbosity level: 0=errors only, 1=normal (default), 2=verbose, 3=debug"
 )
 
+# Shared by `olmsted merge` and `olmsted process` so the two stay in step.
+MUTATIONS_ALLOW_MISMATCH_HELP = (
+    "Downgrade two failures to warnings. By default the command "
+    "exits non-zero when (1) a CSV row's parent_aa, child_aa or depth "
+    "conflicts with what the tree derives at that node and site; or "
+    "(2) in the site_paa_caa and site_paa_caa_depth match modes, a CSV "
+    "key matches no derived mutation. Rows in both cases are always "
+    "skipped; this flag only changes the exit status. Use only after "
+    "investigating the disagreement."
+)
+
 
 # =============================================================================
 # Enumerated Types

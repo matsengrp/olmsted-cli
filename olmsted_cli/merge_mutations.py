@@ -688,7 +688,7 @@ def _describe_unmatched_key(
             n.get("sequence_alignment_aa")
             for n in nodes
             if isinstance(n, dict)
-            and not n.get("parent")
+            and (n.get("parent") is None or n.get("type") == "root")
             and n.get("sequence_alignment_aa")
         ),
         None,
@@ -908,9 +908,8 @@ def merge_gate_error(stats: MergeStats, allow_mismatch: bool) -> Optional[str]:
     - unmatched match keys in a tree-matched family in the fallback modes
       (``site_paa_caa`` and ``site_paa_caa_depth``). A ``site`` numbered
       differently from the tree's sequence shows up this way. A correctly
-      numbered CSV can also
-      trigger it by scoring a position olmsted treats as a gap/ambiguous
-      residue (``derive_node_mutations`` skips those).
+      numbered CSV can also trigger it by scoring a position olmsted treats
+      as a gap/ambiguous residue (``derive_node_mutations`` skips those).
 
     Unmatched families (no clone match) are never fatal.
     """

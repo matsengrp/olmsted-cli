@@ -16,6 +16,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from .constants import MUTATIONS_ALLOW_MISMATCH_HELP
 from .data_io import read_olmsted_json, write_olmsted_json
 from .merge_mutations import apply_mutations_csv
 from .process_utils import (
@@ -70,13 +71,7 @@ Examples:
     parser.add_argument(
         "--mutations-allow-mismatch",
         action="store_true",
-        help="Downgrade two failures to warnings. By default the command "
-        "exits non-zero when (1) a CSV row's parent_aa, child_aa or depth "
-        "conflicts with what the tree derives at that node and site; or "
-        "(2) in the site_paa_caa and site_paa_caa_depth match modes, a CSV "
-        "key matches no derived mutation. Rows in both cases are always "
-        "skipped; this flag only changes the exit status. Use only after "
-        "investigating the disagreement.",
+        help=MUTATIONS_ALLOW_MISMATCH_HELP,
     )
     parser.add_argument(
         "--mutations-listed-only",
